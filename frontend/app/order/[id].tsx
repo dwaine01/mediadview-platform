@@ -290,6 +290,264 @@ export default function OrderDetailScreen() {
     return invoice;
   };
 
+  // Genera el HTML profesional para el PDF
+  const generateInvoiceHTML = () => {
+    if (!order || !workshop || !order.payment) return '';
+    
+    const date = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    const invoiceNumber = `INV-${order.id.slice(0, 8).toUpperCase()}`;
+    const paymentMethod = order.payment.method === 'cash' ? 'Efectivo' : 
+                          order.payment.method === 'zelle' ? 'Zelle' : 
+                          order.payment.method === 'check' ? 'Cheque' : 'Otro';
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Helvetica', 'Arial', sans-serif; color: #333; background: #fff; padding: 40px; }
+    .invoice-container { max-width: 800px; margin: 0 auto; }
+    
+    /* Header */
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid #3B82F6; }
+    .company-info h1 { font-size: 28px; color: #1F2937; margin-bottom: 8px; }
+    .company-info p { color: #6B7280; font-size: 14px; line-height: 1.6; }
+    .invoice-meta { text-align: right; }
+    .invoice-meta h2 { font-size: 32px; color: #3B82F6; margin-bottom: 10px; }
+    .invoice-meta p { color: #6B7280; font-size: 14px; }
+    .invoice-meta .invoice-number { font-size: 16px; font-weight: 600; color: #1F2937; }
+    
+    /* Client & Vehicle Section */
+    .info-section { display: flex; gap: 40px; margin-bottom: 30px; }
+    .info-box { flex: 1; background: #F9FAFB; padding: 20px; border-radius: 8px; }
+    .info-box h3 { font-size: 12px; text-transform: uppercase; color: #6B7280; margin-bottom: 12px; letter-spacing: 1px; }
+    .info-box p { font-size: 14px; color: #1F2937; line-height: 1.8; }
+    .info-box .name { font-size: 18px; font-weight: 600; color: #1F2937; margin-bottom: 4px; }
+    
+    /* Services Table */
+    .services-section { margin-bottom: 30px; }
+    .services-section h3 { font-size: 16px; color: #1F2937; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #E5E7EB; }
+    .services-table { width: 100%; border-collapse: collapse; }
+    .services-table th { background: #F3F4F6; padding: 12px 15px; text-align: left; font-size: 12px; text-transform: uppercase; color: #6B7280; letter-spacing: 0.5px; }
+    .services-table th:last-child { text-align: center; }
+    .services-table td { padding: 14px 15px; border-bottom: 1px solid #E5E7EB; font-size: 14px; }
+    .services-table td:last-child { text-align: center; }
+    .service-number { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; background: #3B82F6; color: #fff; border-radius: 50%; font-size: 12px; margin-right: 10px; }
+    
+    /* Totals */
+    .totals-section { display: flex; justify-content: flex-end; margin-bottom: 40px; }
+    .totals-box { width: 300px; }
+    .totals-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #E5E7EB; }
+    .totals-row.total { border-bottom: none; padding-top: 15px; margin-top: 5px; border-top: 2px solid #1F2937; }
+    .totals-row .label { color: #6B7280; font-size: 14px; }
+    .totals-row .value { color: #1F2937; font-size: 14px; font-weight: 500; }
+    .totals-row.total .label { font-size: 18px; font-weight: 700; color: #1F2937; }
+    .totals-row.total .value { font-size: 24px; font-weight: 700; color: #10B981; }
+    
+    /* Payment Status */
+    .payment-status { background: linear-gradient(135deg, #10B981 0%, #059669 100%); color: #fff; padding: 20px; border-radius: 8px; text-align: center; margin-bottom: 30px; }
+    .payment-status h3 { font-size: 20px; margin-bottom: 5px; }
+    .payment-status p { font-size: 14px; opacity: 0.9; }
+    
+    /* Footer */
+    .footer { text-align: center; padding-top: 30px; border-top: 1px solid #E5E7EB; }
+    .footer p { color: #9CA3AF; font-size: 13px; line-height: 1.8; }
+    .footer .thanks { font-size: 18px; color: #3B82F6; font-weight: 600; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+  <div class="invoice-container">
+    <!-- Header -->
+    <div class="header">
+      <div class="company-info">
+        <h1>${workshop.name}</h1>
+        ${workshop.address ? `<p>${workshop.address}</p>` : ''}
+        ${workshop.phone ? `<p>Tel: ${workshop.phone}</p>` : ''}
+      </div>
+      <div class="invoice-meta">
+        <h2>FACTURA</h2>
+        <p class="invoice-number">${invoiceNumber}</p>
+        <p>Fecha: ${date}</p>
+      </div>
+    </div>
+
+    <!-- Client & Vehicle Info -->
+    <div class="info-section">
+      <div class="info-box">
+        <h3>Cliente</h3>
+        <p class="name">${order.client?.name || 'N/A'}</p>
+        ${order.client?.phone ? `<p>📱 ${order.client.phone}</p>` : ''}
+        ${order.client?.email ? `<p>✉️ ${order.client.email}</p>` : ''}
+      </div>
+      <div class="info-box">
+        <h3>Vehículo</h3>
+        <p class="name">${order.vehicle?.year || ''} ${order.vehicle?.make || ''} ${order.vehicle?.model || ''}</p>
+        <p>VIN: ${order.vehicle?.vin || 'N/A'}</p>
+        ${order.vehicle?.color ? `<p>Color: ${order.vehicle.color}</p>` : ''}
+      </div>
+    </div>
+
+    <!-- Services Table -->
+    <div class="services-section">
+      <h3>Servicios Realizados</h3>
+      <table class="services-table">
+        <thead>
+          <tr>
+            <th style="width: 70%;">Descripción del Servicio</th>
+            <th style="width: 30%;">Cantidad</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${order.services.map((service, index) => `
+            <tr>
+              <td>
+                <span class="service-number">${index + 1}</span>
+                ${service.service_name}
+              </td>
+              <td>${service.quantity}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Totals -->
+    <div class="totals-section">
+      <div class="totals-box">
+        <div class="totals-row">
+          <span class="label">Subtotal</span>
+          <span class="value">$${order.payment.subtotal.toFixed(2)}</span>
+        </div>
+        ${order.payment.discount > 0 ? `
+        <div class="totals-row">
+          <span class="label">Descuento</span>
+          <span class="value">-$${order.payment.discount.toFixed(2)}</span>
+        </div>
+        ` : ''}
+        <div class="totals-row">
+          <span class="label">Impuesto (${workshop.tax_rate || 0}%)</span>
+          <span class="value">$${order.payment.tax.toFixed(2)}</span>
+        </div>
+        <div class="totals-row total">
+          <span class="label">TOTAL</span>
+          <span class="value">$${order.payment.total.toFixed(2)}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment Status -->
+    <div class="payment-status">
+      <h3>✓ PAGADO</h3>
+      <p>Método de pago: ${paymentMethod}${order.payment.reference ? ` • Ref: ${order.payment.reference}` : ''}</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p class="thanks">¡Gracias por su preferencia!</p>
+      <p>Este documento es un comprobante de pago.<br>Conserve esta factura para futuras referencias.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `;
+  };
+
+  // Generar y compartir PDF
+  const generateAndSharePDF = async () => {
+    try {
+      setUpdating(true);
+      const html = generateInvoiceHTML();
+      
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+      
+      // Compartir el PDF
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Compartir Factura PDF',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'Compartir no está disponible en este dispositivo');
+      }
+      setInvoiceModalVisible(false);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'No se pudo generar el PDF');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Enviar PDF por WhatsApp
+  const sendPDFWhatsApp = async () => {
+    if (!order?.client?.phone) {
+      Alert.alert('Error', 'El cliente no tiene número de teléfono');
+      return;
+    }
+    
+    try {
+      setUpdating(true);
+      const html = generateInvoiceHTML();
+      
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+      
+      // En móvil, compartir el PDF directamente (WhatsApp lo detectará)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Enviar Factura por WhatsApp',
+          UTI: 'com.adobe.pdf',
+        });
+      }
+      setInvoiceModalVisible(false);
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'No se pudo generar el PDF');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  // Enviar PDF por Email
+  const sendPDFEmail = async () => {
+    try {
+      setUpdating(true);
+      const html = generateInvoiceHTML();
+      
+      const { uri } = await Print.printToFileAsync({
+        html,
+        base64: false,
+      });
+      
+      // Compartir para abrir en app de email
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Enviar Factura por Email',
+          UTI: 'com.adobe.pdf',
+        });
+      }
+      setInvoiceModalVisible(false);
+    } catch (error) {
+      console.error('Error:', error);
+      Alert.alert('Error', 'No se pudo generar el PDF');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const sendWhatsApp = async () => {
     if (!order?.client?.phone) {
       Alert.alert('Error', 'El cliente no tiene número de teléfono');
