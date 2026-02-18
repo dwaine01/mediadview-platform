@@ -735,7 +735,7 @@ async def get_payment(work_order_id: str, current_user: dict = Depends(get_curre
         "work_order_id": work_order_id,
         "workshop_id": current_user["workshop_id"]
     })
-    return payment
+    return serialize_doc(payment)
 
 # ============ REPORTS ============
 
