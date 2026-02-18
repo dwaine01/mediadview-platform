@@ -160,14 +160,6 @@ export default function ReportsScreen() {
                   <Text style={styles.statusLabel}>Terminados</Text>
                 </View>
               </View>
-
-              {/* Mensaje para técnico */}
-              <View style={styles.infoMessage}>
-                <Ionicons name="information-circle" size={20} color="#6B7280" />
-                <Text style={styles.infoText}>
-                  Este es tu resumen de trabajo del día. Los reportes financieros están disponibles solo para administradores.
-                </Text>
-              </View>
             </>
           )}
 
