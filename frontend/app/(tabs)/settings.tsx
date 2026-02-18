@@ -496,6 +496,11 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  sectionTitleStandalone: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
     marginBottom: 16,
   },
   profileCard: {
