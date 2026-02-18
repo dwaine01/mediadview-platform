@@ -582,11 +582,18 @@ async def update_service(service_id: str, service_data: ServiceItemCreate, curre
 
 @api_router.post("/work-orders")
 async def create_work_order(order_data: WorkOrderCreate, current_user: dict = Depends(get_current_user)):
+    # If admin provides tech_id, use it; otherwise use current user
+    assigned_tech_id = order_data.tech_id if order_data.tech_id and current_user["role"] == "admin" else current_user["id"]
+    
+    order_dict = order_data.dict()
+    order_dict.pop('tech_id', None)  # Remove tech_id from dict to avoid duplicate
+    
     order_obj = WorkOrder(
         workshop_id=current_user["workshop_id"],
-        tech_id=current_user["id"],
-        started_at=datetime.utcnow(),
-        **order_data.dict()
+        tech_id=assigned_tech_id,
+        started_at=datetime.utcnow() if not order_data.tech_id else None,  # Only start if self-assigned
+        status="iniciado" if not order_data.tech_id or order_data.tech_id == current_user["id"] else "asignado",
+        **order_dict
     )
     await db.work_orders.insert_one(order_obj.dict())
     return order_obj.dict()
