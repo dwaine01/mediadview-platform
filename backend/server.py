@@ -700,9 +700,16 @@ async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_
     if "tech_id" in update_dict and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo el administrador puede reasignar técnicos")
     
-    # Services/prices modification validation (admin only after creation)
-    if "services" in update_dict and current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo el administrador puede modificar los servicios y precios")
+    # Services/prices modification validation
+    # Admin can always modify, Tech can modify price if order is assigned to them and not completed
+    if "services" in update_dict:
+        if current_user["role"] != "admin":
+            # Tech can only update price if order is assigned to them
+            if current_order.get("tech_id") != current_user["id"]:
+                raise HTTPException(status_code=403, detail="No puedes modificar una orden que no te fue asignada")
+            # Tech cannot modify if order is completed
+            if current_order.get("status") == "terminado":
+                raise HTTPException(status_code=403, detail="No puedes modificar el precio de una orden terminada")
     
     # Status change validation
     if "status" in update_dict:
