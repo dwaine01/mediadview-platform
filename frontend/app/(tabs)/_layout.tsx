@@ -38,20 +38,21 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="orders"
-        options={{
-          title: 'Órdenes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="document-text" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="clients"
         options={{
           title: 'Clientes',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="people" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="credit"
+        options={{
+          title: 'Crédito',
+          href: isAdmin ? '/credit' : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="card" size={size} color={color} />
           ),
         }}
       />
