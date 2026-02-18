@@ -107,6 +107,8 @@ class Client(BaseModel):
     email: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    has_credit: bool = False  # Cliente con cuenta de crédito
+    credit_limit: Optional[float] = None  # Límite de crédito opcional
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 class ClientCreate(BaseModel):
@@ -115,6 +117,17 @@ class ClientCreate(BaseModel):
     email: Optional[str] = None
     address: Optional[str] = None
     notes: Optional[str] = None
+    has_credit: bool = False
+    credit_limit: Optional[float] = None
+
+class ClientUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    address: Optional[str] = None
+    notes: Optional[str] = None
+    has_credit: Optional[bool] = None
+    credit_limit: Optional[float] = None
 
 class Vehicle(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
