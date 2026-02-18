@@ -502,8 +502,21 @@ export default function OrderDetailScreen() {
           )}
         </View>
 
-        {/* Payment Section */}
-        {(isAdmin || order.status === 'terminado') && (
+        {/* Credit Client Notice - For Technicians */}
+        {!isAdmin && isClientCredit && (
+          <View style={styles.creditNotice}>
+            <Ionicons name="card" size={24} color="#7C3AED" />
+            <View style={styles.creditNoticeContent}>
+              <Text style={styles.creditNoticeTitle}>Cliente con Cuenta de Crédito</Text>
+              <Text style={styles.creditNoticeText}>
+                Este cliente tiene cuenta de crédito. El pago será gestionado por el administrador.
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Payment Section - Only shown based on canSeePaymentSection */}
+        {canSeePaymentSection() && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Text style={styles.cardTitle}>Pago</Text>
