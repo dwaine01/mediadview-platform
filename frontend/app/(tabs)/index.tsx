@@ -252,6 +252,31 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     textTransform: 'capitalize',
   },
+  verseContainer: {
+    backgroundColor: '#1F2937',
+    margin: 20,
+    marginTop: 10,
+    padding: 16,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  verseContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  verseText: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontStyle: 'italic',
+    lineHeight: 20,
+  },
+  verseRef: {
+    fontSize: 12,
+    color: '#D4A017',
+    marginTop: 8,
+    fontWeight: '600',
+  },
   quickActions: {
     paddingHorizontal: 20,
   },
