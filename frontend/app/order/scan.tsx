@@ -25,11 +25,29 @@ export default function ScanVinScreen() {
   const isProcessingRef = useRef(false);
   const hasNavigatedRef = useRef(false);
 
-  // Clean VIN function - removes all non-alphanumeric characters
+  // Clean VIN function - removes all non-alphanumeric characters AND invalid VIN characters
   const cleanVin = (rawVin: string): string => {
     if (!rawVin) return '';
-    // Remove spaces, line breaks, carriage returns, tabs, and any non-alphanumeric characters
-    return rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // Step 1: Remove spaces, line breaks, carriage returns, tabs, and any non-alphanumeric characters
+    let cleaned = rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    
+    // Step 2: VINs cannot contain I, O, Q - these are often misread by scanners
+    // If we have exactly 18 chars and starts with I, O, or Q, remove it (common scanner error)
+    if (cleaned.length === 18 && ['I', 'O', 'Q'].includes(cleaned[0])) {
+      cleaned = cleaned.substring(1);
+    }
+    
+    // Step 3: Replace common misreads in the VIN
+    // Sometimes scanners read '0' as 'O' or '1' as 'I' - but since I and O are invalid,
+    // if they appear, they might be correct numbers misidentified
+    // Only replace if it would result in a valid 17-char VIN
+    if (cleaned.length === 17) {
+      // If VIN contains I, O, or Q, try to fix them
+      cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
+    }
+    
+    return cleaned;
   };
 
   // Validate VIN
