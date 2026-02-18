@@ -40,6 +40,8 @@ export default function OrderDetailScreen() {
   const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
   const [priceModalVisible, setPriceModalVisible] = useState(false);
   const [editPrice, setEditPrice] = useState('');
+  const [notes, setNotes] = useState('');
+  const [notesEdited, setNotesEdited] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     method: 'cash',
     reference: '',
@@ -47,6 +49,13 @@ export default function OrderDetailScreen() {
   });
 
   const statusOrder: Record<string, number> = { asignado: 0, iniciado: 1, pendiente: 2, terminado: 3 };
+  
+  const statusLabels: Record<string, string> = {
+    asignado: 'Asignado',
+    iniciado: 'Iniciado',
+    pendiente: 'Pendiente',
+    terminado: 'Terminado',
+  };
 
   const canChangeToStatus = (newStatus: string): boolean => {
     if (!order) return false;
@@ -54,11 +63,9 @@ export default function OrderDetailScreen() {
     return statusOrder[newStatus] > statusOrder[order.status];
   };
 
-  // Check if tech can edit price (assigned to them and not completed)
   const canEditPrice = (): boolean => {
     if (!order || !user) return false;
     if (isAdmin) return true;
-    // Tech can edit if order is assigned to them and not completed
     return order.tech_id === user.id && order.status !== 'terminado';
   };
 
@@ -70,6 +77,7 @@ export default function OrderDetailScreen() {
       ]);
       setOrder(orderRes);
       setWorkshop(workshopRes);
+      setNotes(orderRes.notes || '');
     } catch (error) {
       console.error('Error loading order:', error);
       Alert.alert('Error', 'No se pudo cargar la orden');
@@ -84,7 +92,6 @@ export default function OrderDetailScreen() {
     }, [id])
   );
 
-  // Calculate current total from services
   const calculateTotal = () => {
     if (!order) return 0;
     return order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
@@ -95,7 +102,7 @@ export default function OrderDetailScreen() {
 
     Alert.alert(
       'Cambiar Estado',
-      `¿Cambiar estado a "${newStatus}"?`,
+      `¿Cambiar estado a "${statusLabels[newStatus]}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -116,6 +123,21 @@ export default function OrderDetailScreen() {
     );
   };
 
+  const handleSaveNotes = async () => {
+    if (!order || !notesEdited) return;
+    
+    setUpdating(true);
+    try {
+      await updateWorkOrder(order.id, { notes });
+      setNotesEdited(false);
+      Alert.alert('Éxito', 'Comentarios guardados');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Error al guardar');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const openPriceModal = () => {
     setEditPrice(calculateTotal().toString());
     setPriceModalVisible(true);
@@ -132,7 +154,6 @@ export default function OrderDetailScreen() {
 
     setUpdating(true);
     try {
-      // Update all services with distributed price
       const pricePerService = order.services.length > 0 ? newPrice / order.services.length : 0;
       const updatedServices = order.services.map(s => ({
         ...s,
@@ -182,33 +203,32 @@ export default function OrderDetailScreen() {
     }
   };
 
-  const handlePaymentStatusChange = async () => {
+  // Solo permite marcar como pagado, NO revertir
+  const handleMarkAsPaid = async () => {
     if (!order?.payment) return;
 
-    const newStatus = order.payment.payment_status === 'pagado' ? 'pendiente' : 'pagado';
-    const newPaidAmount = newStatus === 'pagado' ? order.payment.total : 0;
+    // Si ya está pagado, no hacer nada
+    if (order.payment.payment_status === 'pagado') {
+      return;
+    }
 
     Alert.alert(
       'Confirmar Pago',
-      newStatus === 'pagado'
-        ? `¿Marcar como pagado ($${order.payment.total.toFixed(2)})?`
-        : '¿Marcar como pendiente?',
+      `¿Marcar como PAGADO?\n\nTotal: $${order.payment.total.toFixed(2)}\n\n⚠️ Esta acción no se puede revertir.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Confirmar',
+          text: 'Confirmar Pago',
+          style: 'default',
           onPress: async () => {
             setUpdating(true);
             try {
               await updatePayment(order.payment!.id, {
-                payment_status: newStatus,
-                paid_amount: newPaidAmount,
+                payment_status: 'pagado',
+                paid_amount: order.payment!.total,
               });
               await loadOrder();
-              
-              if (newStatus === 'pagado') {
-                setTimeout(() => setInvoiceModalVisible(true), 500);
-              }
+              setTimeout(() => setInvoiceModalVisible(true), 500);
             } catch (error: any) {
               Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
             } finally {
@@ -312,6 +332,7 @@ export default function OrderDetailScreen() {
   }
 
   const currentTotal = calculateTotal();
+  const isPaid = order.payment?.payment_status === 'pagado';
 
   return (
     <View style={styles.container}>
@@ -319,7 +340,7 @@ export default function OrderDetailScreen() {
         {/* Status Section */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Estado</Text>
+            <Text style={styles.cardTitle}>Estado del Trabajo</Text>
             <StatusBadge status={order.status} />
           </View>
           
@@ -333,57 +354,87 @@ export default function OrderDetailScreen() {
               return (
                 <TouchableOpacity
                   key={status}
-                  style={[styles.statusBtn, isCurrent && styles.statusBtnActive]}
+                  style={[
+                    styles.statusBtn,
+                    isCurrent && styles.statusBtnActive,
+                    !canChange && !isCurrent && styles.statusBtnDisabled,
+                  ]}
                   onPress={() => handleStatusChange(status)}
                   disabled={isCurrent || updating || !canChange}
                 >
-                  <Text style={[styles.statusBtnText, isCurrent && styles.statusBtnTextActive]}>
-                    {status === 'asignado' ? 'Asig' : status.charAt(0).toUpperCase() + status.slice(1, 4)}
+                  <Ionicons
+                    name={
+                      status === 'asignado' ? 'person-add' :
+                      status === 'iniciado' ? 'play-circle' :
+                      status === 'pendiente' ? 'pause-circle' : 'checkmark-circle'
+                    }
+                    size={18}
+                    color={isCurrent ? '#FFF' : (!canChange ? '#4B5563' : '#9CA3AF')}
+                  />
+                  <Text style={[
+                    styles.statusBtnText,
+                    isCurrent && styles.statusBtnTextActive,
+                    !canChange && !isCurrent && styles.statusBtnTextDisabled,
+                  ]}>
+                    {statusLabels[status]}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
+          
+          {!isAdmin && (
+            <Text style={styles.statusHint}>
+              Solo puede avanzar el estado hacia adelante
+            </Text>
+          )}
         </View>
 
         {/* Vehicle & Client */}
         <View style={styles.card}>
           <View style={styles.infoRow}>
-            <Ionicons name="car" size={20} color="#3B82F6" />
-            <Text style={styles.infoText}>
-              {order.vehicle?.year} {order.vehicle?.make} {order.vehicle?.model}
-            </Text>
+            <Ionicons name="car" size={22} color="#3B82F6" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>
+                {order.vehicle?.year} {order.vehicle?.make} {order.vehicle?.model}
+              </Text>
+              <Text style={styles.infoSubtitle}>VIN: {order.vehicle?.vin}</Text>
+            </View>
           </View>
-          <Text style={styles.vinText}>VIN: {order.vehicle?.vin}</Text>
-          <View style={[styles.infoRow, { marginTop: 12 }]}>
-            <Ionicons name="person" size={20} color="#10B981" />
-            <Text style={styles.infoText}>{order.client?.name}</Text>
+          
+          <View style={[styles.infoRow, { marginTop: 14 }]}>
+            <Ionicons name="person" size={22} color="#10B981" />
+            <View style={styles.infoContent}>
+              <Text style={styles.infoTitle}>{order.client?.name}</Text>
+              {order.client?.phone && (
+                <Text style={styles.infoSubtitle}>📱 {order.client.phone}</Text>
+              )}
+            </View>
           </View>
-          {order.client?.phone && (
-            <Text style={styles.phoneText}>📱 {order.client.phone}</Text>
-          )}
         </View>
 
         {/* Services */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Servicios ({order.services.length})</Text>
-          {order.services.map((service, i) => (
-            <View key={i} style={styles.serviceRow}>
-              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
-              <Text style={styles.serviceText}>{service.service_name}</Text>
-            </View>
-          ))}
+          <Text style={styles.cardTitle}>Servicios Realizados ({order.services.length})</Text>
+          <View style={styles.servicesList}>
+            {order.services.map((service, i) => (
+              <View key={i} style={styles.serviceItem}>
+                <Ionicons name="checkmark-circle" size={18} color="#10B981" />
+                <Text style={styles.serviceText}>{service.service_name}</Text>
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* Price Section - Editable by Tech */}
+        {/* Price Section */}
         <View style={styles.priceCard}>
           <View style={styles.priceHeader}>
-            <Text style={styles.priceLabel}>Precio Total</Text>
+            <Text style={styles.priceLabel}>Precio Total del Trabajo</Text>
             {canEditPrice() && order.status !== 'terminado' && (
               <TouchableOpacity style={styles.editPriceBtn} onPress={openPriceModal}>
-                <Ionicons name="pencil" size={16} color="#3B82F6" />
+                <Ionicons name="create-outline" size={18} color="#3B82F6" />
                 <Text style={styles.editPriceBtnText}>
-                  {isAdmin ? 'Editar' : 'Confirmar/Ajustar'}
+                  {isAdmin ? 'Editar' : 'Ajustar Precio'}
                 </Text>
               </TouchableOpacity>
             )}
@@ -391,8 +442,41 @@ export default function OrderDetailScreen() {
           <Text style={styles.priceValue}>${currentTotal.toFixed(2)}</Text>
           {!isAdmin && order.status !== 'terminado' && (
             <Text style={styles.priceHint}>
-              Puede ajustar el precio según el trabajo realizado
+              Puede ajustar el precio según el trabajo realizado antes de marcar como terminado
             </Text>
+          )}
+        </View>
+
+        {/* Comments/Notes Section */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Comentarios / Notas</Text>
+          <TextInput
+            style={styles.notesInput}
+            placeholder="Agregar comentarios sobre el trabajo..."
+            placeholderTextColor="#6B7280"
+            value={notes}
+            onChangeText={(text) => {
+              setNotes(text);
+              setNotesEdited(true);
+            }}
+            multiline
+            numberOfLines={4}
+          />
+          {notesEdited && (
+            <TouchableOpacity
+              style={styles.saveNotesBtn}
+              onPress={handleSaveNotes}
+              disabled={updating}
+            >
+              {updating ? (
+                <ActivityIndicator color="#FFF" size="small" />
+              ) : (
+                <>
+                  <Ionicons name="save" size={18} color="#FFF" />
+                  <Text style={styles.saveNotesBtnText}>Guardar Comentarios</Text>
+                </>
+              )}
+            </TouchableOpacity>
           )}
         </View>
 
@@ -406,46 +490,64 @@ export default function OrderDetailScreen() {
 
             {order.payment ? (
               <>
-                <Text style={styles.paymentMethod}>
-                  Método: {order.payment.method === 'cash' ? 'Efectivo' : order.payment.method === 'zelle' ? 'Zelle' : 'Otro'}
-                </Text>
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentLabel}>Método:</Text>
+                  <Text style={styles.paymentValue}>
+                    {order.payment.method === 'cash' ? 'Efectivo' : 
+                     order.payment.method === 'zelle' ? 'Zelle' : 
+                     order.payment.method === 'check' ? 'Cheque' : 'Otro'}
+                  </Text>
+                </View>
+                
                 {isAdmin && (
-                  <Text style={styles.paymentTotal}>Total: ${order.payment.total.toFixed(2)}</Text>
+                  <View style={styles.paymentInfo}>
+                    <Text style={styles.paymentLabel}>Total:</Text>
+                    <Text style={styles.paymentTotal}>${order.payment.total.toFixed(2)}</Text>
+                  </View>
                 )}
                 
-                <TouchableOpacity
-                  style={[styles.payBtn, order.payment.payment_status === 'pagado' && styles.payBtnPaid]}
-                  onPress={handlePaymentStatusChange}
-                  disabled={updating}
-                >
-                  <Text style={styles.payBtnText}>
-                    {order.payment.payment_status === 'pagado' ? '✓ Pagado' : 'Marcar Pagado'}
-                  </Text>
-                </TouchableOpacity>
+                {/* Botón de pago - Solo si NO está pagado */}
+                {!isPaid ? (
+                  <TouchableOpacity
+                    style={styles.payBtn}
+                    onPress={handleMarkAsPaid}
+                    disabled={updating}
+                  >
+                    <Ionicons name="card" size={20} color="#FFF" />
+                    <Text style={styles.payBtnText}>Marcar como Pagado</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.paidBadge}>
+                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                    <Text style={styles.paidBadgeText}>PAGADO</Text>
+                    <Text style={styles.paidNote}>El pago ha sido confirmado</Text>
+                  </View>
+                )}
 
-                {order.payment.payment_status === 'pagado' && (
+                {/* Botón factura - Solo si está pagado */}
+                {isPaid && (
                   <TouchableOpacity style={styles.invoiceBtn} onPress={() => setInvoiceModalVisible(true)}>
                     <Ionicons name="document-text" size={20} color="#3B82F6" />
-                    <Text style={styles.invoiceBtnText}>Enviar Factura</Text>
+                    <Text style={styles.invoiceBtnText}>Enviar Factura al Cliente</Text>
                   </TouchableOpacity>
                 )}
               </>
             ) : (
               <TouchableOpacity style={styles.addPaymentBtn} onPress={() => setPaymentModalVisible(true)}>
-                <Ionicons name="add-circle" size={20} color="#3B82F6" />
-                <Text style={styles.addPaymentText}>Agregar Pago</Text>
+                <Ionicons name="add-circle" size={22} color="#3B82F6" />
+                <Text style={styles.addPaymentText}>Agregar Información de Pago</Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Notes */}
-        {order.notes && (
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Notas</Text>
-            <Text style={styles.notesText}>{order.notes}</Text>
-          </View>
-        )}
+        {/* Order Info */}
+        <View style={styles.orderMeta}>
+          <Text style={styles.metaText}>Técnico: {order.tech_name}</Text>
+          <Text style={styles.metaText}>
+            Creada: {new Date(order.created_at).toLocaleString('es-ES')}
+          </Text>
+        </View>
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -455,10 +557,10 @@ export default function OrderDetailScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>
-              {isAdmin ? 'Editar Precio' : 'Confirmar Precio'}
+              {isAdmin ? 'Editar Precio' : 'Ajustar Precio'}
             </Text>
             <Text style={styles.modalSubtitle}>
-              {isAdmin ? 'Modifique el precio total del trabajo' : 'Confirme o ajuste el precio según el trabajo realizado'}
+              Ingrese el precio total del trabajo realizado
             </Text>
             
             <View style={styles.priceInputRow}>
@@ -484,7 +586,7 @@ export default function OrderDetailScreen() {
                 {updating ? (
                   <ActivityIndicator color="#FFF" size="small" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Confirmar</Text>
+                  <Text style={styles.confirmBtnText}>Guardar</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -505,34 +607,43 @@ export default function OrderDetailScreen() {
 
             <Text style={styles.inputLabel}>Método de Pago</Text>
             <View style={styles.methodRow}>
-              {['cash', 'zelle', 'check'].map((method) => (
+              {[
+                { id: 'cash', label: 'Efectivo', icon: 'cash' },
+                { id: 'zelle', label: 'Zelle', icon: 'phone-portrait' },
+                { id: 'check', label: 'Cheque', icon: 'document' },
+              ].map((method) => (
                 <TouchableOpacity
-                  key={method}
-                  style={[styles.methodBtn, paymentForm.method === method && styles.methodBtnActive]}
-                  onPress={() => setPaymentForm({ ...paymentForm, method })}
+                  key={method.id}
+                  style={[styles.methodBtn, paymentForm.method === method.id && styles.methodBtnActive]}
+                  onPress={() => setPaymentForm({ ...paymentForm, method: method.id })}
                 >
-                  <Text style={[styles.methodBtnText, paymentForm.method === method && styles.methodBtnTextActive]}>
-                    {method === 'cash' ? 'Efectivo' : method === 'zelle' ? 'Zelle' : 'Cheque'}
+                  <Ionicons 
+                    name={method.icon as any} 
+                    size={20} 
+                    color={paymentForm.method === method.id ? '#FFF' : '#9CA3AF'} 
+                  />
+                  <Text style={[styles.methodBtnText, paymentForm.method === method.id && styles.methodBtnTextActive]}>
+                    {method.label}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Referencia (opcional)</Text>
+            <Text style={styles.inputLabel}>Referencia / # Transacción (opcional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="# Transacción"
+              placeholder="Ej: Zelle #12345"
               placeholderTextColor="#6B7280"
               value={paymentForm.reference}
               onChangeText={(text) => setPaymentForm({ ...paymentForm, reference: text })}
             />
 
             <TouchableOpacity
-              style={[styles.confirmBtn, { marginTop: 20 }]}
+              style={[styles.confirmBtn, { marginTop: 24 }]}
               onPress={handleCreatePayment}
               disabled={updating}
             >
-              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmBtnText}>Guardar</Text>}
+              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmBtnText}>Guardar Pago</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
@@ -543,19 +654,22 @@ export default function OrderDetailScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Enviar Factura</Text>
-            <Text style={styles.modalSubtitle}>a {order.client?.name}</Text>
+            <Text style={styles.modalSubtitle}>Enviar a: {order.client?.name}</Text>
+            {order.client?.phone && (
+              <Text style={styles.modalPhone}>📱 {order.client.phone}</Text>
+            )}
 
             <View style={styles.shareOptions}>
               <TouchableOpacity style={styles.whatsappBtn} onPress={sendWhatsApp}>
-                <Ionicons name="logo-whatsapp" size={28} color="#FFF" />
+                <Ionicons name="logo-whatsapp" size={32} color="#FFF" />
                 <Text style={styles.shareText}>WhatsApp</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.smsBtn} onPress={sendSMS}>
-                <Ionicons name="chatbubble" size={28} color="#FFF" />
+                <Ionicons name="chatbubble" size={32} color="#FFF" />
                 <Text style={styles.shareText}>SMS</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.shareBtn} onPress={shareInvoice}>
-                <Ionicons name="share-social" size={28} color="#FFF" />
+                <Ionicons name="share-social" size={32} color="#FFF" />
                 <Text style={styles.shareText}>Otro</Text>
               </TouchableOpacity>
             </View>
@@ -585,84 +699,104 @@ const styles = StyleSheet.create({
   card: {
     backgroundColor: '#1F2937',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   cardTitle: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   
   statusButtons: {
     flexDirection: 'row',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 8,
   },
   statusBtn: {
-    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#374151',
     paddingVertical: 10,
-    borderRadius: 8,
-    alignItems: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    gap: 6,
+    minWidth: '45%',
+    flex: 1,
   },
   statusBtnActive: {
     backgroundColor: '#3B82F6',
   },
+  statusBtnDisabled: {
+    opacity: 0.5,
+  },
   statusBtnText: {
     color: '#9CA3AF',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   statusBtnTextActive: {
     color: '#FFF',
   },
+  statusBtnTextDisabled: {
+    color: '#4B5563',
+  },
+  statusHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 12,
+    fontStyle: 'italic',
+    textAlign: 'center',
+  },
   
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
+    alignItems: 'flex-start',
+    gap: 12,
   },
-  infoText: {
+  infoContent: {
+    flex: 1,
+  },
+  infoTitle: {
     color: '#FFF',
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  vinText: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginLeft: 30,
-    marginTop: 2,
-  },
-  phoneText: {
+  infoSubtitle: {
     color: '#9CA3AF',
     fontSize: 13,
-    marginLeft: 30,
     marginTop: 2,
   },
   
-  serviceRow: {
+  servicesList: {
+    marginTop: 12,
+  },
+  serviceItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 8,
+    gap: 10,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
   },
   serviceText: {
     color: '#D1D5DB',
     fontSize: 14,
+    flex: 1,
   },
   
   priceCard: {
     backgroundColor: '#1F2937',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
-    borderWidth: 1,
+    padding: 16,
+    marginBottom: 12,
+    borderWidth: 2,
     borderColor: '#3B82F6',
   },
   priceHeader: {
@@ -677,62 +811,115 @@ const styles = StyleSheet.create({
   editPriceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'rgba(59,130,246,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
+    gap: 6,
+    backgroundColor: 'rgba(59,130,246,0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
   editPriceBtnText: {
     color: '#3B82F6',
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
   },
   priceValue: {
     color: '#10B981',
-    fontSize: 32,
+    fontSize: 36,
     fontWeight: '700',
     marginTop: 8,
   },
   priceHint: {
     color: '#6B7280',
     fontSize: 12,
-    marginTop: 8,
-    fontStyle: 'italic',
+    marginTop: 10,
+    lineHeight: 18,
   },
   
-  paymentMethod: {
-    color: '#D1D5DB',
+  notesInput: {
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 14,
+    color: '#FFF',
     fontSize: 14,
+    minHeight: 100,
+    textAlignVertical: 'top',
+    marginTop: 10,
+  },
+  saveNotesBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 12,
+    borderRadius: 10,
+    marginTop: 12,
+    gap: 8,
+  },
+  saveNotesBtnText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  paymentInfo: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  paymentLabel: {
+    color: '#9CA3AF',
+    fontSize: 14,
+  },
+  paymentValue: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
   },
   paymentTotal: {
     color: '#10B981',
     fontSize: 18,
     fontWeight: '700',
-    marginTop: 4,
   },
   payBtn: {
-    backgroundColor: '#3B82F6',
-    paddingVertical: 12,
-    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    borderRadius: 10,
     marginTop: 12,
-  },
-  payBtnPaid: {
-    backgroundColor: '#10B981',
+    gap: 8,
   },
   payBtnText: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
+  },
+  paidBadge: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    paddingVertical: 16,
+    borderRadius: 10,
+    marginTop: 12,
+  },
+  paidBadgeText: {
+    color: '#10B981',
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 6,
+  },
+  paidNote: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 4,
   },
   invoiceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    marginTop: 10,
-    paddingVertical: 12,
+    marginTop: 12,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: '#3B82F6',
     borderRadius: 10,
@@ -746,8 +933,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
+    gap: 10,
+    paddingVertical: 16,
     borderWidth: 1,
     borderStyle: 'dashed',
     borderColor: '#3B82F6',
@@ -759,23 +946,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  notesText: {
-    color: '#9CA3AF',
-    fontSize: 14,
-    marginTop: 8,
-    lineHeight: 20,
+  orderMeta: {
+    paddingVertical: 12,
+  },
+  metaText: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginBottom: 4,
   },
   
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     padding: 20,
   },
   modalContent: {
     backgroundColor: '#1F2937',
     borderRadius: 16,
-    padding: 20,
+    padding: 24,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -793,8 +982,14 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     fontSize: 14,
     textAlign: 'center',
+    marginTop: 6,
+  },
+  modalPhone: {
+    color: '#6B7280',
+    fontSize: 14,
+    textAlign: 'center',
     marginTop: 4,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   
   priceInputRow: {
@@ -803,25 +998,25 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     borderRadius: 12,
     paddingHorizontal: 16,
-    marginBottom: 20,
+    marginVertical: 20,
   },
   dollarSign: {
     color: '#10B981',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
   },
   priceInput: {
     flex: 1,
-    height: 60,
+    height: 70,
     color: '#FFF',
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '700',
     marginLeft: 8,
   },
   
   modalButtons: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
   },
   cancelBtn: {
     flex: 1,
@@ -851,14 +1046,14 @@ const styles = StyleSheet.create({
   inputLabel: {
     color: '#9CA3AF',
     fontSize: 14,
-    marginBottom: 8,
-    marginTop: 12,
+    marginBottom: 10,
+    marginTop: 16,
   },
   input: {
     backgroundColor: '#374151',
     borderRadius: 10,
     paddingHorizontal: 14,
-    height: 48,
+    height: 50,
     color: '#FFF',
     fontSize: 16,
   },
@@ -868,17 +1063,18 @@ const styles = StyleSheet.create({
   },
   methodBtn: {
     flex: 1,
-    backgroundColor: '#374151',
-    paddingVertical: 12,
-    borderRadius: 8,
     alignItems: 'center',
+    backgroundColor: '#374151',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 6,
   },
   methodBtnActive: {
     backgroundColor: '#3B82F6',
   },
   methodBtnText: {
     color: '#9CA3AF',
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
   },
   methodBtnTextActive: {
@@ -888,36 +1084,36 @@ const styles = StyleSheet.create({
   shareOptions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginVertical: 20,
+    marginVertical: 24,
   },
   whatsappBtn: {
     backgroundColor: '#25D366',
-    width: 70,
-    height: 70,
-    borderRadius: 14,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   smsBtn: {
     backgroundColor: '#3B82F6',
-    width: 70,
-    height: 70,
-    borderRadius: 14,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   shareBtn: {
     backgroundColor: '#8B5CF6',
-    width: 70,
-    height: 70,
-    borderRadius: 14,
+    width: 80,
+    height: 80,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   shareText: {
     color: '#FFF',
-    fontSize: 10,
-    marginTop: 4,
+    fontSize: 11,
+    marginTop: 6,
     fontWeight: '600',
   },
   closeModalBtn: {
