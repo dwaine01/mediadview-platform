@@ -604,6 +604,11 @@ async def get_work_orders(
     
     orders = await db.work_orders.find(query).sort("created_at", -1).to_list(100)
     
+    # Convert ObjectId to string for JSON serialization
+    for order in orders:
+        if "_id" in order:
+            order["_id"] = str(order["_id"])
+    
     # Enrich with vehicle and client info
     enriched_orders = []
     for order in orders:
@@ -611,6 +616,16 @@ async def get_work_orders(
         client = await db.clients.find_one({"id": order["client_id"]})
         tech = await db.users.find_one({"id": order["tech_id"]})
         payment = await db.payments.find_one({"work_order_id": order["id"]})
+        
+        # Convert ObjectId to string for nested objects
+        if vehicle and "_id" in vehicle:
+            vehicle["_id"] = str(vehicle["_id"])
+        if client and "_id" in client:
+            client["_id"] = str(client["_id"])
+        if tech and "_id" in tech:
+            tech["_id"] = str(tech["_id"])
+        if payment and "_id" in payment:
+            payment["_id"] = str(payment["_id"])
         
         order["vehicle"] = vehicle
         order["client"] = client
