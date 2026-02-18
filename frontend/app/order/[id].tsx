@@ -619,7 +619,7 @@ export default function OrderDetailScreen() {
                 >
                   <Ionicons 
                     name={method.icon as any} 
-                    size={20} 
+                    size={24} 
                     color={paymentForm.method === method.id ? '#FFF' : '#9CA3AF'} 
                   />
                   <Text style={[styles.methodBtnText, paymentForm.method === method.id && styles.methodBtnTextActive]}>
@@ -638,12 +638,28 @@ export default function OrderDetailScreen() {
               onChangeText={(text) => setPaymentForm({ ...paymentForm, reference: text })}
             />
 
+            {/* Botón Guardar Pago - Más visible */}
             <TouchableOpacity
-              style={[styles.confirmBtn, { marginTop: 24 }]}
+              style={styles.savePaymentBtn}
               onPress={handleCreatePayment}
               disabled={updating}
             >
-              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmBtnText}>Guardar Pago</Text>}
+              {updating ? (
+                <ActivityIndicator color="#FFF" />
+              ) : (
+                <>
+                  <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+                  <Text style={styles.savePaymentBtnText}>Guardar Pago</Text>
+                </>
+              )}
+            </TouchableOpacity>
+
+            {/* Botón Cancelar */}
+            <TouchableOpacity
+              style={styles.cancelPaymentBtn}
+              onPress={() => setPaymentModalVisible(false)}
+            >
+              <Text style={styles.cancelPaymentBtnText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
