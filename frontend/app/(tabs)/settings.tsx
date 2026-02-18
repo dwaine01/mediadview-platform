@@ -32,6 +32,12 @@ export default function SettingsScreen() {
     role: 'tech',
   });
   const [newTaxRate, setNewTaxRate] = useState('');
+  const [workshopModalVisible, setWorkshopModalVisible] = useState(false);
+  const [editWorkshop, setEditWorkshop] = useState({
+    name: '',
+    phone: '',
+    address: '',
+  });
 
   const isAdmin = user?.role === 'admin';
 
