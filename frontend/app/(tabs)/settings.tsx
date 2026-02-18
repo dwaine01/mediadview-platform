@@ -598,6 +598,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     gap: 4,
   },
+  editButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+  editButtonText: {
+    color: '#3B82F6',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   addButtonText: {
     color: '#FFFFFF',
     fontSize: 14,
