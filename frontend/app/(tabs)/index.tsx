@@ -15,11 +15,54 @@ import { getWorkOrders, getDailyReport } from '../../src/services/api';
 import { WorkOrder, DailyReport } from '../../src/types';
 import { StatusBadge } from '../../src/components/StatusBadge';
 
+// Versículos bíblicos para mostrar diariamente
+const biblicalVerses = [
+  { verse: "Todo lo puedo en Cristo que me fortalece.", ref: "Filipenses 4:13" },
+  { verse: "Confía en el Señor con todo tu corazón.", ref: "Proverbios 3:5" },
+  { verse: "El Señor es mi pastor, nada me faltará.", ref: "Salmos 23:1" },
+  { verse: "Porque yo sé los planes que tengo para ustedes.", ref: "Jeremías 29:11" },
+  { verse: "Esfuérzate y sé valiente, no temas.", ref: "Josué 1:9" },
+  { verse: "El amor es paciente, es bondadoso.", ref: "1 Corintios 13:4" },
+  { verse: "Dad gracias en todo, porque esta es la voluntad de Dios.", ref: "1 Tesalonicenses 5:18" },
+  { verse: "Busquen primero el reino de Dios y su justicia.", ref: "Mateo 6:33" },
+  { verse: "Yo soy el camino, la verdad y la vida.", ref: "Juan 14:6" },
+  { verse: "El que comenzó la buena obra, la perfeccionará.", ref: "Filipenses 1:6" },
+  { verse: "Vengan a mí todos los que están cansados.", ref: "Mateo 11:28" },
+  { verse: "No temas, porque yo estoy contigo.", ref: "Isaías 41:10" },
+  { verse: "Jehová es mi luz y mi salvación.", ref: "Salmos 27:1" },
+  { verse: "Por fe andamos, no por vista.", ref: "2 Corintios 5:7" },
+  { verse: "La paz os dejo, mi paz os doy.", ref: "Juan 14:27" },
+  { verse: "Pedid, y se os dará; buscad, y hallaréis.", ref: "Mateo 7:7" },
+  { verse: "En el principio era el Verbo.", ref: "Juan 1:1" },
+  { verse: "Sean fuertes y valientes, no tengan miedo.", ref: "Deuteronomio 31:6" },
+  { verse: "El gozo del Señor es nuestra fortaleza.", ref: "Nehemías 8:10" },
+  { verse: "Porque de tal manera amó Dios al mundo.", ref: "Juan 3:16" },
+  { verse: "Encomienda al Señor tu camino.", ref: "Salmos 37:5" },
+  { verse: "Clama a mí, y yo te responderé.", ref: "Jeremías 33:3" },
+  { verse: "Lámpara es a mis pies tu palabra.", ref: "Salmos 119:105" },
+  { verse: "Más vale confiar en el Señor que en el hombre.", ref: "Salmos 118:8" },
+  { verse: "Grande es tu fidelidad.", ref: "Lamentaciones 3:23" },
+  { verse: "El Señor peleará por ustedes.", ref: "Éxodo 14:14" },
+  { verse: "Bienaventurados los de limpio corazón.", ref: "Mateo 5:8" },
+  { verse: "Jehová es bueno, fortaleza en el día de la angustia.", ref: "Nahúm 1:7" },
+  { verse: "Yo estoy con ustedes todos los días.", ref: "Mateo 28:20" },
+  { verse: "Dios es nuestro amparo y fortaleza.", ref: "Salmos 46:1" },
+  { verse: "Sean hacedores de la palabra, no solo oidores.", ref: "Santiago 1:22" },
+];
+
+// Obtener versículo del día basado en la fecha
+const getDailyVerse = () => {
+  const today = new Date();
+  const dayOfYear = Math.floor((today.getTime() - new Date(today.getFullYear(), 0, 0).getTime()) / 86400000);
+  return biblicalVerses[dayOfYear % biblicalVerses.length];
+};
+
 export default function HomeScreen() {
   const { user } = useAuthStore();
   const [todayOrders, setTodayOrders] = useState<WorkOrder[]>([]);
   const [report, setReport] = useState<DailyReport | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const dailyVerse = getDailyVerse();
 
   const loadData = async () => {
     try {
@@ -71,6 +114,15 @@ export default function HomeScreen() {
               month: 'long',
             })}
           </Text>
+        </View>
+      </View>
+
+      {/* Daily Bible Verse */}
+      <View style={styles.verseContainer}>
+        <Ionicons name="book" size={16} color="#D4A017" />
+        <View style={styles.verseContent}>
+          <Text style={styles.verseText}>"{dailyVerse.verse}"</Text>
+          <Text style={styles.verseRef}>{dailyVerse.ref}</Text>
         </View>
       </View>
 
