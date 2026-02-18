@@ -472,6 +472,12 @@ async def get_clients(search: Optional[str] = None, current_user: dict = Depends
         ]
     
     clients = await db.clients.find(query).to_list(100)
+    
+    # Convert ObjectId to string for JSON serialization
+    for client in clients:
+        if "_id" in client:
+            client["_id"] = str(client["_id"])
+    
     return clients
 
 @api_router.get("/clients/{client_id}")
