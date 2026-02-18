@@ -1,16 +1,28 @@
-import { Text, View, StyleSheet, Image } from "react-native";
-
-const EXPO_PUBLIC_BACKEND_URL = process.env.EXPO_PUBLIC_BACKEND_URL;
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { router } from 'expo-router';
+import { useAuthStore } from '../src/store/authStore';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Index() {
-  console.log(EXPO_PUBLIC_BACKEND_URL, "EXPO_PUBLIC_BACKEND_URL");
+  const { user, isLoading } = useAuthStore();
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (user) {
+        router.replace('/(tabs)');
+      } else {
+        router.replace('/(auth)/login');
+      }
+    }
+  }, [user, isLoading]);
 
   return (
     <View style={styles.container}>
-      <Image
-        source={require("../assets/images/app-image.png")}
-        style={styles.image}
-      />
+      <Ionicons name="car-sport" size={80} color="#3B82F6" />
+      <Text style={styles.title}>AutoService Hub</Text>
+      <Text style={styles.subtitle}>Sistema de Gestión de Taller</Text>
+      <ActivityIndicator size="large" color="#3B82F6" style={styles.loader} />
     </View>
   );
 }
@@ -18,13 +30,23 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#0c0c0c",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#111827',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
   },
-  image: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "contain",
+  title: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginTop: 20,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginTop: 8,
+  },
+  loader: {
+    marginTop: 40,
   },
 });
