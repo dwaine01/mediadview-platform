@@ -13,11 +13,14 @@ from datetime import datetime, timedelta
 import jwt
 import bcrypt
 import httpx
-import pydantic
 from bson import ObjectId
+from fastapi.encoders import jsonable_encoder
 
-# Fix ObjectId serialization issue
-pydantic.json.ENCODERS_BY_TYPE[ObjectId] = str
+# Custom encoder for ObjectId
+def custom_jsonable_encoder(obj):
+    if isinstance(obj, ObjectId):
+        return str(obj)
+    return jsonable_encoder(obj)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
