@@ -25,45 +25,33 @@ export default function ScanVinScreen() {
   const isProcessingRef = useRef(false);
   const hasNavigatedRef = useRef(false);
 
-  // Clean VIN function - removes all non-alphanumeric characters AND invalid VIN characters
+  // Clean VIN function - removes all non-alphanumeric characters AND fixes scanner errors
   const cleanVin = (rawVin: string): string => {
     if (!rawVin) return '';
     
-    // Step 1: Remove spaces, line breaks, carriage returns, tabs, and any non-alphanumeric characters
+    // Step 1: Remove spaces, line breaks, and any non-alphanumeric characters
     let cleaned = rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
-    console.log('After basic clean:', cleaned, 'Length:', cleaned.length);
+    console.log('Raw VIN after basic clean:', cleaned, 'Length:', cleaned.length);
     
-    // Step 2: If we have more than 17 characters, try to extract valid VIN
-    if (cleaned.length > 17) {
-      // Remove ALL invalid VIN characters (I, O, Q) first
-      const withoutInvalid = cleaned.replace(/[IOQ]/g, '');
-      console.log('After removing I/O/Q:', withoutInvalid, 'Length:', withoutInvalid.length);
-      
-      if (withoutInvalid.length === 17) {
-        cleaned = withoutInvalid;
-      } else if (withoutInvalid.length > 17) {
-        // Still too long - try taking last 17 or first 17
-        // Usually extra chars are at the beginning
-        cleaned = withoutInvalid.slice(-17);
-        console.log('Taking last 17:', cleaned);
-      }
+    // Step 2: MOST COMMON SCANNER ERROR - adds extra character at the beginning
+    // If we have 18 characters, remove the FIRST one (scanner artifact)
+    if (cleaned.length === 18) {
+      cleaned = cleaned.substring(1);
+      console.log('Removed first char (scanner error), now:', cleaned);
     }
     
-    // Step 3: If still has I, O, Q and is 17 chars, replace with likely numbers
-    if (cleaned.length === 17) {
-      cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
+    // Step 3: If we have 19 characters, remove first 2
+    if (cleaned.length === 19) {
+      cleaned = cleaned.substring(2);
+      console.log('Removed first 2 chars, now:', cleaned);
     }
     
-    // Step 4: If 18 chars and first char is invalid, remove it
-    if (cleaned.length === 18 && ['I', 'O', 'Q', '0', '1'].includes(cleaned[0])) {
-      const candidate = cleaned.substring(1);
-      // Verify the candidate doesn't have I, O, Q
-      if (!/[IOQ]/.test(candidate)) {
-        cleaned = candidate;
-        console.log('Removed first char, now:', cleaned);
-      }
-    }
+    // Step 4: Replace invalid VIN characters (I->1, O->0, Q->0)
+    // VINs cannot contain I, O, Q - scanners sometimes misread numbers as these
+    cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
+    
+    console.log('Final cleaned VIN:', cleaned, 'Length:', cleaned.length);
     
     return cleaned;
   };
