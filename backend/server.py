@@ -506,7 +506,7 @@ async def get_client(client_id: str, current_user: dict = Depends(get_current_us
     })
     if not client:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return client
+    return serialize_doc(client)
 
 @api_router.put("/clients/{client_id}")
 async def update_client(client_id: str, client_data: ClientCreate, current_user: dict = Depends(get_current_user)):
