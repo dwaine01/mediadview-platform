@@ -960,7 +960,7 @@ export default function OrderDetailScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Invoice Modal */}
+      {/* Invoice Modal - Updated with PDF options */}
       <Modal visible={invoiceModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -970,19 +970,58 @@ export default function OrderDetailScreen() {
               <Text style={styles.modalPhone}>📱 {order.client.phone}</Text>
             )}
 
-            <View style={styles.shareOptions}>
-              <TouchableOpacity style={styles.whatsappBtn} onPress={sendWhatsApp}>
-                <Ionicons name="logo-whatsapp" size={32} color="#FFF" />
-                <Text style={styles.shareText}>WhatsApp</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.smsBtn} onPress={sendSMS}>
-                <Ionicons name="chatbubble" size={32} color="#FFF" />
-                <Text style={styles.shareText}>SMS</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.shareBtn} onPress={shareInvoice}>
-                <Ionicons name="share-social" size={32} color="#FFF" />
-                <Text style={styles.shareText}>Otro</Text>
-              </TouchableOpacity>
+            {/* PDF Section */}
+            <View style={styles.pdfSection}>
+              <Text style={styles.pdfSectionTitle}>📄 Factura PDF Profesional</Text>
+              <Text style={styles.pdfSectionDesc}>Genera un PDF con diseño profesional</Text>
+              
+              <View style={styles.pdfButtons}>
+                <TouchableOpacity 
+                  style={styles.pdfWhatsappBtn} 
+                  onPress={sendPDFWhatsApp}
+                  disabled={updating}
+                >
+                  <Ionicons name="logo-whatsapp" size={24} color="#FFF" />
+                  <Text style={styles.pdfBtnText}>WhatsApp</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.pdfEmailBtn} 
+                  onPress={sendPDFEmail}
+                  disabled={updating}
+                >
+                  <Ionicons name="mail" size={24} color="#FFF" />
+                  <Text style={styles.pdfBtnText}>Email</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.pdfShareBtn} 
+                  onPress={generateAndSharePDF}
+                  disabled={updating}
+                >
+                  <Ionicons name="share-social" size={24} color="#FFF" />
+                  <Text style={styles.pdfBtnText}>Otro</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Text Section */}
+            <View style={styles.textSection}>
+              <Text style={styles.textSectionTitle}>💬 Mensaje de Texto</Text>
+              <View style={styles.shareOptions}>
+                <TouchableOpacity style={styles.whatsappBtn} onPress={sendWhatsApp}>
+                  <Ionicons name="logo-whatsapp" size={28} color="#FFF" />
+                  <Text style={styles.shareText}>WhatsApp</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.smsBtn} onPress={sendSMS}>
+                  <Ionicons name="chatbubble" size={28} color="#FFF" />
+                  <Text style={styles.shareText}>SMS</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.shareBtn} onPress={shareInvoice}>
+                  <Ionicons name="share-social" size={28} color="#FFF" />
+                  <Text style={styles.shareText}>Otro</Text>
+                </TouchableOpacity>
+              </View>
             </View>
 
             <TouchableOpacity style={styles.closeModalBtn} onPress={() => setInvoiceModalVisible(false)}>
