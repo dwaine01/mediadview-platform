@@ -578,6 +578,7 @@ async def get_credit_report(current_user: dict = Depends(get_current_user)):
                 "created_at": order.get("created_at"),
                 "total": payment.get("total", order_total) if payment else order_total,
                 "payment_status": payment.get("payment_status", "pendiente") if payment else "sin_pago",
+                "payment_id": payment.get("id") if payment else None,
             }
             
             if payment and payment.get("payment_status") == "pagado":
