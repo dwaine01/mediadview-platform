@@ -30,11 +30,15 @@ export default function ScanVinScreen() {
   };
 
   const processVin = async (vin: string) => {
-    vin = vin.toUpperCase().trim();
+    // Clean VIN: remove all non-alphanumeric characters (spaces, line breaks, control chars)
+    vin = vin.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
     // Basic validation
     if (vin.length !== 17) {
-      Alert.alert('Error', 'El VIN debe tener 17 caracteres');
+      Alert.alert(
+        'Error', 
+        `El VIN debe tener 17 caracteres. Se detectaron ${vin.length} caracteres: "${vin}"`
+      );
       setScanned(false);
       return;
     }
