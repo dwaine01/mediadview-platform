@@ -2,18 +2,28 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-// Company logo component
+// Company logo - Ohio Airbag Light Reset
 const CompanyLogo = () => (
   <View style={logoStyles.container}>
+    {/* Icon row with car, airbag, lightning */}
     <View style={logoStyles.iconRow}>
-      <Ionicons name="car" size={28} color="#F59E0B" />
-      <Ionicons name="ellipse" size={24} color="#F59E0B" />
-      <Ionicons name="flash" size={28} color="#F59E0B" />
+      <View style={logoStyles.iconCircle}>
+        <Ionicons name="car" size={28} color="#D4A017" />
+      </View>
+      <View style={logoStyles.iconCircle}>
+        <MaterialCommunityIcons name="airbag" size={28} color="#D4A017" />
+      </View>
+      <View style={logoStyles.iconCircle}>
+        <Ionicons name="flash" size={28} color="#D4A017" />
+      </View>
     </View>
-    <Text style={logoStyles.mainText}>OHIO</Text>
-    <Text style={logoStyles.subText}>AIRBAG LIGHT</Text>
+    {/* OHIO text */}
+    <Text style={logoStyles.ohioText}>OHIO</Text>
+    {/* AIRBAG LIGHT text */}
+    <Text style={logoStyles.airbagText}>AIRBAG LIGHT</Text>
+    {/* RESET text */}
     <Text style={logoStyles.resetText}>RESET</Text>
   </View>
 );
@@ -25,28 +35,43 @@ const logoStyles = StyleSheet.create({
   iconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 20,
   },
-  mainText: {
-    fontSize: 48,
+  iconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(212, 160, 23, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  ohioText: {
+    fontSize: 64,
     fontWeight: '900',
-    color: '#F59E0B',
-    letterSpacing: 8,
+    color: '#D4A017',
+    letterSpacing: 14,
+    textShadowColor: 'rgba(212, 160, 23, 0.4)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
   },
-  subText: {
-    fontSize: 20,
-    fontWeight: '700',
+  airbagText: {
+    fontSize: 22,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 4,
+    letterSpacing: 8,
     marginTop: 4,
   },
   resetText: {
-    fontSize: 36,
+    fontSize: 48,
     fontWeight: '900',
-    color: '#F59E0B',
-    letterSpacing: 12,
-    marginTop: 4,
+    color: '#D4A017',
+    letterSpacing: 18,
+    marginTop: 6,
+    textShadowColor: 'rgba(212, 160, 23, 0.4)',
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
   },
 });
 
@@ -66,7 +91,7 @@ export default function Index() {
   return (
     <View style={styles.container}>
       <CompanyLogo />
-      <ActivityIndicator size="large" color="#F59E0B" style={styles.loader} />
+      <ActivityIndicator size="large" color="#D4A017" style={styles.loader} />
     </View>
   );
 }
@@ -80,6 +105,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   loader: {
-    marginTop: 40,
+    marginTop: 50,
   },
 });
