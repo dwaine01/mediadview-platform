@@ -32,19 +32,37 @@ export default function ScanVinScreen() {
     // Step 1: Remove spaces, line breaks, carriage returns, tabs, and any non-alphanumeric characters
     let cleaned = rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
-    // Step 2: VINs cannot contain I, O, Q - these are often misread by scanners
-    // If we have exactly 18 chars and starts with I, O, or Q, remove it (common scanner error)
-    if (cleaned.length === 18 && ['I', 'O', 'Q'].includes(cleaned[0])) {
-      cleaned = cleaned.substring(1);
+    console.log('After basic clean:', cleaned, 'Length:', cleaned.length);
+    
+    // Step 2: If we have more than 17 characters, try to extract valid VIN
+    if (cleaned.length > 17) {
+      // Remove ALL invalid VIN characters (I, O, Q) first
+      const withoutInvalid = cleaned.replace(/[IOQ]/g, '');
+      console.log('After removing I/O/Q:', withoutInvalid, 'Length:', withoutInvalid.length);
+      
+      if (withoutInvalid.length === 17) {
+        cleaned = withoutInvalid;
+      } else if (withoutInvalid.length > 17) {
+        // Still too long - try taking last 17 or first 17
+        // Usually extra chars are at the beginning
+        cleaned = withoutInvalid.slice(-17);
+        console.log('Taking last 17:', cleaned);
+      }
     }
     
-    // Step 3: Replace common misreads in the VIN
-    // Sometimes scanners read '0' as 'O' or '1' as 'I' - but since I and O are invalid,
-    // if they appear, they might be correct numbers misidentified
-    // Only replace if it would result in a valid 17-char VIN
+    // Step 3: If still has I, O, Q and is 17 chars, replace with likely numbers
     if (cleaned.length === 17) {
-      // If VIN contains I, O, or Q, try to fix them
       cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
+    }
+    
+    // Step 4: If 18 chars and first char is invalid, remove it
+    if (cleaned.length === 18 && ['I', 'O', 'Q', '0', '1'].includes(cleaned[0])) {
+      const candidate = cleaned.substring(1);
+      // Verify the candidate doesn't have I, O, Q
+      if (!/[IOQ]/.test(candidate)) {
+        cleaned = candidate;
+        console.log('Removed first char, now:', cleaned);
+      }
     }
     
     return cleaned;
