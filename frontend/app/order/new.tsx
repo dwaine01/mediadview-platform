@@ -370,6 +370,54 @@ export default function NewOrderScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Tech Selection Modal */}
+      <Modal
+        visible={techModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setTechModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Seleccionar Técnico</Text>
+              <TouchableOpacity onPress={() => setTechModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.techList}>
+              {technicians.map((tech) => (
+                <TouchableOpacity
+                  key={tech.id}
+                  style={[
+                    styles.techItem,
+                    selectedTech?.id === tech.id && styles.techItemSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedTech(tech);
+                    setTechModalVisible(false);
+                  }}
+                >
+                  <View style={styles.techItemAvatar}>
+                    <Text style={styles.techItemAvatarText}>
+                      {tech.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <View style={styles.techItemInfo}>
+                    <Text style={styles.techItemName}>{tech.name}</Text>
+                    <Text style={styles.techItemEmail}>{tech.email}</Text>
+                  </View>
+                  {selectedTech?.id === tech.id && (
+                    <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
