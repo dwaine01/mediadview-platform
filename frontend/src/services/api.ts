@@ -135,6 +135,7 @@ export const getWorkOrder = async (id: string) => {
 export const createWorkOrder = async (data: {
   vehicle_id: string;
   client_id: string;
+  tech_id?: string;
   services?: Array<{
     service_id: string;
     service_name: string;
