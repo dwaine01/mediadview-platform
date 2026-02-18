@@ -819,7 +819,7 @@ async def get_workshop(current_user: dict = Depends(get_current_user)):
     workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
     if not workshop:
         raise HTTPException(status_code=404, detail="Taller no encontrado")
-    return workshop
+    return serialize_doc(workshop)
 
 @api_router.put("/workshop")
 async def update_workshop(
