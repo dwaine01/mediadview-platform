@@ -14,7 +14,7 @@ import {
   Linking,
   Share,
 } from 'react-native';
-import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import { useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import {
   getWorkOrder,
@@ -23,7 +23,7 @@ import {
   updatePayment,
   getWorkshop,
 } from '../../src/services/api';
-import { WorkOrder, Payment, Workshop } from '../../src/types';
+import { WorkOrder, Workshop } from '../../src/types';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { PaymentBadge } from '../../src/components/PaymentBadge';
 import { useAuthStore } from '../../src/store/authStore';
@@ -38,20 +38,28 @@ export default function OrderDetailScreen() {
   const [updating, setUpdating] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
+  const [priceModalVisible, setPriceModalVisible] = useState(false);
+  const [editPrice, setEditPrice] = useState('');
   const [paymentForm, setPaymentForm] = useState({
     method: 'cash',
     reference: '',
     discount: '',
   });
 
-  // Status order for permission checking (asignado is before iniciado)
   const statusOrder: Record<string, number> = { asignado: 0, iniciado: 1, pendiente: 2, terminado: 3 };
 
   const canChangeToStatus = (newStatus: string): boolean => {
     if (!order) return false;
-    if (isAdmin) return true; // Admin can change to any status
-    // Technicians can only move forward
+    if (isAdmin) return true;
     return statusOrder[newStatus] > statusOrder[order.status];
+  };
+
+  // Check if tech can edit price (assigned to them and not completed)
+  const canEditPrice = (): boolean => {
+    if (!order || !user) return false;
+    if (isAdmin) return true;
+    // Tech can edit if order is assigned to them and not completed
+    return order.tech_id === user.id && order.status !== 'terminado';
   };
 
   const loadOrder = async () => {
@@ -75,6 +83,12 @@ export default function OrderDetailScreen() {
       loadOrder();
     }, [id])
   );
+
+  // Calculate current total from services
+  const calculateTotal = () => {
+    if (!order) return 0;
+    return order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
+  };
 
   const handleStatusChange = async (newStatus: string) => {
     if (!order) return;
@@ -102,25 +116,48 @@ export default function OrderDetailScreen() {
     );
   };
 
-  const calculatePayment = () => {
-    if (!order || !workshop) return { subtotal: 0, tax: 0, total: 0 };
+  const openPriceModal = () => {
+    setEditPrice(calculateTotal().toString());
+    setPriceModalVisible(true);
+  };
 
-    const subtotal = order.services.reduce(
-      (sum, s) => sum + s.price * s.quantity,
-      0
-    );
+  const handleUpdatePrice = async () => {
+    if (!order) return;
+    
+    const newPrice = parseFloat(editPrice);
+    if (isNaN(newPrice) || newPrice < 0) {
+      Alert.alert('Error', 'Ingrese un precio válido');
+      return;
+    }
+
+    setUpdating(true);
+    try {
+      // Update all services with distributed price
+      const pricePerService = order.services.length > 0 ? newPrice / order.services.length : 0;
+      const updatedServices = order.services.map(s => ({
+        ...s,
+        price: pricePerService,
+      }));
+
+      await updateWorkOrder(order.id, { services: updatedServices });
+      setPriceModalVisible(false);
+      await loadOrder();
+      Alert.alert('Éxito', 'Precio actualizado');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar precio');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const handleCreatePayment = async () => {
+    if (!order || !workshop) return;
+
+    const subtotal = calculateTotal();
     const discount = parseFloat(paymentForm.discount) || 0;
     const taxableAmount = subtotal - discount;
     const tax = taxableAmount * (workshop.tax_rate / 100);
     const total = taxableAmount + tax;
-
-    return { subtotal, tax, total, discount };
-  };
-
-  const handleCreatePayment = async () => {
-    if (!order) return;
-
-    const { subtotal, tax, total, discount } = calculatePayment();
 
     setUpdating(true);
     try {
@@ -169,11 +206,8 @@ export default function OrderDetailScreen() {
               });
               await loadOrder();
               
-              // Show invoice option after payment is marked as paid
               if (newStatus === 'pagado') {
-                setTimeout(() => {
-                  setInvoiceModalVisible(true);
-                }, 500);
+                setTimeout(() => setInvoiceModalVisible(true), 500);
               }
             } catch (error: any) {
               Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
@@ -186,14 +220,11 @@ export default function OrderDetailScreen() {
     );
   };
 
-  // Generate invoice text
   const generateInvoiceText = () => {
     if (!order || !workshop || !order.payment) return '';
     
     const date = new Date().toLocaleDateString('es-ES', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
+      day: '2-digit', month: '2-digit', year: 'numeric',
     });
     
     let invoice = `🔧 *${workshop.name}*\n`;
@@ -202,106 +233,71 @@ export default function OrderDetailScreen() {
     invoice += `${order.vehicle?.year} ${order.vehicle?.make} ${order.vehicle?.model}\n`;
     invoice += `VIN: ${order.vehicle?.vin}\n\n`;
     invoice += `👤 *Cliente:* ${order.client?.name}\n\n`;
-    invoice += `📋 *Servicios Realizados:*\n`;
+    invoice += `📋 *Servicios:*\n`;
     
-    order.services.forEach((service, index) => {
-      const side = service.side ? ` (${service.side === 'left' ? 'Izq' : 'Der'})` : '';
-      invoice += `${index + 1}. ${service.service_name}${side} - $${service.price.toFixed(2)}\n`;
+    order.services.forEach((service, i) => {
+      invoice += `${i + 1}. ${service.service_name}\n`;
     });
     
-    invoice += `\n💰 *Resumen de Pago:*\n`;
-    invoice += `Subtotal: $${order.payment.subtotal.toFixed(2)}\n`;
-    if (order.payment.discount > 0) {
-      invoice += `Descuento: -$${order.payment.discount.toFixed(2)}\n`;
-    }
-    invoice += `Impuesto (${workshop.tax_rate}%): $${order.payment.tax.toFixed(2)}\n`;
-    invoice += `*TOTAL: $${order.payment.total.toFixed(2)}*\n\n`;
-    invoice += `✅ Estado: PAGADO\n`;
-    invoice += `💳 Método: ${order.payment.method === 'cash' ? 'Efectivo' : order.payment.method === 'zelle' ? 'Zelle' : order.payment.method === 'check' ? 'Cheque' : 'Otro'}\n`;
-    if (order.payment.reference) {
-      invoice += `Ref: ${order.payment.reference}\n`;
-    }
+    invoice += `\n💰 *Total: $${order.payment.total.toFixed(2)}*\n`;
+    invoice += `✅ PAGADO - ${order.payment.method === 'cash' ? 'Efectivo' : order.payment.method === 'zelle' ? 'Zelle' : 'Otro'}\n`;
     invoice += `\n¡Gracias por su preferencia! 🙏`;
     
     return invoice;
   };
 
-  // Send invoice via WhatsApp
   const sendWhatsApp = async () => {
     if (!order?.client?.phone) {
-      Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+      Alert.alert('Error', 'El cliente no tiene número de teléfono');
       return;
     }
     
-    const invoice = generateInvoiceText();
-    // Remove formatting for URL encoding
-    const plainInvoice = invoice.replace(/\*/g, '');
-    const phone = order.client.phone.replace(/\D/g, ''); // Remove non-digits
-    
-    // Add country code if not present (assuming US +1)
+    const invoice = generateInvoiceText().replace(/\*/g, '');
+    const phone = order.client.phone.replace(/\D/g, '');
     const phoneWithCode = phone.length === 10 ? `1${phone}` : phone;
     
-    const url = `whatsapp://send?phone=${phoneWithCode}&text=${encodeURIComponent(plainInvoice)}`;
-    
     try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-        setInvoiceModalVisible(false);
-      } else {
-        Alert.alert('Error', 'WhatsApp no está instalado en este dispositivo');
-      }
-    } catch (error) {
+      await Linking.openURL(`whatsapp://send?phone=${phoneWithCode}&text=${encodeURIComponent(invoice)}`);
+      setInvoiceModalVisible(false);
+    } catch {
       Alert.alert('Error', 'No se pudo abrir WhatsApp');
     }
   };
 
-  // Send invoice via SMS
   const sendSMS = async () => {
     if (!order?.client?.phone) {
-      Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+      Alert.alert('Error', 'El cliente no tiene número de teléfono');
       return;
     }
     
-    const invoice = generateInvoiceText();
-    // Remove formatting for SMS
-    const plainInvoice = invoice.replace(/\*/g, '').replace(/[🔧📅🚗👤📋💰✅💳🙏]/g, '');
+    const invoice = generateInvoiceText().replace(/\*/g, '').replace(/[🔧📅🚗👤📋💰✅🙏]/g, '');
     const phone = order.client.phone.replace(/\D/g, '');
     
     const url = Platform.select({
-      ios: `sms:${phone}&body=${encodeURIComponent(plainInvoice)}`,
-      android: `sms:${phone}?body=${encodeURIComponent(plainInvoice)}`,
+      ios: `sms:${phone}&body=${encodeURIComponent(invoice)}`,
+      android: `sms:${phone}?body=${encodeURIComponent(invoice)}`,
     });
     
     try {
-      if (url) {
-        await Linking.openURL(url);
-        setInvoiceModalVisible(false);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo abrir la app de mensajes');
+      if (url) await Linking.openURL(url);
+      setInvoiceModalVisible(false);
+    } catch {
+      Alert.alert('Error', 'No se pudo abrir mensajes');
     }
   };
 
-  // Share invoice (generic)
   const shareInvoice = async () => {
-    const invoice = generateInvoiceText();
-    const plainInvoice = invoice.replace(/\*/g, '');
-    
     try {
-      await Share.share({
-        message: plainInvoice,
-        title: 'Factura de Servicio',
-      });
+      await Share.share({ message: generateInvoiceText().replace(/\*/g, '') });
       setInvoiceModalVisible(false);
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo compartir la factura');
+    } catch {
+      Alert.alert('Error', 'No se pudo compartir');
     }
   };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centered}>
         <ActivityIndicator size="large" color="#3B82F6" />
       </View>
     );
@@ -309,271 +305,135 @@ export default function OrderDetailScreen() {
 
   if (!order) {
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.centered}>
         <Text style={styles.errorText}>Orden no encontrada</Text>
       </View>
     );
   }
 
-  const { subtotal, tax, total } = calculatePayment();
+  const currentTotal = calculateTotal();
 
   return (
     <View style={styles.container}>
       <ScrollView style={styles.scrollView}>
         {/* Status Section */}
-        <View style={styles.statusSection}>
-          <View style={styles.statusHeader}>
-            <Text style={styles.sectionTitle}>Estado de Trabajo</Text>
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Text style={styles.cardTitle}>Estado</Text>
             <StatusBadge status={order.status} />
           </View>
-          {!isAdmin && (
-            <Text style={styles.permissionNote}>
-              Solo puedes avanzar el estado
-            </Text>
-          )}
+          
           <View style={styles.statusButtons}>
             {['asignado', 'iniciado', 'pendiente', 'terminado'].map((status) => {
               const canChange = canChangeToStatus(status);
-              const isCurrentStatus = order.status === status;
-              const isDisabled = isCurrentStatus || updating || !canChange;
+              const isCurrent = order.status === status;
               
-              // Only show asignado if admin or if it's the current status
-              if (status === 'asignado' && !isAdmin && order.status !== 'asignado') {
-                return null;
-              }
+              if (status === 'asignado' && !isAdmin && order.status !== 'asignado') return null;
               
               return (
                 <TouchableOpacity
                   key={status}
-                  style={[
-                    styles.statusButton,
-                    isCurrentStatus && styles.statusButtonActive,
-                    status === 'asignado' && isCurrentStatus && styles.statusButtonAssigned,
-                    !canChange && !isCurrentStatus && styles.statusButtonDisabled,
-                  ]}
+                  style={[styles.statusBtn, isCurrent && styles.statusBtnActive]}
                   onPress={() => handleStatusChange(status)}
-                  disabled={isDisabled}
+                  disabled={isCurrent || updating || !canChange}
                 >
-                  <Ionicons
-                    name={
-                      status === 'asignado'
-                        ? 'person-add'
-                        : status === 'iniciado'
-                        ? 'play'
-                        : status === 'pendiente'
-                        ? 'pause'
-                        : 'checkmark'
-                    }
-                    size={18}
-                    color={isCurrentStatus ? '#FFFFFF' : (!canChange ? '#4B5563' : '#9CA3AF')}
-                  />
-                  <Text
-                    style={[
-                      styles.statusButtonText,
-                      isCurrentStatus && styles.statusButtonTextActive,
-                      !canChange && !isCurrentStatus && styles.statusButtonTextDisabled,
-                    ]}
-                  >
-                    {status === 'asignado' ? 'Asig.' : status.charAt(0).toUpperCase() + status.slice(1)}
+                  <Text style={[styles.statusBtnText, isCurrent && styles.statusBtnTextActive]}>
+                    {status === 'asignado' ? 'Asig' : status.charAt(0).toUpperCase() + status.slice(1, 4)}
                   </Text>
-                  {!canChange && !isCurrentStatus && (
-                    <Ionicons name="lock-closed" size={10} color="#4B5563" />
-                  )}
                 </TouchableOpacity>
               );
             })}
           </View>
-          
-          {/* Show "Iniciar Trabajo" button for assigned orders */}
-          {order.status === 'asignado' && !isAdmin && (
-            <TouchableOpacity
-              style={styles.startWorkButton}
-              onPress={() => handleStatusChange('iniciado')}
-              disabled={updating}
-            >
-              <Ionicons name="play-circle" size={24} color="#FFFFFF" />
-              <Text style={styles.startWorkButtonText}>Iniciar Trabajo</Text>
-            </TouchableOpacity>
-          )}
         </View>
 
-        {/* Vehicle Info */}
+        {/* Vehicle & Client */}
         <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="car" size={24} color="#3B82F6" />
-            <Text style={styles.cardTitle}>Vehículo</Text>
-          </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.vehicleName}>
+          <View style={styles.infoRow}>
+            <Ionicons name="car" size={20} color="#3B82F6" />
+            <Text style={styles.infoText}>
               {order.vehicle?.year} {order.vehicle?.make} {order.vehicle?.model}
             </Text>
-            <Text style={styles.vehicleDetail}>VIN: {order.vehicle?.vin}</Text>
-            {order.vehicle?.trim && (
-              <Text style={styles.vehicleDetail}>Trim: {order.vehicle.trim}</Text>
-            )}
-            {order.odometer && (
-              <Text style={styles.vehicleDetail}>
-                Odómetro: {order.odometer.toLocaleString()} mi
-              </Text>
-            )}
           </View>
-        </View>
-
-        {/* Client Info */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="person" size={24} color="#10B981" />
-            <Text style={styles.cardTitle}>Cliente</Text>
+          <Text style={styles.vinText}>VIN: {order.vehicle?.vin}</Text>
+          <View style={[styles.infoRow, { marginTop: 12 }]}>
+            <Ionicons name="person" size={20} color="#10B981" />
+            <Text style={styles.infoText}>{order.client?.name}</Text>
           </View>
-          <View style={styles.cardContent}>
-            <Text style={styles.clientName}>{order.client?.name}</Text>
-            {order.client?.phone && (
-              <TouchableOpacity style={styles.contactRow}>
-                <Ionicons name="call-outline" size={16} color="#6B7280" />
-                <Text style={styles.contactText}>{order.client.phone}</Text>
-              </TouchableOpacity>
-            )}
-            {order.client?.email && (
-              <TouchableOpacity style={styles.contactRow}>
-                <Ionicons name="mail-outline" size={16} color="#6B7280" />
-                <Text style={styles.contactText}>{order.client.email}</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </View>
-
-        {/* Services - Show prices only for admin */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="construct" size={24} color="#F59E0B" />
-            <Text style={styles.cardTitle}>Servicios</Text>
-            <Text style={styles.serviceCount}>{order.services.length}</Text>
-          </View>
-          <View style={styles.servicesList}>
-            {order.services.map((service, index) => (
-              <View key={index} style={styles.serviceItem}>
-                <View style={styles.serviceInfo}>
-                  <Text style={styles.serviceName}>{service.service_name}</Text>
-                  {service.side && (
-                    <Text style={styles.serviceSide}>
-                      ({service.side === 'left' ? 'Izq' : 'Der'})
-                    </Text>
-                  )}
-                </View>
-                {/* Only show price for admin */}
-                {isAdmin && (
-                  <Text style={styles.servicePrice}>
-                    ${(service.price * service.quantity).toFixed(2)}
-                  </Text>
-                )}
-              </View>
-            ))}
-          </View>
-          {/* Only show subtotal for admin */}
-          {isAdmin && (
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Subtotal</Text>
-              <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
-            </View>
+          {order.client?.phone && (
+            <Text style={styles.phoneText}>📱 {order.client.phone}</Text>
           )}
         </View>
 
-        {/* Payment Section - Only for admin OR when order is completed for tech */}
+        {/* Services */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Servicios ({order.services.length})</Text>
+          {order.services.map((service, i) => (
+            <View key={i} style={styles.serviceRow}>
+              <Ionicons name="checkmark-circle" size={16} color="#10B981" />
+              <Text style={styles.serviceText}>{service.service_name}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Price Section - Editable by Tech */}
+        <View style={styles.priceCard}>
+          <View style={styles.priceHeader}>
+            <Text style={styles.priceLabel}>Precio Total</Text>
+            {canEditPrice() && order.status !== 'terminado' && (
+              <TouchableOpacity style={styles.editPriceBtn} onPress={openPriceModal}>
+                <Ionicons name="pencil" size={16} color="#3B82F6" />
+                <Text style={styles.editPriceBtnText}>
+                  {isAdmin ? 'Editar' : 'Confirmar/Ajustar'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.priceValue}>${currentTotal.toFixed(2)}</Text>
+          {!isAdmin && order.status !== 'terminado' && (
+            <Text style={styles.priceHint}>
+              Puede ajustar el precio según el trabajo realizado
+            </Text>
+          )}
+        </View>
+
+        {/* Payment Section */}
         {(isAdmin || order.status === 'terminado') && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="card" size={24} color="#8B5CF6" />
               <Text style={styles.cardTitle}>Pago</Text>
               {order.payment && <PaymentBadge status={order.payment.payment_status} />}
             </View>
 
             {order.payment ? (
-              <View style={styles.paymentInfo}>
-                <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Método</Text>
-                  <Text style={styles.paymentValue}>
-                    {order.payment.method === 'cash'
-                      ? 'Efectivo'
-                      : order.payment.method === 'zelle'
-                      ? 'Zelle'
-                      : order.payment.method === 'check'
-                      ? 'Cheque'
-                      : 'Otro'}
-                  </Text>
-                </View>
-                
-                {/* Show financial details only for admin */}
+              <>
+                <Text style={styles.paymentMethod}>
+                  Método: {order.payment.method === 'cash' ? 'Efectivo' : order.payment.method === 'zelle' ? 'Zelle' : 'Otro'}
+                </Text>
                 {isAdmin && (
-                  <>
-                    <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Subtotal</Text>
-                      <Text style={styles.paymentValue}>${order.payment.subtotal.toFixed(2)}</Text>
-                    </View>
-                    {order.payment.discount > 0 && (
-                      <View style={styles.paymentRow}>
-                        <Text style={styles.paymentLabel}>Descuento</Text>
-                        <Text style={[styles.paymentValue, { color: '#EF4444' }]}>
-                          -${order.payment.discount.toFixed(2)}
-                        </Text>
-                      </View>
-                    )}
-                    <View style={styles.paymentRow}>
-                      <Text style={styles.paymentLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
-                      <Text style={styles.paymentValue}>${order.payment.tax.toFixed(2)}</Text>
-                    </View>
-                    <View style={[styles.paymentRow, styles.paymentTotalRow]}>
-                      <Text style={styles.paymentTotalLabel}>Total</Text>
-                      <Text style={styles.paymentTotalValue}>${order.payment.total.toFixed(2)}</Text>
-                    </View>
-                  </>
+                  <Text style={styles.paymentTotal}>Total: ${order.payment.total.toFixed(2)}</Text>
                 )}
                 
-                {order.payment.reference && (
-                  <View style={styles.paymentRow}>
-                    <Text style={styles.paymentLabel}>Referencia</Text>
-                    <Text style={styles.paymentValue}>{order.payment.reference}</Text>
-                  </View>
-                )}
-
-                {/* Payment status button */}
                 <TouchableOpacity
-                  style={[
-                    styles.paymentStatusButton,
-                    order.payment.payment_status === 'pagado' && styles.paymentStatusButtonPaid,
-                  ]}
+                  style={[styles.payBtn, order.payment.payment_status === 'pagado' && styles.payBtnPaid]}
                   onPress={handlePaymentStatusChange}
                   disabled={updating}
                 >
-                  <Ionicons
-                    name={order.payment.payment_status === 'pagado' ? 'checkmark-circle' : 'card'}
-                    size={24}
-                    color="#FFFFFF"
-                  />
-                  <Text style={styles.paymentStatusButtonText}>
-                    {order.payment.payment_status === 'pagado'
-                      ? 'Pagado ✓'
-                      : 'Marcar como Pagado'}
+                  <Text style={styles.payBtnText}>
+                    {order.payment.payment_status === 'pagado' ? '✓ Pagado' : 'Marcar Pagado'}
                   </Text>
                 </TouchableOpacity>
 
-                {/* Invoice button - Show when payment is completed */}
                 {order.payment.payment_status === 'pagado' && (
-                  <TouchableOpacity
-                    style={styles.invoiceButton}
-                    onPress={() => setInvoiceModalVisible(true)}
-                  >
-                    <Ionicons name="document-text" size={24} color="#3B82F6" />
-                    <Text style={styles.invoiceButtonText}>Enviar Factura al Cliente</Text>
+                  <TouchableOpacity style={styles.invoiceBtn} onPress={() => setInvoiceModalVisible(true)}>
+                    <Ionicons name="document-text" size={20} color="#3B82F6" />
+                    <Text style={styles.invoiceBtnText}>Enviar Factura</Text>
                   </TouchableOpacity>
                 )}
-              </View>
+              </>
             ) : (
-              <TouchableOpacity
-                style={styles.addPaymentButton}
-                onPress={() => setPaymentModalVisible(true)}
-              >
-                <Ionicons name="add-circle" size={24} color="#3B82F6" />
-                <Text style={styles.addPaymentText}>Agregar Información de Pago</Text>
+              <TouchableOpacity style={styles.addPaymentBtn} onPress={() => setPaymentModalVisible(true)}>
+                <Ionicons name="add-circle" size={20} color="#3B82F6" />
+                <Text style={styles.addPaymentText}>Agregar Pago</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -582,204 +442,131 @@ export default function OrderDetailScreen() {
         {/* Notes */}
         {order.notes && (
           <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Ionicons name="document-text" size={24} color="#6B7280" />
-              <Text style={styles.cardTitle}>Notas</Text>
-            </View>
+            <Text style={styles.cardTitle}>Notas</Text>
             <Text style={styles.notesText}>{order.notes}</Text>
           </View>
         )}
 
-        {/* Order Info */}
-        <View style={styles.orderInfo}>
-          <Text style={styles.orderInfoText}>
-            Técnico: {order.tech_name}
-          </Text>
-          <Text style={styles.orderInfoText}>
-            Creada: {new Date(order.created_at).toLocaleString('es-ES')}
-          </Text>
-          {order.completed_at && (
-            <Text style={styles.orderInfoText}>
-              Completada: {new Date(order.completed_at).toLocaleString('es-ES')}
-            </Text>
-          )}
-        </View>
+        <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Price Edit Modal */}
+      <Modal visible={priceModalVisible} animationType="fade" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {isAdmin ? 'Editar Precio' : 'Confirmar Precio'}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {isAdmin ? 'Modifique el precio total del trabajo' : 'Confirme o ajuste el precio según el trabajo realizado'}
+            </Text>
+            
+            <View style={styles.priceInputRow}>
+              <Text style={styles.dollarSign}>$</Text>
+              <TextInput
+                style={styles.priceInput}
+                value={editPrice}
+                onChangeText={setEditPrice}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPriceModalVisible(false)}>
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.confirmBtn, updating && { opacity: 0.7 }]} 
+                onPress={handleUpdatePrice}
+                disabled={updating}
+              >
+                {updating ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <Text style={styles.confirmBtnText}>Confirmar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Payment Modal */}
-      <Modal
-        visible={paymentModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setPaymentModalVisible(false)}
-      >
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.modalOverlay}
-        >
+      <Modal visible={paymentModalVisible} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Información de Pago</Text>
               <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+                <Ionicons name="close" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Método de Pago</Text>
-              <View style={styles.methodButtons}>
-                {[
-                  { id: 'cash', label: 'Efectivo', icon: 'cash' },
-                  { id: 'zelle', label: 'Zelle', icon: 'phone-portrait' },
-                  { id: 'check', label: 'Cheque', icon: 'document' },
-                  { id: 'other', label: 'Otro', icon: 'ellipsis-horizontal' },
-                ].map((method) => (
-                  <TouchableOpacity
-                    key={method.id}
-                    style={[
-                      styles.methodButton,
-                      paymentForm.method === method.id && styles.methodButtonActive,
-                    ]}
-                    onPress={() => setPaymentForm({ ...paymentForm, method: method.id })}
-                  >
-                    <Ionicons
-                      name={method.icon as any}
-                      size={20}
-                      color={paymentForm.method === method.id ? '#FFFFFF' : '#6B7280'}
-                    />
-                    <Text
-                      style={[
-                        styles.methodButtonText,
-                        paymentForm.method === method.id && styles.methodButtonTextActive,
-                      ]}
-                    >
-                      {method.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            <Text style={styles.inputLabel}>Método de Pago</Text>
+            <View style={styles.methodRow}>
+              {['cash', 'zelle', 'check'].map((method) => (
+                <TouchableOpacity
+                  key={method}
+                  style={[styles.methodBtn, paymentForm.method === method && styles.methodBtnActive]}
+                  onPress={() => setPaymentForm({ ...paymentForm, method })}
+                >
+                  <Text style={[styles.methodBtnText, paymentForm.method === method && styles.methodBtnTextActive]}>
+                    {method === 'cash' ? 'Efectivo' : method === 'zelle' ? 'Zelle' : 'Cheque'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
 
-            {/* Show discount and reference inputs only for admin */}
-            {isAdmin && (
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Descuento (opcional)</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="0.00"
-                  placeholderTextColor="#6B7280"
-                  value={paymentForm.discount}
-                  onChangeText={(text) => setPaymentForm({ ...paymentForm, discount: text })}
-                  keyboardType="decimal-pad"
-                />
-              </View>
-            )}
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Referencia / # Transacción (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Zelle #12345"
-                placeholderTextColor="#6B7280"
-                value={paymentForm.reference}
-                onChangeText={(text) => setPaymentForm({ ...paymentForm, reference: text })}
-              />
-            </View>
-
-            {/* Payment Summary - Only for admin */}
-            {isAdmin && (
-              <View style={styles.paymentSummary}>
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Subtotal</Text>
-                  <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
-                </View>
-                {parseFloat(paymentForm.discount) > 0 && (
-                  <View style={styles.summaryRow}>
-                    <Text style={styles.summaryLabel}>Descuento</Text>
-                    <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
-                      -${parseFloat(paymentForm.discount).toFixed(2)}
-                    </Text>
-                  </View>
-                )}
-                <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
-                  <Text style={styles.summaryValue}>${tax.toFixed(2)}</Text>
-                </View>
-                <View style={[styles.summaryRow, styles.summaryTotalRow]}>
-                  <Text style={styles.summaryTotalLabel}>Total</Text>
-                  <Text style={styles.summaryTotalValue}>${total.toFixed(2)}</Text>
-                </View>
-              </View>
-            )}
+            <Text style={styles.inputLabel}>Referencia (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="# Transacción"
+              placeholderTextColor="#6B7280"
+              value={paymentForm.reference}
+              onChangeText={(text) => setPaymentForm({ ...paymentForm, reference: text })}
+            />
 
             <TouchableOpacity
-              style={[styles.saveButton, updating && styles.saveButtonDisabled]}
+              style={[styles.confirmBtn, { marginTop: 20 }]}
               onPress={handleCreatePayment}
               disabled={updating}
             >
-              {updating ? (
-                <ActivityIndicator color="#FFFFFF" />
-              ) : (
-                <Text style={styles.saveButtonText}>Guardar Pago</Text>
-              )}
+              {updating ? <ActivityIndicator color="#FFF" /> : <Text style={styles.confirmBtnText}>Guardar</Text>}
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
       </Modal>
 
       {/* Invoice Modal */}
-      <Modal
-        visible={invoiceModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setInvoiceModalVisible(false)}
-      >
+      <Modal visible={invoiceModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.invoiceModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Enviar Factura</Text>
-              <TouchableOpacity onPress={() => setInvoiceModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#FFFFFF" />
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Enviar Factura</Text>
+            <Text style={styles.modalSubtitle}>a {order.client?.name}</Text>
+
+            <View style={styles.shareOptions}>
+              <TouchableOpacity style={styles.whatsappBtn} onPress={sendWhatsApp}>
+                <Ionicons name="logo-whatsapp" size={28} color="#FFF" />
+                <Text style={styles.shareText}>WhatsApp</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.smsBtn} onPress={sendSMS}>
+                <Ionicons name="chatbubble" size={28} color="#FFF" />
+                <Text style={styles.shareText}>SMS</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareBtn} onPress={shareInvoice}>
+                <Ionicons name="share-social" size={28} color="#FFF" />
+                <Text style={styles.shareText}>Otro</Text>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.invoiceModalSubtitle}>
-              Enviar factura a {order.client?.name}
-            </Text>
-            {order.client?.phone && (
-              <Text style={styles.invoiceModalPhone}>
-                📱 {order.client.phone}
-              </Text>
-            )}
-
-            <View style={styles.invoiceOptions}>
-              <TouchableOpacity style={styles.whatsappButton} onPress={sendWhatsApp}>
-                <Ionicons name="logo-whatsapp" size={32} color="#FFFFFF" />
-                <Text style={styles.invoiceOptionText}>WhatsApp</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.smsButton} onPress={sendSMS}>
-                <Ionicons name="chatbubble" size={32} color="#FFFFFF" />
-                <Text style={styles.invoiceOptionText}>SMS</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.shareButton} onPress={shareInvoice}>
-                <Ionicons name="share-social" size={32} color="#FFFFFF" />
-                <Text style={styles.invoiceOptionText}>Compartir</Text>
-              </TouchableOpacity>
-            </View>
-
-            <TouchableOpacity
-              style={styles.cancelInvoiceButton}
-              onPress={() => setInvoiceModalVisible(false)}
-            >
-              <Text style={styles.cancelInvoiceText}>Cerrar</Text>
+            <TouchableOpacity style={styles.closeModalBtn} onPress={() => setInvoiceModalVisible(false)}>
+              <Text style={styles.closeModalText}>Cerrar</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      {/* Loading Overlay */}
       {updating && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#3B82F6" />
@@ -790,472 +577,358 @@ export default function OrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#111827',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111827',
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#EF4444',
-  },
-  statusSection: {
-    backgroundColor: '#1F2937',
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
-  },
-  statusHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  permissionNote: {
-    fontSize: 12,
-    color: '#F59E0B',
-    marginBottom: 12,
-    fontStyle: 'italic',
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  statusButtons: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  statusButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    padding: 10,
-    gap: 4,
-  },
-  statusButtonActive: {
-    backgroundColor: '#3B82F6',
-  },
-  statusButtonAssigned: {
-    backgroundColor: '#8B5CF6',
-  },
-  statusButtonDisabled: {
-    backgroundColor: '#1F2937',
-    borderWidth: 1,
-    borderColor: '#374151',
-    opacity: 0.5,
-  },
-  statusButtonText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  statusButtonTextDisabled: {
-    color: '#4B5563',
-  },
-  statusButtonTextActive: {
-    color: '#FFFFFF',
-  },
-  startWorkButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#10B981',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    gap: 8,
-  },
-  startWorkButtonText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
+  container: { flex: 1, backgroundColor: '#111827' },
+  scrollView: { flex: 1, padding: 12 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#111827' },
+  errorText: { color: '#EF4444', fontSize: 16 },
+  
   card: {
     backgroundColor: '#1F2937',
-    marginHorizontal: 16,
-    marginBottom: 12,
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
+    marginBottom: 10,
   },
   cardHeader: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
-    gap: 12,
   },
   cardTitle: {
+    color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
-    color: '#FFFFFF',
+  },
+  
+  statusButtons: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  statusBtn: {
     flex: 1,
+    backgroundColor: '#374151',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  cardContent: {},
-  vehicleName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
+  statusBtnActive: {
+    backgroundColor: '#3B82F6',
   },
-  vehicleDetail: {
-    fontSize: 14,
+  statusBtnText: {
     color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  statusBtnTextActive: {
+    color: '#FFF',
+  },
+  
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  infoText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  vinText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginLeft: 30,
+    marginTop: 2,
+  },
+  phoneText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginLeft: 30,
+    marginTop: 2,
+  },
+  
+  serviceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+  },
+  serviceText: {
+    color: '#D1D5DB',
+    fontSize: 14,
+  },
+  
+  priceCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  priceHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceLabel: {
+    color: '#9CA3AF',
+    fontSize: 14,
+  },
+  editPriceBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(59,130,246,0.2)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  editPriceBtnText: {
+    color: '#3B82F6',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  priceValue: {
+    color: '#10B981',
+    fontSize: 32,
+    fontWeight: '700',
+    marginTop: 8,
+  },
+  priceHint: {
+    color: '#6B7280',
+    fontSize: 12,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  
+  paymentMethod: {
+    color: '#D1D5DB',
+    fontSize: 14,
+  },
+  paymentTotal: {
+    color: '#10B981',
+    fontSize: 18,
+    fontWeight: '700',
     marginTop: 4,
   },
-  clientName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
-  },
-  contactText: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  servicesList: {},
-  serviceCount: {
-    backgroundColor: '#374151',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '600',
-    overflow: 'hidden',
-  },
-  serviceItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#374151',
-  },
-  serviceInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  serviceName: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  serviceSide: {
-    fontSize: 12,
-    color: '#6B7280',
-    marginLeft: 6,
-  },
-  servicePrice: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981',
-  },
-  totalRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  payBtn: {
+    backgroundColor: '#3B82F6',
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
   },
-  totalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#9CA3AF',
-  },
-  totalValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  paymentInfo: {},
-  paymentRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 6,
-  },
-  paymentLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  paymentValue: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  paymentTotalRow: {
-    marginTop: 8,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
-  },
-  paymentTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  paymentTotalValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  paymentStatusButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    gap: 8,
-  },
-  paymentStatusButtonPaid: {
+  payBtnPaid: {
     backgroundColor: '#10B981',
   },
-  paymentStatusButtonText: {
-    fontSize: 16,
+  payBtnText: {
+    color: '#FFF',
+    fontSize: 15,
     fontWeight: '600',
-    color: '#FFFFFF',
   },
-  invoiceButton: {
+  invoiceBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
     gap: 8,
+    marginTop: 10,
+    paddingVertical: 12,
     borderWidth: 1,
     borderColor: '#3B82F6',
+    borderRadius: 10,
   },
-  invoiceButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  invoiceBtnText: {
     color: '#3B82F6',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  addPaymentButton: {
+  addPaymentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 16,
-    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#3B82F6',
-    borderStyle: 'dashed',
     gap: 8,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: '#3B82F6',
+    borderRadius: 10,
   },
   addPaymentText: {
-    fontSize: 14,
-    fontWeight: '600',
     color: '#3B82F6',
+    fontSize: 15,
+    fontWeight: '600',
   },
+  
   notesText: {
-    fontSize: 14,
     color: '#9CA3AF',
+    fontSize: 14,
+    marginTop: 8,
     lineHeight: 20,
   },
-  orderInfo: {
-    padding: 16,
-    gap: 4,
-  },
-  orderInfoText: {
-    fontSize: 12,
-    color: '#6B7280',
-  },
+  
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    padding: 20,
   },
   modalContent: {
     backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-    maxHeight: '90%',
-  },
-  invoiceModalContent: {
-    backgroundColor: '#1F2937',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
+    borderRadius: 16,
+    padding: 20,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   modalTitle: {
+    color: '#FFF',
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  invoiceModalSubtitle: {
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontWeight: '700',
     textAlign: 'center',
-    marginBottom: 8,
   },
-  invoiceModalPhone: {
-    fontSize: 14,
+  modalSubtitle: {
     color: '#9CA3AF',
+    fontSize: 14,
     textAlign: 'center',
-    marginBottom: 24,
-  },
-  invoiceOptions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 24,
-  },
-  whatsappButton: {
-    backgroundColor: '#25D366',
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  smsButton: {
-    backgroundColor: '#3B82F6',
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  shareButton: {
-    backgroundColor: '#8B5CF6',
-    width: 80,
-    height: 80,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  invoiceOptionText: {
-    fontSize: 11,
-    color: '#FFFFFF',
     marginTop: 4,
+    marginBottom: 20,
+  },
+  
+  priceInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 20,
+  },
+  dollarSign: {
+    color: '#10B981',
+    fontSize: 28,
+    fontWeight: '700',
+  },
+  priceInput: {
+    flex: 1,
+    height: 60,
+    color: '#FFF',
+    fontSize: 28,
+    fontWeight: '700',
+    marginLeft: 8,
+  },
+  
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  cancelBtn: {
+    flex: 1,
+    backgroundColor: '#374151',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  cancelBtnText: {
+    color: '#9CA3AF',
+    fontSize: 16,
     fontWeight: '600',
   },
-  cancelInvoiceButton: {
-    padding: 16,
+  confirmBtn: {
+    flex: 1,
+    backgroundColor: '#3B82F6',
+    paddingVertical: 14,
+    borderRadius: 10,
     alignItems: 'center',
   },
-  cancelInvoiceText: {
+  confirmBtnText: {
+    color: '#FFF',
     fontSize: 16,
-    color: '#9CA3AF',
+    fontWeight: '600',
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
+  
   inputLabel: {
-    fontSize: 14,
     color: '#9CA3AF',
+    fontSize: 14,
     marginBottom: 8,
+    marginTop: 12,
   },
   input: {
     backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingHorizontal: 14,
     height: 48,
-    color: '#FFFFFF',
+    color: '#FFF',
     fontSize: 16,
   },
-  methodButtons: {
+  methodRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
   },
-  methodButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  methodBtn: {
+    flex: 1,
     backgroundColor: '#374151',
-    borderRadius: 12,
-    paddingHorizontal: 16,
     paddingVertical: 12,
-    gap: 8,
-  },
-  methodButtonActive: {
-    backgroundColor: '#3B82F6',
-  },
-  methodButtonText: {
-    fontSize: 14,
-    color: '#6B7280',
-  },
-  methodButtonTextActive: {
-    color: '#FFFFFF',
-    fontWeight: '600',
-  },
-  paymentSummary: {
-    backgroundColor: '#374151',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    borderRadius: 8,
     alignItems: 'center',
-    paddingVertical: 4,
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#9CA3AF',
-  },
-  summaryValue: {
-    fontSize: 14,
-    color: '#FFFFFF',
-  },
-  summaryTotalRow: {
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#4B5563',
-  },
-  summaryTotalLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  summaryTotalValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#10B981',
-  },
-  saveButton: {
+  methodBtnActive: {
     backgroundColor: '#3B82F6',
-    borderRadius: 12,
-    height: 50,
+  },
+  methodBtnText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  methodBtnTextActive: {
+    color: '#FFF',
+  },
+  
+  shareOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginVertical: 20,
+  },
+  whatsappBtn: {
+    backgroundColor: '#25D366',
+    width: 70,
+    height: 70,
+    borderRadius: 14,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  saveButtonDisabled: {
-    opacity: 0.7,
+  smsBtn: {
+    backgroundColor: '#3B82F6',
+    width: 70,
+    height: 70,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+  shareBtn: {
+    backgroundColor: '#8B5CF6',
+    width: 70,
+    height: 70,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareText: {
+    color: '#FFF',
+    fontSize: 10,
+    marginTop: 4,
     fontWeight: '600',
   },
+  closeModalBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+  },
+  closeModalText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
