@@ -10,62 +10,90 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
-  Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { login } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 
-// Company logo as SVG text component
+// Company logo - Ohio Airbag Light Reset
 const CompanyLogo = () => (
   <View style={logoStyles.container}>
+    {/* Icon row with car, airbag, lightning */}
     <View style={logoStyles.iconRow}>
-      <Ionicons name="car" size={28} color="#F59E0B" />
-      <View style={logoStyles.airbagIcon}>
-        <Ionicons name="ellipse" size={24} color="#F59E0B" />
+      <View style={logoStyles.iconCircle}>
+        <Ionicons name="car" size={26} color="#D4A017" />
       </View>
-      <Ionicons name="flash" size={28} color="#F59E0B" />
+      <View style={logoStyles.iconCircle}>
+        <MaterialCommunityIcons name="airbag" size={26} color="#D4A017" />
+      </View>
+      <View style={logoStyles.iconCircle}>
+        <Ionicons name="flash" size={26} color="#D4A017" />
+      </View>
     </View>
-    <Text style={logoStyles.mainText}>OHIO</Text>
-    <Text style={logoStyles.subText}>AIRBAG LIGHT</Text>
+    {/* OHIO text */}
+    <Text style={logoStyles.ohioText}>OHIO</Text>
+    {/* AIRBAG LIGHT text */}
+    <Text style={logoStyles.airbagText}>AIRBAG LIGHT</Text>
+    {/* RESET text */}
     <Text style={logoStyles.resetText}>RESET</Text>
+    {/* Decorative line */}
+    <View style={logoStyles.decorLine} />
   </View>
 );
 
 const logoStyles = StyleSheet.create({
   container: {
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 40,
   },
   iconRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 16,
   },
-  airbagIcon: {
-    backgroundColor: 'transparent',
+  iconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(212, 160, 23, 0.15)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  mainText: {
-    fontSize: 42,
+  ohioText: {
+    fontSize: 56,
     fontWeight: '900',
-    color: '#F59E0B',
-    letterSpacing: 8,
+    color: '#D4A017',
+    letterSpacing: 12,
+    textShadowColor: 'rgba(212, 160, 23, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  subText: {
-    fontSize: 18,
-    fontWeight: '700',
+  airbagText: {
+    fontSize: 20,
+    fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 4,
-    marginTop: 4,
+    letterSpacing: 6,
+    marginTop: 2,
   },
   resetText: {
-    fontSize: 32,
+    fontSize: 42,
     fontWeight: '900',
-    color: '#F59E0B',
-    letterSpacing: 12,
+    color: '#D4A017',
+    letterSpacing: 16,
     marginTop: 4,
+    textShadowColor: 'rgba(212, 160, 23, 0.3)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  decorLine: {
+    width: 120,
+    height: 3,
+    backgroundColor: '#D4A017',
+    marginTop: 16,
+    borderRadius: 2,
   },
 });
 
