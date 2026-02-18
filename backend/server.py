@@ -662,12 +662,12 @@ async def get_work_order(order_id: str, current_user: dict = Depends(get_current
     tech = await db.users.find_one({"id": order["tech_id"]})
     payment = await db.payments.find_one({"work_order_id": order["id"]})
     
-    order["vehicle"] = vehicle
-    order["client"] = client
+    order["vehicle"] = serialize_doc(vehicle)
+    order["client"] = serialize_doc(client)
     order["tech_name"] = tech["name"] if tech else "Desconocido"
-    order["payment"] = payment
+    order["payment"] = serialize_doc(payment)
     
-    return order
+    return serialize_doc(order)
 
 @api_router.put("/work-orders/{order_id}")
 async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_user: dict = Depends(get_current_user)):
