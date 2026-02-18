@@ -41,8 +41,8 @@ export default function OrderDetailScreen() {
     discount: '',
   });
 
-  // Status order for permission checking
-  const statusOrder: Record<string, number> = { iniciado: 0, pendiente: 1, terminado: 2 };
+  // Status order for permission checking (asignado is before iniciado)
+  const statusOrder: Record<string, number> = { asignado: 0, iniciado: 1, pendiente: 2, terminado: 3 };
 
   const canChangeToStatus = (newStatus: string): boolean => {
     if (!order) return false;
