@@ -1737,6 +1737,114 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   
+  // Completed Work Modal Styles
+  completedHeader: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  completedIcon: {
+    fontSize: 48,
+    marginBottom: 10,
+  },
+  completedTitle: {
+    color: '#FFF',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  completedSubtitle: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginTop: 6,
+  },
+  completedInfo: {
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 16,
+  },
+  completedVehicle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  completedClient: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginTop: 4,
+  },
+  contactsList: {
+    maxHeight: 280,
+  },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+  },
+  contactBtnDisabled: {
+    opacity: 0.5,
+  },
+  contactInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  contactIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#6B7280',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactIconClient: {
+    backgroundColor: '#3B82F6',
+  },
+  contactIconOwner: {
+    backgroundColor: '#F59E0B',
+  },
+  contactIconAdmin: {
+    backgroundColor: '#EC4899',
+  },
+  contactIconTech: {
+    backgroundColor: '#10B981',
+  },
+  contactDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  contactName: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  contactPhone: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  whatsappIcon: {
+    padding: 8,
+  },
+  doneBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  doneBtnText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0,0,0,0.5)',
