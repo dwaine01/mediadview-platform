@@ -22,8 +22,9 @@ import {
   createPayment,
   updatePayment,
   getWorkshop,
+  getClient,
 } from '../../src/services/api';
-import { WorkOrder, Workshop } from '../../src/types';
+import { WorkOrder, Workshop, Client } from '../../src/types';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { PaymentBadge } from '../../src/components/PaymentBadge';
 import { useAuthStore } from '../../src/store/authStore';
@@ -34,6 +35,7 @@ export default function OrderDetailScreen() {
   const isAdmin = user?.role === 'admin';
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [workshop, setWorkshop] = useState<Workshop | null>(null);
+  const [clientData, setClientData] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
