@@ -102,12 +102,9 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.registerLink}
-            onPress={() => router.push('/(auth)/register')}
-          >
-            <Text style={styles.registerText}>
-              ¿No tienes cuenta? <Text style={styles.registerTextBold}>Registrar taller</Text>
+          <Text style={styles.contactText}>
+            Contacta al administrador para obtener acceso
+          </Text>
             </Text>
           </TouchableOpacity>
         </View>
