@@ -28,6 +28,8 @@ import { useAuthStore } from '../../src/store/authStore';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [order, setOrder] = useState<WorkOrder | null>(null);
   const [workshop, setWorkshop] = useState<Workshop | null>(null);
   const [loading, setLoading] = useState(true);
@@ -38,6 +40,16 @@ export default function OrderDetailScreen() {
     reference: '',
     discount: '',
   });
+
+  // Status order for permission checking
+  const statusOrder: Record<string, number> = { iniciado: 0, pendiente: 1, terminado: 2 };
+
+  const canChangeToStatus = (newStatus: string): boolean => {
+    if (!order) return false;
+    if (isAdmin) return true; // Admin can change to any status
+    // Technicians can only move forward
+    return statusOrder[newStatus] > statusOrder[order.status];
+  };
 
   const loadOrder = async () => {
     try {
