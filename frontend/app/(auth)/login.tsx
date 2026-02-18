@@ -134,7 +134,6 @@ export default function LoginScreen() {
       >
         <View style={styles.logoContainer}>
           <CompanyLogo />
-          <Text style={styles.subtitle}>Iniciar Sesión</Text>
         </View>
 
         <View style={styles.form}>
