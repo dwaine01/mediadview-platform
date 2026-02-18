@@ -523,14 +523,79 @@ async def get_client(client_id: str, current_user: dict = Depends(get_current_us
     return serialize_doc(client)
 
 @api_router.put("/clients/{client_id}")
-async def update_client(client_id: str, client_data: ClientCreate, current_user: dict = Depends(get_current_user)):
+async def update_client(client_id: str, client_data: ClientUpdate, current_user: dict = Depends(get_current_user)):
+    update_dict = {k: v for k, v in client_data.dict().items() if v is not None}
+    if not update_dict:
+        raise HTTPException(status_code=400, detail="No hay datos para actualizar")
+    
     result = await db.clients.update_one(
         {"id": client_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": client_data.dict()}
+        {"$set": update_dict}
     )
     if result.modified_count == 0:
         raise HTTPException(status_code=404, detail="Cliente no encontrado")
     return {"message": "Cliente actualizado"}
+
+# ============ CREDIT REPORTS ============
+
+@api_router.get("/reports/credit")
+async def get_credit_report(current_user: dict = Depends(get_current_user)):
+    """Get all clients with credit accounts and their pending orders"""
+    # Get clients with credit
+    credit_clients = await db.clients.find({
+        "workshop_id": current_user["workshop_id"],
+        "has_credit": True
+    }).to_list(100)
+    
+    report = []
+    
+    for client in credit_clients:
+        # Get pending orders for this client
+        orders = await db.work_orders.find({
+            "workshop_id": current_user["workshop_id"],
+            "client_id": client["id"]
+        }).to_list(100)
+        
+        pending_orders = []
+        total_pending = 0
+        total_paid = 0
+        
+        for order in orders:
+            # Get payment info
+            payment = await db.payments.find_one({"work_order_id": order["id"]})
+            
+            # Get vehicle info
+            vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
+            
+            order_total = sum(s.get("price", 0) * s.get("quantity", 1) for s in order.get("services", []))
+            
+            order_info = {
+                "id": order["id"],
+                "vehicle": f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}" if vehicle else "N/A",
+                "vin": vehicle.get("vin", "N/A") if vehicle else "N/A",
+                "services": [s.get("service_name", "") for s in order.get("services", [])],
+                "status": order.get("status", ""),
+                "created_at": order.get("created_at"),
+                "total": payment.get("total", order_total) if payment else order_total,
+                "payment_status": payment.get("payment_status", "pendiente") if payment else "sin_pago",
+            }
+            
+            if payment and payment.get("payment_status") == "pagado":
+                total_paid += order_info["total"]
+            else:
+                total_pending += order_info["total"]
+                pending_orders.append(order_info)
+        
+        if pending_orders or True:  # Show all credit clients
+            report.append({
+                "client": serialize_doc(client),
+                "pending_orders": serialize_doc(pending_orders),
+                "total_pending": total_pending,
+                "total_paid": total_paid,
+                "total_orders": len(orders),
+            })
+    
+    return serialize_doc(report)
 
 # ============ VEHICLE ROUTES ============
 
