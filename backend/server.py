@@ -695,6 +695,10 @@ async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_
     if "tech_id" in update_dict and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Solo el administrador puede reasignar técnicos")
     
+    # Services/prices modification validation (admin only after creation)
+    if "services" in update_dict and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede modificar los servicios y precios")
+    
     # Status change validation
     if "status" in update_dict:
         current_status = current_order.get("status", "iniciado")
