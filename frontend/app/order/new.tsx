@@ -8,14 +8,18 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Modal,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getServices, createWorkOrder, getClient, getWorkshop } from '../../src/services/api';
-import { ServiceItem, Vehicle, WorkOrderService } from '../../src/types';
+import { getServices, createWorkOrder, getClient, getWorkshop, getUsers } from '../../src/services/api';
+import { ServiceItem, Vehicle, WorkOrderService, User } from '../../src/types';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function NewOrderScreen() {
   const params = useLocalSearchParams();
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const vehicleId = params.vehicleId as string;
   const clientId = params.clientId as string;
   const vehicleData: Vehicle = params.vehicleData ? JSON.parse(params.vehicleData as string) : null;
@@ -27,6 +31,11 @@ export default function NewOrderScreen() {
   const [notes, setNotes] = useState('');
   const [odometer, setOdometer] = useState('');
   const [activeCategory, setActiveCategory] = useState('srs');
+  
+  // Tech assignment (admin only)
+  const [technicians, setTechnicians] = useState<User[]>([]);
+  const [selectedTech, setSelectedTech] = useState<User | null>(null);
+  const [techModalVisible, setTechModalVisible] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -40,6 +49,13 @@ export default function NewOrderScreen() {
       ]);
       setServices(servicesRes);
       setClientName(clientRes.name);
+      
+      // Load technicians if admin
+      if (isAdmin) {
+        const usersRes = await getUsers();
+        const techs = usersRes.filter((u: User) => u.role === 'tech' && u.active !== false);
+        setTechnicians(techs);
+      }
     } catch (error) {
       console.error('Error loading data:', error);
     }
