@@ -11,23 +11,30 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getClients, createClient } from '../../src/services/api';
+import { getClients, createClient, updateClient } from '../../src/services/api';
 import { Client } from '../../src/types';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function ClientsScreen() {
+  const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [clients, setClients] = useState<Client[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [modalVisible, setModalVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState({
     name: '',
     phone: '',
     email: '',
     address: '',
     notes: '',
+    has_credit: false,
   });
 
   const loadClients = async (search?: string) => {
@@ -64,7 +71,7 @@ export default function ClientsScreen() {
     try {
       await createClient(newClient);
       setModalVisible(false);
-      setNewClient({ name: '', phone: '', email: '', address: '', notes: '' });
+      setNewClient({ name: '', phone: '', email: '', address: '', notes: '', has_credit: false });
       loadClients();
       Alert.alert('Éxito', 'Cliente creado correctamente');
     } catch (error: any) {
@@ -72,15 +79,53 @@ export default function ClientsScreen() {
     }
   };
 
+  const openEditModal = (client: Client) => {
+    setSelectedClient(client);
+    setEditModalVisible(true);
+  };
+
+  const handleUpdateCredit = async (hasCredit: boolean) => {
+    if (!selectedClient) return;
+    
+    try {
+      await updateClient(selectedClient.id, { has_credit: hasCredit });
+      setSelectedClient({ ...selectedClient, has_credit: hasCredit });
+      loadClients();
+      Alert.alert(
+        'Éxito',
+        hasCredit 
+          ? 'Cuenta de crédito activada' 
+          : 'Cuenta de crédito desactivada'
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
+    }
+  };
+
   const renderClient = ({ item }: { item: Client }) => (
-    <TouchableOpacity style={styles.clientCard}>
-      <View style={styles.avatar}>
+    <TouchableOpacity 
+      style={styles.clientCard}
+      onPress={() => openEditModal(item)}
+    >
+      <View style={[styles.avatar, item.has_credit && styles.avatarCredit]}>
         <Text style={styles.avatarText}>
           {item.name.charAt(0).toUpperCase()}
         </Text>
+        {item.has_credit && (
+          <View style={styles.creditBadge}>
+            <Ionicons name="card" size={10} color="#FFF" />
+          </View>
+        )}
       </View>
       <View style={styles.clientInfo}>
-        <Text style={styles.clientName}>{item.name}</Text>
+        <View style={styles.nameRow}>
+          <Text style={styles.clientName}>{item.name}</Text>
+          {item.has_credit && (
+            <View style={styles.creditTag}>
+              <Text style={styles.creditTagText}>CRÉDITO</Text>
+            </View>
+          )}
+        </View>
         {item.phone && (
           <View style={styles.infoRow}>
             <Ionicons name="call-outline" size={14} color="#6B7280" />
@@ -180,7 +225,7 @@ export default function ClientsScreen() {
               <Text style={styles.inputLabel}>Teléfono</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Número de teléfono"
+                placeholder="(555) 123-4567"
                 placeholderTextColor="#6B7280"
                 value={newClient.phone}
                 onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
@@ -192,7 +237,7 @@ export default function ClientsScreen() {
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Correo electrónico"
+                placeholder="email@ejemplo.com"
                 placeholderTextColor="#6B7280"
                 value={newClient.email}
                 onChangeText={(text) => setNewClient({ ...newClient, email: text })}
@@ -212,11 +257,120 @@ export default function ClientsScreen() {
               />
             </View>
 
-            <TouchableOpacity style={styles.saveButton} onPress={handleCreateClient}>
-              <Text style={styles.saveButtonText}>Guardar Cliente</Text>
+            {/* Credit Toggle */}
+            {isAdmin && (
+              <View style={styles.creditToggle}>
+                <View style={styles.creditToggleInfo}>
+                  <Ionicons name="card" size={24} color="#7C3AED" />
+                  <View style={styles.creditToggleText}>
+                    <Text style={styles.creditToggleTitle}>Cuenta de Crédito</Text>
+                    <Text style={styles.creditToggleDesc}>El cliente puede pagar después</Text>
+                  </View>
+                </View>
+                <Switch
+                  value={newClient.has_credit}
+                  onValueChange={(value) => setNewClient({ ...newClient, has_credit: value })}
+                  trackColor={{ false: '#374151', true: '#7C3AED' }}
+                  thumbColor={newClient.has_credit ? '#FFF' : '#9CA3AF'}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity style={styles.createButton} onPress={handleCreateClient}>
+              <Text style={styles.createButtonText}>Crear Cliente</Text>
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Edit Client Modal */}
+      <Modal
+        visible={editModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.editModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{selectedClient?.name}</Text>
+              <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Client Info */}
+            <View style={styles.editClientInfo}>
+              {selectedClient?.phone && (
+                <View style={styles.editInfoRow}>
+                  <Ionicons name="call" size={20} color="#3B82F6" />
+                  <Text style={styles.editInfoText}>{selectedClient.phone}</Text>
+                </View>
+              )}
+              {selectedClient?.email && (
+                <View style={styles.editInfoRow}>
+                  <Ionicons name="mail" size={20} color="#3B82F6" />
+                  <Text style={styles.editInfoText}>{selectedClient.email}</Text>
+                </View>
+              )}
+              {selectedClient?.address && (
+                <View style={styles.editInfoRow}>
+                  <Ionicons name="location" size={20} color="#3B82F6" />
+                  <Text style={styles.editInfoText}>{selectedClient.address}</Text>
+                </View>
+              )}
+            </View>
+
+            {/* Credit Section - Admin Only */}
+            {isAdmin && (
+              <View style={styles.creditSection}>
+                <Text style={styles.creditSectionTitle}>Configuración de Crédito</Text>
+                
+                <View style={styles.creditOption}>
+                  <View style={styles.creditOptionInfo}>
+                    <Ionicons 
+                      name={selectedClient?.has_credit ? "checkmark-circle" : "close-circle"} 
+                      size={28} 
+                      color={selectedClient?.has_credit ? "#10B981" : "#6B7280"} 
+                    />
+                    <View style={styles.creditOptionText}>
+                      <Text style={styles.creditOptionTitle}>
+                        {selectedClient?.has_credit ? 'Crédito Activo' : 'Sin Crédito'}
+                      </Text>
+                      <Text style={styles.creditOptionDesc}>
+                        {selectedClient?.has_credit 
+                          ? 'Este cliente puede pagar después' 
+                          : 'Este cliente paga al contado'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={selectedClient?.has_credit || false}
+                    onValueChange={handleUpdateCredit}
+                    trackColor={{ false: '#374151', true: '#10B981' }}
+                    thumbColor="#FFF"
+                  />
+                </View>
+
+                {selectedClient?.has_credit && (
+                  <View style={styles.creditActiveNote}>
+                    <Ionicons name="information-circle" size={18} color="#7C3AED" />
+                    <Text style={styles.creditActiveNoteText}>
+                      Las órdenes de este cliente aparecerán en "Cuentas por Cobrar"
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={styles.closeButton}
+              onPress={() => setEditModalVisible(false)}
+            >
+              <Text style={styles.closeButtonText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
     </View>
   );
@@ -229,22 +383,21 @@ const styles = StyleSheet.create({
   },
   searchContainer: {
     padding: 16,
+    backgroundColor: '#1F2937',
   },
   searchInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1F2937',
+    backgroundColor: '#374151',
     borderRadius: 12,
     paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#374151',
+    height: 48,
+    gap: 12,
   },
   searchInput: {
     flex: 1,
-    height: 48,
     color: '#FFFFFF',
     fontSize: 16,
-    marginLeft: 12,
   },
   list: {
     padding: 16,
@@ -259,66 +412,98 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
+    position: 'relative',
+  },
+  avatarCredit: {
+    backgroundColor: '#7C3AED',
   },
   avatarText: {
+    color: '#FFFFFF',
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#FFFFFF',
+  },
+  creditBadge: {
+    position: 'absolute',
+    bottom: -2,
+    right: -2,
+    backgroundColor: '#10B981',
+    borderRadius: 10,
+    width: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#1F2937',
   },
   clientInfo: {
     flex: 1,
-    marginLeft: 16,
+    marginLeft: 14,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   clientName: {
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
-    marginBottom: 4,
+  },
+  creditTag: {
+    backgroundColor: '#7C3AED',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  creditTagText: {
+    color: '#FFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 2,
+    marginTop: 4,
+    gap: 8,
   },
   infoText: {
-    fontSize: 13,
     color: '#9CA3AF',
-    marginLeft: 6,
+    fontSize: 13,
   },
   emptyState: {
     alignItems: 'center',
-    padding: 60,
+    paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 18,
-    color: '#6B7280',
+    color: '#9CA3AF',
+    fontSize: 16,
     marginTop: 16,
   },
   fab: {
     position: 'absolute',
-    right: 20,
-    bottom: 20,
+    bottom: 24,
+    right: 24,
     width: 56,
     height: 56,
     borderRadius: 28,
     backgroundColor: '#3B82F6',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 4,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
+    backgroundColor: 'rgba(0,0,0,0.8)',
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -326,7 +511,13 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    maxHeight: '80%',
+    maxHeight: '90%',
+  },
+  editModalContent: {
+    backgroundColor: '#1F2937',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -351,21 +542,125 @@ const styles = StyleSheet.create({
     backgroundColor: '#374151',
     borderRadius: 12,
     paddingHorizontal: 16,
-    height: 48,
+    height: 50,
     color: '#FFFFFF',
     fontSize: 16,
   },
-  saveButton: {
+  creditToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  creditToggleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  creditToggleText: {
+    flex: 1,
+  },
+  creditToggleTitle: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  creditToggleDesc: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  createButton: {
     backgroundColor: '#3B82F6',
     borderRadius: 12,
     height: 50,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 16,
   },
-  saveButtonText: {
+  createButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Edit Modal
+  editClientInfo: {
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  editInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  editInfoText: {
+    color: '#D1D5DB',
+    fontSize: 15,
+  },
+  creditSection: {
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  creditSectionTitle: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginBottom: 16,
+  },
+  creditOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  creditOptionInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    gap: 12,
+  },
+  creditOptionText: {
+    flex: 1,
+  },
+  creditOptionTitle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  creditOptionDesc: {
+    color: '#9CA3AF',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  creditActiveNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(124,58,237,0.2)',
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 16,
+    gap: 10,
+  },
+  creditActiveNoteText: {
+    color: '#C4B5FD',
+    fontSize: 12,
+    flex: 1,
+  },
+  closeButton: {
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closeButtonText: {
+    color: '#9CA3AF',
+    fontSize: 16,
   },
 });
