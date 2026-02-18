@@ -51,26 +51,35 @@ export default function ScanVinScreen() {
   };
 
   // Validate VIN
-  const validateVin = (vin: string): { valid: boolean; error?: string } => {
+  const validateVin = (vin: string): { valid: boolean; error?: string; suggestedVin?: string } => {
     if (!vin || vin.length === 0) {
       return { valid: false, error: 'No se pudo leer el código. Intente de nuevo o ingrese manualmente.' };
     }
     
-    if (vin.length !== 17) {
-      return { 
-        valid: false, 
-        error: `VIN inválido: ${vin.length} caracteres detectados (se requieren 17).\n\nVIN leído: ${vin}\n\nIntente escanear de nuevo o ingrese el VIN manualmente.`
-      };
-    }
-
+    // Check for invalid characters that weren't auto-corrected
     const invalidChars = ['I', 'O', 'Q'];
     for (const char of invalidChars) {
       if (vin.includes(char)) {
         return { 
           valid: false, 
-          error: `El VIN contiene el carácter inválido "${char}". Los VINs no pueden contener I, O o Q.`
+          error: `El VIN contiene el carácter inválido "${char}". Los VINs no pueden contener I, O o Q.\n\nSe ha intentado corregir automáticamente.`
         };
       }
+    }
+    
+    if (vin.length !== 17) {
+      // Try to provide helpful suggestion
+      let suggestion = '';
+      if (vin.length === 18) {
+        suggestion = '\n\nSugerencia: El código tiene un carácter extra. Intente ingresar manualmente.';
+      } else if (vin.length === 16) {
+        suggestion = '\n\nSugerencia: Puede faltar un carácter. Verifique el VIN completo.';
+      }
+      
+      return { 
+        valid: false, 
+        error: `VIN inválido: ${vin.length} caracteres detectados (se requieren 17).\n\nVIN leído: ${vin}${suggestion}\n\nIntente escanear de nuevo o ingrese el VIN manualmente.`
+      };
     }
 
     return { valid: true };
