@@ -170,7 +170,7 @@ class WorkOrder(BaseModel):
     vehicle_id: str
     client_id: str
     tech_id: str
-    status: str = "iniciado"  # iniciado, pendiente, terminado
+    status: str = "iniciado"  # asignado, iniciado, pendiente, terminado
     services: List[WorkOrderService] = []
     odometer: Optional[int] = None
     notes: Optional[str] = None
