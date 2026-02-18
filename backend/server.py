@@ -671,11 +671,38 @@ async def get_work_order(order_id: str, current_user: dict = Depends(get_current
 
 @api_router.put("/work-orders/{order_id}")
 async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_user: dict = Depends(get_current_user)):
+    # Get current order to check status
+    current_order = await db.work_orders.find_one({
+        "id": order_id,
+        "workshop_id": current_user["workshop_id"]
+    })
+    
+    if not current_order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
     update_dict = {k: v for k, v in order_data.dict().items() if v is not None}
     
+    # Status change validation
     if "status" in update_dict:
-        if update_dict["status"] == "terminado":
+        current_status = current_order.get("status", "iniciado")
+        new_status = update_dict["status"]
+        
+        # Define status order
+        status_order = {"iniciado": 0, "pendiente": 1, "terminado": 2}
+        
+        # If not admin, only allow forward progression
+        if current_user["role"] != "admin":
+            if status_order.get(new_status, 0) < status_order.get(current_status, 0):
+                raise HTTPException(
+                    status_code=403, 
+                    detail="Solo el administrador puede revertir el estado"
+                )
+        
+        if new_status == "terminado":
             update_dict["completed_at"] = datetime.utcnow()
+        elif new_status != "terminado" and current_status == "terminado":
+            # If reverting from terminado, clear completed_at (admin only)
+            update_dict["completed_at"] = None
     
     result = await db.work_orders.update_one(
         {"id": order_id, "workshop_id": current_user["workshop_id"]},
@@ -683,7 +710,7 @@ async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_
     )
     
     if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Orden no encontrada")
+        raise HTTPException(status_code=404, detail="No se pudo actualizar la orden")
     
     # Log status change
     if "status" in update_dict:
