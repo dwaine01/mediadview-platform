@@ -75,6 +75,25 @@ export const getClient = async (id: string) => {
   return response.data;
 };
 
+export const updateClient = async (id: string, data: {
+  name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  notes?: string;
+  has_credit?: boolean;
+  credit_limit?: number;
+}) => {
+  const response = await api.put(`/clients/${id}`, data);
+  return response.data;
+};
+
+// Credit Reports
+export const getCreditReport = async () => {
+  const response = await api.get('/reports/credit');
+  return response.data;
+};
+
 // Vehicles
 export const getVehicles = async (clientId?: string) => {
   const response = await api.get('/vehicles', { params: { client_id: clientId } });
