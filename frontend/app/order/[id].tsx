@@ -1097,6 +1097,32 @@ const styles = StyleSheet.create({
     color: '#FFF',
   },
   
+  // Botones del modal de pago
+  savePaymentBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginTop: 24,
+    gap: 10,
+  },
+  savePaymentBtnText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cancelPaymentBtn: {
+    alignItems: 'center',
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  cancelPaymentBtnText: {
+    color: '#9CA3AF',
+    fontSize: 15,
+  },
+  
   shareOptions: {
     flexDirection: 'row',
     justifyContent: 'space-around',
