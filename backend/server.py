@@ -817,7 +817,7 @@ async def get_daily_report(
     total_paid = 0.0
     total_pending = 0.0
     
-    by_status = {"iniciado": 0, "pendiente": 0, "terminado": 0}
+    by_status = {"asignado": 0, "iniciado": 0, "pendiente": 0, "terminado": 0}
     by_tech = {}
     
     for order in orders:
