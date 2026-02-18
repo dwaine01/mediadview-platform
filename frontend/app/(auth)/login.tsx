@@ -174,16 +174,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  registerLink: {
+  contactText: {
     marginTop: 24,
-    alignItems: 'center',
-  },
-  registerText: {
-    color: '#9CA3AF',
+    color: '#6B7280',
     fontSize: 14,
-  },
-  registerTextBold: {
-    color: '#3B82F6',
-    fontWeight: '600',
+    textAlign: 'center',
   },
 });
