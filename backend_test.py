@@ -10,7 +10,7 @@ import sys
 from datetime import datetime
 
 # Base URL from frontend .env
-BASE_URL = "https://carfix-tracker-6.preview.emergentagent.com/api"
+BASE_URL = "https://mechanicmate-5.preview.emergentagent.com/api"
 
 class AutoServiceTester:
     def __init__(self):
