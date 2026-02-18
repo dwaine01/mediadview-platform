@@ -10,11 +10,64 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { login } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
+
+// Company logo as SVG text component
+const CompanyLogo = () => (
+  <View style={logoStyles.container}>
+    <View style={logoStyles.iconRow}>
+      <Ionicons name="car" size={28} color="#F59E0B" />
+      <View style={logoStyles.airbagIcon}>
+        <Ionicons name="ellipse" size={24} color="#F59E0B" />
+      </View>
+      <Ionicons name="flash" size={28} color="#F59E0B" />
+    </View>
+    <Text style={logoStyles.mainText}>OHIO</Text>
+    <Text style={logoStyles.subText}>AIRBAG LIGHT</Text>
+    <Text style={logoStyles.resetText}>RESET</Text>
+  </View>
+);
+
+const logoStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  iconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  airbagIcon: {
+    backgroundColor: 'transparent',
+  },
+  mainText: {
+    fontSize: 42,
+    fontWeight: '900',
+    color: '#F59E0B',
+    letterSpacing: 8,
+  },
+  subText: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 4,
+    marginTop: 4,
+  },
+  resetText: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#F59E0B',
+    letterSpacing: 12,
+    marginTop: 4,
+  },
+});
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -52,8 +105,7 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
-          <Ionicons name="car-sport" size={80} color="#3B82F6" />
-          <Text style={styles.title}>AutoService Hub</Text>
+          <CompanyLogo />
           <Text style={styles.subtitle}>Iniciar Sesión</Text>
         </View>
 
