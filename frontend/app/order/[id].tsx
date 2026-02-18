@@ -121,12 +121,65 @@ export default function OrderDetailScreen() {
     return order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
   };
 
+  // Genera mensaje de trabajo terminado para WhatsApp
+  const generateCompletedMessage = () => {
+    if (!order || !workshop) return '';
+    
+    const date = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+    });
+    
+    let message = `✅ *TRABAJO COMPLETADO*\n\n`;
+    message += `🔧 *${workshop.name}*\n`;
+    message += `📅 Fecha: ${date}\n\n`;
+    message += `🚗 *Vehículo:*\n`;
+    message += `${order.vehicle?.year} ${order.vehicle?.make} ${order.vehicle?.model}\n`;
+    if (order.vehicle?.vin) {
+      message += `VIN: ${order.vehicle.vin}\n`;
+    }
+    message += `\n📋 *Servicios Realizados:*\n`;
+    
+    order.services.forEach((service, i) => {
+      message += `${i + 1}. ${service.service_name}\n`;
+    });
+    
+    const total = order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
+    message += `\n💰 *Total: $${total.toFixed(2)}*\n`;
+    message += `\n¡Su vehículo está listo para recoger! 🚗✨`;
+    
+    return message;
+  };
+
+  // Enviar WhatsApp de trabajo terminado
+  const sendCompletedWhatsApp = async () => {
+    if (!order?.client?.phone) {
+      return; // No enviar si no hay teléfono
+    }
+    
+    const message = generateCompletedMessage().replace(/\*/g, '');
+    const phone = order.client.phone.replace(/\D/g, '');
+    const phoneWithCode = phone.length === 10 ? `1${phone}` : phone;
+    
+    try {
+      await Linking.openURL(`whatsapp://send?phone=${phoneWithCode}&text=${encodeURIComponent(message)}`);
+    } catch {
+      // Si falla WhatsApp, no mostrar error (es opcional)
+      console.log('No se pudo abrir WhatsApp');
+    }
+  };
+
   const handleStatusChange = async (newStatus: string) => {
     if (!order) return;
 
+    // Mensaje especial para cuando se marca como terminado
+    const isCompletingWork = newStatus === 'terminado';
+    const confirmMessage = isCompletingWork 
+      ? `¿Marcar trabajo como TERMINADO?\n\nSe enviará un mensaje de WhatsApp al cliente notificando que su vehículo está listo.`
+      : `¿Cambiar estado a "${statusLabels[newStatus]}"?`;
+
     Alert.alert(
-      'Cambiar Estado',
-      `¿Cambiar estado a "${statusLabels[newStatus]}"?`,
+      isCompletingWork ? '🎉 Completar Trabajo' : 'Cambiar Estado',
+      confirmMessage,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -136,6 +189,13 @@ export default function OrderDetailScreen() {
             try {
               await updateWorkOrder(order.id, { status: newStatus });
               await loadOrder();
+              
+              // Si se marcó como terminado, enviar WhatsApp
+              if (isCompletingWork && order.client?.phone) {
+                setTimeout(() => {
+                  sendCompletedWhatsApp();
+                }, 500);
+              }
             } catch (error: any) {
               Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
             } finally {
