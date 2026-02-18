@@ -536,7 +536,7 @@ async def get_vehicles(client_id: Optional[str] = None, current_user: dict = Dep
         query["client_id"] = client_id
     
     vehicles = await db.vehicles.find(query).to_list(100)
-    return vehicles
+    return serialize_doc(vehicles)
 
 @api_router.get("/vehicles/by-vin/{vin}")
 async def get_vehicle_by_vin(vin: str, current_user: dict = Depends(get_current_user)):
@@ -544,7 +544,7 @@ async def get_vehicle_by_vin(vin: str, current_user: dict = Depends(get_current_
         "vin": vin.upper(),
         "workshop_id": current_user["workshop_id"]
     })
-    return vehicle
+    return serialize_doc(vehicle)
 
 # ============ SERVICE ROUTES ============
 
