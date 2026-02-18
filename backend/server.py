@@ -300,21 +300,26 @@ async def register_workshop(workshop: WorkshopCreate, admin_email: str, admin_pa
     
     # Create default services
     default_services = [
-        {"code": "SRS001", "name": "Reset módulo SRS", "category": "srs", "default_price": 150.0},
-        {"code": "SRS002", "name": "Bolsa techo izquierda", "category": "srs", "default_price": 200.0},
-        {"code": "SRS003", "name": "Bolsa techo derecha", "category": "srs", "default_price": 200.0},
-        {"code": "SRS004", "name": "Bolsa volante", "category": "srs", "default_price": 180.0},
-        {"code": "SRS005", "name": "Bolsa asiento izquierdo", "category": "srs", "default_price": 175.0},
-        {"code": "SRS006", "name": "Bolsa asiento derecho", "category": "srs", "default_price": 175.0},
-        {"code": "SRS007", "name": "Knee airbag izquierdo", "category": "srs", "default_price": 160.0},
-        {"code": "SRS008", "name": "Knee airbag derecho", "category": "srs", "default_price": 160.0},
-        {"code": "SRS009", "name": "Pretensioner izquierdo", "category": "srs", "default_price": 120.0},
-        {"code": "SRS010", "name": "Pretensioner derecho", "category": "srs", "default_price": 120.0},
-        {"code": "SRS011", "name": "Sensor ocupante", "category": "srs", "default_price": 140.0},
-        {"code": "BELT001", "name": "Reparación cinturón", "category": "cinturones", "default_price": 85.0},
-        {"code": "BELT002", "name": "Reemplazo cinturón", "category": "cinturones", "default_price": 250.0},
-        {"code": "ADAS001", "name": "Calibración radar frontal", "category": "adas", "default_price": 300.0},
-        {"code": "ADAS002", "name": "Calibración cámara", "category": "adas", "default_price": 280.0},
+        # SRS / Airbag
+        {"code": "SRS001", "name": "Reset módulo SRS", "category": "srs", "default_price": 0},
+        {"code": "SRS002", "name": "Bolsa de techo", "category": "srs", "default_price": 0},
+        {"code": "SRS003", "name": "Bolsa de volante", "category": "srs", "default_price": 0},
+        {"code": "SRS004", "name": "Bolsa de asiento", "category": "srs", "default_price": 0},
+        {"code": "SRS005", "name": "Bolsa lateral", "category": "srs", "default_price": 0},
+        {"code": "SRS006", "name": "Knee airbag", "category": "srs", "default_price": 0},
+        {"code": "SRS007", "name": "Cortina", "category": "srs", "default_price": 0},
+        {"code": "SRS008", "name": "Sensor ocupante", "category": "srs", "default_price": 0},
+        # Cinturones
+        {"code": "BELT001", "name": "Cinturón conductor", "category": "cinturones", "default_price": 0},
+        {"code": "BELT002", "name": "Cinturón pasajero", "category": "cinturones", "default_price": 0},
+        {"code": "BELT003", "name": "Cinturón trasero izq", "category": "cinturones", "default_price": 0},
+        {"code": "BELT004", "name": "Cinturón trasero der", "category": "cinturones", "default_price": 0},
+        {"code": "BELT005", "name": "Cinturón trasero centro", "category": "cinturones", "default_price": 0},
+        {"code": "BELT006", "name": "Pretensioner", "category": "cinturones", "default_price": 0},
+        # ADAS
+        {"code": "ADAS001", "name": "Calibración radar frontal", "category": "adas", "default_price": 0},
+        {"code": "ADAS002", "name": "Calibración cámara", "category": "adas", "default_price": 0},
+        {"code": "ADAS003", "name": "Sensor punto ciego", "category": "adas", "default_price": 0},
     ]
     
     for service in default_services:
