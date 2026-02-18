@@ -633,11 +633,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#374151',
     borderRadius: 12,
-    padding: 12,
-    gap: 6,
+    padding: 10,
+    gap: 4,
   },
   statusButtonActive: {
     backgroundColor: '#3B82F6',
+  },
+  statusButtonAssigned: {
+    backgroundColor: '#8B5CF6',
   },
   statusButtonDisabled: {
     backgroundColor: '#1F2937',
@@ -646,7 +649,7 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   statusButtonText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#9CA3AF',
   },
@@ -654,6 +657,21 @@ const styles = StyleSheet.create({
     color: '#4B5563',
   },
   statusButtonTextActive: {
+    color: '#FFFFFF',
+  },
+  startWorkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    gap: 8,
+  },
+  startWorkButtonText: {
+    fontSize: 16,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
   card: {
