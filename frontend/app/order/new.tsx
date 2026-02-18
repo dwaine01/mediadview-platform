@@ -612,4 +612,136 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  // Tech Section Styles
+  techSection: {
+    backgroundColor: '#1F2937',
+    marginHorizontal: 16,
+    marginBottom: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  techSectionTitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 12,
+  },
+  techSelector: {
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 12,
+  },
+  selectedTechRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  techAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  techAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  selectedTechName: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  selectTechRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectTechText: {
+    flex: 1,
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginLeft: 12,
+  },
+  clearTechButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 12,
+    padding: 8,
+  },
+  clearTechText: {
+    color: '#EF4444',
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#1F2937',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '70%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  techList: {
+    padding: 16,
+  },
+  techItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 8,
+  },
+  techItemSelected: {
+    borderColor: '#10B981',
+    borderWidth: 2,
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+  },
+  techItemAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  techItemAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: '600',
+  },
+  techItemInfo: {
+    flex: 1,
+  },
+  techItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  techItemEmail: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
 });
