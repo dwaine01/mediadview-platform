@@ -414,6 +414,66 @@ export default function SettingsScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Workshop Edit Modal */}
+      <Modal
+        visible={workshopModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setWorkshopModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Editar Taller</Text>
+              <TouchableOpacity onPress={() => setWorkshopModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Nombre del Taller</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Nombre del taller"
+                placeholderTextColor="#6B7280"
+                value={editWorkshop.name}
+                onChangeText={(text) => setEditWorkshop({ ...editWorkshop, name: text })}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Teléfono (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Teléfono"
+                placeholderTextColor="#6B7280"
+                value={editWorkshop.phone}
+                onChangeText={(text) => setEditWorkshop({ ...editWorkshop, phone: text })}
+                keyboardType="phone-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Dirección (opcional)</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Dirección"
+                placeholderTextColor="#6B7280"
+                value={editWorkshop.address}
+                onChangeText={(text) => setEditWorkshop({ ...editWorkshop, address: text })}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.saveButton} onPress={handleUpdateWorkshop}>
+              <Text style={styles.saveButtonText}>Guardar Cambios</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </ScrollView>
   );
 }
