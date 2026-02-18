@@ -122,6 +122,35 @@ export default function SettingsScreen() {
     }
   };
 
+  const handleUpdateWorkshop = async () => {
+    if (!editWorkshop.name.trim()) {
+      Alert.alert('Error', 'El nombre del taller es requerido');
+      return;
+    }
+
+    try {
+      await updateWorkshop({
+        name: editWorkshop.name.trim(),
+        phone: editWorkshop.phone.trim() || undefined,
+        address: editWorkshop.address.trim() || undefined,
+      });
+      setWorkshopModalVisible(false);
+      loadData();
+      Alert.alert('Éxito', 'Datos del taller actualizados');
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
+    }
+  };
+
+  const openWorkshopModal = () => {
+    setEditWorkshop({
+      name: workshop?.name || '',
+      phone: workshop?.phone || '',
+      address: workshop?.address || '',
+    });
+    setWorkshopModalVisible(true);
+  };
+
   return (
     <ScrollView
       style={styles.container}
