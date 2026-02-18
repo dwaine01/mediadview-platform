@@ -691,13 +691,17 @@ async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_
     
     update_dict = {k: v for k, v in order_data.dict().items() if v is not None}
     
+    # Tech reassignment validation (admin only)
+    if "tech_id" in update_dict and current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo el administrador puede reasignar técnicos")
+    
     # Status change validation
     if "status" in update_dict:
         current_status = current_order.get("status", "iniciado")
         new_status = update_dict["status"]
         
-        # Define status order
-        status_order = {"iniciado": 0, "pendiente": 1, "terminado": 2}
+        # Define status order (asignado is before iniciado)
+        status_order = {"asignado": 0, "iniciado": 1, "pendiente": 2, "terminado": 3}
         
         # If not admin, only allow forward progression
         if current_user["role"] != "admin":
@@ -706,6 +710,10 @@ async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_
                     status_code=403, 
                     detail="Solo el administrador puede revertir el estado"
                 )
+        
+        # When tech starts assigned work
+        if new_status == "iniciado" and current_status == "asignado":
+            update_dict["started_at"] = datetime.utcnow()
         
         if new_status == "terminado":
             update_dict["completed_at"] = datetime.utcnow()
