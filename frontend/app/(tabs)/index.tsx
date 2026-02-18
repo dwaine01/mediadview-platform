@@ -140,33 +140,64 @@ export default function HomeScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Today's Stats */}
+      {/* Today's Stats - Different for Admin vs Tech */}
       {report && (
         <View style={styles.statsContainer}>
           <Text style={styles.sectionTitle}>Resumen del Día</Text>
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <Ionicons name="car" size={24} color="#3B82F6" />
-              <Text style={styles.statValue}>{report.total_orders}</Text>
-              <Text style={styles.statLabel}>Carros</Text>
+          {user?.role === 'admin' ? (
+            // Admin sees financial stats
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Ionicons name="car" size={24} color="#3B82F6" />
+                <Text style={styles.statValue}>{report.total_orders}</Text>
+                <Text style={styles.statLabel}>Carros</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="cash" size={24} color="#10B981" />
+                <Text style={styles.statValue}>${report.total_paid.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Pagado</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="time" size={24} color="#F59E0B" />
+                <Text style={styles.statValue}>${report.total_pending.toFixed(0)}</Text>
+                <Text style={styles.statLabel}>Pendiente</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Ionicons name="cash" size={24} color="#10B981" />
-              <Text style={styles.statValue}>${report.total_paid.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Pagado</Text>
+          ) : (
+            // Technician sees only car counts by status
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <Ionicons name="person-add" size={24} color="#8B5CF6" />
+                <Text style={styles.statValue}>{report.by_status.asignado || 0}</Text>
+                <Text style={styles.statLabel}>Asignados</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="play" size={24} color="#3B82F6" />
+                <Text style={styles.statValue}>{report.by_status.iniciado || 0}</Text>
+                <Text style={styles.statLabel}>Iniciados</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="pause" size={24} color="#F59E0B" />
+                <Text style={styles.statValue}>{report.by_status.pendiente || 0}</Text>
+                <Text style={styles.statLabel}>Pendientes</Text>
+              </View>
+              <View style={styles.statCard}>
+                <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                <Text style={styles.statValue}>{report.by_status.terminado || 0}</Text>
+                <Text style={styles.statLabel}>Terminados</Text>
+              </View>
             </View>
-            <View style={styles.statCard}>
-              <Ionicons name="time" size={24} color="#F59E0B" />
-              <Text style={styles.statValue}>${report.total_pending.toFixed(0)}</Text>
-              <Text style={styles.statLabel}>Pendiente</Text>
-            </View>
-          </View>
+          )}
         </View>
       )}
 
-      {/* Status Summary */}
-      {report && (
+      {/* Status Summary - Only for Admin */}
+      {report && user?.role === 'admin' && (
         <View style={styles.statusSummary}>
+          <View style={styles.statusItem}>
+            <View style={[styles.statusDot, { backgroundColor: '#8B5CF6' }]} />
+            <Text style={styles.statusText}>Asignados: {report.by_status.asignado || 0}</Text>
+          </View>
           <View style={styles.statusItem}>
             <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
             <Text style={styles.statusText}>Iniciados: {report.by_status.iniciado}</Text>
