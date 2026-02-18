@@ -549,13 +549,7 @@ async def get_services(category: Optional[str] = None, current_user: dict = Depe
         query["category"] = category
     
     services = await db.services.find(query).to_list(100)
-    
-    # Convert ObjectId to string for JSON serialization
-    for service in services:
-        if "_id" in service:
-            service["_id"] = str(service["_id"])
-    
-    return services
+    return serialize_doc(services)
 
 @api_router.post("/services")
 async def create_service(service_data: ServiceItemCreate, current_user: dict = Depends(get_current_user)):
