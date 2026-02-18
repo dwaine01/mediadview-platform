@@ -997,6 +997,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
+  // Credit Notice Styles
+  creditNotice: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(124,58,237,0.15)',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#7C3AED',
+    gap: 14,
+  },
+  creditNoticeContent: {
+    flex: 1,
+  },
+  creditNoticeTitle: {
+    color: '#C4B5FD',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  creditNoticeText: {
+    color: '#9CA3AF',
+    fontSize: 13,
+    marginTop: 4,
+    lineHeight: 20,
+  },
+  
   orderMeta: {
     paddingVertical: 12,
   },
