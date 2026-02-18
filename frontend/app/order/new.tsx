@@ -9,12 +9,18 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getServices, createWorkOrder, getClient, getWorkshop, getUsers } from '../../src/services/api';
+import { getServices, createWorkOrder, getClient, getUsers } from '../../src/services/api';
 import { ServiceItem, Vehicle, WorkOrderService, User } from '../../src/types';
 import { useAuthStore } from '../../src/store/authStore';
+
+interface SelectedService extends WorkOrderService {
+  key: string;
+}
 
 export default function NewOrderScreen() {
   const params = useLocalSearchParams();
@@ -25,12 +31,17 @@ export default function NewOrderScreen() {
   const vehicleData: Vehicle = params.vehicleData ? JSON.parse(params.vehicleData as string) : null;
 
   const [services, setServices] = useState<ServiceItem[]>([]);
-  const [selectedServices, setSelectedServices] = useState<Map<string, WorkOrderService>>(new Map());
+  const [selectedServices, setSelectedServices] = useState<Map<string, SelectedService>>(new Map());
   const [loading, setLoading] = useState(false);
   const [clientName, setClientName] = useState('');
   const [notes, setNotes] = useState('');
   const [odometer, setOdometer] = useState('');
   const [activeCategory, setActiveCategory] = useState('srs');
+  
+  // Price input modal
+  const [priceModalVisible, setPriceModalVisible] = useState(false);
+  const [currentService, setCurrentService] = useState<{service: ServiceItem, side?: string} | null>(null);
+  const [priceInput, setPriceInput] = useState('');
   
   // Tech assignment (admin only)
   const [technicians, setTechnicians] = useState<User[]>([]);
@@ -61,22 +72,67 @@ export default function NewOrderScreen() {
     }
   };
 
-  const toggleService = (service: ServiceItem, side?: string) => {
+  const openPriceModal = (service: ServiceItem, side?: string) => {
+    const key = side ? `${service.id}-${side}` : service.id;
+    
+    // If already selected, remove it
+    if (selectedServices.has(key)) {
+      const newSelected = new Map(selectedServices);
+      newSelected.delete(key);
+      setSelectedServices(newSelected);
+      return;
+    }
+    
+    // Open modal to enter price
+    setCurrentService({ service, side });
+    setPriceInput('');
+    setPriceModalVisible(true);
+  };
+
+  const confirmPrice = () => {
+    if (!currentService) return;
+    
+    const price = parseFloat(priceInput);
+    if (isNaN(price) || price < 0) {
+      Alert.alert('Error', 'Ingrese un precio válido');
+      return;
+    }
+    
+    const { service, side } = currentService;
     const key = side ? `${service.id}-${side}` : service.id;
     const newSelected = new Map(selectedServices);
+    
+    newSelected.set(key, {
+      key,
+      service_id: service.id,
+      service_name: service.name,
+      quantity: 1,
+      price: price,
+      side: side as any,
+    });
+    
+    setSelectedServices(newSelected);
+    setPriceModalVisible(false);
+    setCurrentService(null);
+    setPriceInput('');
+  };
 
-    if (newSelected.has(key)) {
-      newSelected.delete(key);
-    } else {
-      newSelected.set(key, {
-        service_id: service.id,
-        service_name: service.name,
-        quantity: 1,
-        price: service.default_price,
-        side: side as any,
-      });
+  const updateServicePrice = (key: string, newPrice: string) => {
+    const price = parseFloat(newPrice);
+    if (isNaN(price)) return;
+    
+    const newSelected = new Map(selectedServices);
+    const service = newSelected.get(key);
+    if (service) {
+      service.price = price;
+      newSelected.set(key, service);
+      setSelectedServices(newSelected);
     }
+  };
 
+  const removeService = (key: string) => {
+    const newSelected = new Map(selectedServices);
+    newSelected.delete(key);
     setSelectedServices(newSelected);
   };
 
@@ -96,6 +152,19 @@ export default function NewOrderScreen() {
   const handleCreateOrder = async () => {
     if (selectedServices.size === 0) {
       Alert.alert('Error', 'Seleccione al menos un servicio');
+      return;
+    }
+
+    // Validate all services have prices
+    let hasInvalidPrice = false;
+    selectedServices.forEach((service) => {
+      if (service.price <= 0) {
+        hasInvalidPrice = true;
+      }
+    });
+
+    if (hasInvalidPrice) {
+      Alert.alert('Error', 'Todos los servicios deben tener un precio mayor a $0');
       return;
     }
 
@@ -124,11 +193,14 @@ export default function NewOrderScreen() {
   const submitOrder = async (techId?: string) => {
     setLoading(true);
     try {
+      // Convert Map to array without the 'key' property
+      const servicesArray = Array.from(selectedServices.values()).map(({ key, ...rest }) => rest);
+      
       const order = await createWorkOrder({
         vehicle_id: vehicleId,
         client_id: clientId,
         tech_id: techId,
-        services: Array.from(selectedServices.values()),
+        services: servicesArray,
         odometer: odometer ? parseInt(odometer) : undefined,
         notes: notes || undefined,
       });
@@ -174,18 +246,19 @@ export default function NewOrderScreen() {
             styles.serviceCard,
             isSelected(service.id) && styles.serviceCardSelected,
           ]}
-          onPress={() => toggleService(service)}
+          onPress={() => openPriceModal(service)}
         >
           <View style={styles.serviceInfo}>
             <Text style={styles.serviceName}>{service.name}</Text>
-            <Text style={styles.servicePrice}>${service.default_price.toFixed(2)}</Text>
           </View>
           <View style={[
             styles.checkbox,
             isSelected(service.id) && styles.checkboxSelected,
           ]}>
-            {isSelected(service.id) && (
+            {isSelected(service.id) ? (
               <Ionicons name="checkmark" size={16} color="#FFFFFF" />
+            ) : (
+              <Ionicons name="add" size={16} color="#6B7280" />
             )}
           </View>
         </TouchableOpacity>
@@ -196,7 +269,6 @@ export default function NewOrderScreen() {
       <View key={service.id} style={styles.serviceCard}>
         <View style={styles.serviceInfo}>
           <Text style={styles.serviceName}>{service.name}</Text>
-          <Text style={styles.servicePrice}>${service.default_price.toFixed(2)}</Text>
         </View>
         <View style={styles.sideButtons}>
           <TouchableOpacity
@@ -204,7 +276,7 @@ export default function NewOrderScreen() {
               styles.sideButton,
               isSelected(service.id, 'left') && styles.sideButtonSelected,
             ]}
-            onPress={() => toggleService(service, 'left')}
+            onPress={() => openPriceModal(service, 'left')}
           >
             <Text style={[
               styles.sideButtonText,
@@ -216,7 +288,7 @@ export default function NewOrderScreen() {
               styles.sideButton,
               isSelected(service.id, 'right') && styles.sideButtonSelected,
             ]}
-            onPress={() => toggleService(service, 'right')}
+            onPress={() => openPriceModal(service, 'right')}
           >
             <Text style={[
               styles.sideButtonText,
@@ -291,7 +363,7 @@ export default function NewOrderScreen() {
 
         {/* Odometer */}
         <View style={styles.inputSection}>
-          <Text style={styles.inputLabel}>Odometro (opcional)</Text>
+          <Text style={styles.inputLabel}>Odómetro (opcional)</Text>
           <TextInput
             style={styles.input}
             placeholder="Ej: 45000"
@@ -328,8 +400,46 @@ export default function NewOrderScreen() {
 
         {/* Services List */}
         <View style={styles.servicesList}>
+          <Text style={styles.servicesHint}>
+            Toca un servicio para agregar y definir el precio
+          </Text>
           {filteredServices.map(renderService)}
         </View>
+
+        {/* Selected Services with Prices */}
+        {selectedServices.size > 0 && (
+          <View style={styles.selectedSection}>
+            <Text style={styles.selectedTitle}>
+              Servicios Seleccionados ({selectedServices.size})
+            </Text>
+            {Array.from(selectedServices.values()).map((service) => (
+              <View key={service.key} style={styles.selectedItem}>
+                <View style={styles.selectedInfo}>
+                  <Text style={styles.selectedName}>
+                    {service.service_name}
+                    {service.side && ` (${service.side === 'left' ? 'Izq' : 'Der'})`}
+                  </Text>
+                </View>
+                <View style={styles.priceInputContainer}>
+                  <Text style={styles.dollarSign}>$</Text>
+                  <TextInput
+                    style={styles.priceInput}
+                    value={service.price.toString()}
+                    onChangeText={(text) => updateServicePrice(service.key, text)}
+                    keyboardType="decimal-pad"
+                    selectTextOnFocus
+                  />
+                </View>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeService(service.key)}
+                >
+                  <Ionicons name="trash" size={18} color="#EF4444" />
+                </TouchableOpacity>
+              </View>
+            ))}
+          </View>
+        )}
 
         {/* Notes */}
         <View style={styles.inputSection}>
@@ -370,6 +480,60 @@ export default function NewOrderScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Price Input Modal */}
+      <Modal
+        visible={priceModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setPriceModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.priceModalOverlay}
+        >
+          <View style={styles.priceModalContent}>
+            <Text style={styles.priceModalTitle}>Agregar Servicio</Text>
+            <Text style={styles.priceModalService}>
+              {currentService?.service.name}
+              {currentService?.side && ` (${currentService.side === 'left' ? 'Izquierdo' : 'Derecho'})`}
+            </Text>
+            
+            <Text style={styles.priceModalLabel}>Precio del servicio</Text>
+            <View style={styles.priceModalInputContainer}>
+              <Text style={styles.priceModalDollar}>$</Text>
+              <TextInput
+                style={styles.priceModalInput}
+                placeholder="0.00"
+                placeholderTextColor="#6B7280"
+                value={priceInput}
+                onChangeText={setPriceInput}
+                keyboardType="decimal-pad"
+                autoFocus
+              />
+            </View>
+
+            <View style={styles.priceModalButtons}>
+              <TouchableOpacity
+                style={styles.priceModalCancel}
+                onPress={() => {
+                  setPriceModalVisible(false);
+                  setCurrentService(null);
+                  setPriceInput('');
+                }}
+              >
+                <Text style={styles.priceModalCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.priceModalConfirm}
+                onPress={confirmPrice}
+              >
+                <Text style={styles.priceModalConfirmText}>Agregar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Tech Selection Modal */}
       <Modal
@@ -508,6 +672,12 @@ const styles = StyleSheet.create({
   servicesList: {
     paddingHorizontal: 16,
   },
+  servicesHint: {
+    fontSize: 12,
+    color: '#6B7280',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
   serviceCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -531,19 +701,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
-  servicePrice: {
-    fontSize: 14,
-    color: '#10B981',
-    marginTop: 4,
-  },
   checkbox: {
-    width: 24,
-    height: 24,
-    borderRadius: 6,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
     borderWidth: 2,
     borderColor: '#374151',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#374151',
   },
   checkboxSelected: {
     backgroundColor: '#3B82F6',
@@ -569,6 +735,59 @@ const styles = StyleSheet.create({
   },
   sideButtonTextSelected: {
     color: '#FFFFFF',
+  },
+  // Selected Services Section
+  selectedSection: {
+    backgroundColor: '#1F2937',
+    margin: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  selectedTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 16,
+  },
+  selectedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 8,
+  },
+  selectedInfo: {
+    flex: 1,
+  },
+  selectedName: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    fontWeight: '500',
+  },
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1F2937',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    marginRight: 8,
+  },
+  dollarSign: {
+    fontSize: 16,
+    color: '#10B981',
+    fontWeight: '600',
+  },
+  priceInput: {
+    width: 70,
+    height: 36,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  removeButton: {
+    padding: 8,
   },
   bottomBar: {
     flexDirection: 'row',
@@ -611,6 +830,88 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  // Price Modal
+  priceModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  priceModalContent: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+  },
+  priceModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  priceModalService: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  priceModalLabel: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginBottom: 8,
+  },
+  priceModalInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    marginBottom: 24,
+  },
+  priceModalDollar: {
+    fontSize: 24,
+    color: '#10B981',
+    fontWeight: '700',
+    marginRight: 8,
+  },
+  priceModalInput: {
+    flex: 1,
+    height: 56,
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  priceModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  priceModalCancel: {
+    flex: 1,
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  priceModalCancelText: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    fontWeight: '600',
+  },
+  priceModalConfirm: {
+    flex: 1,
+    backgroundColor: '#3B82F6',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  priceModalConfirmText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   // Tech Section Styles
   techSection: {
