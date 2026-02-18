@@ -209,10 +209,15 @@ export default function OrderDetailScreen() {
             </Text>
           )}
           <View style={styles.statusButtons}>
-            {['iniciado', 'pendiente', 'terminado'].map((status) => {
+            {['asignado', 'iniciado', 'pendiente', 'terminado'].map((status) => {
               const canChange = canChangeToStatus(status);
               const isCurrentStatus = order.status === status;
               const isDisabled = isCurrentStatus || updating || !canChange;
+              
+              // Only show asignado if admin or if it's the current status
+              if (status === 'asignado' && !isAdmin && order.status !== 'asignado') {
+                return null;
+              }
               
               return (
                 <TouchableOpacity
@@ -220,6 +225,7 @@ export default function OrderDetailScreen() {
                   style={[
                     styles.statusButton,
                     isCurrentStatus && styles.statusButtonActive,
+                    status === 'asignado' && isCurrentStatus && styles.statusButtonAssigned,
                     !canChange && !isCurrentStatus && styles.statusButtonDisabled,
                   ]}
                   onPress={() => handleStatusChange(status)}
@@ -227,13 +233,15 @@ export default function OrderDetailScreen() {
                 >
                   <Ionicons
                     name={
-                      status === 'iniciado'
+                      status === 'asignado'
+                        ? 'person-add'
+                        : status === 'iniciado'
                         ? 'play'
                         : status === 'pendiente'
                         ? 'pause'
                         : 'checkmark'
                     }
-                    size={20}
+                    size={18}
                     color={isCurrentStatus ? '#FFFFFF' : (!canChange ? '#4B5563' : '#9CA3AF')}
                   />
                   <Text
@@ -243,15 +251,27 @@ export default function OrderDetailScreen() {
                       !canChange && !isCurrentStatus && styles.statusButtonTextDisabled,
                     ]}
                   >
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                    {status === 'asignado' ? 'Asig.' : status.charAt(0).toUpperCase() + status.slice(1)}
                   </Text>
                   {!canChange && !isCurrentStatus && (
-                    <Ionicons name="lock-closed" size={12} color="#4B5563" />
+                    <Ionicons name="lock-closed" size={10} color="#4B5563" />
                   )}
                 </TouchableOpacity>
               );
             })}
           </View>
+          
+          {/* Show "Iniciar Trabajo" button for assigned orders */}
+          {order.status === 'asignado' && !isAdmin && (
+            <TouchableOpacity
+              style={styles.startWorkButton}
+              onPress={() => handleStatusChange('iniciado')}
+              disabled={updating}
+            >
+              <Ionicons name="play-circle" size={24} color="#FFFFFF" />
+              <Text style={styles.startWorkButtonText}>Iniciar Trabajo</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Vehicle Info */}
