@@ -15,6 +15,7 @@ import { DailyReport, User } from '../../src/types';
 
 export default function ReportsScreen() {
   const { user } = useAuthStore();
+  const isAdmin = user?.role === 'admin';
   const [report, setReport] = useState<DailyReport | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -26,10 +27,10 @@ export default function ReportsScreen() {
       const dateStr = selectedDate.toISOString().split('T')[0];
       const [reportRes, usersRes] = await Promise.all([
         getDailyReport(dateStr, selectedTech || undefined),
-        user?.role === 'admin' ? getUsers() : Promise.resolve([]),
+        isAdmin ? getUsers() : Promise.resolve([]),
       ]);
       setReport(reportRes);
-      if (user?.role === 'admin') {
+      if (isAdmin) {
         setTechs(usersRes.filter((u: User) => u.role === 'tech'));
       }
     } catch (error) {
@@ -64,6 +65,13 @@ export default function ReportsScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3B82F6" />
       }
     >
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>
+          {isAdmin ? 'Reportes Generales' : 'Mi Reporte de Trabajo'}
+        </Text>
+      </View>
+
       {/* Date Selector */}
       <View style={styles.dateSelector}>
         <TouchableOpacity style={styles.dateButton} onPress={() => changeDate(-1)}>
@@ -75,7 +83,6 @@ export default function ReportsScreen() {
               weekday: 'long',
               day: 'numeric',
               month: 'long',
-              year: 'numeric',
             })}
           </Text>
           {isToday && <Text style={styles.todayBadge}>Hoy</Text>}
@@ -90,7 +97,7 @@ export default function ReportsScreen() {
       </View>
 
       {/* Tech Filter (Admin only) */}
-      {user?.role === 'admin' && techs.length > 0 && (
+      {isAdmin && techs.length > 0 && (
         <View style={styles.techFilter}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
@@ -108,10 +115,7 @@ export default function ReportsScreen() {
                 onPress={() => setSelectedTech(tech.id)}
               >
                 <Text
-                  style={[
-                    styles.techChipText,
-                    selectedTech === tech.id && styles.techChipTextActive,
-                  ]}
+                  style={[styles.techChipText, selectedTech === tech.id && styles.techChipTextActive]}
                 >
                   {tech.name}
                 </Text>
@@ -123,95 +127,140 @@ export default function ReportsScreen() {
 
       {report && (
         <>
-          {/* Main Stats */}
-          <View style={styles.mainStats}>
-            <View style={styles.bigStatCard}>
-              <Ionicons name="car" size={32} color="#3B82F6" />
-              <Text style={styles.bigStatValue}>{report.total_orders}</Text>
-              <Text style={styles.bigStatLabel}>Carros Atendidos</Text>
-            </View>
-          </View>
-
-          {/* Financial Stats */}
-          <View style={styles.financialStats}>
-            <View style={[styles.finStatCard, { backgroundColor: '#064E3B' }]}>
-              <Ionicons name="wallet" size={24} color="#10B981" />
-              <Text style={styles.finStatValue}>${report.total_billed.toFixed(2)}</Text>
-              <Text style={styles.finStatLabel}>Facturado</Text>
-            </View>
-            <View style={[styles.finStatCard, { backgroundColor: '#065F46' }]}>
-              <Ionicons name="checkmark-circle" size={24} color="#34D399" />
-              <Text style={styles.finStatValue}>${report.total_paid.toFixed(2)}</Text>
-              <Text style={styles.finStatLabel}>Pagado</Text>
-            </View>
-            <View style={[styles.finStatCard, { backgroundColor: '#7C2D12' }]}>
-              <Ionicons name="time" size={24} color="#F59E0B" />
-              <Text style={styles.finStatValue}>${report.total_pending.toFixed(2)}</Text>
-              <Text style={styles.finStatLabel}>Pendiente</Text>
-            </View>
-          </View>
-
-          {/* Status Breakdown */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Estado de Órdenes</Text>
-            <View style={styles.statusCards}>
-              <View style={styles.statusCard}>
-                <View style={[styles.statusIcon, { backgroundColor: '#1D4ED8' }]}>
-                  <Ionicons name="play" size={20} color="#FFFFFF" />
-                </View>
-                <View>
-                  <Text style={styles.statusValue}>{report.by_status.iniciado}</Text>
-                  <Text style={styles.statusLabel}>Iniciadas</Text>
-                </View>
+          {/* ====== SECCIÓN PARA TÉCNICOS: Solo cantidad de carros ====== */}
+          {!isAdmin && (
+            <>
+              {/* Total de Carros */}
+              <View style={styles.mainStatCard}>
+                <Ionicons name="car-sport" size={40} color="#3B82F6" />
+                <Text style={styles.mainStatValue}>{report.total_orders}</Text>
+                <Text style={styles.mainStatLabel}>Carros Trabajados</Text>
               </View>
-              <View style={styles.statusCard}>
-                <View style={[styles.statusIcon, { backgroundColor: '#D97706' }]}>
-                  <Ionicons name="pause" size={20} color="#FFFFFF" />
+
+              {/* Status de Carros */}
+              <View style={styles.statusGrid}>
+                <View style={[styles.statusCard, { borderLeftColor: '#8B5CF6' }]}>
+                  <Ionicons name="person-add" size={24} color="#8B5CF6" />
+                  <Text style={styles.statusValue}>{report.by_status.asignado || 0}</Text>
+                  <Text style={styles.statusLabel}>Asignados</Text>
                 </View>
-                <View>
-                  <Text style={styles.statusValue}>{report.by_status.pendiente}</Text>
+                <View style={[styles.statusCard, { borderLeftColor: '#3B82F6' }]}>
+                  <Ionicons name="play-circle" size={24} color="#3B82F6" />
+                  <Text style={styles.statusValue}>{report.by_status.iniciado || 0}</Text>
+                  <Text style={styles.statusLabel}>Iniciados</Text>
+                </View>
+                <View style={[styles.statusCard, { borderLeftColor: '#F59E0B' }]}>
+                  <Ionicons name="pause-circle" size={24} color="#F59E0B" />
+                  <Text style={styles.statusValue}>{report.by_status.pendiente || 0}</Text>
                   <Text style={styles.statusLabel}>Pendientes</Text>
                 </View>
-              </View>
-              <View style={styles.statusCard}>
-                <View style={[styles.statusIcon, { backgroundColor: '#059669' }]}>
-                  <Ionicons name="checkmark" size={20} color="#FFFFFF" />
-                </View>
-                <View>
-                  <Text style={styles.statusValue}>{report.by_status.terminado}</Text>
-                  <Text style={styles.statusLabel}>Terminadas</Text>
+                <View style={[styles.statusCard, { borderLeftColor: '#10B981' }]}>
+                  <Ionicons name="checkmark-circle" size={24} color="#10B981" />
+                  <Text style={styles.statusValue}>{report.by_status.terminado || 0}</Text>
+                  <Text style={styles.statusLabel}>Terminados</Text>
                 </View>
               </View>
-            </View>
-          </View>
 
-          {/* By Tech (Admin only) */}
-          {user?.role === 'admin' && report.by_tech.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Por Técnico</Text>
-              {report.by_tech.map((tech, index) => (
-                <View key={index} style={styles.techRow}>
-                  <View style={styles.techInfo}>
-                    <View style={styles.techAvatar}>
-                      <Text style={styles.techAvatarText}>
-                        {tech.name.charAt(0).toUpperCase()}
-                      </Text>
-                    </View>
-                    <View>
-                      <Text style={styles.techName}>{tech.name}</Text>
-                      <Text style={styles.techOrders}>{tech.orders} órdenes</Text>
-                    </View>
-                  </View>
-                  <View style={styles.techStats}>
-                    <Text style={styles.techBilled}>${tech.billed.toFixed(0)}</Text>
-                    <Text style={styles.techPaid}>${tech.paid.toFixed(0)} pagado</Text>
-                  </View>
+              {/* Mensaje para técnico */}
+              <View style={styles.infoMessage}>
+                <Ionicons name="information-circle" size={20} color="#6B7280" />
+                <Text style={styles.infoText}>
+                  Este es tu resumen de trabajo del día. Los reportes financieros están disponibles solo para administradores.
+                </Text>
+              </View>
+            </>
+          )}
+
+          {/* ====== SECCIÓN PARA ADMIN: Reportes Completos ====== */}
+          {isAdmin && (
+            <>
+              {/* Main Stats */}
+              <View style={styles.mainStats}>
+                <View style={styles.bigStatCard}>
+                  <Ionicons name="car" size={36} color="#3B82F6" />
+                  <Text style={styles.bigStatValue}>{report.total_orders}</Text>
+                  <Text style={styles.bigStatLabel}>Carros Atendidos</Text>
                 </View>
-              ))}
-            </View>
+              </View>
+
+              {/* Financial Stats - SOLO ADMIN */}
+              <Text style={styles.sectionTitle}>💰 Reporte Financiero</Text>
+              <View style={styles.financialStats}>
+                <View style={[styles.finStatCard, { backgroundColor: '#064E3B' }]}>
+                  <Ionicons name="receipt" size={24} color="#10B981" />
+                  <Text style={styles.finStatValue}>${report.total_billed.toFixed(2)}</Text>
+                  <Text style={styles.finStatLabel}>Total Facturado</Text>
+                </View>
+                <View style={[styles.finStatCard, { backgroundColor: '#065F46' }]}>
+                  <Ionicons name="checkmark-done-circle" size={24} color="#34D399" />
+                  <Text style={styles.finStatValue}>${report.total_paid.toFixed(2)}</Text>
+                  <Text style={styles.finStatLabel}>Total Pagado</Text>
+                </View>
+              </View>
+              <View style={styles.pendingCard}>
+                <Ionicons name="alert-circle" size={28} color="#F59E0B" />
+                <View style={styles.pendingInfo}>
+                  <Text style={styles.pendingLabel}>Pendiente por Cobrar</Text>
+                  <Text style={styles.pendingValue}>${report.total_pending.toFixed(2)}</Text>
+                </View>
+              </View>
+
+              {/* Status Breakdown */}
+              <Text style={styles.sectionTitle}>📊 Estado de Órdenes</Text>
+              <View style={styles.statusRow}>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#8B5CF6' }]} />
+                  <Text style={styles.statusText}>Asignados</Text>
+                  <Text style={styles.statusNum}>{report.by_status.asignado || 0}</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#3B82F6' }]} />
+                  <Text style={styles.statusText}>Iniciados</Text>
+                  <Text style={styles.statusNum}>{report.by_status.iniciado || 0}</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#F59E0B' }]} />
+                  <Text style={styles.statusText}>Pendientes</Text>
+                  <Text style={styles.statusNum}>{report.by_status.pendiente || 0}</Text>
+                </View>
+                <View style={styles.statusItem}>
+                  <View style={[styles.statusDot, { backgroundColor: '#10B981' }]} />
+                  <Text style={styles.statusText}>Terminados</Text>
+                  <Text style={styles.statusNum}>{report.by_status.terminado || 0}</Text>
+                </View>
+              </View>
+
+              {/* By Tech - SOLO ADMIN */}
+              {report.by_tech && report.by_tech.length > 0 && (
+                <>
+                  <Text style={styles.sectionTitle}>👨‍🔧 Por Técnico</Text>
+                  {report.by_tech.map((tech, index) => (
+                    <View key={index} style={styles.techRow}>
+                      <View style={styles.techInfo}>
+                        <View style={styles.techAvatar}>
+                          <Text style={styles.techAvatarText}>
+                            {tech.name.charAt(0).toUpperCase()}
+                          </Text>
+                        </View>
+                        <View>
+                          <Text style={styles.techName}>{tech.name}</Text>
+                          <Text style={styles.techOrders}>{tech.orders} órdenes</Text>
+                        </View>
+                      </View>
+                      <View style={styles.techStats}>
+                        <Text style={styles.techBilled}>${tech.billed.toFixed(0)}</Text>
+                        <Text style={styles.techPaid}>${tech.paid.toFixed(0)} cobrado</Text>
+                      </View>
+                    </View>
+                  ))}
+                </>
+              )}
+            </>
           )}
         </>
       )}
+
+      <View style={{ height: 40 }} />
     </ScrollView>
   );
 }
@@ -221,14 +270,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#111827',
   },
+  header: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: 14,
     backgroundColor: '#1F2937',
     marginHorizontal: 16,
-    marginTop: 16,
+    marginTop: 8,
     borderRadius: 12,
   },
   dateButton: {
@@ -241,7 +300,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   dateText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
     textTransform: 'capitalize',
@@ -249,7 +308,8 @@ const styles = StyleSheet.create({
   todayBadge: {
     fontSize: 12,
     color: '#3B82F6',
-    marginTop: 4,
+    marginTop: 2,
+    fontWeight: '600',
   },
   techFilter: {
     paddingHorizontal: 16,
@@ -276,6 +336,68 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
   },
+
+  // ===== ESTILOS PARA TÉCNICO =====
+  mainStatCard: {
+    backgroundColor: '#1F2937',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+  },
+  mainStatValue: {
+    fontSize: 56,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  mainStatLabel: {
+    fontSize: 16,
+    color: '#9CA3AF',
+    marginTop: 4,
+  },
+  statusGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    padding: 16,
+    gap: 10,
+  },
+  statusCard: {
+    width: '48%',
+    backgroundColor: '#1F2937',
+    borderRadius: 12,
+    padding: 16,
+    borderLeftWidth: 4,
+  },
+  statusValue: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 8,
+  },
+  statusLabel: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginTop: 2,
+  },
+  infoMessage: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#1F2937',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 14,
+    gap: 10,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 20,
+  },
+
+  // ===== ESTILOS PARA ADMIN =====
   mainStats: {
     padding: 16,
   },
@@ -296,10 +418,18 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 4,
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 20,
+    marginBottom: 12,
+  },
   financialStats: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    gap: 8,
+    gap: 10,
   },
   finStatCard: {
     flex: 1,
@@ -308,53 +438,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   finStatValue: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
     marginTop: 8,
   },
   finStatLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: 'rgba(255,255,255,0.7)',
     marginTop: 4,
   },
-  section: {
-    padding: 16,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    marginBottom: 16,
-  },
-  statusCards: {
+  pendingCard: {
     flexDirection: 'row',
-    gap: 8,
-  },
-  statusCard: {
-    flex: 1,
-    backgroundColor: '#1F2937',
+    alignItems: 'center',
+    backgroundColor: '#78350F',
+    marginHorizontal: 16,
+    marginTop: 10,
     borderRadius: 12,
     padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
-  statusIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+  pendingInfo: {
+    flex: 1,
   },
-  statusValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  pendingLabel: {
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.7)',
+  },
+  pendingValue: {
+    fontSize: 22,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
-  statusLabel: {
-    fontSize: 11,
-    color: '#9CA3AF',
+  statusRow: {
+    backgroundColor: '#1F2937',
+    marginHorizontal: 16,
+    borderRadius: 12,
+    padding: 16,
+  },
+  statusItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 12,
+  },
+  statusText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#D1D5DB',
+  },
+  statusNum: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   techRow: {
     flexDirection: 'row',
@@ -362,7 +503,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#1F2937',
     borderRadius: 12,
-    padding: 16,
+    padding: 14,
+    marginHorizontal: 16,
     marginBottom: 8,
   },
   techInfo: {
@@ -384,12 +526,12 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   techName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#FFFFFF',
   },
   techOrders: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#9CA3AF',
   },
   techStats: {
@@ -401,7 +543,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   techPaid: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#10B981',
   },
 });
