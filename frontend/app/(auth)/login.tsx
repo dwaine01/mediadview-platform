@@ -117,7 +117,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
+    backgroundColor: '#000000',
   },
   scrollContent: {
     flexGrow: 1,
@@ -127,6 +127,10 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 30,
+  },
+  logo: {
+    width: 300,
+    height: 180,
   },
   form: {
     width: '100%',
