@@ -24,6 +24,7 @@ import {
 import { WorkOrder, Payment, Workshop } from '../../src/types';
 import { StatusBadge } from '../../src/components/StatusBadge';
 import { PaymentBadge } from '../../src/components/PaymentBadge';
+import { useAuthStore } from '../../src/store/authStore';
 
 export default function OrderDetailScreen() {
   const { id } = useLocalSearchParams();
