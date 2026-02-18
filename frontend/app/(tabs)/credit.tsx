@@ -8,10 +8,11 @@ import {
   RefreshControl,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getCreditReport } from '../../src/services/api';
+import { getCreditReport, createPayment, updatePayment } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 
 interface CreditOrder {
@@ -23,6 +24,7 @@ interface CreditOrder {
   created_at: string;
   total: number;
   payment_status: string;
+  payment_id?: string;
 }
 
 interface CreditClient {
@@ -32,7 +34,6 @@ interface CreditClient {
     phone?: string;
     email?: string;
     has_credit: boolean;
-    credit_limit?: number;
   };
   pending_orders: CreditOrder[];
   total_pending: number;
@@ -46,8 +47,12 @@ export default function CreditScreen() {
   const [creditData, setCreditData] = useState<CreditClient[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [selectedClient, setSelectedClient] = useState<CreditClient | null>(null);
   const [detailModalVisible, setDetailModalVisible] = useState(false);
+  const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<CreditOrder | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState('cash');
 
   const loadData = async () => {
     try {
@@ -77,19 +82,71 @@ export default function CreditScreen() {
     setDetailModalVisible(true);
   };
 
+  const openPaymentModal = (order: CreditOrder) => {
+    setSelectedOrder(order);
+    setPaymentMethod('cash');
+    setPaymentModalVisible(true);
+  };
+
+  const handleMarkAsPaid = async () => {
+    if (!selectedOrder) return;
+
+    setUpdating(true);
+    try {
+      // If order has no payment, create one first
+      if (selectedOrder.payment_status === 'sin_pago') {
+        await createPayment({
+          work_order_id: selectedOrder.id,
+          method: paymentMethod,
+          payment_status: 'pagado',
+          subtotal: selectedOrder.total,
+          tax: 0,
+          discount: 0,
+          total: selectedOrder.total,
+          paid_amount: selectedOrder.total,
+        });
+      } else if (selectedOrder.payment_id) {
+        // Update existing payment
+        await updatePayment(selectedOrder.payment_id, {
+          payment_status: 'pagado',
+          paid_amount: selectedOrder.total,
+          method: paymentMethod,
+        });
+      }
+
+      Alert.alert('Éxito', 'Pago registrado correctamente');
+      setPaymentModalVisible(false);
+      setSelectedOrder(null);
+      
+      // Reload data
+      await loadData();
+      
+      // Update selected client data
+      if (selectedClient) {
+        const updatedClient = creditData.find(c => c.client.id === selectedClient.client.id);
+        if (updatedClient) {
+          setSelectedClient(updatedClient);
+        }
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Error al registrar pago');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
   const getTotalPending = () => {
     return creditData.reduce((sum, c) => sum + c.total_pending, 0);
   };
 
   const getTotalClients = () => {
-    return creditData.length;
+    return creditData.filter(c => c.total_pending > 0).length;
   };
 
   const getTotalPendingOrders = () => {
     return creditData.reduce((sum, c) => sum + c.pending_orders.length, 0);
   };
 
-  // Only admin can see this screen
   if (!isAdmin) {
     return (
       <View style={styles.container}>
@@ -112,47 +169,37 @@ export default function CreditScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Cuentas por Cobrar</Text>
-          <Text style={styles.headerSubtitle}>Clientes con Crédito</Text>
+          <Text style={styles.headerSubtitle}>Reporte de Clientes con Crédito</Text>
         </View>
 
-        {/* Summary Cards */}
-        <View style={styles.summaryRow}>
-          <View style={[styles.summaryCard, { backgroundColor: '#7C3AED' }]}>
-            <Ionicons name="people" size={28} color="#FFF" />
-            <Text style={styles.summaryValue}>{getTotalClients()}</Text>
-            <Text style={styles.summaryLabel}>Clientes</Text>
+        {/* Total Summary */}
+        <View style={styles.totalCard}>
+          <Text style={styles.totalLabel}>Total Pendiente por Cobrar</Text>
+          <Text style={styles.totalValue}>${getTotalPending().toFixed(2)}</Text>
+          <View style={styles.totalStats}>
+            <View style={styles.totalStatItem}>
+              <Ionicons name="people" size={18} color="#9CA3AF" />
+              <Text style={styles.totalStatText}>{getTotalClients()} clientes</Text>
+            </View>
+            <View style={styles.totalStatItem}>
+              <Ionicons name="car" size={18} color="#9CA3AF" />
+              <Text style={styles.totalStatText}>{getTotalPendingOrders()} carros</Text>
+            </View>
           </View>
-          <View style={[styles.summaryCard, { backgroundColor: '#F59E0B' }]}>
-            <Ionicons name="car" size={28} color="#FFF" />
-            <Text style={styles.summaryValue}>{getTotalPendingOrders()}</Text>
-            <Text style={styles.summaryLabel}>Carros Pend.</Text>
-          </View>
         </View>
 
-        {/* Total Pending */}
-        <View style={styles.totalPendingCard}>
-          <Text style={styles.totalPendingLabel}>Total Pendiente por Cobrar</Text>
-          <Text style={styles.totalPendingValue}>${getTotalPending().toFixed(2)}</Text>
-        </View>
-
-        {/* Client List */}
-        <Text style={styles.sectionTitle}>Clientes con Crédito</Text>
+        {/* Client List - Separated by Client */}
+        <Text style={styles.sectionTitle}>Deuda por Cliente</Text>
         
         {creditData.length === 0 ? (
           <View style={styles.emptyState}>
-            <Ionicons name="card-outline" size={48} color="#4B5563" />
-            <Text style={styles.emptyText}>No hay clientes con cuenta de crédito</Text>
-            <Text style={styles.emptySubtext}>
-              Puede activar crédito a un cliente desde la pantalla de Clientes
-            </Text>
+            <Ionicons name="checkmark-circle" size={48} color="#10B981" />
+            <Text style={styles.emptyText}>No hay cuentas pendientes</Text>
           </View>
         ) : (
           creditData.map((item, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.clientCard}
-              onPress={() => openClientDetail(item)}
-            >
+            <View key={index} style={styles.clientSection}>
+              {/* Client Header */}
               <View style={styles.clientHeader}>
                 <View style={styles.clientAvatar}>
                   <Text style={styles.clientAvatarText}>
@@ -163,120 +210,226 @@ export default function CreditScreen() {
                   <Text style={styles.clientName}>{item.client.name}</Text>
                   <Text style={styles.clientPhone}>{item.client.phone || 'Sin teléfono'}</Text>
                 </View>
-                <View style={styles.clientStats}>
-                  <Text style={styles.pendingAmount}>${item.total_pending.toFixed(2)}</Text>
-                  <Text style={styles.pendingCount}>
-                    {item.pending_orders.length} pendiente{item.pending_orders.length !== 1 ? 's' : ''}
-                  </Text>
+                <View style={styles.clientDebt}>
+                  <Text style={styles.debtLabel}>Adeuda:</Text>
+                  <Text style={styles.debtAmount}>${item.total_pending.toFixed(2)}</Text>
                 </View>
               </View>
-              
-              {item.pending_orders.length > 0 && (
-                <View style={styles.ordersPreview}>
-                  {item.pending_orders.slice(0, 2).map((order, i) => (
-                    <View key={i} style={styles.orderPreviewItem}>
-                      <Ionicons name="car" size={14} color="#6B7280" />
-                      <Text style={styles.orderPreviewText} numberOfLines={1}>
-                        {order.vehicle}
-                      </Text>
-                      <Text style={styles.orderPreviewPrice}>${order.total.toFixed(2)}</Text>
+
+              {/* Orders List */}
+              {item.pending_orders.length > 0 ? (
+                <View style={styles.ordersList}>
+                  {item.pending_orders.map((order, orderIndex) => (
+                    <View key={orderIndex} style={styles.orderItem}>
+                      <View style={styles.orderInfo}>
+                        <View style={styles.orderVehicleRow}>
+                          <Ionicons name="car" size={16} color="#3B82F6" />
+                          <Text style={styles.orderVehicle}>{order.vehicle}</Text>
+                        </View>
+                        <Text style={styles.orderDate}>
+                          {new Date(order.created_at).toLocaleDateString('es-ES')}
+                        </Text>
+                        <View style={styles.orderServices}>
+                          {order.services.slice(0, 2).map((service, i) => (
+                            <Text key={i} style={styles.orderServiceText}>• {service}</Text>
+                          ))}
+                          {order.services.length > 2 && (
+                            <Text style={styles.moreServices}>+{order.services.length - 2} más</Text>
+                          )}
+                        </View>
+                      </View>
+                      
+                      <View style={styles.orderActions}>
+                        <Text style={styles.orderAmount}>${order.total.toFixed(2)}</Text>
+                        <TouchableOpacity
+                          style={styles.payButton}
+                          onPress={() => openPaymentModal(order)}
+                        >
+                          <Ionicons name="card" size={16} color="#FFF" />
+                          <Text style={styles.payButtonText}>Pagar</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   ))}
-                  {item.pending_orders.length > 2 && (
-                    <Text style={styles.moreOrders}>
-                      +{item.pending_orders.length - 2} más...
-                    </Text>
-                  )}
+                </View>
+              ) : (
+                <View style={styles.noPendingOrders}>
+                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                  <Text style={styles.noPendingText}>Sin pagos pendientes</Text>
                 </View>
               )}
-              
-              <View style={styles.viewDetailBtn}>
-                <Text style={styles.viewDetailText}>Ver Detalle</Text>
-                <Ionicons name="chevron-forward" size={18} color="#3B82F6" />
-              </View>
-            </TouchableOpacity>
+
+              {/* Pay All Button */}
+              {item.pending_orders.length > 1 && (
+                <TouchableOpacity
+                  style={styles.payAllButton}
+                  onPress={() => openClientDetail(item)}
+                >
+                  <Ionicons name="cash" size={18} color="#10B981" />
+                  <Text style={styles.payAllText}>
+                    Ver todos ({item.pending_orders.length}) - Total: ${item.total_pending.toFixed(2)}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           ))
         )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Payment Modal */}
+      <Modal visible={paymentModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.paymentModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Registrar Pago</Text>
+              <TouchableOpacity onPress={() => setPaymentModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFF" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedOrder && (
+              <>
+                <View style={styles.paymentOrderInfo}>
+                  <Text style={styles.paymentVehicle}>{selectedOrder.vehicle}</Text>
+                  <Text style={styles.paymentTotal}>${selectedOrder.total.toFixed(2)}</Text>
+                </View>
+
+                <Text style={styles.methodLabel}>Método de Pago</Text>
+                <View style={styles.methodOptions}>
+                  {[
+                    { id: 'cash', label: 'Efectivo', icon: 'cash' },
+                    { id: 'zelle', label: 'Zelle', icon: 'phone-portrait' },
+                    { id: 'check', label: 'Cheque', icon: 'document' },
+                    { id: 'transfer', label: 'Transfer', icon: 'swap-horizontal' },
+                  ].map((method) => (
+                    <TouchableOpacity
+                      key={method.id}
+                      style={[
+                        styles.methodOption,
+                        paymentMethod === method.id && styles.methodOptionActive,
+                      ]}
+                      onPress={() => setPaymentMethod(method.id)}
+                    >
+                      <Ionicons
+                        name={method.icon as any}
+                        size={24}
+                        color={paymentMethod === method.id ? '#FFF' : '#9CA3AF'}
+                      />
+                      <Text
+                        style={[
+                          styles.methodOptionText,
+                          paymentMethod === method.id && styles.methodOptionTextActive,
+                        ]}
+                      >
+                        {method.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.confirmPayButton, updating && { opacity: 0.7 }]}
+                  onPress={handleMarkAsPaid}
+                  disabled={updating}
+                >
+                  {updating ? (
+                    <ActivityIndicator color="#FFF" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle" size={24} color="#FFF" />
+                      <Text style={styles.confirmPayText}>Confirmar Pago</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setPaymentModalVisible(false)}
+                >
+                  <Text style={styles.cancelText}>Cancelar</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Client Detail Modal */}
       <Modal visible={detailModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.detailModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {selectedClient?.client.name}
-              </Text>
+              <Text style={styles.modalTitle}>{selectedClient?.client.name}</Text>
               <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
                 <Ionicons name="close" size={24} color="#FFF" />
               </TouchableOpacity>
             </View>
 
             <ScrollView style={styles.modalScroll}>
-              {/* Client Summary */}
-              <View style={styles.modalSummary}>
-                <View style={styles.modalSummaryItem}>
-                  <Text style={styles.modalSummaryLabel}>Total Pendiente</Text>
-                  <Text style={styles.modalSummaryValue}>
+              {/* Summary */}
+              <View style={styles.detailSummary}>
+                <View style={styles.detailSummaryItem}>
+                  <Text style={styles.detailSummaryLabel}>Total Adeudado</Text>
+                  <Text style={styles.detailSummaryValue}>
                     ${selectedClient?.total_pending.toFixed(2)}
                   </Text>
                 </View>
-                <View style={styles.modalSummaryItem}>
-                  <Text style={styles.modalSummaryLabel}>Total Pagado</Text>
-                  <Text style={[styles.modalSummaryValue, { color: '#10B981' }]}>
+                <View style={styles.detailSummaryItem}>
+                  <Text style={styles.detailSummaryLabel}>Ya Pagado</Text>
+                  <Text style={[styles.detailSummaryValue, { color: '#10B981' }]}>
                     ${selectedClient?.total_paid.toFixed(2)}
                   </Text>
                 </View>
               </View>
 
-              {/* Orders List */}
-              <Text style={styles.modalSectionTitle}>
-                Carros Pendientes de Pago ({selectedClient?.pending_orders.length})
+              {/* Contact */}
+              {selectedClient?.client.phone && (
+                <View style={styles.contactRow}>
+                  <Ionicons name="call" size={18} color="#3B82F6" />
+                  <Text style={styles.contactText}>{selectedClient.client.phone}</Text>
+                </View>
+              )}
+
+              {/* All Pending Orders */}
+              <Text style={styles.detailSectionTitle}>
+                Carros Pendientes ({selectedClient?.pending_orders.length})
               </Text>
 
               {selectedClient?.pending_orders.map((order, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.orderCard}
-                  onPress={() => {
-                    setDetailModalVisible(false);
-                    router.push(`/order/${order.id}`);
-                  }}
-                >
-                  <View style={styles.orderHeader}>
-                    <Ionicons name="car" size={20} color="#3B82F6" />
-                    <Text style={styles.orderVehicle}>{order.vehicle}</Text>
-                  </View>
-                  <Text style={styles.orderVin}>VIN: {order.vin}</Text>
-                  
-                  <View style={styles.orderServices}>
-                    {order.services.slice(0, 3).map((service, i) => (
-                      <View key={i} style={styles.serviceChip}>
-                        <Text style={styles.serviceChipText}>{service}</Text>
-                      </View>
-                    ))}
-                    {order.services.length > 3 && (
-                      <Text style={styles.moreServices}>+{order.services.length - 3}</Text>
-                    )}
+                <View key={index} style={styles.detailOrderCard}>
+                  <View style={styles.detailOrderHeader}>
+                    <View>
+                      <Text style={styles.detailOrderVehicle}>{order.vehicle}</Text>
+                      <Text style={styles.detailOrderVin}>VIN: {order.vin}</Text>
+                    </View>
+                    <Text style={styles.detailOrderAmount}>${order.total.toFixed(2)}</Text>
                   </View>
 
-                  <View style={styles.orderFooter}>
-                    <Text style={styles.orderDate}>
+                  <View style={styles.detailOrderServices}>
+                    {order.services.map((service, i) => (
+                      <Text key={i} style={styles.detailServiceText}>• {service}</Text>
+                    ))}
+                  </View>
+
+                  <View style={styles.detailOrderFooter}>
+                    <Text style={styles.detailOrderDate}>
                       {new Date(order.created_at).toLocaleDateString('es-ES')}
                     </Text>
-                    <Text style={styles.orderTotal}>${order.total.toFixed(2)}</Text>
+                    <TouchableOpacity
+                      style={styles.detailPayButton}
+                      onPress={() => {
+                        setDetailModalVisible(false);
+                        setTimeout(() => openPaymentModal(order), 300);
+                      }}
+                    >
+                      <Ionicons name="card" size={16} color="#FFF" />
+                      <Text style={styles.detailPayButtonText}>Marcar Pagado</Text>
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
-              ))}
-
-              {selectedClient?.pending_orders.length === 0 && (
-                <View style={styles.noOrdersMessage}>
-                  <Ionicons name="checkmark-circle" size={40} color="#10B981" />
-                  <Text style={styles.noOrdersText}>Sin pagos pendientes</Text>
                 </View>
-              )}
+              ))}
             </ScrollView>
           </View>
         </View>
@@ -317,80 +470,73 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginTop: 4,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  summaryCard: {
-    flex: 1,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-  },
-  summaryValue: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#FFF',
-    marginTop: 8,
-  },
-  summaryLabel: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.8)',
-    marginTop: 2,
-  },
-  totalPendingCard: {
+  
+  // Total Card
+  totalCard: {
     backgroundColor: '#DC2626',
     marginHorizontal: 16,
-    marginTop: 12,
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
     alignItems: 'center',
   },
-  totalPendingLabel: {
+  totalLabel: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
   },
-  totalPendingValue: {
-    fontSize: 36,
+  totalValue: {
+    fontSize: 42,
     fontWeight: '700',
     color: '#FFF',
     marginTop: 4,
   },
+  totalStats: {
+    flexDirection: 'row',
+    marginTop: 12,
+    gap: 20,
+  },
+  totalStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  totalStatText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 13,
+  },
+  
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '700',
     color: '#FFF',
     marginHorizontal: 16,
     marginTop: 24,
     marginBottom: 12,
   },
+  
   emptyState: {
     alignItems: 'center',
     padding: 40,
   },
   emptyText: {
-    color: '#9CA3AF',
+    color: '#10B981',
     fontSize: 16,
-    marginTop: 16,
+    marginTop: 12,
   },
-  emptySubtext: {
-    color: '#6B7280',
-    fontSize: 13,
-    marginTop: 8,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-  },
-  clientCard: {
+  
+  // Client Section
+  clientSection: {
     backgroundColor: '#1F2937',
     marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 12,
-    padding: 16,
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
   clientHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#374151',
   },
   clientAvatar: {
     width: 48,
@@ -411,7 +557,7 @@ const styles = StyleSheet.create({
   },
   clientName: {
     color: '#FFF',
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '600',
   },
   clientPhone: {
@@ -419,163 +565,296 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginTop: 2,
   },
-  clientStats: {
+  clientDebt: {
     alignItems: 'flex-end',
   },
-  pendingAmount: {
+  debtLabel: {
+    color: '#9CA3AF',
+    fontSize: 11,
+  },
+  debtAmount: {
     color: '#F59E0B',
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
   },
-  pendingCount: {
-    color: '#9CA3AF',
-    fontSize: 12,
-    marginTop: 2,
+  
+  // Orders List
+  ordersList: {
+    padding: 12,
   },
-  ordersPreview: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
-  },
-  orderPreviewItem: {
+  orderItem: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
-  orderPreviewText: {
+  orderInfo: {
     flex: 1,
-    color: '#D1D5DB',
-    fontSize: 13,
   },
-  orderPreviewPrice: {
-    color: '#F59E0B',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  moreOrders: {
-    color: '#6B7280',
-    fontSize: 12,
-    marginTop: 4,
-  },
-  viewDetailBtn: {
+  orderVehicleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#374151',
-    gap: 4,
+    gap: 6,
   },
-  viewDetailText: {
-    color: '#3B82F6',
+  orderVehicle: {
+    color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
   },
-  // Modal
+  orderDate: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 4,
+  },
+  orderServices: {
+    marginTop: 6,
+  },
+  orderServiceText: {
+    color: '#9CA3AF',
+    fontSize: 12,
+  },
+  moreServices: {
+    color: '#6B7280',
+    fontSize: 11,
+    marginTop: 2,
+  },
+  orderActions: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+  },
+  orderAmount: {
+    color: '#F59E0B',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  payButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#10B981',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 4,
+    marginTop: 8,
+  },
+  payButtonText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  
+  noPendingOrders: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    gap: 8,
+  },
+  noPendingText: {
+    color: '#10B981',
+    fontSize: 14,
+  },
+  
+  payAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#374151',
+    gap: 8,
+  },
+  payAllText: {
+    color: '#10B981',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  
+  // Payment Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'flex-end',
   },
-  modalContent: {
-    flex: 1,
+  paymentModalContent: {
     backgroundColor: '#1F2937',
-    marginTop: 60,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#374151',
+    marginBottom: 20,
   },
   modalTitle: {
     color: '#FFF',
     fontSize: 20,
     fontWeight: '700',
   },
+  paymentOrderInfo: {
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  paymentVehicle: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
+  },
+  paymentTotal: {
+    color: '#10B981',
+    fontSize: 24,
+    fontWeight: '700',
+  },
+  methodLabel: {
+    color: '#9CA3AF',
+    fontSize: 14,
+    marginBottom: 12,
+  },
+  methodOptions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 24,
+  },
+  methodOption: {
+    flex: 1,
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 6,
+  },
+  methodOptionActive: {
+    backgroundColor: '#3B82F6',
+  },
+  methodOptionText: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  methodOptionTextActive: {
+    color: '#FFF',
+  },
+  confirmPayButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#10B981',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 10,
+  },
+  confirmPayText: {
+    color: '#FFF',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 8,
+  },
+  cancelText: {
+    color: '#9CA3AF',
+    fontSize: 16,
+  },
+  
+  // Detail Modal
+  detailModalContent: {
+    flex: 1,
+    backgroundColor: '#1F2937',
+    marginTop: 60,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
   modalScroll: {
     flex: 1,
     padding: 16,
   },
-  modalSummary: {
+  detailSummary: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 20,
+    marginBottom: 16,
   },
-  modalSummaryItem: {
+  detailSummaryItem: {
     flex: 1,
     backgroundColor: '#374151',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
-  modalSummaryLabel: {
+  detailSummaryLabel: {
     color: '#9CA3AF',
     fontSize: 12,
   },
-  modalSummaryValue: {
+  detailSummaryValue: {
     color: '#F59E0B',
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: '700',
     marginTop: 4,
   },
-  modalSectionTitle: {
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  contactText: {
+    color: '#D1D5DB',
+    fontSize: 15,
+  },
+  detailSectionTitle: {
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
   },
-  orderCard: {
+  detailOrderCard: {
     backgroundColor: '#374151',
     borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    padding: 16,
+    marginBottom: 12,
   },
-  orderHeader: {
+  detailOrderHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
-  orderVehicle: {
+  detailOrderVehicle: {
     color: '#FFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '600',
-    flex: 1,
   },
-  orderVin: {
+  detailOrderVin: {
     color: '#6B7280',
     fontSize: 11,
-    marginTop: 4,
-    marginLeft: 28,
+    marginTop: 2,
   },
-  orderServices: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    marginTop: 10,
-    gap: 6,
+  detailOrderAmount: {
+    color: '#F59E0B',
+    fontSize: 20,
+    fontWeight: '700',
   },
-  serviceChip: {
-    backgroundColor: '#1F2937',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 6,
+  detailOrderServices: {
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#4B5563',
   },
-  serviceChipText: {
+  detailServiceText: {
     color: '#9CA3AF',
-    fontSize: 11,
+    fontSize: 13,
+    marginBottom: 4,
   },
-  moreServices: {
-    color: '#6B7280',
-    fontSize: 11,
-    alignSelf: 'center',
-  },
-  orderFooter: {
+  detailOrderFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -584,22 +863,22 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#4B5563',
   },
-  orderDate: {
+  detailOrderDate: {
     color: '#6B7280',
     fontSize: 12,
   },
-  orderTotal: {
-    color: '#F59E0B',
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  noOrdersMessage: {
+  detailPayButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 40,
+    backgroundColor: '#10B981',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    gap: 6,
   },
-  noOrdersText: {
-    color: '#10B981',
-    fontSize: 16,
-    marginTop: 12,
+  detailPayButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
