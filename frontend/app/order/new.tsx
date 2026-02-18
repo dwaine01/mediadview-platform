@@ -99,17 +99,45 @@ export default function NewOrderScreen() {
       return;
     }
 
+    // If admin and no tech selected, show warning
+    if (isAdmin && !selectedTech) {
+      Alert.alert(
+        'Asignar Técnico',
+        '¿Desea asignarse la orden a usted mismo o seleccionar un técnico?',
+        [
+          {
+            text: 'A mí mismo',
+            onPress: () => submitOrder(undefined),
+          },
+          {
+            text: 'Seleccionar técnico',
+            onPress: () => setTechModalVisible(true),
+          },
+        ]
+      );
+      return;
+    }
+
+    submitOrder(selectedTech?.id);
+  };
+
+  const submitOrder = async (techId?: string) => {
     setLoading(true);
     try {
       const order = await createWorkOrder({
         vehicle_id: vehicleId,
         client_id: clientId,
+        tech_id: techId,
         services: Array.from(selectedServices.values()),
         odometer: odometer ? parseInt(odometer) : undefined,
         notes: notes || undefined,
       });
 
-      Alert.alert('Éxito', 'Orden creada correctamente', [
+      const message = techId && selectedTech 
+        ? `Orden asignada a ${selectedTech.name}` 
+        : 'Orden creada correctamente';
+
+      Alert.alert('Éxito', message, [
         {
           text: 'Ver Orden',
           onPress: () => router.replace(`/order/${order.id}`),
