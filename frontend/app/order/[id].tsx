@@ -203,38 +203,54 @@ export default function OrderDetailScreen() {
             <Text style={styles.sectionTitle}>Estado de Trabajo</Text>
             <StatusBadge status={order.status} />
           </View>
+          {!isAdmin && (
+            <Text style={styles.permissionNote}>
+              Solo puedes avanzar el estado
+            </Text>
+          )}
           <View style={styles.statusButtons}>
-            {['iniciado', 'pendiente', 'terminado'].map((status) => (
-              <TouchableOpacity
-                key={status}
-                style={[
-                  styles.statusButton,
-                  order.status === status && styles.statusButtonActive,
-                ]}
-                onPress={() => handleStatusChange(status)}
-                disabled={order.status === status || updating}
-              >
-                <Ionicons
-                  name={
-                    status === 'iniciado'
-                      ? 'play'
-                      : status === 'pendiente'
-                      ? 'pause'
-                      : 'checkmark'
-                  }
-                  size={20}
-                  color={order.status === status ? '#FFFFFF' : '#9CA3AF'}
-                />
-                <Text
+            {['iniciado', 'pendiente', 'terminado'].map((status) => {
+              const canChange = canChangeToStatus(status);
+              const isCurrentStatus = order.status === status;
+              const isDisabled = isCurrentStatus || updating || !canChange;
+              
+              return (
+                <TouchableOpacity
+                  key={status}
                   style={[
-                    styles.statusButtonText,
-                    order.status === status && styles.statusButtonTextActive,
+                    styles.statusButton,
+                    isCurrentStatus && styles.statusButtonActive,
+                    !canChange && !isCurrentStatus && styles.statusButtonDisabled,
                   ]}
+                  onPress={() => handleStatusChange(status)}
+                  disabled={isDisabled}
                 >
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
-                </Text>
-              </TouchableOpacity>
-            ))}
+                  <Ionicons
+                    name={
+                      status === 'iniciado'
+                        ? 'play'
+                        : status === 'pendiente'
+                        ? 'pause'
+                        : 'checkmark'
+                    }
+                    size={20}
+                    color={isCurrentStatus ? '#FFFFFF' : (!canChange ? '#4B5563' : '#9CA3AF')}
+                  />
+                  <Text
+                    style={[
+                      styles.statusButtonText,
+                      isCurrentStatus && styles.statusButtonTextActive,
+                      !canChange && !isCurrentStatus && styles.statusButtonTextDisabled,
+                    ]}
+                  >
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </Text>
+                  {!canChange && !isCurrentStatus && (
+                    <Ionicons name="lock-closed" size={12} color="#4B5563" />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         </View>
 
