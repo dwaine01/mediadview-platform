@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -7,59 +7,101 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
-  Platform,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { decodeVin, getVehicleByVin } from '../../src/services/api';
-import { VinDecodeResult } from '../../src/types';
 
 export default function ScanVinScreen() {
   const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
   const [manualVin, setManualVin] = useState('');
   const [loading, setLoading] = useState(false);
   const [showManual, setShowManual] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  
+  // Use ref to prevent multiple scans - more reliable than state
+  const isProcessingRef = useRef(false);
+  const hasNavigatedRef = useRef(false);
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || loading) return;
-    setScanned(true);
-    await processVin(data);
+  // Clean VIN function - removes all non-alphanumeric characters
+  const cleanVin = (rawVin: string): string => {
+    if (!rawVin) return '';
+    // Remove spaces, line breaks, carriage returns, tabs, and any non-alphanumeric characters
+    return rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
   };
 
-  const processVin = async (vin: string) => {
-    // Clean VIN: remove all non-alphanumeric characters (spaces, line breaks, control chars)
-    vin = vin.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  // Validate VIN
+  const validateVin = (vin: string): { valid: boolean; error?: string } => {
+    if (!vin || vin.length === 0) {
+      return { valid: false, error: 'No se pudo leer el código. Intente de nuevo o ingrese manualmente.' };
+    }
     
-    // Basic validation
     if (vin.length !== 17) {
-      Alert.alert(
-        'Error', 
-        `El VIN debe tener 17 caracteres. Se detectaron ${vin.length} caracteres: "${vin}"`
-      );
-      setScanned(false);
-      return;
+      return { 
+        valid: false, 
+        error: `VIN inválido: ${vin.length} caracteres detectados (se requieren 17).\n\nVIN leído: ${vin}\n\nIntente escanear de nuevo o ingrese el VIN manualmente.`
+      };
     }
 
     const invalidChars = ['I', 'O', 'Q'];
     for (const char of invalidChars) {
       if (vin.includes(char)) {
-        Alert.alert('Error', `El VIN no puede contener la letra "${char}"`);
-        setScanned(false);
-        return;
+        return { 
+          valid: false, 
+          error: `El VIN contiene el carácter inválido "${char}". Los VINs no pueden contener I, O o Q.`
+        };
       }
     }
 
+    return { valid: true };
+  };
+
+  const handleBarCodeScanned = useCallback(({ data }: { data: string }) => {
+    // Prevent multiple scans using ref (more reliable than state)
+    if (isProcessingRef.current || hasNavigatedRef.current) {
+      return;
+    }
+    
+    isProcessingRef.current = true;
+    
+    console.log('Raw barcode data:', JSON.stringify(data));
+    console.log('Raw barcode length:', data?.length);
+    
+    const cleanedVin = cleanVin(data);
+    console.log('Cleaned VIN:', cleanedVin);
+    console.log('Cleaned VIN length:', cleanedVin.length);
+    
+    const validation = validateVin(cleanedVin);
+    
+    if (!validation.valid) {
+      setScanError(validation.error || 'VIN inválido');
+      // Allow scanning again after showing error
+      setTimeout(() => {
+        isProcessingRef.current = false;
+      }, 2000); // 2 second delay before allowing another scan
+      return;
+    }
+
+    // Valid VIN - process it
+    setScanError(null);
+    processVin(cleanedVin);
+  }, []);
+
+  const processVin = async (vin: string) => {
+    if (hasNavigatedRef.current) return;
+    
     setLoading(true);
     try {
       // Check if vehicle already exists
       const existingVehicle = await getVehicleByVin(vin);
       
+      hasNavigatedRef.current = true;
+      
       if (existingVehicle) {
         // Vehicle exists, go to create order with existing vehicle
-        router.push({
+        router.replace({
           pathname: '/order/new',
           params: {
             vehicleId: existingVehicle.id,
@@ -70,7 +112,7 @@ export default function ScanVinScreen() {
       } else {
         // New vehicle, decode VIN
         const vinData = await decodeVin(vin);
-        router.push({
+        router.replace({
           pathname: '/order/select-client',
           params: {
             vinData: JSON.stringify(vinData),
@@ -78,18 +120,33 @@ export default function ScanVinScreen() {
         });
       }
     } catch (error: any) {
+      hasNavigatedRef.current = false;
       const message = error.response?.data?.detail || 'Error al procesar VIN';
       Alert.alert('Error', message);
-      setScanned(false);
+      isProcessingRef.current = false;
     } finally {
       setLoading(false);
     }
   };
 
   const handleManualSubmit = () => {
-    if (manualVin.trim()) {
-      processVin(manualVin);
+    if (isProcessingRef.current || hasNavigatedRef.current) return;
+    
+    const cleanedVin = cleanVin(manualVin);
+    const validation = validateVin(cleanedVin);
+    
+    if (!validation.valid) {
+      Alert.alert('Error', validation.error || 'VIN inválido');
+      return;
     }
+    
+    isProcessingRef.current = true;
+    processVin(cleanedVin);
+  };
+
+  const dismissError = () => {
+    setScanError(null);
+    isProcessingRef.current = false;
   };
 
   if (!permission) {
@@ -139,7 +196,7 @@ export default function ScanVinScreen() {
             placeholder="Ej: 1HGBH41JXMN109186"
             placeholderTextColor="#6B7280"
             value={manualVin}
-            onChangeText={(text) => setManualVin(text.toUpperCase())}
+            onChangeText={(text) => setManualVin(text.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
             autoCapitalize="characters"
             maxLength={17}
             autoFocus
@@ -169,9 +226,9 @@ export default function ScanVinScreen() {
     <View style={styles.container}>
       <CameraView
         style={styles.camera}
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={handleBarCodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['code39', 'code128', 'pdf417', 'datamatrix'],
+          barcodeTypes: ['code39', 'code128', 'pdf417', 'datamatrix', 'qr'],
         }}
         enableTorch={torchOn}
       >
@@ -216,6 +273,34 @@ export default function ScanVinScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Error overlay */}
+        {scanError && (
+          <View style={styles.errorOverlay}>
+            <View style={styles.errorCard}>
+              <Ionicons name="alert-circle" size={48} color="#EF4444" />
+              <Text style={styles.errorTitle}>Error de Escaneo</Text>
+              <Text style={styles.errorText}>{scanError}</Text>
+              <View style={styles.errorButtons}>
+                <TouchableOpacity style={styles.retryButton} onPress={dismissError}>
+                  <Ionicons name="refresh" size={20} color="#FFFFFF" />
+                  <Text style={styles.retryButtonText}>Reintentar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.manualEntryButton} 
+                  onPress={() => {
+                    dismissError();
+                    setShowManual(true);
+                  }}
+                >
+                  <Ionicons name="keypad" size={20} color="#3B82F6" />
+                  <Text style={styles.manualEntryButtonText}>Manual</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        )}
+
+        {/* Loading overlay */}
         {loading && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="large" color="#3B82F6" />
@@ -338,6 +423,69 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#FFFFFF',
     marginTop: 16,
+  },
+  errorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  errorCard: {
+    backgroundColor: '#1F2937',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    maxWidth: 320,
+    width: '100%',
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  errorButtons: {
+    flexDirection: 'row',
+    marginTop: 24,
+    gap: 12,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  retryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  manualEntryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+  },
+  manualEntryButtonText: {
+    color: '#3B82F6',
+    fontSize: 15,
+    fontWeight: '600',
   },
   permissionText: {
     fontSize: 20,
