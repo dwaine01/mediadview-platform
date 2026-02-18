@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "AutoService Hub",
-    "slug": "autoservice-hub",
+    "name": "Ohio Airbag Light Reset",
+    "slug": "ohio-airbag-light-reset",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "autoservice",
+    "scheme": "ohioairbag",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
