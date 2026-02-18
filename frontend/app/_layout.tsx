@@ -38,7 +38,6 @@ export default function RootLayout() {
         <Stack.Screen name="order/[id]" options={{ title: 'Detalle de Orden' }} />
         <Stack.Screen name="order/scan" options={{ title: 'Escanear VIN' }} />
         <Stack.Screen name="order/select-client" options={{ title: 'Seleccionar Cliente' }} />
-        <Stack.Screen name="order/select-services" options={{ title: 'Servicios' }} />
       </Stack>
     </>
   );
