@@ -10,92 +10,12 @@ import {
   Platform,
   ScrollView,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { router } from 'expo-router';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { login } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
-
-// Company logo - Ohio Airbag Light Reset
-const CompanyLogo = () => (
-  <View style={logoStyles.container}>
-    {/* Icon row with car, airbag, lightning */}
-    <View style={logoStyles.iconRow}>
-      <View style={logoStyles.iconCircle}>
-        <Ionicons name="car" size={26} color="#D4A017" />
-      </View>
-      <View style={logoStyles.iconCircle}>
-        <MaterialCommunityIcons name="airbag" size={26} color="#D4A017" />
-      </View>
-      <View style={logoStyles.iconCircle}>
-        <Ionicons name="flash" size={26} color="#D4A017" />
-      </View>
-    </View>
-    {/* OHIO text */}
-    <Text style={logoStyles.ohioText}>OHIO</Text>
-    {/* AIRBAG LIGHT text */}
-    <Text style={logoStyles.airbagText}>AIRBAG LIGHT</Text>
-    {/* RESET text */}
-    <Text style={logoStyles.resetText}>RESET</Text>
-    {/* Decorative line */}
-    <View style={logoStyles.decorLine} />
-  </View>
-);
-
-const logoStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  iconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 16,
-  },
-  iconCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(212, 160, 23, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  ohioText: {
-    fontSize: 56,
-    fontWeight: '900',
-    color: '#D4A017',
-    letterSpacing: 12,
-    textShadowColor: 'rgba(212, 160, 23, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  airbagText: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    letterSpacing: 6,
-    marginTop: 2,
-  },
-  resetText: {
-    fontSize: 42,
-    fontWeight: '900',
-    color: '#D4A017',
-    letterSpacing: 16,
-    marginTop: 4,
-    textShadowColor: 'rgba(212, 160, 23, 0.3)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  decorLine: {
-    width: 120,
-    height: 3,
-    backgroundColor: '#D4A017',
-    marginTop: 16,
-    borderRadius: 2,
-  },
-});
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -133,7 +53,11 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.logoContainer}>
-          <CompanyLogo />
+          <Image
+            source={require('../../assets/images/logo.png')}
+            style={styles.logo}
+            resizeMode="contain"
+          />
         </View>
 
         <View style={styles.form}>
