@@ -251,6 +251,44 @@ export default function NewOrderScreen() {
           </View>
         </View>
 
+        {/* Tech Assignment (Admin only) */}
+        {isAdmin && technicians.length > 0 && (
+          <View style={styles.techSection}>
+            <Text style={styles.techSectionTitle}>Asignar a Técnico</Text>
+            <TouchableOpacity
+              style={styles.techSelector}
+              onPress={() => setTechModalVisible(true)}
+            >
+              {selectedTech ? (
+                <View style={styles.selectedTechRow}>
+                  <View style={styles.techAvatar}>
+                    <Text style={styles.techAvatarText}>
+                      {selectedTech.name.charAt(0).toUpperCase()}
+                    </Text>
+                  </View>
+                  <Text style={styles.selectedTechName}>{selectedTech.name}</Text>
+                  <Ionicons name="checkmark-circle" size={20} color="#10B981" />
+                </View>
+              ) : (
+                <View style={styles.selectTechRow}>
+                  <Ionicons name="person-add" size={24} color="#6B7280" />
+                  <Text style={styles.selectTechText}>Seleccionar técnico (opcional)</Text>
+                  <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+                </View>
+              )}
+            </TouchableOpacity>
+            {selectedTech && (
+              <TouchableOpacity
+                style={styles.clearTechButton}
+                onPress={() => setSelectedTech(null)}
+              >
+                <Ionicons name="close-circle" size={16} color="#EF4444" />
+                <Text style={styles.clearTechText}>Asignarme a mí</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
         {/* Odometer */}
         <View style={styles.inputSection}>
           <Text style={styles.inputLabel}>Odometro (opcional)</Text>
