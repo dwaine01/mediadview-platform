@@ -589,7 +589,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  permissionNote: {
+    fontSize: 12,
+    color: '#F59E0B',
+    marginBottom: 12,
+    fontStyle: 'italic',
   },
   sectionTitle: {
     fontSize: 16,
@@ -613,10 +619,19 @@ const styles = StyleSheet.create({
   statusButtonActive: {
     backgroundColor: '#3B82F6',
   },
+  statusButtonDisabled: {
+    backgroundColor: '#1F2937',
+    borderWidth: 1,
+    borderColor: '#374151',
+    opacity: 0.5,
+  },
   statusButtonText: {
     fontSize: 12,
     fontWeight: '600',
     color: '#9CA3AF',
+  },
+  statusButtonTextDisabled: {
+    color: '#4B5563',
   },
   statusButtonTextActive: {
     color: '#FFFFFF',
