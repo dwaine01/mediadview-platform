@@ -1103,6 +1103,77 @@ export default function OrderDetailScreen() {
         </View>
       </Modal>
 
+      {/* Completed Work Notification Modal */}
+      <Modal visible={completedModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.completedHeader}>
+              <Text style={styles.completedIcon}>🎉</Text>
+              <Text style={styles.completedTitle}>¡Trabajo Completado!</Text>
+              <Text style={styles.completedSubtitle}>
+                Envía la notificación a los contactos
+              </Text>
+            </View>
+
+            <View style={styles.completedInfo}>
+              <Text style={styles.completedVehicle}>
+                {order?.vehicle?.year} {order?.vehicle?.make} {order?.vehicle?.model}
+              </Text>
+              <Text style={styles.completedClient}>
+                Cliente: {order?.client?.name}
+              </Text>
+            </View>
+
+            <ScrollView style={styles.contactsList}>
+              {notificationContacts.map((contact, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.contactBtn,
+                    !contact.phone && styles.contactBtnDisabled
+                  ]}
+                  onPress={() => sendWhatsAppToNumber(contact.phone, contact.name)}
+                  disabled={!contact.phone}
+                >
+                  <View style={styles.contactInfo}>
+                    <View style={[
+                      styles.contactIcon,
+                      contact.name === 'Cliente' && styles.contactIconClient,
+                      contact.name === 'Dueño' && styles.contactIconOwner,
+                      contact.name === 'Administradora' && styles.contactIconAdmin,
+                      contact.name.includes('Técnico') && styles.contactIconTech,
+                    ]}>
+                      <Ionicons 
+                        name={contact.icon as any} 
+                        size={20} 
+                        color="#FFF" 
+                      />
+                    </View>
+                    <View style={styles.contactDetails}>
+                      <Text style={styles.contactName}>{contact.name}</Text>
+                      <Text style={styles.contactPhone}>
+                        {contact.phone ? `+${contact.phone.slice(0,1)} ${contact.phone.slice(1,4)}-${contact.phone.slice(4,7)}-${contact.phone.slice(7)}` : 'Sin teléfono'}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.whatsappIcon}>
+                    <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            <TouchableOpacity 
+              style={styles.doneBtn} 
+              onPress={() => setCompletedModalVisible(false)}
+            >
+              <Ionicons name="checkmark-circle" size={22} color="#FFF" />
+              <Text style={styles.doneBtnText}>Listo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {updating && (
         <View style={styles.loadingOverlay}>
           <ActivityIndicator size="large" color="#3B82F6" />
