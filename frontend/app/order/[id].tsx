@@ -121,6 +121,17 @@ export default function OrderDetailScreen() {
     return order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
   };
 
+  // Números de notificación configurados
+  const notificationContacts = [
+    { name: 'Cliente', phone: order?.client?.phone || '', icon: 'person' },
+    { name: 'Dueño', phone: '16146326262', icon: 'star' },
+    { name: 'Administradora', phone: '16143696040', icon: 'briefcase' },
+    { name: 'Técnico 1', phone: '16144242644', icon: 'construct' },
+    { name: 'Técnico 2', phone: '12095097845', icon: 'construct' },
+  ];
+
+  const [completedModalVisible, setCompletedModalVisible] = useState(false);
+
   // Genera mensaje de trabajo terminado para WhatsApp
   const generateCompletedMessage = () => {
     if (!order || !workshop) return '';
@@ -137,6 +148,7 @@ export default function OrderDetailScreen() {
     if (order.vehicle?.vin) {
       message += `VIN: ${order.vehicle.vin}\n`;
     }
+    message += `\n👤 *Cliente:* ${order.client?.name || 'N/A'}\n`;
     message += `\n📋 *Servicios Realizados:*\n`;
     
     order.services.forEach((service, i) => {
@@ -145,26 +157,26 @@ export default function OrderDetailScreen() {
     
     const total = order.services.reduce((sum, s) => sum + s.price * s.quantity, 0);
     message += `\n💰 *Total: $${total.toFixed(2)}*\n`;
-    message += `\n¡Su vehículo está listo para recoger! 🚗✨`;
+    message += `\n¡Vehículo listo para entregar! 🚗✨`;
     
     return message;
   };
 
-  // Enviar WhatsApp de trabajo terminado
-  const sendCompletedWhatsApp = async () => {
-    if (!order?.client?.phone) {
-      return; // No enviar si no hay teléfono
+  // Enviar WhatsApp a un número específico
+  const sendWhatsAppToNumber = async (phone: string, contactName: string) => {
+    if (!phone) {
+      Alert.alert('Error', `${contactName} no tiene número de teléfono`);
+      return;
     }
     
     const message = generateCompletedMessage().replace(/\*/g, '');
-    const phone = order.client.phone.replace(/\D/g, '');
-    const phoneWithCode = phone.length === 10 ? `1${phone}` : phone;
+    const cleanPhone = phone.replace(/\D/g, '');
+    const phoneWithCode = cleanPhone.length === 10 ? `1${cleanPhone}` : cleanPhone;
     
     try {
       await Linking.openURL(`whatsapp://send?phone=${phoneWithCode}&text=${encodeURIComponent(message)}`);
     } catch {
-      // Si falla WhatsApp, no mostrar error (es opcional)
-      console.log('No se pudo abrir WhatsApp');
+      Alert.alert('Error', 'No se pudo abrir WhatsApp');
     }
   };
 
@@ -174,7 +186,7 @@ export default function OrderDetailScreen() {
     // Mensaje especial para cuando se marca como terminado
     const isCompletingWork = newStatus === 'terminado';
     const confirmMessage = isCompletingWork 
-      ? `¿Marcar trabajo como TERMINADO?\n\nSe enviará un mensaje de WhatsApp al cliente notificando que su vehículo está listo.`
+      ? `¿Marcar trabajo como TERMINADO?\n\nPodrás enviar notificaciones por WhatsApp a los contactos configurados.`
       : `¿Cambiar estado a "${statusLabels[newStatus]}"?`;
 
     Alert.alert(
@@ -190,10 +202,10 @@ export default function OrderDetailScreen() {
               await updateWorkOrder(order.id, { status: newStatus });
               await loadOrder();
               
-              // Si se marcó como terminado, enviar WhatsApp
-              if (isCompletingWork && order.client?.phone) {
+              // Si se marcó como terminado, mostrar modal de notificaciones
+              if (isCompletingWork) {
                 setTimeout(() => {
-                  sendCompletedWhatsApp();
+                  setCompletedModalVisible(true);
                 }, 500);
               }
             } catch (error: any) {
