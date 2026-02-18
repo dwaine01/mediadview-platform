@@ -183,12 +183,14 @@ class WorkOrder(BaseModel):
 class WorkOrderCreate(BaseModel):
     vehicle_id: str
     client_id: str
+    tech_id: Optional[str] = None  # Admin can assign to specific tech
     services: List[WorkOrderService] = []
     odometer: Optional[int] = None
     notes: Optional[str] = None
 
 class WorkOrderUpdate(BaseModel):
     status: Optional[str] = None
+    tech_id: Optional[str] = None  # Admin can reassign
     services: Optional[List[WorkOrderService]] = None
     odometer: Optional[int] = None
     notes: Optional[str] = None
