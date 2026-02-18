@@ -80,6 +80,16 @@ export default function OrderDetailScreen() {
       setOrder(orderRes);
       setWorkshop(workshopRes);
       setNotes(orderRes.notes || '');
+      
+      // Load client data to check credit status
+      if (orderRes.client_id) {
+        try {
+          const clientRes = await getClient(orderRes.client_id);
+          setClientData(clientRes);
+        } catch (e) {
+          console.log('Could not load client data');
+        }
+      }
     } catch (error) {
       console.error('Error loading order:', error);
       Alert.alert('Error', 'No se pudo cargar la orden');
@@ -93,6 +103,16 @@ export default function OrderDetailScreen() {
       loadOrder();
     }, [id])
   );
+
+  // Check if client has credit account
+  const isClientCredit = clientData?.has_credit || false;
+  
+  // Technician should not see payment section for credit clients
+  const canSeePaymentSection = () => {
+    if (isAdmin) return true; // Admin always sees payment
+    if (isClientCredit) return false; // Tech cannot see payment for credit clients
+    return order?.status === 'terminado'; // Tech only sees payment when order is completed for non-credit
+  };
 
   const calculateTotal = () => {
     if (!order) return 0;
