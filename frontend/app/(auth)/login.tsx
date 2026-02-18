@@ -105,8 +105,6 @@ export default function LoginScreen() {
           <Text style={styles.contactText}>
             Contacta al administrador para obtener acceso
           </Text>
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
