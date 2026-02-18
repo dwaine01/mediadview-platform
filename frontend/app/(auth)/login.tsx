@@ -202,18 +202,7 @@ const styles = StyleSheet.create({
   },
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 16,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    marginTop: 8,
+    marginBottom: 30,
   },
   form: {
     width: '100%',
