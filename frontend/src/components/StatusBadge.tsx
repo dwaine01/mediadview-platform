@@ -2,16 +2,18 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
 interface StatusBadgeProps {
-  status: 'iniciado' | 'pendiente' | 'terminado';
+  status: 'asignado' | 'iniciado' | 'pendiente' | 'terminado';
 }
 
 const statusColors = {
+  asignado: { bg: '#8B5CF6', text: '#FFFFFF' },
   iniciado: { bg: '#3B82F6', text: '#FFFFFF' },
   pendiente: { bg: '#F59E0B', text: '#000000' },
   terminado: { bg: '#10B981', text: '#FFFFFF' },
 };
 
 const statusLabels = {
+  asignado: 'Asignado',
   iniciado: 'Iniciado',
   pendiente: 'Pendiente',
   terminado: 'Terminado',
