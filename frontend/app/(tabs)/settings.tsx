@@ -181,7 +181,15 @@ export default function SettingsScreen() {
       {/* Workshop Info */}
       {workshop && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Taller</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Taller</Text>
+            {isAdmin && (
+              <TouchableOpacity style={styles.editButton} onPress={openWorkshopModal}>
+                <Ionicons name="create-outline" size={18} color="#3B82F6" />
+                <Text style={styles.editButtonText}>Editar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <View style={styles.card}>
             <View style={styles.cardRow}>
               <Ionicons name="business" size={20} color="#3B82F6" />
