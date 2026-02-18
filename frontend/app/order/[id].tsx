@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  Linking,
+  Share,
 } from 'react-native';
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -35,6 +37,7 @@ export default function OrderDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
+  const [invoiceModalVisible, setInvoiceModalVisible] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     method: 'cash',
     reference: '',
@@ -165,6 +168,13 @@ export default function OrderDetailScreen() {
                 paid_amount: newPaidAmount,
               });
               await loadOrder();
+              
+              // Show invoice option after payment is marked as paid
+              if (newStatus === 'pagado') {
+                setTimeout(() => {
+                  setInvoiceModalVisible(true);
+                }, 500);
+              }
             } catch (error: any) {
               Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
             } finally {
@@ -174,6 +184,119 @@ export default function OrderDetailScreen() {
         },
       ]
     );
+  };
+
+  // Generate invoice text
+  const generateInvoiceText = () => {
+    if (!order || !workshop || !order.payment) return '';
+    
+    const date = new Date().toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+    
+    let invoice = `🔧 *${workshop.name}*\n`;
+    invoice += `📅 Fecha: ${date}\n\n`;
+    invoice += `🚗 *Vehículo:*\n`;
+    invoice += `${order.vehicle?.year} ${order.vehicle?.make} ${order.vehicle?.model}\n`;
+    invoice += `VIN: ${order.vehicle?.vin}\n\n`;
+    invoice += `👤 *Cliente:* ${order.client?.name}\n\n`;
+    invoice += `📋 *Servicios Realizados:*\n`;
+    
+    order.services.forEach((service, index) => {
+      const side = service.side ? ` (${service.side === 'left' ? 'Izq' : 'Der'})` : '';
+      invoice += `${index + 1}. ${service.service_name}${side} - $${service.price.toFixed(2)}\n`;
+    });
+    
+    invoice += `\n💰 *Resumen de Pago:*\n`;
+    invoice += `Subtotal: $${order.payment.subtotal.toFixed(2)}\n`;
+    if (order.payment.discount > 0) {
+      invoice += `Descuento: -$${order.payment.discount.toFixed(2)}\n`;
+    }
+    invoice += `Impuesto (${workshop.tax_rate}%): $${order.payment.tax.toFixed(2)}\n`;
+    invoice += `*TOTAL: $${order.payment.total.toFixed(2)}*\n\n`;
+    invoice += `✅ Estado: PAGADO\n`;
+    invoice += `💳 Método: ${order.payment.method === 'cash' ? 'Efectivo' : order.payment.method === 'zelle' ? 'Zelle' : order.payment.method === 'check' ? 'Cheque' : 'Otro'}\n`;
+    if (order.payment.reference) {
+      invoice += `Ref: ${order.payment.reference}\n`;
+    }
+    invoice += `\n¡Gracias por su preferencia! 🙏`;
+    
+    return invoice;
+  };
+
+  // Send invoice via WhatsApp
+  const sendWhatsApp = async () => {
+    if (!order?.client?.phone) {
+      Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+      return;
+    }
+    
+    const invoice = generateInvoiceText();
+    // Remove formatting for URL encoding
+    const plainInvoice = invoice.replace(/\*/g, '');
+    const phone = order.client.phone.replace(/\D/g, ''); // Remove non-digits
+    
+    // Add country code if not present (assuming US +1)
+    const phoneWithCode = phone.length === 10 ? `1${phone}` : phone;
+    
+    const url = `whatsapp://send?phone=${phoneWithCode}&text=${encodeURIComponent(plainInvoice)}`;
+    
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+        setInvoiceModalVisible(false);
+      } else {
+        Alert.alert('Error', 'WhatsApp no está instalado en este dispositivo');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo abrir WhatsApp');
+    }
+  };
+
+  // Send invoice via SMS
+  const sendSMS = async () => {
+    if (!order?.client?.phone) {
+      Alert.alert('Error', 'El cliente no tiene número de teléfono registrado');
+      return;
+    }
+    
+    const invoice = generateInvoiceText();
+    // Remove formatting for SMS
+    const plainInvoice = invoice.replace(/\*/g, '').replace(/[🔧📅🚗👤📋💰✅💳🙏]/g, '');
+    const phone = order.client.phone.replace(/\D/g, '');
+    
+    const url = Platform.select({
+      ios: `sms:${phone}&body=${encodeURIComponent(plainInvoice)}`,
+      android: `sms:${phone}?body=${encodeURIComponent(plainInvoice)}`,
+    });
+    
+    try {
+      if (url) {
+        await Linking.openURL(url);
+        setInvoiceModalVisible(false);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo abrir la app de mensajes');
+    }
+  };
+
+  // Share invoice (generic)
+  const shareInvoice = async () => {
+    const invoice = generateInvoiceText();
+    const plainInvoice = invoice.replace(/\*/g, '');
+    
+    try {
+      await Share.share({
+        message: plainInvoice,
+        title: 'Factura de Servicio',
+      });
+      setInvoiceModalVisible(false);
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo compartir la factura');
+    }
   };
 
   if (loading) {
@@ -319,11 +442,12 @@ export default function OrderDetailScreen() {
           </View>
         </View>
 
-        {/* Services */}
+        {/* Services - Show prices only for admin */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="construct" size={24} color="#F59E0B" />
             <Text style={styles.cardTitle}>Servicios</Text>
+            <Text style={styles.serviceCount}>{order.services.length}</Text>
           </View>
           <View style={styles.servicesList}>
             {order.services.map((service, index) => (
@@ -336,97 +460,124 @@ export default function OrderDetailScreen() {
                     </Text>
                   )}
                 </View>
-                <Text style={styles.servicePrice}>
-                  ${(service.price * service.quantity).toFixed(2)}
-                </Text>
+                {/* Only show price for admin */}
+                {isAdmin && (
+                  <Text style={styles.servicePrice}>
+                    ${(service.price * service.quantity).toFixed(2)}
+                  </Text>
+                )}
               </View>
             ))}
           </View>
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Subtotal</Text>
-            <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
-          </View>
-        </View>
-
-        {/* Payment Section */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="card" size={24} color="#8B5CF6" />
-            <Text style={styles.cardTitle}>Pago</Text>
-            {order.payment && <PaymentBadge status={order.payment.payment_status} />}
-          </View>
-
-          {order.payment ? (
-            <View style={styles.paymentInfo}>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Método</Text>
-                <Text style={styles.paymentValue}>
-                  {order.payment.method === 'cash'
-                    ? 'Efectivo'
-                    : order.payment.method === 'zelle'
-                    ? 'Zelle'
-                    : order.payment.method === 'check'
-                    ? 'Cheque'
-                    : 'Otro'}
-                </Text>
-              </View>
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Subtotal</Text>
-                <Text style={styles.paymentValue}>${order.payment.subtotal.toFixed(2)}</Text>
-              </View>
-              {order.payment.discount > 0 && (
-                <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Descuento</Text>
-                  <Text style={[styles.paymentValue, { color: '#EF4444' }]}>
-                    -${order.payment.discount.toFixed(2)}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
-                <Text style={styles.paymentValue}>${order.payment.tax.toFixed(2)}</Text>
-              </View>
-              <View style={[styles.paymentRow, styles.paymentTotalRow]}>
-                <Text style={styles.paymentTotalLabel}>Total</Text>
-                <Text style={styles.paymentTotalValue}>${order.payment.total.toFixed(2)}</Text>
-              </View>
-              {order.payment.reference && (
-                <View style={styles.paymentRow}>
-                  <Text style={styles.paymentLabel}>Referencia</Text>
-                  <Text style={styles.paymentValue}>{order.payment.reference}</Text>
-                </View>
-              )}
-
-              <TouchableOpacity
-                style={[
-                  styles.paymentStatusButton,
-                  order.payment.payment_status === 'pagado' && styles.paymentStatusButtonPaid,
-                ]}
-                onPress={handlePaymentStatusChange}
-                disabled={updating}
-              >
-                <Ionicons
-                  name={order.payment.payment_status === 'pagado' ? 'checkmark-circle' : 'card'}
-                  size={24}
-                  color="#FFFFFF"
-                />
-                <Text style={styles.paymentStatusButtonText}>
-                  {order.payment.payment_status === 'pagado'
-                    ? 'Pagado ✓'
-                    : 'Marcar como Pagado'}
-                </Text>
-              </TouchableOpacity>
+          {/* Only show subtotal for admin */}
+          {isAdmin && (
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>${subtotal.toFixed(2)}</Text>
             </View>
-          ) : (
-            <TouchableOpacity
-              style={styles.addPaymentButton}
-              onPress={() => setPaymentModalVisible(true)}
-            >
-              <Ionicons name="add-circle" size={24} color="#3B82F6" />
-              <Text style={styles.addPaymentText}>Agregar Información de Pago</Text>
-            </TouchableOpacity>
           )}
         </View>
+
+        {/* Payment Section - Only for admin OR when order is completed for tech */}
+        {(isAdmin || order.status === 'terminado') && (
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Ionicons name="card" size={24} color="#8B5CF6" />
+              <Text style={styles.cardTitle}>Pago</Text>
+              {order.payment && <PaymentBadge status={order.payment.payment_status} />}
+            </View>
+
+            {order.payment ? (
+              <View style={styles.paymentInfo}>
+                <View style={styles.paymentRow}>
+                  <Text style={styles.paymentLabel}>Método</Text>
+                  <Text style={styles.paymentValue}>
+                    {order.payment.method === 'cash'
+                      ? 'Efectivo'
+                      : order.payment.method === 'zelle'
+                      ? 'Zelle'
+                      : order.payment.method === 'check'
+                      ? 'Cheque'
+                      : 'Otro'}
+                  </Text>
+                </View>
+                
+                {/* Show financial details only for admin */}
+                {isAdmin && (
+                  <>
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>Subtotal</Text>
+                      <Text style={styles.paymentValue}>${order.payment.subtotal.toFixed(2)}</Text>
+                    </View>
+                    {order.payment.discount > 0 && (
+                      <View style={styles.paymentRow}>
+                        <Text style={styles.paymentLabel}>Descuento</Text>
+                        <Text style={[styles.paymentValue, { color: '#EF4444' }]}>
+                          -${order.payment.discount.toFixed(2)}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={styles.paymentRow}>
+                      <Text style={styles.paymentLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
+                      <Text style={styles.paymentValue}>${order.payment.tax.toFixed(2)}</Text>
+                    </View>
+                    <View style={[styles.paymentRow, styles.paymentTotalRow]}>
+                      <Text style={styles.paymentTotalLabel}>Total</Text>
+                      <Text style={styles.paymentTotalValue}>${order.payment.total.toFixed(2)}</Text>
+                    </View>
+                  </>
+                )}
+                
+                {order.payment.reference && (
+                  <View style={styles.paymentRow}>
+                    <Text style={styles.paymentLabel}>Referencia</Text>
+                    <Text style={styles.paymentValue}>{order.payment.reference}</Text>
+                  </View>
+                )}
+
+                {/* Payment status button */}
+                <TouchableOpacity
+                  style={[
+                    styles.paymentStatusButton,
+                    order.payment.payment_status === 'pagado' && styles.paymentStatusButtonPaid,
+                  ]}
+                  onPress={handlePaymentStatusChange}
+                  disabled={updating}
+                >
+                  <Ionicons
+                    name={order.payment.payment_status === 'pagado' ? 'checkmark-circle' : 'card'}
+                    size={24}
+                    color="#FFFFFF"
+                  />
+                  <Text style={styles.paymentStatusButtonText}>
+                    {order.payment.payment_status === 'pagado'
+                      ? 'Pagado ✓'
+                      : 'Marcar como Pagado'}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Invoice button - Show when payment is completed */}
+                {order.payment.payment_status === 'pagado' && (
+                  <TouchableOpacity
+                    style={styles.invoiceButton}
+                    onPress={() => setInvoiceModalVisible(true)}
+                  >
+                    <Ionicons name="document-text" size={24} color="#3B82F6" />
+                    <Text style={styles.invoiceButtonText}>Enviar Factura al Cliente</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            ) : (
+              <TouchableOpacity
+                style={styles.addPaymentButton}
+                onPress={() => setPaymentModalVisible(true)}
+              >
+                <Ionicons name="add-circle" size={24} color="#3B82F6" />
+                <Text style={styles.addPaymentText}>Agregar Información de Pago</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Notes */}
         {order.notes && (
@@ -509,17 +660,20 @@ export default function OrderDetailScreen() {
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Descuento (opcional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="0.00"
-                placeholderTextColor="#6B7280"
-                value={paymentForm.discount}
-                onChangeText={(text) => setPaymentForm({ ...paymentForm, discount: text })}
-                keyboardType="decimal-pad"
-              />
-            </View>
+            {/* Show discount and reference inputs only for admin */}
+            {isAdmin && (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Descuento (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="0.00"
+                  placeholderTextColor="#6B7280"
+                  value={paymentForm.discount}
+                  onChangeText={(text) => setPaymentForm({ ...paymentForm, discount: text })}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+            )}
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Referencia / # Transacción (opcional)</Text>
@@ -532,29 +686,31 @@ export default function OrderDetailScreen() {
               />
             </View>
 
-            {/* Payment Summary */}
-            <View style={styles.paymentSummary}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Subtotal</Text>
-                <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
-              </View>
-              {parseFloat(paymentForm.discount) > 0 && (
+            {/* Payment Summary - Only for admin */}
+            {isAdmin && (
+              <View style={styles.paymentSummary}>
                 <View style={styles.summaryRow}>
-                  <Text style={styles.summaryLabel}>Descuento</Text>
-                  <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
-                    -${parseFloat(paymentForm.discount).toFixed(2)}
-                  </Text>
+                  <Text style={styles.summaryLabel}>Subtotal</Text>
+                  <Text style={styles.summaryValue}>${subtotal.toFixed(2)}</Text>
                 </View>
-              )}
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
-                <Text style={styles.summaryValue}>${tax.toFixed(2)}</Text>
+                {parseFloat(paymentForm.discount) > 0 && (
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Descuento</Text>
+                    <Text style={[styles.summaryValue, { color: '#EF4444' }]}>
+                      -${parseFloat(paymentForm.discount).toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Impuesto ({workshop?.tax_rate || 0}%)</Text>
+                  <Text style={styles.summaryValue}>${tax.toFixed(2)}</Text>
+                </View>
+                <View style={[styles.summaryRow, styles.summaryTotalRow]}>
+                  <Text style={styles.summaryTotalLabel}>Total</Text>
+                  <Text style={styles.summaryTotalValue}>${total.toFixed(2)}</Text>
+                </View>
               </View>
-              <View style={[styles.summaryRow, styles.summaryTotalRow]}>
-                <Text style={styles.summaryTotalLabel}>Total</Text>
-                <Text style={styles.summaryTotalValue}>${total.toFixed(2)}</Text>
-              </View>
-            </View>
+            )}
 
             <TouchableOpacity
               style={[styles.saveButton, updating && styles.saveButtonDisabled]}
@@ -569,6 +725,58 @@ export default function OrderDetailScreen() {
             </TouchableOpacity>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Invoice Modal */}
+      <Modal
+        visible={invoiceModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setInvoiceModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.invoiceModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Enviar Factura</Text>
+              <TouchableOpacity onPress={() => setInvoiceModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.invoiceModalSubtitle}>
+              Enviar factura a {order.client?.name}
+            </Text>
+            {order.client?.phone && (
+              <Text style={styles.invoiceModalPhone}>
+                📱 {order.client.phone}
+              </Text>
+            )}
+
+            <View style={styles.invoiceOptions}>
+              <TouchableOpacity style={styles.whatsappButton} onPress={sendWhatsApp}>
+                <Ionicons name="logo-whatsapp" size={32} color="#FFFFFF" />
+                <Text style={styles.invoiceOptionText}>WhatsApp</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.smsButton} onPress={sendSMS}>
+                <Ionicons name="chatbubble" size={32} color="#FFFFFF" />
+                <Text style={styles.invoiceOptionText}>SMS</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.shareButton} onPress={shareInvoice}>
+                <Ionicons name="share-social" size={32} color="#FFFFFF" />
+                <Text style={styles.invoiceOptionText}>Compartir</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.cancelInvoiceButton}
+              onPress={() => setInvoiceModalVisible(false)}
+            >
+              <Text style={styles.cancelInvoiceText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </Modal>
 
       {/* Loading Overlay */}
@@ -720,6 +928,16 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   servicesList: {},
+  serviceCount: {
+    backgroundColor: '#374151',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    overflow: 'hidden',
+  },
   serviceItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -815,6 +1033,23 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
   },
+  invoiceButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+  },
+  invoiceButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3B82F6',
+  },
   addPaymentButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -857,6 +1092,12 @@ const styles = StyleSheet.create({
     padding: 24,
     maxHeight: '90%',
   },
+  invoiceModalContent: {
+    backgroundColor: '#1F2937',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -867,6 +1108,61 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  invoiceModalSubtitle: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  invoiceModalPhone: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  invoiceOptions: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 24,
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  smsButton: {
+    backgroundColor: '#3B82F6',
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  shareButton: {
+    backgroundColor: '#8B5CF6',
+    width: 80,
+    height: 80,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  invoiceOptionText: {
+    fontSize: 11,
+    color: '#FFFFFF',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  cancelInvoiceButton: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  cancelInvoiceText: {
+    fontSize: 16,
+    color: '#9CA3AF',
   },
   inputGroup: {
     marginBottom: 16,
