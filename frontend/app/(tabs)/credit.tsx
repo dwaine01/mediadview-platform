@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import { useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getCreditReport, createPayment, updatePayment } from '../../src/services/api';
+import { getCreditReport, createPayment, updatePayment, getWorkshop } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 interface CreditOrder {
   id: string;
