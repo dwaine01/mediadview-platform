@@ -61,6 +61,175 @@ export default function ReportsScreen() {
     setSelectedDate(newDate);
   };
 
+  const generatePdfReport = async () => {
+    setGeneratingPdf(true);
+    try {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const detailedReport = await getDailyDetailedReport(dateStr);
+      
+      const formattedDate = selectedDate.toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+    .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #3B82F6; padding-bottom: 20px; }
+    .header h1 { font-size: 24px; color: #1F2937; margin-bottom: 5px; }
+    .header h2 { font-size: 16px; color: #6B7280; font-weight: normal; }
+    .header .date { font-size: 14px; color: #3B82F6; margin-top: 10px; }
+    
+    .summary { display: flex; justify-content: space-around; margin-bottom: 30px; flex-wrap: wrap; }
+    .summary-box { text-align: center; padding: 15px 25px; background: #F3F4F6; border-radius: 8px; margin: 5px; min-width: 140px; }
+    .summary-box .value { font-size: 28px; font-weight: 700; color: #1F2937; }
+    .summary-box .label { font-size: 12px; color: #6B7280; margin-top: 4px; }
+    .summary-box.green { background: #D1FAE5; }
+    .summary-box.green .value { color: #059669; }
+    .summary-box.yellow { background: #FEF3C7; }
+    .summary-box.yellow .value { color: #D97706; }
+    
+    .section { margin-bottom: 25px; }
+    .section-title { font-size: 16px; font-weight: 700; color: #1F2937; margin-bottom: 15px; padding-bottom: 8px; border-bottom: 2px solid #E5E7EB; }
+    
+    .payment-grid { display: flex; gap: 15px; flex-wrap: wrap; }
+    .payment-card { flex: 1; min-width: 120px; background: #F9FAFB; border-radius: 8px; padding: 15px; text-align: center; border: 1px solid #E5E7EB; }
+    .payment-card .icon { font-size: 24px; margin-bottom: 8px; }
+    .payment-card .amount { font-size: 20px; font-weight: 700; color: #1F2937; }
+    .payment-card .label { font-size: 11px; color: #6B7280; }
+    .payment-card .count { font-size: 12px; color: #9CA3AF; margin-top: 4px; }
+    
+    table { width: 100%; border-collapse: collapse; font-size: 12px; }
+    th { background: #F3F4F6; padding: 10px 8px; text-align: left; font-weight: 600; color: #374151; border-bottom: 2px solid #E5E7EB; }
+    td { padding: 10px 8px; border-bottom: 1px solid #E5E7EB; }
+    tr:nth-child(even) { background: #F9FAFB; }
+    .text-right { text-align: right; }
+    .text-center { text-align: center; }
+    .status-paid { color: #059669; font-weight: 600; }
+    .status-pending { color: #D97706; font-weight: 600; }
+    
+    .footer { margin-top: 30px; text-align: center; padding-top: 20px; border-top: 1px solid #E5E7EB; }
+    .footer p { font-size: 11px; color: #9CA3AF; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${detailedReport.workshop_name}</h1>
+    <h2>Reporte Diario de Servicios</h2>
+    <div class="date">${formattedDate}</div>
+  </div>
+
+  <div class="summary">
+    <div class="summary-box">
+      <div class="value">${detailedReport.total_orders}</div>
+      <div class="label">Vehículos Atendidos</div>
+    </div>
+    <div class="summary-box green">
+      <div class="value">$${detailedReport.total_paid.toFixed(2)}</div>
+      <div class="label">Total Cobrado</div>
+    </div>
+    <div class="summary-box yellow">
+      <div class="value">$${detailedReport.total_pending.toFixed(2)}</div>
+      <div class="label">Pendiente</div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">💳 Desglose por Método de Pago</div>
+    <div class="payment-grid">
+      <div class="payment-card">
+        <div class="icon">💵</div>
+        <div class="amount">$${detailedReport.by_payment_method.cash.amount.toFixed(2)}</div>
+        <div class="label">Efectivo</div>
+        <div class="count">${detailedReport.by_payment_method.cash.count} pagos</div>
+      </div>
+      <div class="payment-card">
+        <div class="icon">📱</div>
+        <div class="amount">$${detailedReport.by_payment_method.zelle.amount.toFixed(2)}</div>
+        <div class="label">Zelle</div>
+        <div class="count">${detailedReport.by_payment_method.zelle.count} pagos</div>
+      </div>
+      <div class="payment-card">
+        <div class="icon">📝</div>
+        <div class="amount">$${detailedReport.by_payment_method.check.amount.toFixed(2)}</div>
+        <div class="label">Cheque</div>
+        <div class="count">${detailedReport.by_payment_method.check.count} pagos</div>
+      </div>
+      <div class="payment-card">
+        <div class="icon">💳</div>
+        <div class="amount">$${detailedReport.by_payment_method.other.amount.toFixed(2)}</div>
+        <div class="label">Otro</div>
+        <div class="count">${detailedReport.by_payment_method.other.count} pagos</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">📋 Detalle de Servicios</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Vehículo</th>
+          <th>VIN</th>
+          <th>Cliente</th>
+          <th>Técnico</th>
+          <th>Servicios</th>
+          <th class="text-right">Total</th>
+          <th class="text-center">Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${detailedReport.orders_detail.map((order: any) => `
+          <tr>
+            <td>${order.vehicle}</td>
+            <td>***${order.vin_last6}</td>
+            <td>${order.client_name}</td>
+            <td>${order.tech_name}</td>
+            <td>${order.services.slice(0, 2).join(', ')}${order.services.length > 2 ? '...' : ''}</td>
+            <td class="text-right">$${order.total.toFixed(2)}</td>
+            <td class="text-center ${order.payment_status === 'pagado' ? 'status-paid' : 'status-pending'}">
+              ${order.payment_status === 'pagado' ? '✓ Pagado' : '⏳ Pendiente'}
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    <p>Reporte generado el ${new Date().toLocaleString('es-ES')}</p>
+    <p>${detailedReport.workshop_name} - Sistema de Gestión</p>
+  </div>
+</body>
+</html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Reporte Diario PDF',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'No se puede compartir el archivo en este dispositivo');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'No se pudo generar el reporte PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   const isToday = selectedDate.toDateString() === new Date().toDateString();
 
   return (
