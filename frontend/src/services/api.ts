@@ -264,4 +264,12 @@ export const sendWhatsAppNotifications = async (orderId: string) => {
   return response.data;
 };
 
+// Detailed Daily Report (Admin only)
+export const getDailyDetailedReport = async (date?: string) => {
+  const response = await api.get('/reports/daily-detailed', {
+    params: { date },
+  });
+  return response.data;
+};
+
 export default api;
