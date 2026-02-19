@@ -1042,9 +1042,20 @@ async def send_whatsapp_notifications(
     client_name = client_doc.get("name", "N/A") if client_doc else "N/A"
     client_phone = client_doc.get("phone", "") if client_doc else ""
     
+    # Get technician info
+    tech_name = "No asignado"
+    if order.get("tech_id"):
+        tech_doc = await db.users.find_one({"id": order.get("tech_id")})
+        if tech_doc:
+            tech_name = tech_doc.get("name", "No asignado")
+    
     # Build the message
     vehicle = order.get("vehicle", {})
     services = order.get("services", [])
+    
+    # Get VIN - last 6 digits
+    vin = vehicle.get('vin', '')
+    vin_display = f"***{vin[-6:]}" if len(vin) >= 6 else vin
     
     date_str = datetime.now().strftime("%d/%m/%Y")
     
@@ -1053,9 +1064,10 @@ async def send_whatsapp_notifications(
     message += f"📅 Fecha: {date_str}\n\n"
     message += f"🚗 Vehículo:\n"
     message += f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}\n"
-    if vehicle.get('vin'):
-        message += f"VIN: {vehicle.get('vin')}\n"
+    if vin:
+        message += f"VIN: {vin_display}\n"
     message += f"\n👤 Cliente: {client_name}\n"
+    message += f"👷 Técnico: {tech_name}\n"
     message += f"\n📋 Servicios Realizados:\n"
     
     for i, service in enumerate(services, 1):
