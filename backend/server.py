@@ -195,11 +195,12 @@ class WorkOrderService(BaseModel):
 class WorkOrder(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     workshop_id: str
-    vehicle_id: str
+    vehicle_id: Optional[str] = None  # Can be None if tech will scan later
     client_id: str
     tech_id: str
     status: str = "iniciado"  # asignado, iniciado, pendiente, terminado
     services: List[WorkOrderService] = []
+    vehicle: Optional[dict] = None  # Store vehicle info directly
     odometer: Optional[int] = None
     notes: Optional[str] = None
     photos_before: List[str] = []
@@ -209,7 +210,7 @@ class WorkOrder(BaseModel):
     completed_at: Optional[datetime] = None
 
 class WorkOrderCreate(BaseModel):
-    vehicle_id: str
+    vehicle_id: Optional[str] = None  # Optional - tech will scan later
     client_id: str
     tech_id: Optional[str] = None  # Admin can assign to specific tech
     services: List[WorkOrderService] = []
@@ -220,6 +221,7 @@ class WorkOrderUpdate(BaseModel):
     status: Optional[str] = None
     tech_id: Optional[str] = None  # Admin can reassign
     services: Optional[List[WorkOrderService]] = None
+    vehicle: Optional[dict] = None  # Allow updating vehicle info
     odometer: Optional[int] = None
     notes: Optional[str] = None
     photos_before: Optional[List[str]] = None
