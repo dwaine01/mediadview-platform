@@ -25,6 +25,7 @@ import {
   updatePayment,
   getWorkshop,
   getClient,
+  sendWhatsAppNotifications,
 } from '../../src/services/api';
 import { WorkOrder, Workshop, Client } from '../../src/types';
 import { StatusBadge } from '../../src/components/StatusBadge';
