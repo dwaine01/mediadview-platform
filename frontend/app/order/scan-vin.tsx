@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -21,58 +21,76 @@ export default function ScanVinScreen() {
   const [manualMode, setManualMode] = useState(false);
   const [manualVin, setManualVin] = useState('');
   const [loading, setLoading] = useState(false);
+  const [cameraActive, setCameraActive] = useState(true);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   
-  // Use ref to prevent multiple scans - more reliable than state
-  const hasScannedRef = useRef(false);
-  const isProcessingRef = useRef(false);
+  // Global lock - once set, nothing else can process
+  const lockRef = useRef(false);
+  const lastVinRef = useRef<string | null>(null);
+  const alertShownRef = useRef(false);
 
   // Clean VIN function
   const cleanVin = (rawVin: string): string => {
     if (!rawVin) return '';
     let cleaned = rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
     
-    // If 18 chars, remove first one (scanner error)
     if (cleaned.length === 18) {
       cleaned = cleaned.substring(1);
     }
     
-    // Replace invalid VIN chars
     cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
     
     return cleaned;
   };
 
-  // Validate VIN
-  const validateVin = (vin: string): { valid: boolean; error?: string } => {
-    if (!vin || vin.length === 0) {
-      return { valid: false, error: 'No se pudo leer el código' };
-    }
-    
-    if (vin.length !== 17) {
-      return { 
-        valid: false, 
-        error: `VIN inválido: ${vin.length} caracteres (se requieren 17)`
-      };
-    }
+  const validateVin = (vin: string): boolean => {
+    return vin && vin.length === 17;
+  };
 
-    return { valid: true };
+  const showSuccessAndGoBack = (vehicleInfo: string, vin: string) => {
+    if (alertShownRef.current) return;
+    alertShownRef.current = true;
+    
+    setSuccessMessage(`${vehicleInfo}\nVIN: ${vin}`);
+    
+    // Auto navigate back after 2 seconds
+    setTimeout(() => {
+      router.back();
+    }, 2000);
+  };
+
+  const showError = (message: string) => {
+    if (alertShownRef.current) return;
+    alertShownRef.current = true;
+    
+    Alert.alert('Error', message, [
+      {
+        text: 'Reintentar',
+        onPress: () => {
+          alertShownRef.current = false;
+          lockRef.current = false;
+          lastVinRef.current = null;
+          setCameraActive(true);
+        }
+      },
+      {
+        text: 'Manual',
+        onPress: () => {
+          alertShownRef.current = false;
+          lockRef.current = false;
+          setManualMode(true);
+        }
+      }
+    ]);
   };
 
   const processVin = async (vin: string) => {
-    // Double-check we're not already processing
-    if (isProcessingRef.current) {
-      console.log('Already processing, ignoring');
-      return;
-    }
-    
-    isProcessingRef.current = true;
     setLoading(true);
+    setCameraActive(false);
     
     try {
-      // Decode VIN
       const vehicleData = await decodeVin(vin);
       
-      // Update work order with vehicle info
       await updateWorkOrder(orderId as string, {
         vehicle: {
           vin: vin,
@@ -83,72 +101,53 @@ export default function ScanVinScreen() {
         }
       });
       
-      Alert.alert(
-        '✅ VIN Escaneado',
-        `Vehículo: ${vehicleData.year} ${vehicleData.make} ${vehicleData.model}\nVIN: ${vin}`,
-        [{ 
-          text: 'Continuar', 
-          onPress: () => {
-            router.back();
-          }
-        }]
-      );
+      const vehicleInfo = `${vehicleData.year} ${vehicleData.make} ${vehicleData.model}`;
+      showSuccessAndGoBack(vehicleInfo, vin);
+      
     } catch (error: any) {
       console.error('Error processing VIN:', error);
-      Alert.alert('Error', error.response?.data?.detail || 'No se pudo procesar el VIN');
-      // Reset flags on error to allow retry
-      hasScannedRef.current = false;
-      isProcessingRef.current = false;
-    } finally {
       setLoading(false);
+      showError(error.response?.data?.detail || 'No se pudo procesar el VIN');
     }
   };
 
-  const handleBarCodeScanned = useCallback(({ data }: { data: string }) => {
-    // Strict check using ref - prevent ANY duplicate scans
-    if (hasScannedRef.current || isProcessingRef.current) {
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    // IMMEDIATE lock check - if locked, do absolutely nothing
+    if (lockRef.current) {
       return;
     }
-    
-    // Immediately mark as scanned
-    hasScannedRef.current = true;
     
     const cleanedVin = cleanVin(data);
-    const validation = validateVin(cleanedVin);
-
-    if (!validation.valid) {
-      Alert.alert('Error de Escaneo', validation.error, [
-        { 
-          text: 'Reintentar', 
-          onPress: () => {
-            hasScannedRef.current = false;
-          }
-        },
-        { 
-          text: 'Ingresar Manual', 
-          onPress: () => {
-            setManualMode(true);
-            hasScannedRef.current = false;
-          }
-        }
-      ]);
+    
+    // Check if same VIN was already processed
+    if (lastVinRef.current === cleanedVin) {
       return;
     }
-
+    
+    // Validate VIN
+    if (!validateVin(cleanedVin)) {
+      return; // Silently ignore invalid VINs
+    }
+    
+    // LOCK immediately - before any async operation
+    lockRef.current = true;
+    lastVinRef.current = cleanedVin;
+    
+    // Process the VIN
     processVin(cleanedVin);
-  }, [orderId]);
+  };
 
   const handleManualSubmit = async () => {
-    if (isProcessingRef.current) return;
+    if (lockRef.current) return;
     
     const cleanedVin = cleanVin(manualVin);
-    const validation = validateVin(cleanedVin);
-
-    if (!validation.valid) {
-      Alert.alert('Error', validation.error);
+    
+    if (!validateVin(cleanedVin)) {
+      Alert.alert('Error', 'VIN debe tener 17 caracteres');
       return;
     }
-
+    
+    lockRef.current = true;
     await processVin(cleanedVin);
   };
 
@@ -167,11 +166,27 @@ export default function ScanVinScreen() {
           <Ionicons name="camera-outline" size={64} color="#6B7280" />
           <Text style={styles.permissionTitle}>Permiso de Cámara</Text>
           <Text style={styles.permissionText}>
-            Necesitamos acceso a la cámara para escanear el código VIN del vehículo
+            Necesitamos acceso a la cámara para escanear el VIN
           </Text>
           <TouchableOpacity style={styles.permissionBtn} onPress={requestPermission}>
             <Text style={styles.permissionBtnText}>Permitir Cámara</Text>
           </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  // Success screen
+  if (successMessage) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.successCard}>
+          <View style={styles.successIcon}>
+            <Ionicons name="checkmark-circle" size={80} color="#10B981" />
+          </View>
+          <Text style={styles.successTitle}>¡VIN Escaneado!</Text>
+          <Text style={styles.successText}>{successMessage}</Text>
+          <Text style={styles.successHint}>Regresando...</Text>
         </View>
       </View>
     );
@@ -223,7 +238,12 @@ export default function ScanVinScreen() {
 
           <TouchableOpacity 
             style={styles.switchModeBtn}
-            onPress={() => setManualMode(false)}
+            onPress={() => {
+              lockRef.current = false;
+              alertShownRef.current = false;
+              setManualMode(false);
+              setCameraActive(true);
+            }}
           >
             <Ionicons name="scan" size={20} color="#3B82F6" />
             <Text style={styles.switchModeText}>Volver a Escanear</Text>
@@ -239,11 +259,11 @@ export default function ScanVinScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#FFF" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Escanear VIN del Vehículo</Text>
+        <Text style={styles.headerTitle}>Escanear VIN</Text>
       </View>
 
       <View style={styles.cameraContainer}>
-        {!loading && (
+        {cameraActive && !loading && (
           <CameraView
             style={styles.camera}
             facing="back"
@@ -254,37 +274,34 @@ export default function ScanVinScreen() {
           />
         )}
         
-        <View style={styles.overlay}>
-          <View style={styles.scanArea}>
-            <View style={[styles.corner, styles.topLeft]} />
-            <View style={[styles.corner, styles.topRight]} />
-            <View style={[styles.corner, styles.bottomLeft]} />
-            <View style={[styles.corner, styles.bottomRight]} />
+        {loading && (
+          <View style={styles.processingOverlay}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+            <Text style={styles.processingText}>Procesando VIN...</Text>
           </View>
-        </View>
-      </View>
-
-      <View style={styles.instructions}>
-        <Ionicons name="scan-outline" size={28} color="#3B82F6" />
-        <Text style={styles.instructionText}>
-          Apunte la cámara al código de barras del VIN
-        </Text>
+        )}
+        
+        {cameraActive && !loading && (
+          <View style={styles.overlay}>
+            <View style={styles.scanArea}>
+              <View style={[styles.corner, styles.topLeft]} />
+              <View style={[styles.corner, styles.topRight]} />
+              <View style={[styles.corner, styles.bottomLeft]} />
+              <View style={[styles.corner, styles.bottomRight]} />
+            </View>
+            <Text style={styles.scanHint}>Apunte al código de barras</Text>
+          </View>
+        )}
       </View>
 
       <TouchableOpacity 
         style={styles.manualBtn}
         onPress={() => setManualMode(true)}
+        disabled={loading}
       >
         <Ionicons name="keypad" size={20} color="#FFF" />
         <Text style={styles.manualBtnText}>Ingresar Manualmente</Text>
       </TouchableOpacity>
-
-      {loading && (
-        <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.loadingText}>Procesando VIN...</Text>
-        </View>
-      )}
     </View>
   );
 }
@@ -314,6 +331,7 @@ const styles = StyleSheet.create({
   cameraContainer: {
     flex: 1,
     position: 'relative',
+    backgroundColor: '#000',
   },
   camera: {
     flex: 1,
@@ -324,14 +342,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scanArea: {
-    width: 300,
-    height: 100,
+    width: 280,
+    height: 80,
     position: 'relative',
+  },
+  scanHint: {
+    color: '#FFF',
+    fontSize: 14,
+    marginTop: 20,
+    textAlign: 'center',
   },
   corner: {
     position: 'absolute',
-    width: 30,
-    height: 30,
+    width: 25,
+    height: 25,
     borderColor: '#3B82F6',
   },
   topLeft: {
@@ -362,17 +386,16 @@ const styles = StyleSheet.create({
     borderRightWidth: 4,
     borderBottomRightRadius: 8,
   },
-  instructions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#1F2937',
-    gap: 12,
-  },
-  instructionText: {
-    color: '#D1D5DB',
-    fontSize: 14,
+  processingOverlay: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#111827',
+  },
+  processingText: {
+    color: '#FFF',
+    fontSize: 16,
+    marginTop: 16,
   },
   manualBtn: {
     flexDirection: 'row',
@@ -407,7 +430,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     marginTop: 12,
-    lineHeight: 22,
   },
   permissionBtn: {
     backgroundColor: '#3B82F6',
@@ -420,6 +442,32 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  successCard: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  successIcon: {
+    marginBottom: 20,
+  },
+  successTitle: {
+    color: '#10B981',
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 16,
+  },
+  successText: {
+    color: '#FFF',
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  successHint: {
+    color: '#6B7280',
+    fontSize: 14,
+    marginTop: 24,
   },
   manualContent: {
     flex: 1,
@@ -481,16 +529,5 @@ const styles = StyleSheet.create({
     color: '#3B82F6',
     fontSize: 15,
     fontWeight: '600',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.8)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    color: '#FFF',
-    marginTop: 12,
-    fontSize: 16,
   },
 });
