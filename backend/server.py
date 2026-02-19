@@ -966,6 +966,113 @@ async def get_daily_report(
         "by_tech": list(by_tech.values())
     }
 
+@api_router.get("/reports/daily-detailed")
+async def get_daily_detailed_report(
+    date: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get detailed daily report with payment methods breakdown - Admin only"""
+    if current_user["role"] != "admin":
+        raise HTTPException(status_code=403, detail="Solo administradores pueden acceder a este reporte")
+    
+    # Default to today
+    if date:
+        try:
+            filter_date = datetime.strptime(date, "%Y-%m-%d")
+        except ValueError:
+            filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    else:
+        filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    
+    next_day = filter_date + timedelta(days=1)
+    
+    # Get workshop info
+    workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
+    workshop_name = workshop.get("name", "Ohio Airbag Light Reset") if workshop else "Ohio Airbag Light Reset"
+    
+    query = {
+        "workshop_id": current_user["workshop_id"],
+        "created_at": {"$gte": filter_date, "$lt": next_day}
+    }
+    
+    orders = await db.work_orders.find(query).to_list(1000)
+    
+    # Initialize counters
+    total_orders = len(orders)
+    total_billed = 0.0
+    total_paid = 0.0
+    total_pending = 0.0
+    
+    # Payment methods breakdown
+    by_payment_method = {
+        "cash": {"count": 0, "amount": 0.0, "label": "Efectivo"},
+        "zelle": {"count": 0, "amount": 0.0, "label": "Zelle"},
+        "check": {"count": 0, "amount": 0.0, "label": "Cheque"},
+        "other": {"count": 0, "amount": 0.0, "label": "Otro"},
+    }
+    
+    # Detailed orders list
+    orders_detail = []
+    
+    for order in orders:
+        payment = await db.payments.find_one({"work_order_id": order["id"]})
+        client = await db.clients.find_one({"id": order.get("client_id")})
+        tech = await db.users.find_one({"id": order.get("tech_id")}) if order.get("tech_id") else None
+        
+        vehicle = order.get("vehicle", {})
+        services = order.get("services", [])
+        
+        order_total = 0.0
+        payment_method = "pending"
+        payment_status = "pendiente"
+        
+        if payment:
+            order_total = payment.get("total", 0)
+            total_billed += order_total
+            payment_method = payment.get("method", "other")
+            payment_status = payment.get("payment_status", "pendiente")
+            
+            if payment_status == "pagado":
+                paid_amount = payment.get("paid_amount", order_total)
+                total_paid += paid_amount
+                
+                # Add to payment method breakdown
+                if payment_method in by_payment_method:
+                    by_payment_method[payment_method]["count"] += 1
+                    by_payment_method[payment_method]["amount"] += paid_amount
+                else:
+                    by_payment_method["other"]["count"] += 1
+                    by_payment_method["other"]["amount"] += paid_amount
+            else:
+                total_pending += order_total
+        
+        # Get services names
+        service_names = [s.get("service_name", "Servicio") for s in services]
+        
+        orders_detail.append({
+            "id": order["id"],
+            "vehicle": f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}".strip(),
+            "vin_last6": order.get("vehicle", {}).get("vin", "")[-6:] if order.get("vehicle", {}).get("vin") else "",
+            "client_name": client.get("name", "N/A") if client else "N/A",
+            "tech_name": tech.get("name", "No asignado") if tech else "No asignado",
+            "services": service_names,
+            "total": order_total,
+            "payment_method": payment_method,
+            "payment_status": payment_status,
+            "status": order.get("status", "iniciado"),
+        })
+    
+    return {
+        "date": filter_date.strftime("%Y-%m-%d"),
+        "workshop_name": workshop_name,
+        "total_orders": total_orders,
+        "total_billed": total_billed,
+        "total_paid": total_paid,
+        "total_pending": total_pending,
+        "by_payment_method": by_payment_method,
+        "orders_detail": orders_detail,
+    }
+
 # ============ WORKSHOP SETTINGS ============
 
 @api_router.get("/workshop")
