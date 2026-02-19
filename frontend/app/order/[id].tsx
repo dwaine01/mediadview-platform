@@ -202,10 +202,23 @@ export default function OrderDetailScreen() {
               await updateWorkOrder(order.id, { status: newStatus });
               await loadOrder();
               
-              // Si se marcó como terminado, mostrar modal de notificaciones
+              // Si se marcó como terminado, enviar WhatsApp automáticamente al dueño
               if (isCompletingWork) {
-                setTimeout(() => {
-                  setCompletedModalVisible(true);
+                // Enviar automáticamente al dueño primero
+                setTimeout(async () => {
+                  const message = generateCompletedMessage().replace(/\*/g, '');
+                  const ownerPhone = '16146326262'; // Número del dueño
+                  
+                  try {
+                    await Linking.openURL(`whatsapp://send?phone=${ownerPhone}&text=${encodeURIComponent(message)}`);
+                  } catch {
+                    console.log('No se pudo abrir WhatsApp automáticamente');
+                  }
+                  
+                  // Mostrar modal para enviar a los demás contactos
+                  setTimeout(() => {
+                    setCompletedModalVisible(true);
+                  }, 1000);
                 }, 500);
               }
             } catch (error: any) {
