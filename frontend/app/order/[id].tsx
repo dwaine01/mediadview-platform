@@ -787,7 +787,13 @@ export default function OrderDetailScreen() {
               ) : (
                 <TouchableOpacity 
                   style={styles.scanVinBtn}
-                  onPress={() => router.push(`/order/scan-vin?orderId=${order.id}`)}
+                  onPress={() => {
+                    // Use replace to avoid stacking screens
+                    router.push({
+                      pathname: '/order/scan-vin',
+                      params: { orderId: order.id }
+                    });
+                  }}
                 >
                   <Ionicons name="scan" size={16} color="#F59E0B" />
                   <Text style={styles.scanVinText}>Escanear VIN</Text>
