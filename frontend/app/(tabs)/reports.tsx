@@ -340,6 +340,22 @@ export default function ReportsScreen() {
           {/* ====== SECCIÓN PARA ADMIN: Reportes Completos ====== */}
           {isAdmin && (
             <>
+              {/* PDF Button */}
+              <TouchableOpacity
+                style={styles.pdfButton}
+                onPress={generatePdfReport}
+                disabled={generatingPdf}
+              >
+                {generatingPdf ? (
+                  <ActivityIndicator color="#FFF" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="document-text" size={22} color="#FFF" />
+                    <Text style={styles.pdfButtonText}>Generar Reporte PDF</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
               {/* Main Stats */}
               <View style={styles.mainStats}>
                 <View style={styles.bigStatCard}>
