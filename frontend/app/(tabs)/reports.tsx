@@ -25,6 +25,7 @@ export default function ReportsScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [techs, setTechs] = useState<User[]>([]);
   const [selectedTech, setSelectedTech] = useState<string | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const loadData = async () => {
     try {
