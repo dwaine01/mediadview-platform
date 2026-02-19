@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,12 +18,13 @@ import { decodeVin, updateWorkOrder } from '../../src/services/api';
 export default function ScanVinScreen() {
   const { orderId } = useLocalSearchParams();
   const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
   const [manualMode, setManualMode] = useState(false);
   const [manualVin, setManualVin] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const cameraRef = useRef(null);
+  
+  // Use ref to prevent multiple scans - more reliable than state
+  const hasScannedRef = useRef(false);
+  const isProcessingRef = useRef(false);
 
   // Clean VIN function
   const cleanVin = (rawVin: string): string => {
@@ -57,27 +58,16 @@ export default function ScanVinScreen() {
     return { valid: true };
   };
 
-  const handleBarCodeScanned = async ({ data }: { data: string }) => {
-    if (scanned || isProcessing) return;
-    
-    setIsProcessing(true);
-    const cleanedVin = cleanVin(data);
-    const validation = validateVin(cleanedVin);
-
-    if (!validation.valid) {
-      Alert.alert('Error de Escaneo', validation.error, [
-        { text: 'Reintentar', onPress: () => setIsProcessing(false) },
-        { text: 'Ingresar Manual', onPress: () => { setManualMode(true); setIsProcessing(false); } }
-      ]);
+  const processVin = async (vin: string) => {
+    // Double-check we're not already processing
+    if (isProcessingRef.current) {
+      console.log('Already processing, ignoring');
       return;
     }
-
-    setScanned(true);
-    await processVin(cleanedVin);
-  };
-
-  const processVin = async (vin: string) => {
+    
+    isProcessingRef.current = true;
     setLoading(true);
+    
     try {
       // Decode VIN
       const vehicleData = await decodeVin(vin);
@@ -96,18 +86,61 @@ export default function ScanVinScreen() {
       Alert.alert(
         '✅ VIN Escaneado',
         `Vehículo: ${vehicleData.year} ${vehicleData.make} ${vehicleData.model}\nVIN: ${vin}`,
-        [{ text: 'Continuar', onPress: () => router.back() }]
+        [{ 
+          text: 'Continuar', 
+          onPress: () => {
+            router.back();
+          }
+        }]
       );
     } catch (error: any) {
+      console.error('Error processing VIN:', error);
       Alert.alert('Error', error.response?.data?.detail || 'No se pudo procesar el VIN');
-      setScanned(false);
-      setIsProcessing(false);
+      // Reset flags on error to allow retry
+      hasScannedRef.current = false;
+      isProcessingRef.current = false;
     } finally {
       setLoading(false);
     }
   };
 
+  const handleBarCodeScanned = useCallback(({ data }: { data: string }) => {
+    // Strict check using ref - prevent ANY duplicate scans
+    if (hasScannedRef.current || isProcessingRef.current) {
+      return;
+    }
+    
+    // Immediately mark as scanned
+    hasScannedRef.current = true;
+    
+    const cleanedVin = cleanVin(data);
+    const validation = validateVin(cleanedVin);
+
+    if (!validation.valid) {
+      Alert.alert('Error de Escaneo', validation.error, [
+        { 
+          text: 'Reintentar', 
+          onPress: () => {
+            hasScannedRef.current = false;
+          }
+        },
+        { 
+          text: 'Ingresar Manual', 
+          onPress: () => {
+            setManualMode(true);
+            hasScannedRef.current = false;
+          }
+        }
+      ]);
+      return;
+    }
+
+    processVin(cleanedVin);
+  }, [orderId]);
+
   const handleManualSubmit = async () => {
+    if (isProcessingRef.current) return;
+    
     const cleanedVin = cleanVin(manualVin);
     const validation = validateVin(cleanedVin);
 
@@ -174,7 +207,7 @@ export default function ScanVinScreen() {
           </View>
 
           <TouchableOpacity 
-            style={[styles.submitBtn, manualVin.length !== 17 && styles.submitBtnDisabled]}
+            style={[styles.submitBtn, (manualVin.length !== 17 || loading) && styles.submitBtnDisabled]}
             onPress={handleManualSubmit}
             disabled={manualVin.length !== 17 || loading}
           >
@@ -190,7 +223,7 @@ export default function ScanVinScreen() {
 
           <TouchableOpacity 
             style={styles.switchModeBtn}
-            onPress={() => { setManualMode(false); setIsProcessing(false); }}
+            onPress={() => setManualMode(false)}
           >
             <Ionicons name="scan" size={20} color="#3B82F6" />
             <Text style={styles.switchModeText}>Volver a Escanear</Text>
@@ -210,15 +243,16 @@ export default function ScanVinScreen() {
       </View>
 
       <View style={styles.cameraContainer}>
-        <CameraView
-          ref={cameraRef}
-          style={styles.camera}
-          facing="back"
-          barcodeScannerSettings={{
-            barcodeTypes: ['code39', 'code128', 'datamatrix', 'qr'],
-          }}
-          onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
-        />
+        {!loading && (
+          <CameraView
+            style={styles.camera}
+            facing="back"
+            barcodeScannerSettings={{
+              barcodeTypes: ['code39', 'code128', 'datamatrix', 'qr'],
+            }}
+            onBarcodeScanned={handleBarCodeScanned}
+          />
+        )}
         
         <View style={styles.overlay}>
           <View style={styles.scanArea}>
@@ -233,7 +267,7 @@ export default function ScanVinScreen() {
       <View style={styles.instructions}>
         <Ionicons name="scan-outline" size={28} color="#3B82F6" />
         <Text style={styles.instructionText}>
-          Apunte la cámara al código de barras del VIN en el vehículo
+          Apunte la cámara al código de barras del VIN
         </Text>
       </View>
 
