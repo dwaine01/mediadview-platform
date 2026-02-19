@@ -138,6 +138,20 @@ export default function HomeScreen() {
           <Text style={styles.mainActionText}>Nueva Orden</Text>
           <Text style={styles.mainActionSubtext}>Escanear VIN</Text>
         </TouchableOpacity>
+        
+        {/* Admin Only: Create order without VIN */}
+        {user?.role === 'admin' && (
+          <TouchableOpacity
+            style={styles.secondaryAction}
+            onPress={() => router.push('/order/assign')}
+          >
+            <View style={[styles.mainActionIcon, { backgroundColor: '#F59E0B' }]}>
+              <Ionicons name="person-add" size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.mainActionText}>Asignar Orden</Text>
+            <Text style={styles.mainActionSubtext}>Sin VIN (técnico escanea)</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Today's Stats - Different for Admin vs Tech */}
