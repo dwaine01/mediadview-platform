@@ -648,6 +648,23 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F59E0B',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 10,
+  },
+  pdfButtonText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  
   // Total Card
   totalCard: {
     backgroundColor: '#DC2626',
