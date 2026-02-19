@@ -152,6 +152,20 @@ export default function HomeScreen() {
             <Text style={styles.mainActionSubtext}>Sin VIN (técnico escanea)</Text>
           </TouchableOpacity>
         )}
+        
+        {/* Admin Only: Office Panel */}
+        {user?.role === 'admin' && (
+          <TouchableOpacity
+            style={[styles.secondaryAction, { borderColor: '#8B5CF6' }]}
+            onPress={() => router.push('/office')}
+          >
+            <View style={[styles.mainActionIcon, { backgroundColor: '#8B5CF6' }]}>
+              <Ionicons name="desktop" size={28} color="#FFFFFF" />
+            </View>
+            <Text style={styles.mainActionText}>Panel Oficina</Text>
+            <Text style={styles.mainActionSubtext}>Vista completa (laptop)</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Today's Stats - Different for Admin vs Tech */}
