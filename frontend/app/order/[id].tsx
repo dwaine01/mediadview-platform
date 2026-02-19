@@ -782,7 +782,17 @@ export default function OrderDetailScreen() {
               <Text style={styles.infoTitle}>
                 {order.vehicle?.year} {order.vehicle?.make} {order.vehicle?.model}
               </Text>
-              <Text style={styles.infoSubtitle}>VIN: {order.vehicle?.vin}</Text>
+              {order.vehicle?.vin ? (
+                <Text style={styles.infoSubtitle}>VIN: {order.vehicle?.vin}</Text>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.scanVinBtn}
+                  onPress={() => router.push(`/order/scan-vin?orderId=${order.id}`)}
+                >
+                  <Ionicons name="scan" size={16} color="#F59E0B" />
+                  <Text style={styles.scanVinText}>Escanear VIN</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
           
@@ -790,11 +800,50 @@ export default function OrderDetailScreen() {
             <Ionicons name="person" size={22} color="#10B981" />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>{order.client?.name}</Text>
-              {order.client?.phone && (
-                <Text style={styles.infoSubtitle}>📱 {order.client.phone}</Text>
-              )}
             </View>
           </View>
+
+          {/* Clickable Phone */}
+          {order.client?.phone && (
+            <TouchableOpacity 
+              style={styles.contactAction}
+              onPress={() => Linking.openURL(`tel:${order.client?.phone}`)}
+            >
+              <View style={styles.contactIconBox}>
+                <Ionicons name="call" size={18} color="#FFF" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Teléfono</Text>
+                <Text style={styles.contactValue}>{order.client.phone}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+
+          {/* Clickable Address - Opens Google Maps */}
+          {order.client?.address && (
+            <TouchableOpacity 
+              style={styles.contactAction}
+              onPress={() => {
+                const address = encodeURIComponent(order.client?.address || '');
+                const url = Platform.select({
+                  ios: `maps://maps.google.com/maps?q=${address}`,
+                  android: `geo:0,0?q=${address}`,
+                  default: `https://maps.google.com/maps?q=${address}`,
+                });
+                Linking.openURL(url);
+              }}
+            >
+              <View style={[styles.contactIconBox, { backgroundColor: '#EF4444' }]}>
+                <Ionicons name="navigate" size={18} color="#FFF" />
+              </View>
+              <View style={styles.contactInfo}>
+                <Text style={styles.contactLabel}>Dirección</Text>
+                <Text style={styles.contactValue} numberOfLines={2}>{order.client.address}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Services */}
