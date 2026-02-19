@@ -1,10 +1,9 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
-  Alert,
   TextInput,
   KeyboardAvoidingView,
   Platform,
@@ -15,35 +14,43 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Ionicons } from '@expo/vector-icons';
 import { decodeVin, updateWorkOrder } from '../../src/services/api';
 
-// Module-level lock to prevent any duplicate processing across re-renders
-let MODULE_LOCK = false;
-let PROCESSED_VIN: string | null = null;
-
 export default function ScanVinScreen() {
   const { orderId } = useLocalSearchParams();
   const [permission, requestPermission] = useCameraPermissions();
   const [manualMode, setManualMode] = useState(false);
   const [manualVin, setManualVin] = useState('');
-  const [status, setStatus] = useState<'scanning' | 'processing' | 'success' | 'error'>('scanning');
-  const [resultMessage, setResultMessage] = useState('');
+  const [showCamera, setShowCamera] = useState(true);
+  const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
+  const [message, setMessage] = useState('');
+  
+  // Collected VINs for debounce
+  const [collectedVin, setCollectedVin] = useState<string | null>(null);
 
-  // Reset module lock when component unmounts
-  React.useEffect(() => {
-    return () => {
-      MODULE_LOCK = false;
-      PROCESSED_VIN = null;
-    };
-  }, []);
+  // Process VIN after debounce
+  useEffect(() => {
+    if (!collectedVin || status !== 'idle') return;
+    
+    // Small delay to collect all rapid-fire events
+    const timer = setTimeout(() => {
+      processVinOnce(collectedVin);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [collectedVin]);
 
   const cleanVin = (rawVin: string): string => {
     if (!rawVin) return '';
     let cleaned = rawVin.toUpperCase().replace(/[^A-Z0-9]/g, '');
     if (cleaned.length === 18) cleaned = cleaned.substring(1);
-    cleaned = cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
-    return cleaned;
+    return cleaned.replace(/I/g, '1').replace(/O/g, '0').replace(/Q/g, '0');
   };
 
-  const processVin = async (vin: string) => {
+  const processVinOnce = async (vin: string) => {
+    if (status !== 'idle') return; // Extra safety check
+    
+    setStatus('processing');
+    setShowCamera(false);
+    
     try {
       const vehicleData = await decodeVin(vin);
       
@@ -57,246 +64,208 @@ export default function ScanVinScreen() {
         }
       });
       
-      setResultMessage(`${vehicleData.year} ${vehicleData.make} ${vehicleData.model}\nVIN: ${vin}`);
+      setMessage(`${vehicleData.year} ${vehicleData.make} ${vehicleData.model}\nVIN: ${vin}`);
       setStatus('success');
       
-      // Auto-close after 2 seconds
+      // Auto return after 2 seconds
       setTimeout(() => router.back(), 2000);
       
     } catch (error: any) {
-      console.error('Error:', error);
-      setResultMessage(error.response?.data?.detail || 'Error al procesar VIN');
+      setMessage('No se pudo actualizar la orden');
       setStatus('error');
     }
   };
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
-    // SYNCHRONOUS CHECK - before any async operations
-    if (MODULE_LOCK) return;
+    // If already processing or done, ignore completely
+    if (status !== 'idle') return;
     
-    const cleanedVin = cleanVin(data);
+    const vin = cleanVin(data);
+    if (vin.length !== 17) return;
     
-    // Skip invalid or already processed VINs
-    if (cleanedVin.length !== 17) return;
-    if (PROCESSED_VIN === cleanedVin) return;
-    
-    // LOCK IMMEDIATELY - synchronously
-    MODULE_LOCK = true;
-    PROCESSED_VIN = cleanedVin;
-    
-    // Update UI
-    setStatus('processing');
-    
-    // Process async
-    processVin(cleanedVin);
-  };
-
-  const handleManualSubmit = async () => {
-    if (MODULE_LOCK) return;
-    
-    const cleanedVin = cleanVin(manualVin);
-    if (cleanedVin.length !== 17) {
-      Alert.alert('Error', 'VIN debe tener 17 caracteres');
-      return;
+    // Just collect the VIN, useEffect will process it after debounce
+    if (!collectedVin) {
+      setShowCamera(false); // Hide camera immediately
+      setCollectedVin(vin);
     }
+  };
+
+  const handleManualSubmit = () => {
+    if (status !== 'idle') return;
     
-    MODULE_LOCK = true;
-    PROCESSED_VIN = cleanedVin;
-    setStatus('processing');
-    await processVin(cleanedVin);
+    const vin = cleanVin(manualVin);
+    if (vin.length !== 17) return;
+    
+    setCollectedVin(vin);
   };
 
-  const handleRetry = () => {
-    MODULE_LOCK = false;
-    PROCESSED_VIN = null;
-    setStatus('scanning');
-    setResultMessage('');
+  const retry = () => {
+    setStatus('idle');
+    setCollectedVin(null);
+    setMessage('');
+    setShowCamera(true);
   };
 
-  // Permission check
+  // Loading permission
   if (!permission) {
-    return (
-      <View style={styles.container}>
-        <ActivityIndicator size="large" color="#3B82F6" />
-      </View>
-    );
+    return <View style={s.container}><ActivityIndicator size="large" color="#3B82F6" /></View>;
   }
 
+  // Need permission
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <Ionicons name="camera-outline" size={64} color="#6B7280" />
-          <Text style={styles.title}>Permiso de Cámara</Text>
-          <Text style={styles.subtitle}>Necesitamos la cámara para escanear</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={requestPermission}>
-            <Text style={styles.primaryBtnText}>Permitir</Text>
+      <View style={s.container}>
+        <View style={s.center}>
+          <Ionicons name="camera" size={64} color="#6B7280" />
+          <Text style={s.title}>Permiso de Cámara</Text>
+          <TouchableOpacity style={s.btn} onPress={requestPermission}>
+            <Text style={s.btnText}>Permitir</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // Success screen
+  // Success
   if (status === 'success') {
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
+      <View style={s.container}>
+        <View style={s.center}>
           <Ionicons name="checkmark-circle" size={80} color="#10B981" />
-          <Text style={[styles.title, { color: '#10B981' }]}>¡VIN Escaneado!</Text>
-          <Text style={styles.resultText}>{resultMessage}</Text>
-          <Text style={styles.hint}>Regresando...</Text>
+          <Text style={[s.title, {color: '#10B981'}]}>¡Listo!</Text>
+          <Text style={s.msg}>{message}</Text>
         </View>
       </View>
     );
   }
 
-  // Error screen
+  // Error
   if (status === 'error') {
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
-          <Ionicons name="alert-circle" size={80} color="#EF4444" />
-          <Text style={[styles.title, { color: '#EF4444' }]}>Error</Text>
-          <Text style={styles.resultText}>{resultMessage}</Text>
-          <TouchableOpacity style={styles.primaryBtn} onPress={handleRetry}>
-            <Text style={styles.primaryBtnText}>Reintentar</Text>
+      <View style={s.container}>
+        <View style={s.center}>
+          <Ionicons name="close-circle" size={80} color="#EF4444" />
+          <Text style={[s.title, {color: '#EF4444'}]}>Error</Text>
+          <Text style={s.msg}>{message}</Text>
+          <TouchableOpacity style={s.btn} onPress={retry}>
+            <Text style={s.btnText}>Reintentar</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.secondaryBtn} onPress={() => router.back()}>
-            <Text style={styles.secondaryBtnText}>Cancelar</Text>
+          <TouchableOpacity style={s.link} onPress={() => router.back()}>
+            <Text style={s.linkText}>Cancelar</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   }
 
-  // Processing screen
+  // Processing
   if (status === 'processing') {
     return (
-      <View style={styles.container}>
-        <View style={styles.centerContent}>
+      <View style={s.container}>
+        <View style={s.center}>
           <ActivityIndicator size="large" color="#3B82F6" />
-          <Text style={styles.title}>Procesando VIN...</Text>
-          <Text style={styles.subtitle}>Por favor espere</Text>
+          <Text style={s.title}>Procesando...</Text>
         </View>
       </View>
     );
   }
 
-  // Manual mode
+  // Manual input
   if (manualMode) {
     return (
-      <KeyboardAvoidingView 
-        style={styles.container} 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#FFF" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Ingresar VIN</Text>
+      <KeyboardAvoidingView style={s.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <View style={s.header}>
+          <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#FFF" /></TouchableOpacity>
+          <Text style={s.headerText}>Ingresar VIN</Text>
         </View>
-
-        <View style={styles.formContent}>
-          <Text style={styles.label}>Número VIN (17 caracteres)</Text>
+        <View style={s.form}>
           <TextInput
-            style={styles.input}
+            style={s.input}
             value={manualVin}
             onChangeText={setManualVin}
-            placeholder="1HGBH41JXMN109186"
-            placeholderTextColor="#6B7280"
+            placeholder="17 caracteres"
+            placeholderTextColor="#666"
             autoCapitalize="characters"
             maxLength={17}
             autoFocus
           />
-          <Text style={styles.counter}>{manualVin.length}/17</Text>
-
+          <Text style={s.counter}>{manualVin.length}/17</Text>
           <TouchableOpacity 
-            style={[styles.primaryBtn, manualVin.length !== 17 && styles.disabledBtn]}
+            style={[s.btn, manualVin.length !== 17 && s.btnOff]} 
             onPress={handleManualSubmit}
             disabled={manualVin.length !== 17}
           >
-            <Text style={styles.primaryBtnText}>Confirmar</Text>
+            <Text style={s.btnText}>Confirmar</Text>
           </TouchableOpacity>
-
-          <TouchableOpacity 
-            style={styles.secondaryBtn}
-            onPress={() => setManualMode(false)}
-          >
-            <Ionicons name="scan" size={18} color="#3B82F6" />
-            <Text style={styles.secondaryBtnText}>Escanear</Text>
+          <TouchableOpacity style={s.link} onPress={() => setManualMode(false)}>
+            <Text style={s.linkText}>Escanear</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
     );
   }
 
-  // Scanner screen
+  // Scanner
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={24} color="#FFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Escanear VIN</Text>
+    <View style={s.container}>
+      <View style={s.header}>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#FFF" /></TouchableOpacity>
+        <Text style={s.headerText}>Escanear VIN</Text>
       </View>
-
-      <View style={styles.cameraBox}>
-        <CameraView
-          style={StyleSheet.absoluteFill}
-          facing="back"
-          barcodeScannerSettings={{
-            barcodeTypes: ['code39', 'code128', 'datamatrix', 'qr'],
-          }}
-          onBarcodeScanned={handleBarCodeScanned}
-        />
-        <View style={styles.scanFrame}>
-          <View style={[styles.corner, styles.tl]} />
-          <View style={[styles.corner, styles.tr]} />
-          <View style={[styles.corner, styles.bl]} />
-          <View style={[styles.corner, styles.br]} />
-        </View>
+      
+      <View style={s.cam}>
+        {showCamera && (
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            barcodeScannerSettings={{ barcodeTypes: ['code39', 'code128', 'datamatrix', 'qr'] }}
+            onBarcodeScanned={handleBarCodeScanned}
+          />
+        )}
+        {!showCamera && (
+          <View style={s.center}>
+            <ActivityIndicator size="large" color="#3B82F6" />
+          </View>
+        )}
+        {showCamera && (
+          <View style={s.frame}>
+            <View style={[s.c, s.tl]} />
+            <View style={[s.c, s.tr]} />
+            <View style={[s.c, s.bl]} />
+            <View style={[s.c, s.br]} />
+          </View>
+        )}
       </View>
-
-      <View style={styles.footer}>
-        <Text style={styles.footerText}>Apunte al código de barras del VIN</Text>
-        <TouchableOpacity style={styles.manualBtn} onPress={() => setManualMode(true)}>
-          <Ionicons name="keypad" size={20} color="#FFF" />
-          <Text style={styles.manualBtnText}>Manual</Text>
-        </TouchableOpacity>
-      </View>
+      
+      <TouchableOpacity style={s.manualBtn} onPress={() => setManualMode(true)}>
+        <Text style={s.manualText}>Ingresar Manual</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#111827' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#1F2937' },
-  backBtn: { padding: 8 },
-  headerTitle: { color: '#FFF', fontSize: 18, fontWeight: '600', marginLeft: 12 },
-  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
-  title: { color: '#FFF', fontSize: 22, fontWeight: '700', marginTop: 16, textAlign: 'center' },
-  subtitle: { color: '#9CA3AF', fontSize: 15, marginTop: 8, textAlign: 'center' },
-  resultText: { color: '#D1D5DB', fontSize: 16, marginTop: 16, textAlign: 'center', lineHeight: 24 },
-  hint: { color: '#6B7280', fontSize: 14, marginTop: 24 },
-  primaryBtn: { backgroundColor: '#3B82F6', paddingHorizontal: 32, paddingVertical: 16, borderRadius: 12, marginTop: 24 },
-  primaryBtnText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
-  secondaryBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 16, padding: 12, gap: 8 },
-  secondaryBtnText: { color: '#3B82F6', fontSize: 15, fontWeight: '600' },
-  disabledBtn: { backgroundColor: '#374151', opacity: 0.6 },
-  cameraBox: { flex: 1, backgroundColor: '#000', position: 'relative' },
-  scanFrame: { position: 'absolute', top: '35%', left: '10%', right: '10%', height: 80 },
-  corner: { position: 'absolute', width: 24, height: 24, borderColor: '#3B82F6' },
-  tl: { top: 0, left: 0, borderTopWidth: 4, borderLeftWidth: 4, borderTopLeftRadius: 8 },
-  tr: { top: 0, right: 0, borderTopWidth: 4, borderRightWidth: 4, borderTopRightRadius: 8 },
-  bl: { bottom: 0, left: 0, borderBottomWidth: 4, borderLeftWidth: 4, borderBottomLeftRadius: 8 },
-  br: { bottom: 0, right: 0, borderBottomWidth: 4, borderRightWidth: 4, borderBottomRightRadius: 8 },
-  footer: { backgroundColor: '#1F2937', padding: 20, alignItems: 'center' },
-  footerText: { color: '#9CA3AF', fontSize: 14, marginBottom: 12 },
-  manualBtn: { flexDirection: 'row', backgroundColor: '#374151', paddingVertical: 14, paddingHorizontal: 24, borderRadius: 10, gap: 8 },
-  manualBtnText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  formContent: { flex: 1, padding: 20 },
-  label: { color: '#9CA3AF', fontSize: 14, marginBottom: 8 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 32 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingTop: 50, paddingHorizontal: 16, paddingBottom: 16, backgroundColor: '#1F2937', gap: 12 },
+  headerText: { color: '#FFF', fontSize: 18, fontWeight: '600' },
+  title: { color: '#FFF', fontSize: 22, fontWeight: '700', marginTop: 16 },
+  msg: { color: '#9CA3AF', fontSize: 15, marginTop: 12, textAlign: 'center', lineHeight: 22 },
+  btn: { backgroundColor: '#3B82F6', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 10, marginTop: 24 },
+  btnOff: { backgroundColor: '#374151', opacity: 0.5 },
+  btnText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  link: { marginTop: 16, padding: 12 },
+  linkText: { color: '#3B82F6', fontSize: 15 },
+  cam: { flex: 1, backgroundColor: '#000' },
+  frame: { position: 'absolute', top: '35%', left: '10%', right: '10%', height: 80 },
+  c: { position: 'absolute', width: 20, height: 20, borderColor: '#3B82F6' },
+  tl: { top: 0, left: 0, borderTopWidth: 3, borderLeftWidth: 3 },
+  tr: { top: 0, right: 0, borderTopWidth: 3, borderRightWidth: 3 },
+  bl: { bottom: 0, left: 0, borderBottomWidth: 3, borderLeftWidth: 3 },
+  br: { bottom: 0, right: 0, borderBottomWidth: 3, borderRightWidth: 3 },
+  manualBtn: { backgroundColor: '#374151', margin: 16, padding: 16, borderRadius: 10, alignItems: 'center' },
+  manualText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  form: { flex: 1, padding: 20 },
   input: { backgroundColor: '#374151', borderRadius: 10, padding: 16, color: '#FFF', fontSize: 18, letterSpacing: 2 },
-  counter: { color: '#6B7280', fontSize: 12, textAlign: 'right', marginTop: 8 },
+  counter: { color: '#666', fontSize: 12, textAlign: 'right', marginTop: 8 },
 });
