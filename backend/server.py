@@ -767,12 +767,19 @@ async def get_work_order(order_id: str, current_user: dict = Depends(get_current
     if not order:
         raise HTTPException(status_code=404, detail="Orden no encontrada")
     
-    vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
+    # Get vehicle - either from vehicles collection or from stored vehicle field
+    vehicle = None
+    if order.get("vehicle_id"):
+        vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
+    elif order.get("vehicle"):
+        # Vehicle info stored directly in the order (when tech scans after assignment)
+        vehicle = order.get("vehicle")
+    
     client = await db.clients.find_one({"id": order["client_id"]})
     tech = await db.users.find_one({"id": order["tech_id"]})
     payment = await db.payments.find_one({"work_order_id": order["id"]})
     
-    order["vehicle"] = serialize_doc(vehicle)
+    order["vehicle"] = serialize_doc(vehicle) if isinstance(vehicle, dict) and "_id" in vehicle else vehicle
     order["client"] = serialize_doc(client)
     order["tech_name"] = tech["name"] if tech else "Desconocido"
     order["payment"] = serialize_doc(payment)
