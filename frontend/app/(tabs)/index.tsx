@@ -324,12 +324,21 @@ const styles = StyleSheet.create({
   },
   quickActions: {
     paddingHorizontal: 20,
+    gap: 12,
   },
   mainAction: {
     backgroundColor: '#3B82F6',
     borderRadius: 16,
     padding: 24,
     alignItems: 'center',
+  },
+  secondaryAction: {
+    backgroundColor: '#374151',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
   },
   mainActionIcon: {
     width: 64,
