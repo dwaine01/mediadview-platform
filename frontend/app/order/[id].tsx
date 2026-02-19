@@ -1346,6 +1346,55 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   
+  scanVinBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(245, 158, 11, 0.15)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  scanVinText: {
+    color: '#F59E0B',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  
+  contactAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#374151',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  contactIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#3B82F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  contactActionInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  contactLabel: {
+    color: '#9CA3AF',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  contactValue: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 2,
+  },
+  
   servicesList: {
     marginTop: 12,
   },
