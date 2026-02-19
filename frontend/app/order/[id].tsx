@@ -187,7 +187,7 @@ export default function OrderDetailScreen() {
     // Mensaje especial para cuando se marca como terminado
     const isCompletingWork = newStatus === 'terminado';
     const confirmMessage = isCompletingWork 
-      ? `¿Marcar trabajo como TERMINADO?\n\nPodrás enviar notificaciones por WhatsApp a los contactos configurados.`
+      ? `¿Marcar trabajo como TERMINADO?\n\nSe enviarán notificaciones automáticas por WhatsApp a todos los contactos.`
       : `¿Cambiar estado a "${statusLabels[newStatus]}"?`;
 
     Alert.alert(
@@ -203,24 +203,40 @@ export default function OrderDetailScreen() {
               await updateWorkOrder(order.id, { status: newStatus });
               await loadOrder();
               
-              // Si se marcó como terminado, enviar WhatsApp automáticamente al dueño
+              // Si se marcó como terminado, enviar WhatsApp automáticamente desde el servidor
               if (isCompletingWork) {
-                // Enviar automáticamente al dueño primero
-                setTimeout(async () => {
-                  const message = generateCompletedMessage().replace(/\*/g, '');
-                  const ownerPhone = '16146326262'; // Número del dueño
+                try {
+                  const result = await sendWhatsAppNotifications(order.id);
                   
-                  try {
-                    await Linking.openURL(`whatsapp://send?phone=${ownerPhone}&text=${encodeURIComponent(message)}`);
-                  } catch {
-                    console.log('No se pudo abrir WhatsApp automáticamente');
+                  // Mostrar resultado
+                  const sentCount = result.total_sent || 0;
+                  const failedCount = result.total_failed || 0;
+                  
+                  if (sentCount > 0) {
+                    Alert.alert(
+                      '✅ Notificaciones Enviadas',
+                      `Se enviaron ${sentCount} mensajes de WhatsApp automáticamente.${failedCount > 0 ? `\n\n⚠️ ${failedCount} mensajes fallaron.` : ''}`,
+                      [{ text: 'OK' }]
+                    );
+                  } else {
+                    Alert.alert(
+                      '⚠️ Error en Notificaciones',
+                      'No se pudieron enviar los mensajes de WhatsApp. Puedes enviarlos manualmente.',
+                      [{ text: 'OK', onPress: () => setCompletedModalVisible(true) }]
+                    );
                   }
-                  
-                  // Mostrar modal para enviar a los demás contactos
-                  setTimeout(() => {
-                    setCompletedModalVisible(true);
-                  }, 1000);
-                }, 500);
+                } catch (whatsappError) {
+                  console.error('Error sending WhatsApp:', whatsappError);
+                  // Si falla el servidor, mostrar modal para envío manual
+                  Alert.alert(
+                    '⚠️ Error de Servidor',
+                    'No se pudieron enviar las notificaciones automáticas. ¿Deseas enviarlas manualmente?',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Sí', onPress: () => setCompletedModalVisible(true) }
+                    ]
+                  );
+                }
               }
             } catch (error: any) {
               Alert.alert('Error', error.response?.data?.detail || 'Error al actualizar');
