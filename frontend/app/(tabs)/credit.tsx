@@ -150,6 +150,164 @@ export default function CreditScreen() {
     return creditData.reduce((sum, c) => sum + c.pending_orders.length, 0);
   };
 
+  const generateCreditPdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      // Get workshop info
+      let workshopName = 'Ohio Airbag Light Reset';
+      try {
+        const workshop = await getWorkshop();
+        workshopName = workshop?.name || workshopName;
+      } catch (e) {}
+
+      const today = new Date().toLocaleDateString('es-ES', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      const totalPending = getTotalPending();
+      const totalClients = getTotalClients();
+      const totalOrders = getTotalPendingOrders();
+
+      // Generate HTML for PDF
+      const html = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; padding: 20px; color: #333; font-size: 12px; }
+    .header { text-align: center; margin-bottom: 25px; border-bottom: 3px solid #F59E0B; padding-bottom: 15px; }
+    .header h1 { font-size: 22px; color: #1F2937; margin-bottom: 5px; }
+    .header h2 { font-size: 14px; color: #6B7280; font-weight: normal; }
+    .header .date { font-size: 12px; color: #F59E0B; margin-top: 8px; }
+    
+    .summary { display: flex; justify-content: space-around; margin-bottom: 25px; }
+    .summary-box { text-align: center; padding: 12px 20px; background: #FEF3C7; border-radius: 8px; border: 1px solid #F59E0B; }
+    .summary-box .value { font-size: 24px; font-weight: 700; color: #D97706; }
+    .summary-box .label { font-size: 11px; color: #92400E; margin-top: 4px; }
+    
+    .client-section { margin-bottom: 20px; page-break-inside: avoid; }
+    .client-header { background: #1F2937; color: #FFF; padding: 10px 15px; border-radius: 8px 8px 0 0; display: flex; justify-content: space-between; align-items: center; }
+    .client-name { font-size: 14px; font-weight: 700; }
+    .client-phone { font-size: 11px; opacity: 0.8; }
+    .client-total { font-size: 16px; font-weight: 700; color: #F59E0B; }
+    
+    .orders-table { width: 100%; border-collapse: collapse; background: #F9FAFB; }
+    .orders-table th { background: #E5E7EB; padding: 8px; text-align: left; font-size: 10px; color: #374151; text-transform: uppercase; }
+    .orders-table td { padding: 8px; border-bottom: 1px solid #E5E7EB; font-size: 11px; }
+    .orders-table tr:last-child td { border-bottom: none; }
+    .text-right { text-align: right; }
+    .status-pending { color: #D97706; font-weight: 600; }
+    
+    .client-footer { background: #FEF3C7; padding: 10px 15px; border-radius: 0 0 8px 8px; text-align: right; }
+    .client-footer span { font-size: 12px; color: #92400E; }
+    .client-footer strong { font-size: 14px; color: #D97706; margin-left: 10px; }
+    
+    .footer { margin-top: 30px; text-align: center; padding-top: 15px; border-top: 1px solid #E5E7EB; }
+    .footer p { font-size: 10px; color: #9CA3AF; }
+    
+    .no-data { text-align: center; padding: 40px; color: #6B7280; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>${workshopName}</h1>
+    <h2>Reporte de Cuentas de Crédito</h2>
+    <div class="date">${today}</div>
+  </div>
+
+  <div class="summary">
+    <div class="summary-box">
+      <div class="value">${totalClients}</div>
+      <div class="label">Clientes con Saldo</div>
+    </div>
+    <div class="summary-box">
+      <div class="value">${totalOrders}</div>
+      <div class="label">Órdenes Pendientes</div>
+    </div>
+    <div class="summary-box">
+      <div class="value">$${totalPending.toFixed(2)}</div>
+      <div class="label">Total Adeudado</div>
+    </div>
+  </div>
+
+  ${creditData.filter(c => c.total_pending > 0).length === 0 ? `
+    <div class="no-data">
+      <p>No hay cuentas de crédito pendientes</p>
+    </div>
+  ` : creditData.filter(c => c.total_pending > 0).map(clientData => `
+    <div class="client-section">
+      <div class="client-header">
+        <div>
+          <div class="client-name">${clientData.client.name}</div>
+          ${clientData.client.phone ? `<div class="client-phone">📱 ${clientData.client.phone}</div>` : ''}
+        </div>
+        <div class="client-total">$${clientData.total_pending.toFixed(2)}</div>
+      </div>
+      
+      <table class="orders-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Vehículo</th>
+            <th>VIN</th>
+            <th>Servicios</th>
+            <th class="text-right">Monto</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${clientData.pending_orders.map(order => `
+            <tr>
+              <td>${new Date(order.created_at).toLocaleDateString('es-ES')}</td>
+              <td>${order.vehicle}</td>
+              <td>***${order.vin.slice(-6)}</td>
+              <td>${order.services.slice(0, 2).join(', ')}${order.services.length > 2 ? '...' : ''}</td>
+              <td class="text-right">$${order.total.toFixed(2)}</td>
+              <td class="status-pending">Pendiente</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+      
+      <div class="client-footer">
+        <span>Total Cliente:</span>
+        <strong>$${clientData.total_pending.toFixed(2)}</strong>
+      </div>
+    </div>
+  `).join('')}
+
+  <div class="footer">
+    <p>Reporte generado el ${new Date().toLocaleString('es-ES')}</p>
+    <p>${workshopName} - Sistema de Gestión de Crédito</p>
+  </div>
+</body>
+</html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: 'Reporte de Crédito PDF',
+          UTI: 'com.adobe.pdf',
+        });
+      } else {
+        Alert.alert('Error', 'No se puede compartir el archivo en este dispositivo');
+      }
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Error', 'No se pudo generar el reporte PDF');
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   if (!isAdmin) {
     return (
       <View style={styles.container}>
