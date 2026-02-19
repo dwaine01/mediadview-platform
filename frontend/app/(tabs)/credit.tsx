@@ -333,6 +333,22 @@ export default function CreditScreen() {
           <Text style={styles.headerSubtitle}>Reporte de Clientes con Crédito</Text>
         </View>
 
+        {/* PDF Button */}
+        <TouchableOpacity
+          style={styles.pdfButton}
+          onPress={generateCreditPdf}
+          disabled={generatingPdf}
+        >
+          {generatingPdf ? (
+            <ActivityIndicator color="#FFF" size="small" />
+          ) : (
+            <>
+              <Ionicons name="document-text" size={20} color="#FFF" />
+              <Text style={styles.pdfButtonText}>Generar Reporte PDF</Text>
+            </>
+          )}
+        </TouchableOpacity>
+
         {/* Total Summary */}
         <View style={styles.totalCard}>
           <Text style={styles.totalLabel}>Total Pendiente por Cobrar</Text>
