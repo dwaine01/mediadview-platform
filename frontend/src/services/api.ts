@@ -256,4 +256,12 @@ export const createUser = async (data: {
   return response.data;
 };
 
+// WhatsApp Notifications
+export const sendWhatsAppNotifications = async (orderId: string) => {
+  const response = await api.post('/whatsapp/notify-completed', {
+    order_id: orderId,
+  });
+  return response.data;
+};
+
 export default api;
