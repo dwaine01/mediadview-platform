@@ -6,12 +6,16 @@ import {
   TouchableOpacity,
   ScrollView,
   RefreshControl,
+  Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getDailyReport, getUsers } from '../../src/services/api';
+import { getDailyReport, getUsers, getDailyDetailedReport } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import { DailyReport, User } from '../../src/types';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 export default function ReportsScreen() {
   const { user } = useAuthStore();
