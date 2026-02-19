@@ -1004,6 +1004,123 @@ async def update_workshop(
     
     return {"message": "Configuración actualizada"}
 
+# ============ WHATSAPP NOTIFICATIONS ============
+
+class WhatsAppNotificationRequest(BaseModel):
+    order_id: str
+    phone_numbers: List[str] = []  # If empty, will use default numbers
+
+# Default notification phone numbers
+DEFAULT_NOTIFICATION_PHONES = [
+    {"name": "Dueño", "phone": "+16146326262"},
+    {"name": "Administradora", "phone": "+16143696040"},
+    {"name": "Técnico 1", "phone": "+16144242644"},
+    {"name": "Técnico 2", "phone": "+12095097845"},
+]
+
+@api_router.post("/whatsapp/notify-completed")
+async def send_whatsapp_notifications(
+    request: WhatsAppNotificationRequest,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send WhatsApp notifications when a work order is completed"""
+    
+    if not twilio_client:
+        raise HTTPException(status_code=500, detail="WhatsApp service not configured")
+    
+    # Get the order details
+    order = await db.work_orders.find_one({"id": request.order_id})
+    if not order:
+        raise HTTPException(status_code=404, detail="Orden no encontrada")
+    
+    # Get workshop info
+    workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
+    workshop_name = workshop.get("name", "Ohio Airbag Light Reset") if workshop else "Ohio Airbag Light Reset"
+    
+    # Get client info
+    client_doc = await db.clients.find_one({"id": order.get("client_id")})
+    client_name = client_doc.get("name", "N/A") if client_doc else "N/A"
+    client_phone = client_doc.get("phone", "") if client_doc else ""
+    
+    # Build the message
+    vehicle = order.get("vehicle", {})
+    services = order.get("services", [])
+    
+    date_str = datetime.now().strftime("%d/%m/%Y")
+    
+    message = f"✅ TRABAJO COMPLETADO\n\n"
+    message += f"🔧 {workshop_name}\n"
+    message += f"📅 Fecha: {date_str}\n\n"
+    message += f"🚗 Vehículo:\n"
+    message += f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}\n"
+    if vehicle.get('vin'):
+        message += f"VIN: {vehicle.get('vin')}\n"
+    message += f"\n👤 Cliente: {client_name}\n"
+    message += f"\n📋 Servicios Realizados:\n"
+    
+    for i, service in enumerate(services, 1):
+        message += f"{i}. {service.get('service_name', 'Servicio')}\n"
+    
+    total = sum(s.get('price', 0) * s.get('quantity', 1) for s in services)
+    message += f"\n💰 Total: ${total:.2f}\n"
+    message += f"\n¡Vehículo listo para entregar! 🚗✨"
+    
+    # Determine which numbers to send to
+    numbers_to_notify = []
+    
+    # Add client phone if available
+    if client_phone:
+        clean_phone = ''.join(filter(str.isdigit, client_phone))
+        if len(clean_phone) == 10:
+            clean_phone = f"1{clean_phone}"
+        numbers_to_notify.append({"name": "Cliente", "phone": f"+{clean_phone}"})
+    
+    # Add default notification numbers
+    for contact in DEFAULT_NOTIFICATION_PHONES:
+        numbers_to_notify.append(contact)
+    
+    # Send messages
+    results = []
+    for contact in numbers_to_notify:
+        try:
+            phone = contact["phone"]
+            # Format phone number for WhatsApp
+            if not phone.startswith("+"):
+                phone = f"+{phone}"
+            
+            whatsapp_to = f"whatsapp:{phone}"
+            
+            msg = twilio_client.messages.create(
+                body=message,
+                from_=TWILIO_WHATSAPP_NUMBER,
+                to=whatsapp_to
+            )
+            
+            results.append({
+                "contact": contact["name"],
+                "phone": phone,
+                "status": "sent",
+                "message_sid": msg.sid
+            })
+            logging.info(f"WhatsApp sent to {contact['name']} ({phone}): {msg.sid}")
+            
+        except Exception as e:
+            error_msg = str(e)
+            results.append({
+                "contact": contact["name"],
+                "phone": contact["phone"],
+                "status": "failed",
+                "error": error_msg
+            })
+            logging.error(f"Failed to send WhatsApp to {contact['name']}: {error_msg}")
+    
+    return {
+        "message": "Notificaciones procesadas",
+        "results": results,
+        "total_sent": len([r for r in results if r["status"] == "sent"]),
+        "total_failed": len([r for r in results if r["status"] == "failed"])
+    }
+
 # Include the router in the main app
 app.include_router(api_router)
 
