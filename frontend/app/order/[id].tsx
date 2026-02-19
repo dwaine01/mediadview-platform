@@ -812,7 +812,7 @@ export default function OrderDetailScreen() {
               <View style={styles.contactIconBox}>
                 <Ionicons name="call" size={18} color="#FFF" />
               </View>
-              <View style={styles.contactInfo}>
+              <View style={styles.contactActionInfo}>
                 <Text style={styles.contactLabel}>Teléfono</Text>
                 <Text style={styles.contactValue}>{order.client.phone}</Text>
               </View>
@@ -837,7 +837,7 @@ export default function OrderDetailScreen() {
               <View style={[styles.contactIconBox, { backgroundColor: '#EF4444' }]}>
                 <Ionicons name="navigate" size={18} color="#FFF" />
               </View>
-              <View style={styles.contactInfo}>
+              <View style={styles.contactActionInfo}>
                 <Text style={styles.contactLabel}>Dirección</Text>
                 <Text style={styles.contactValue} numberOfLines={2}>{order.client.address}</Text>
               </View>
