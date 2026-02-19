@@ -55,6 +55,7 @@ export default function CreditScreen() {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<CreditOrder | null>(null);
   const [paymentMethod, setPaymentMethod] = useState('cash');
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const loadData = async () => {
     try {
