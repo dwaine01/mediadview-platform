@@ -26,12 +26,6 @@
     }
   },
   "submit": {
-    "production": {
-      "ios": {
-        "appleId": "TU_APPLE_ID@email.com",
-        "ascAppId": "TU_APP_ID",
-        "appleTeamId": "TU_TEAM_ID"
-      }
-    }
+    "production": {}
   }
 }
