@@ -1,0 +1,37 @@
+{
+  "cli": {
+    "version": ">= 5.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false
+      }
+    },
+    "production": {
+      "ios": {
+        "distribution": "store"
+      },
+      "android": {
+        "distribution": "store"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "TU_APPLE_ID@email.com",
+        "ascAppId": "TU_APP_ID",
+        "appleTeamId": "TU_TEAM_ID"
+      }
+    }
+  }
+}
