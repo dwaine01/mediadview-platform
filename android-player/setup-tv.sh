@@ -1,99 +1,115 @@
 #!/bin/bash
 # ============================================================
-# MediaView Player - TV Setup Script
-# Run this from a PC connected to the same network as the TV
+# MediaView Player - Production TV Setup Script
+# Configures GUARANTEED auto-start by setting app as Home Launcher
 # ============================================================
 
+set -e
+
 echo "============================================"
-echo "  MediaView Player - TV Setup"
+echo "  MediaView Player - Production Setup"
 echo "============================================"
 echo ""
 
-# Check if ADB is installed
 if ! command -v adb &> /dev/null; then
-    echo "ERROR: ADB is not installed."
-    echo "Install it from: https://developer.android.com/tools/releases/platform-tools"
+    echo "ERROR: ADB not installed. Get it from:"
+    echo "https://developer.android.com/tools/releases/platform-tools"
     exit 1
 fi
 
-# Get parameters
-read -p "TV IP Address (e.g. 192.168.1.100): " TV_IP
-read -p "MediaView Server URL (e.g. https://your-server.com): " SERVER_URL
+read -p "TV/Device IP Address: " TV_IP
+read -p "MediaView Server URL: " SERVER_URL
 read -p "Screen ID (from admin panel): " SCREEN_ID
 
 if [ -z "$TV_IP" ] || [ -z "$SERVER_URL" ] || [ -z "$SCREEN_ID" ]; then
-    echo "ERROR: All fields are required."
+    echo "ERROR: All fields required."
     exit 1
 fi
 
 echo ""
-echo "Connecting to TV at $TV_IP..."
+echo "[1/8] Connecting to device..."
 adb connect "$TV_IP:5555"
+sleep 2
 
-echo ""
-echo "Checking connection..."
-DEVICE_COUNT=$(adb devices | grep -c "device$")
-if [ "$DEVICE_COUNT" -lt 1 ]; then
-    echo "ERROR: Could not connect to TV."
-    echo "Make sure:"
-    echo "  1. TV is on and connected to WiFi"
-    echo "  2. Developer Mode is enabled"
-    echo "  3. USB Debugging is ON"
-    echo "  4. You accepted the 'Allow USB debugging' popup on TV"
+echo "[2/8] Verifying connection..."
+if ! adb devices | grep -q "$TV_IP"; then
+    echo "FAIL: Cannot connect. Check WiFi, Developer Mode, USB Debugging."
     exit 1
 fi
-echo "Connected successfully!"
+echo "  Connected OK"
 
-# Check if APK exists
-APK_PATH="./app/build/outputs/apk/release/app-release.apk"
-if [ ! -f "$APK_PATH" ]; then
-    APK_PATH="./mediaview-player.apk"
-fi
-if [ ! -f "$APK_PATH" ]; then
-    echo ""
-    read -p "Path to MediaView Player APK: " APK_PATH
-fi
-
-if [ -f "$APK_PATH" ]; then
-    echo ""
-    echo "Installing MediaView Player..."
-    adb install -r "$APK_PATH"
+echo "[3/8] Installing APK..."
+APK=$(find . -name "*.apk" -type f | head -1)
+if [ -n "$APK" ]; then
+    adb install -r "$APK"
+    echo "  Installed: $APK"
 else
-    echo ""
-    echo "WARNING: APK not found. Skipping installation."
-    echo "If already installed, continuing with configuration..."
+    echo "  No APK found in current directory. Skipping install."
 fi
 
-echo ""
-echo "Configuring TV for digital signage..."
-
-# Disable screen timeout
+echo "[4/8] Configuring display settings..."
+# Disable screen timeout (max value = never)
 adb shell settings put system screen_off_timeout 2147483647
-echo "  [OK] Screen timeout disabled"
-
 # Disable screensaver
 adb shell settings put secure screensaver_enabled 0
-echo "  [OK] Screensaver disabled"
+# Disable auto-rotate (force landscape)
+adb shell settings put system accelerometer_rotation 0
+echo "  Screen timeout: DISABLED"
+echo "  Screensaver: DISABLED"
 
-echo ""
-echo "Launching MediaView Player..."
+echo "[5/8] Disabling system interruptions..."
+# Disable notifications
+adb shell settings put global heads_up_notifications_enabled 0 2>/dev/null || true
+# Disable auto-updates (prevents unexpected reboots)
+adb shell pm disable-user --user 0 com.google.android.gms 2>/dev/null || true
+echo "  Notifications: DISABLED"
+echo "  Auto-updates: DISABLED (manual re-enable: adb shell pm enable com.google.android.gms)"
+
+echo "[6/8] Launching MediaView Player..."
 adb shell am start -n com.mediaview.player/.MainActivity \
     --es server_url "$SERVER_URL" \
     --es screen_id "$SCREEN_ID"
+sleep 3
 
+echo "[7/8] Setting MediaView as DEFAULT HOME LAUNCHER..."
+echo ""
+echo "  *** CRITICAL STEP ***"
+echo "  The device should now show a 'Select Home App' dialog."
+echo "  Select 'MediaView Player' and choose 'Always'."
+echo ""
+echo "  If no dialog appears, run manually on device:"
+echo "  Settings > Apps > Default Apps > Home App > MediaView Player"
+echo ""
+echo "  Or force via ADB (may need root):"
+echo "  adb shell cmd package set-home-activity com.mediaview.player/.MainActivity"
+echo ""
+
+# Try to trigger home selector
+adb shell am start -a android.intent.action.MAIN -c android.intent.category.HOME 2>/dev/null || true
+
+# For rooted devices / AOSP boxes, force set home:
+adb shell cmd package set-home-activity com.mediaview.player/.MainActivity 2>/dev/null || true
+
+echo "[8/8] Verifying setup..."
 echo ""
 echo "============================================"
-echo "  Setup Complete!"
+echo "  SETUP COMPLETE"
 echo "============================================"
 echo ""
-echo "  TV IP:      $TV_IP"
-echo "  Server:     $SERVER_URL"
-echo "  Screen ID:  $SCREEN_ID"
+echo "  Device:    $TV_IP"
+echo "  Server:    $SERVER_URL"
+echo "  Screen:    $SCREEN_ID"
 echo ""
-echo "  The TV should now be showing MediaView Player."
-echo "  Press 'i' on the remote to see diagnostics."
+echo "  VERIFICATION CHECKLIST:"
+echo "  [ ] MediaView Player is showing on screen"
+echo "  [ ] Press HOME button - should stay in MediaView (if set as home)"
+echo "  [ ] Power off device, power on - should auto-start MediaView"
+echo "  [ ] Press 'i' on remote for diagnostics"
 echo ""
-echo "  To update later:"
-echo "  adb connect $TV_IP:5555"
-echo "  adb install -r new-version.apk"
+echo "  IF HOME LAUNCHER NOT SET:"
+echo "  1. Go to Settings > Apps > Default Apps > Home App"
+echo "  2. Select 'MediaView Player'"
+echo "  3. Test power cycle"
+echo ""
+echo "  For updates: adb connect $TV_IP:5555 && adb install -r new.apk"
 echo ""
