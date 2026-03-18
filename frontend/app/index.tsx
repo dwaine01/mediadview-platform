@@ -1,46 +1,30 @@
-import React, { useEffect } from 'react';
-import { View, StyleSheet, ActivityIndicator, Image } from 'react-native';
-import { router } from 'expo-router';
+import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { Redirect } from 'expo-router';
 import { useAuthStore } from '../src/store/authStore';
 
 export default function Index() {
-  const { user, isLoading } = useAuthStore();
+  const { token, isInitialized } = useAuthStore();
 
-  useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        router.replace('/(tabs)');
-      } else {
-        router.replace('/(auth)/login');
-      }
-    }
-  }, [user, isLoading]);
+  if (!isInitialized) {
+    return (
+      <View style={styles.container}>
+        <ActivityIndicator size="large" color="#4F46E5" />
+      </View>
+    );
+  }
 
-  return (
-    <View style={styles.container}>
-      <Image
-        source={require('../assets/images/logo_transparent.png')}
-        style={styles.logo}
-        resizeMode="contain"
-      />
-      <ActivityIndicator size="large" color="#D4A017" style={styles.loader} />
-    </View>
-  );
+  if (token) {
+    return <Redirect href="/(tabs)" />;
+  }
+  return <Redirect href="/(auth)/login" />;
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#111827',
-    alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
-  },
-  logo: {
-    width: 320,
-    height: 200,
-  },
-  loader: {
-    marginTop: 40,
+    alignItems: 'center',
+    backgroundColor: '#F1F5F9',
   },
 });

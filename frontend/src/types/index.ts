@@ -2,128 +2,110 @@ export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'tech';
-  workshop_id: string;
-}
-
-export interface Workshop {
-  id: string;
-  name: string;
-  address?: string;
+  role: 'admin' | 'customer';
+  company_name?: string;
   phone?: string;
-  tax_rate: number;
+  language?: string;
+  active?: boolean;
+  created_at?: string;
 }
 
-export interface Client {
+export interface ScreenLocation {
+  city: string;
+  address: string;
+  state?: string;
+  country: string;
+  lat?: number;
+  lng?: number;
+}
+
+export interface ScreenPricing {
+  per_hour: number;
+  per_day: number;
+  per_slot: number;
+  currency: string;
+}
+
+export interface ScreenSpecs {
+  size: string;
+  type: string;
+  resolution: string;
+  orientation: string;
+}
+
+export interface Screen {
   id: string;
-  workshop_id: string;
   name: string;
-  phone?: string;
-  email?: string;
-  address?: string;
-  notes?: string;
-  created_at: string;
+  description?: string;
+  location: ScreenLocation;
+  pricing: ScreenPricing;
+  specs: ScreenSpecs;
+  preview_image?: string;
+  status: string;
+  active_campaigns?: number;
+  created_at?: string;
 }
 
-export interface Vehicle {
+export interface CampaignSchedule {
+  start_date: string;
+  end_date: string;
+  start_time: string;
+  end_time: string;
+  slot_duration: number;
+  frequency: number;
+}
+
+export interface CampaignPricing {
+  num_days: number;
+  hours_per_day: number;
+  total_hours: number;
+  per_hour: number;
+  subtotal: number;
+  tax: number;
+  total: number;
+  currency: string;
+}
+
+export interface Campaign {
   id: string;
-  workshop_id: string;
-  client_id: string;
-  vin: string;
-  make?: string;
-  model?: string;
-  year?: number;
-  trim?: string;
-  body_type?: string;
-  engine?: string;
-  color?: string;
-  created_at: string;
-}
-
-export interface VinDecodeResult {
-  vin: string;
-  make: string;
-  model: string;
-  year?: number;
-  trim?: string;
-  body_type?: string;
-  engine?: string;
-  vehicle_type?: string;
-  plant_country?: string;
-}
-
-export interface ServiceItem {
-  id: string;
-  workshop_id: string;
-  code: string;
+  user_id: string;
+  screen_id: string;
   name: string;
-  category: 'srs' | 'cinturones' | 'adas';
-  default_price: number;
-  active: boolean;
+  status: string;
+  schedule: CampaignSchedule;
+  media_ids: string[];
+  pricing: CampaignPricing;
+  payment_id?: string;
+  admin_notes?: string;
+  screen?: Screen;
+  media?: MediaItem[];
+  screen_name?: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface WorkOrderService {
-  service_id: string;
-  service_name: string;
-  quantity: number;
-  price: number;
-  side?: 'left' | 'right' | 'both';
-  notes?: string;
-}
-
-export interface WorkOrder {
+export interface MediaItem {
   id: string;
-  workshop_id: string;
-  vehicle_id: string;
-  client_id: string;
-  tech_id: string;
-  status: 'iniciado' | 'pendiente' | 'terminado';
-  services: WorkOrderService[];
-  odometer?: number;
-  notes?: string;
-  photos_before: string[];
-  photos_after: string[];
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  vehicle?: Vehicle;
-  client?: Client;
-  tech_name?: string;
-  payment?: Payment;
+  filename: string;
+  content_type: string;
+  size: number;
+  type: 'image' | 'video';
+  data?: string;
+  created_at?: string;
 }
 
 export interface Payment {
   id: string;
-  workshop_id: string;
-  work_order_id: string;
-  method: 'zelle' | 'cash' | 'check' | 'other';
-  payment_status: 'pagado' | 'pendiente';
+  campaign_id: string;
+  amount: number;
   subtotal: number;
   tax: number;
-  discount: number;
-  total: number;
-  paid_amount: number;
-  reference?: string;
-  receipt_photo?: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface DailyReport {
-  date: string;
-  total_orders: number;
-  total_billed: number;
-  total_paid: number;
-  total_pending: number;
-  by_status: {
-    iniciado: number;
-    pendiente: number;
-    terminado: number;
-  };
-  by_tech: Array<{
-    name: string;
-    orders: number;
-    billed: number;
-    paid: number;
-  }>;
+  currency: string;
+  status: string;
+  method: string;
+  card_last4: string;
+  invoice_number: string;
+  campaign_name?: string;
+  screen_name?: string;
+  created_at?: string;
 }

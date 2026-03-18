@@ -1,5 +1,10 @@
+# =====================================================
+# MediaView Digital Signage Platform - Backend API
+# =====================================================
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.responses import Response
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -12,30 +17,37 @@ import uuid
 from datetime import datetime, timedelta
 import jwt
 import bcrypt
-import httpx
+import base64
 from bson import ObjectId
-from twilio.rest import Client as TwilioClient
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# Twilio Configuration
-TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID')
-TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN')
-TWILIO_WHATSAPP_NUMBER = os.environ.get('TWILIO_WHATSAPP_NUMBER', 'whatsapp:+14155238886')
+# ============ CONFIGURATION ============
 
-# Initialize Twilio client
-twilio_client = None
-if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
-    try:
-        twilio_client = TwilioClient(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
-        logging.info("Twilio client initialized successfully")
-    except Exception as e:
-        logging.error(f"Failed to initialize Twilio client: {e}")
+MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+DB_NAME = os.environ.get('DB_NAME', 'mediaview_db')
+JWT_SECRET = os.environ.get('JWT_SECRET', 'mediaview-secure-jwt-secret-2026')
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 48
+MEDIA_DIR = os.environ.get('MEDIA_DIR', str(ROOT_DIR / 'media'))
 
-# Helper function to convert MongoDB documents
+Path(MEDIA_DIR).mkdir(parents=True, exist_ok=True)
+
+# ============ DATABASE ============
+
+client = AsyncIOMotorClient(MONGO_URL)
+db = client[DB_NAME]
+
+# ============ APP SETUP ============
+
+app = FastAPI(title="MediaView Digital Signage API", version="1.0.0")
+api_router = APIRouter(prefix="/api")
+security = HTTPBearer()
+
+# ============ HELPERS ============
+
 def serialize_doc(doc):
-    """Convert MongoDB document to JSON-serializable dict"""
     if doc is None:
         return None
     if isinstance(doc, list):
@@ -52,215 +64,102 @@ def serialize_doc(doc):
             elif isinstance(value, dict):
                 result[key] = serialize_doc(value)
             elif isinstance(value, list):
-                result[key] = [serialize_doc(v) if isinstance(v, dict) else v for v in value]
+                result[key] = serialize_doc(value)
             else:
                 result[key] = value
         return result
     return doc
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ.get('DB_NAME', 'autoservice_db')]
+def gen_id():
+    return str(uuid.uuid4())
 
-# JWT Settings
-JWT_SECRET = os.environ.get('JWT_SECRET', 'autoservice-secret-key-2024')
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 24
+def gen_invoice():
+    return f"INV-{datetime.utcnow().strftime('%Y%m%d')}-{uuid.uuid4().hex[:6].upper()}"
 
-security = HTTPBearer()
+# ============ PYDANTIC MODELS ============
 
-# Create the main app
-app = FastAPI(title="AutoService Hub API")
-
-# Create a router with the /api prefix
-api_router = APIRouter(prefix="/api")
-
-# ============ MODELS ============
-
-class UserBase(BaseModel):
+class RegisterRequest(BaseModel):
     name: str
     email: str
-    role: str = "tech"  # admin or tech
-    workshop_id: str
-
-class UserCreate(UserBase):
     password: str
+    company_name: Optional[str] = None
 
-class User(UserBase):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    active: bool = True
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-class UserLogin(BaseModel):
+class LoginRequest(BaseModel):
     email: str
     password: str
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user: dict
-
-class Workshop(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    address: Optional[str] = None
-    phone: Optional[str] = None
-    tax_rate: float = 7.0
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-class WorkshopCreate(BaseModel):
-    name: str
-    address: Optional[str] = None
-    phone: Optional[str] = None
-
-class Client(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    workshop_id: str
-    name: str
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    address: Optional[str] = None
-    notes: Optional[str] = None
-    has_credit: bool = False  # Cliente con cuenta de crédito
-    credit_limit: Optional[float] = None  # Límite de crédito opcional
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
-class ClientCreate(BaseModel):
-    name: str
-    phone: Optional[str] = None
-    email: Optional[str] = None
-    address: Optional[str] = None
-    notes: Optional[str] = None
-    has_credit: bool = False
-    credit_limit: Optional[float] = None
-
-class ClientUpdate(BaseModel):
+class ProfileUpdate(BaseModel):
     name: Optional[str] = None
+    company_name: Optional[str] = None
     phone: Optional[str] = None
-    email: Optional[str] = None
-    address: Optional[str] = None
-    notes: Optional[str] = None
-    has_credit: Optional[bool] = None
-    credit_limit: Optional[float] = None
+    language: Optional[str] = None
 
-class Vehicle(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    workshop_id: str
-    client_id: str
-    vin: str
-    make: Optional[str] = None
-    model: Optional[str] = None
-    year: Optional[int] = None
-    trim: Optional[str] = None
-    body_type: Optional[str] = None
-    engine: Optional[str] = None
-    color: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+class ScreenLocation(BaseModel):
+    city: str
+    address: str
+    state: Optional[str] = None
+    country: str = "US"
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
-class VehicleCreate(BaseModel):
-    client_id: str
-    vin: str
-    make: Optional[str] = None
-    model: Optional[str] = None
-    year: Optional[int] = None
-    trim: Optional[str] = None
-    body_type: Optional[str] = None
-    engine: Optional[str] = None
-    color: Optional[str] = None
+class ScreenPricing(BaseModel):
+    per_hour: float = 50.0
+    per_day: float = 400.0
+    per_slot: float = 5.0
+    currency: str = "USD"
 
-class ServiceItem(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    workshop_id: str
-    code: str
+class ScreenSpecs(BaseModel):
+    size: str = "20ft x 10ft"
+    type: str = "LED"
+    resolution: str = "1920x1080"
+    orientation: str = "landscape"
+
+class ScreenCreate(BaseModel):
     name: str
-    category: str  # srs, cinturones, adas
-    default_price: float = 0.0
-    active: bool = True
+    description: Optional[str] = None
+    location: ScreenLocation
+    pricing: ScreenPricing = ScreenPricing()
+    specs: ScreenSpecs = ScreenSpecs()
+    preview_image: Optional[str] = None
+    status: str = "active"
 
-class ServiceItemCreate(BaseModel):
-    code: str
-    name: str
-    category: str
-    default_price: float = 0.0
-
-class WorkOrderService(BaseModel):
-    service_id: str
-    service_name: str
-    quantity: int = 1
-    price: float
-    side: Optional[str] = None  # left, right, both
-    notes: Optional[str] = None
-
-class WorkOrder(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    workshop_id: str
-    vehicle_id: Optional[str] = None  # Can be None if tech will scan later
-    client_id: str
-    tech_id: str
-    status: str = "iniciado"  # asignado, iniciado, pendiente, terminado
-    services: List[WorkOrderService] = []
-    vehicle: Optional[dict] = None  # Store vehicle info directly
-    odometer: Optional[int] = None
-    notes: Optional[str] = None
-    photos_before: List[str] = []
-    photos_after: List[str] = []
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    started_at: Optional[datetime] = None
-    completed_at: Optional[datetime] = None
-
-class WorkOrderCreate(BaseModel):
-    vehicle_id: Optional[str] = None  # Optional - tech will scan later
-    client_id: str
-    tech_id: Optional[str] = None  # Admin can assign to specific tech
-    services: List[WorkOrderService] = []
-    odometer: Optional[int] = None
-    notes: Optional[str] = None
-
-class WorkOrderUpdate(BaseModel):
+class ScreenUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    location: Optional[dict] = None
+    pricing: Optional[dict] = None
+    specs: Optional[dict] = None
+    preview_image: Optional[str] = None
     status: Optional[str] = None
-    tech_id: Optional[str] = None  # Admin can reassign
-    services: Optional[List[WorkOrderService]] = None
-    vehicle: Optional[dict] = None  # Allow updating vehicle info
-    odometer: Optional[int] = None
-    notes: Optional[str] = None
-    photos_before: Optional[List[str]] = None
-    photos_after: Optional[List[str]] = None
 
-class Payment(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    workshop_id: str
-    work_order_id: str
-    method: str  # zelle, cash, check, other
-    payment_status: str = "pendiente"  # pagado, pendiente
-    subtotal: float = 0.0
-    tax: float = 0.0
-    discount: float = 0.0
-    total: float = 0.0
-    paid_amount: float = 0.0
-    reference: Optional[str] = None
-    receipt_photo: Optional[str] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+class CampaignSchedule(BaseModel):
+    start_date: str
+    end_date: str
+    start_time: str = "08:00"
+    end_time: str = "22:00"
+    slot_duration: int = 15
+    frequency: int = 5
+
+class CampaignCreate(BaseModel):
+    name: str
+    screen_id: str
+    schedule: CampaignSchedule
+    media_ids: List[str] = []
+
+class CampaignUpdate(BaseModel):
+    name: Optional[str] = None
+    schedule: Optional[CampaignSchedule] = None
+    media_ids: Optional[List[str]] = None
+
+class MediaUpload(BaseModel):
+    filename: str
+    content_type: str
+    data: str
 
 class PaymentCreate(BaseModel):
-    work_order_id: str
-    method: str
-    payment_status: str = "pendiente"
-    subtotal: float = 0.0
-    tax: float = 0.0
-    discount: float = 0.0
-    total: float = 0.0
-    paid_amount: float = 0.0
-    reference: Optional[str] = None
-    receipt_photo: Optional[str] = None
-
-class PaymentUpdate(BaseModel):
-    method: Optional[str] = None
-    payment_status: Optional[str] = None
-    paid_amount: Optional[float] = None
-    reference: Optional[str] = None
-    receipt_photo: Optional[str] = None
+    campaign_id: str
+    method: str = "card"
+    card_last4: Optional[str] = None
 
 # ============ AUTH HELPERS ============
 
@@ -270,10 +169,9 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-def create_token(user_id: str, workshop_id: str, role: str) -> str:
+def create_token(user_id: str, role: str) -> str:
     payload = {
         "sub": user_id,
-        "workshop_id": workshop_id,
         "role": role,
         "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
     }
@@ -286,970 +184,673 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_id = payload.get("sub")
         user = await db.users.find_one({"id": user_id})
         if not user:
-            raise HTTPException(status_code=401, detail="Usuario no encontrado")
+            raise HTTPException(status_code=401, detail="User not found")
+        if not user.get("active", True):
+            raise HTTPException(status_code=401, detail="Account deactivated")
         return user
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expirado")
+        raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Token inválido")
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-# ============ ROUTES ============
+async def require_admin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+# ============ PRICING CALCULATOR ============
+
+def calculate_campaign_price(screen_pricing: dict, schedule: dict) -> dict:
+    try:
+        start = datetime.strptime(schedule["start_date"], "%Y-%m-%d")
+        end = datetime.strptime(schedule["end_date"], "%Y-%m-%d")
+        num_days = max((end - start).days + 1, 1)
+        start_h = int(schedule.get("start_time", "08:00").split(":")[0])
+        end_h = int(schedule.get("end_time", "22:00").split(":")[0])
+        hours_per_day = max(end_h - start_h, 1)
+        total_hours = hours_per_day * num_days
+        per_hour = screen_pricing.get("per_hour", 50.0)
+        subtotal = round(total_hours * per_hour, 2)
+        tax = round(subtotal * 0.08, 2)
+        total = round(subtotal + tax, 2)
+        return {
+            "num_days": num_days, "hours_per_day": hours_per_day,
+            "total_hours": total_hours, "per_hour": per_hour,
+            "subtotal": subtotal, "tax": tax, "total": total,
+            "currency": screen_pricing.get("currency", "USD")
+        }
+    except Exception as e:
+        logging.error(f"Price calc error: {e}")
+        return {"num_days": 0, "hours_per_day": 0, "total_hours": 0,
+                "per_hour": 0, "subtotal": 0, "tax": 0, "total": 0, "currency": "USD"}
+
+# ============ ROUTES: HEALTH ============
 
 @api_router.get("/")
 async def root():
-    return {"message": "AutoService Hub API", "version": "1.0.0"}
+    return {"message": "MediaView Digital Signage API", "version": "1.0.0"}
 
 @api_router.get("/health")
 async def health():
-    return {"status": "healthy"}
+    return {"status": "healthy", "service": "MediaView API"}
 
-# ============ AUTH ROUTES ============
+# ============ ROUTES: AUTH ============
 
-@api_router.post("/auth/register-workshop")
-async def register_workshop(workshop: WorkshopCreate, admin_email: str, admin_password: str, admin_name: str):
-    """Register a new workshop with admin user"""
-    # Check if email exists
-    existing = await db.users.find_one({"email": admin_email})
+@api_router.post("/auth/register")
+async def register(req: RegisterRequest):
+    existing = await db.users.find_one({"email": req.email.lower()})
     if existing:
-        raise HTTPException(status_code=400, detail="Email ya registrado")
-    
-    # Create workshop
-    workshop_obj = Workshop(**workshop.dict())
-    await db.workshops.insert_one(workshop_obj.dict())
-    
-    # Create admin user
-    user_obj = User(
-        name=admin_name,
-        email=admin_email,
-        role="admin",
-        workshop_id=workshop_obj.id
-    )
-    user_dict = user_obj.dict()
-    user_dict["password_hash"] = hash_password(admin_password)
-    await db.users.insert_one(user_dict)
-    
-    # Create default services
-    default_services = [
-        # SRS / Airbag
-        {"code": "SRS001", "name": "Reset módulo SRS", "category": "srs", "default_price": 0},
-        {"code": "SRS002", "name": "Bolsa de techo", "category": "srs", "default_price": 0},
-        {"code": "SRS003", "name": "Bolsa de volante", "category": "srs", "default_price": 0},
-        {"code": "SRS004", "name": "Bolsa de asiento", "category": "srs", "default_price": 0},
-        {"code": "SRS005", "name": "Bolsa lateral", "category": "srs", "default_price": 0},
-        {"code": "SRS006", "name": "Knee airbag", "category": "srs", "default_price": 0},
-        {"code": "SRS007", "name": "Cortina", "category": "srs", "default_price": 0},
-        {"code": "SRS008", "name": "Sensor ocupante", "category": "srs", "default_price": 0},
-        # Cinturones
-        {"code": "BELT001", "name": "Cinturón conductor", "category": "cinturones", "default_price": 0},
-        {"code": "BELT002", "name": "Cinturón pasajero", "category": "cinturones", "default_price": 0},
-        {"code": "BELT003", "name": "Cinturón trasero izq", "category": "cinturones", "default_price": 0},
-        {"code": "BELT004", "name": "Cinturón trasero der", "category": "cinturones", "default_price": 0},
-        {"code": "BELT005", "name": "Cinturón trasero centro", "category": "cinturones", "default_price": 0},
-        {"code": "BELT006", "name": "Pretensioner", "category": "cinturones", "default_price": 0},
-        # ADAS
-        {"code": "ADAS001", "name": "Calibración radar frontal", "category": "adas", "default_price": 0},
-        {"code": "ADAS002", "name": "Calibración cámara", "category": "adas", "default_price": 0},
-        {"code": "ADAS003", "name": "Sensor punto ciego", "category": "adas", "default_price": 0},
-    ]
-    
-    for service in default_services:
-        service_obj = ServiceItem(workshop_id=workshop_obj.id, **service)
-        await db.services.insert_one(service_obj.dict())
-    
-    token = create_token(user_obj.id, workshop_obj.id, "admin")
-    
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = {
+        "id": gen_id(), "name": req.name, "email": req.email.lower(),
+        "password_hash": hash_password(req.password), "role": "customer",
+        "company_name": req.company_name, "phone": None,
+        "language": "en", "active": True, "created_at": datetime.utcnow()
+    }
+    await db.users.insert_one(user)
+    token = create_token(user["id"], user["role"])
     return {
-        "access_token": token,
-        "token_type": "bearer",
-        "user": {
-            "id": user_obj.id,
-            "name": user_obj.name,
-            "email": admin_email,
-            "role": "admin",
-            "workshop_id": workshop_obj.id
-        },
-        "workshop": workshop_obj.dict()
+        "access_token": token, "token_type": "bearer",
+        "user": {"id": user["id"], "name": user["name"], "email": user["email"],
+                 "role": user["role"], "company_name": user["company_name"],
+                 "language": user["language"]}
     }
 
-@api_router.post("/auth/login", response_model=TokenResponse)
-async def login(credentials: UserLogin):
-    user = await db.users.find_one({"email": credentials.email})
-    if not user:
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
-    if not verify_password(credentials.password, user.get("password_hash", "")):
-        raise HTTPException(status_code=401, detail="Credenciales inválidas")
-    
+@api_router.post("/auth/login")
+async def login(req: LoginRequest):
+    user = await db.users.find_one({"email": req.email.lower()})
+    if not user or not verify_password(req.password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
     if not user.get("active", True):
-        raise HTTPException(status_code=401, detail="Usuario desactivado")
-    
-    token = create_token(user["id"], user["workshop_id"], user["role"])
-    
-    return TokenResponse(
-        access_token=token,
-        user={
-            "id": user["id"],
-            "name": user["name"],
-            "email": user["email"],
-            "role": user["role"],
-            "workshop_id": user["workshop_id"]
-        }
-    )
+        raise HTTPException(status_code=401, detail="Account deactivated")
+    token = create_token(user["id"], user["role"])
+    return {
+        "access_token": token, "token_type": "bearer",
+        "user": {"id": user["id"], "name": user["name"], "email": user["email"],
+                 "role": user["role"], "company_name": user.get("company_name"),
+                 "language": user.get("language", "en")}
+    }
 
 @api_router.get("/auth/me")
 async def get_me(current_user: dict = Depends(get_current_user)):
     return {
-        "id": current_user["id"],
-        "name": current_user["name"],
-        "email": current_user["email"],
-        "role": current_user["role"],
-        "workshop_id": current_user["workshop_id"]
+        "id": current_user["id"], "name": current_user["name"],
+        "email": current_user["email"], "role": current_user["role"],
+        "company_name": current_user.get("company_name"),
+        "phone": current_user.get("phone"),
+        "language": current_user.get("language", "en"),
+        "created_at": serialize_doc(current_user.get("created_at"))
     }
 
-# ============ USER ROUTES (Admin only) ============
+@api_router.put("/auth/profile")
+async def update_profile(data: ProfileUpdate, current_user: dict = Depends(get_current_user)):
+    update = {k: v for k, v in data.dict().items() if v is not None}
+    if update:
+        await db.users.update_one({"id": current_user["id"]}, {"$set": update})
+    return {"message": "Profile updated"}
 
-@api_router.post("/users")
-async def create_user(user_data: UserCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede crear usuarios")
-    
-    existing = await db.users.find_one({"email": user_data.email})
-    if existing:
-        raise HTTPException(status_code=400, detail="Email ya registrado")
-    
-    user_obj = User(
-        name=user_data.name,
-        email=user_data.email,
-        role=user_data.role,
-        workshop_id=current_user["workshop_id"]
-    )
-    user_dict = user_obj.dict()
-    user_dict["password_hash"] = hash_password(user_data.password)
-    await db.users.insert_one(user_dict)
-    
-    return {
-        "id": user_obj.id,
-        "name": user_obj.name,
-        "email": user_obj.email,
-        "role": user_obj.role,
-        "active": user_obj.active
-    }
+# ============ ROUTES: SCREENS (PUBLIC) ============
 
-@api_router.get("/users")
-async def get_users(current_user: dict = Depends(get_current_user)):
-    users = await db.users.find({"workshop_id": current_user["workshop_id"]}).to_list(100)
-    return [{
-        "id": u["id"],
-        "name": u["name"],
-        "email": u["email"],
-        "role": u["role"],
-        "active": u.get("active", True)
-    } for u in users]
-
-@api_router.put("/users/{user_id}")
-async def update_user(user_id: str, active: bool, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede modificar usuarios")
-    
-    result = await db.users.update_one(
-        {"id": user_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": {"active": active}}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Usuario no encontrado")
-    
-    return {"message": "Usuario actualizado"}
-
-# ============ VIN DECODE ============
-
-@api_router.get("/vin/decode/{vin}")
-async def decode_vin(vin: str, current_user: dict = Depends(get_current_user)):
-    # Validate VIN
-    vin = vin.upper().strip()
-    if len(vin) != 17:
-        raise HTTPException(status_code=400, detail="VIN debe tener 17 caracteres")
-    
-    invalid_chars = ['I', 'O', 'Q']
-    for char in invalid_chars:
-        if char in vin:
-            raise HTTPException(status_code=400, detail=f"VIN no puede contener '{char}'")
-    
-    # Call NHTSA API
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                f"https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/{vin}?format=json",
-                timeout=10.0
-            )
-            data = response.json()
-            
-            if data.get("Results") and len(data["Results"]) > 0:
-                result = data["Results"][0]
-                return {
-                    "vin": vin,
-                    "make": result.get("Make", ""),
-                    "model": result.get("Model", ""),
-                    "year": int(result.get("ModelYear", 0)) if result.get("ModelYear") else None,
-                    "trim": result.get("Trim", ""),
-                    "body_type": result.get("BodyClass", ""),
-                    "engine": f"{result.get('EngineConfiguration', '')} {result.get('DisplacementL', '')}L".strip(),
-                    "vehicle_type": result.get("VehicleType", ""),
-                    "plant_country": result.get("PlantCountry", "")
-                }
-            else:
-                raise HTTPException(status_code=404, detail="No se pudo decodificar el VIN")
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Timeout al consultar NHTSA")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error al decodificar VIN: {str(e)}")
-
-# ============ CLIENT ROUTES ============
-
-@api_router.post("/clients")
-async def create_client(client_data: ClientCreate, current_user: dict = Depends(get_current_user)):
-    client_obj = Client(
-        workshop_id=current_user["workshop_id"],
-        **client_data.dict()
-    )
-    await db.clients.insert_one(client_obj.dict())
-    return client_obj.dict()
-
-@api_router.get("/clients")
-async def get_clients(search: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {"workshop_id": current_user["workshop_id"]}
-    
-    if search:
-        query["$or"] = [
-            {"name": {"$regex": search, "$options": "i"}},
-            {"phone": {"$regex": search, "$options": "i"}},
-            {"email": {"$regex": search, "$options": "i"}}
-        ]
-    
-    clients = await db.clients.find(query).to_list(100)
-    return serialize_doc(clients)
-
-@api_router.get("/clients/{client_id}")
-async def get_client(client_id: str, current_user: dict = Depends(get_current_user)):
-    client = await db.clients.find_one({
-        "id": client_id,
-        "workshop_id": current_user["workshop_id"]
-    })
-    if not client:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return serialize_doc(client)
-
-@api_router.put("/clients/{client_id}")
-async def update_client(client_id: str, client_data: ClientUpdate, current_user: dict = Depends(get_current_user)):
-    update_dict = {k: v for k, v in client_data.dict().items() if v is not None}
-    if not update_dict:
-        raise HTTPException(status_code=400, detail="No hay datos para actualizar")
-    
-    result = await db.clients.update_one(
-        {"id": client_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": update_dict}
-    )
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Cliente no encontrado")
-    return {"message": "Cliente actualizado"}
-
-# ============ CREDIT REPORTS ============
-
-@api_router.get("/reports/credit")
-async def get_credit_report(current_user: dict = Depends(get_current_user)):
-    """Get all clients with credit accounts and their pending orders"""
-    # Get clients with credit
-    credit_clients = await db.clients.find({
-        "workshop_id": current_user["workshop_id"],
-        "has_credit": True
-    }).to_list(100)
-    
-    report = []
-    
-    for client in credit_clients:
-        # Get pending orders for this client
-        orders = await db.work_orders.find({
-            "workshop_id": current_user["workshop_id"],
-            "client_id": client["id"]
-        }).to_list(100)
-        
-        pending_orders = []
-        total_pending = 0
-        total_paid = 0
-        
-        for order in orders:
-            # Get payment info
-            payment = await db.payments.find_one({"work_order_id": order["id"]})
-            
-            # Get vehicle info
-            vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
-            
-            order_total = sum(s.get("price", 0) * s.get("quantity", 1) for s in order.get("services", []))
-            
-            order_info = {
-                "id": order["id"],
-                "vehicle": f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}" if vehicle else "N/A",
-                "vin": vehicle.get("vin", "N/A") if vehicle else "N/A",
-                "services": [s.get("service_name", "") for s in order.get("services", [])],
-                "status": order.get("status", ""),
-                "created_at": order.get("created_at"),
-                "total": payment.get("total", order_total) if payment else order_total,
-                "payment_status": payment.get("payment_status", "pendiente") if payment else "sin_pago",
-                "payment_id": payment.get("id") if payment else None,
-            }
-            
-            if payment and payment.get("payment_status") == "pagado":
-                total_paid += order_info["total"]
-            else:
-                total_pending += order_info["total"]
-                pending_orders.append(order_info)
-        
-        if pending_orders or True:  # Show all credit clients
-            report.append({
-                "client": serialize_doc(client),
-                "pending_orders": serialize_doc(pending_orders),
-                "total_pending": total_pending,
-                "total_paid": total_paid,
-                "total_orders": len(orders),
-            })
-    
-    return serialize_doc(report)
-
-# ============ VEHICLE ROUTES ============
-
-@api_router.post("/vehicles")
-async def create_vehicle(vehicle_data: VehicleCreate, current_user: dict = Depends(get_current_user)):
-    vehicle_obj = Vehicle(
-        workshop_id=current_user["workshop_id"],
-        **vehicle_data.dict()
-    )
-    await db.vehicles.insert_one(vehicle_obj.dict())
-    return vehicle_obj.dict()
-
-@api_router.get("/vehicles")
-async def get_vehicles(client_id: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {"workshop_id": current_user["workshop_id"]}
-    if client_id:
-        query["client_id"] = client_id
-    
-    vehicles = await db.vehicles.find(query).to_list(100)
-    return serialize_doc(vehicles)
-
-@api_router.get("/vehicles/by-vin/{vin}")
-async def get_vehicle_by_vin(vin: str, current_user: dict = Depends(get_current_user)):
-    vehicle = await db.vehicles.find_one({
-        "vin": vin.upper(),
-        "workshop_id": current_user["workshop_id"]
-    })
-    return serialize_doc(vehicle)
-
-# ============ SERVICE ROUTES ============
-
-@api_router.get("/services")
-async def get_services(category: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    query = {"workshop_id": current_user["workshop_id"], "active": True}
-    if category:
-        query["category"] = category
-    
-    services = await db.services.find(query).to_list(100)
-    return serialize_doc(services)
-
-@api_router.post("/services")
-async def create_service(service_data: ServiceItemCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede crear servicios")
-    
-    service_obj = ServiceItem(
-        workshop_id=current_user["workshop_id"],
-        **service_data.dict()
-    )
-    await db.services.insert_one(service_obj.dict())
-    return service_obj.dict()
-
-@api_router.put("/services/{service_id}")
-async def update_service(service_id: str, service_data: ServiceItemCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede modificar servicios")
-    
-    result = await db.services.update_one(
-        {"id": service_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": service_data.dict()}
-    )
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Servicio no encontrado")
-    return {"message": "Servicio actualizado"}
-
-# ============ WORK ORDER ROUTES ============
-
-@api_router.post("/work-orders")
-async def create_work_order(order_data: WorkOrderCreate, current_user: dict = Depends(get_current_user)):
-    # If admin provides tech_id, use it; otherwise use current user
-    assigned_tech_id = order_data.tech_id if order_data.tech_id and current_user["role"] == "admin" else current_user["id"]
-    
-    order_dict = order_data.dict()
-    order_dict.pop('tech_id', None)  # Remove tech_id from dict to avoid duplicate
-    
-    order_obj = WorkOrder(
-        workshop_id=current_user["workshop_id"],
-        tech_id=assigned_tech_id,
-        started_at=datetime.utcnow() if not order_data.tech_id else None,  # Only start if self-assigned
-        status="iniciado" if not order_data.tech_id or order_data.tech_id == current_user["id"] else "asignado",
-        **order_dict
-    )
-    await db.work_orders.insert_one(order_obj.dict())
-    return order_obj.dict()
-
-@api_router.get("/work-orders")
-async def get_work_orders(
-    status: Optional[str] = None,
-    tech_id: Optional[str] = None,
-    date: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    query = {"workshop_id": current_user["workshop_id"]}
-    
+@api_router.get("/screens")
+async def list_screens(city: Optional[str] = None, status: Optional[str] = "active"):
+    query = {}
     if status:
         query["status"] = status
-    
-    if tech_id:
-        query["tech_id"] = tech_id
-    elif current_user["role"] != "admin":
-        query["tech_id"] = current_user["id"]
-    
-    if date:
-        # Parse date and filter by day
-        try:
-            filter_date = datetime.strptime(date, "%Y-%m-%d")
-            next_day = filter_date + timedelta(days=1)
-            query["created_at"] = {"$gte": filter_date, "$lt": next_day}
-        except ValueError:
-            pass
-    
-    orders = await db.work_orders.find(query).sort("created_at", -1).to_list(100)
-    
-    # Convert ObjectId to string for JSON serialization
-    for order in orders:
-        if "_id" in order:
-            order["_id"] = str(order["_id"])
-    
-    # Enrich with vehicle and client info
-    enriched_orders = []
-    for order in orders:
-        vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
-        client = await db.clients.find_one({"id": order["client_id"]})
-        tech = await db.users.find_one({"id": order["tech_id"]})
-        payment = await db.payments.find_one({"work_order_id": order["id"]})
-        
-        # Convert ObjectId to string for nested objects
-        if vehicle and "_id" in vehicle:
-            vehicle["_id"] = str(vehicle["_id"])
-        if client and "_id" in client:
-            client["_id"] = str(client["_id"])
-        if tech and "_id" in tech:
-            tech["_id"] = str(tech["_id"])
-        if payment and "_id" in payment:
-            payment["_id"] = str(payment["_id"])
-        
-        order["vehicle"] = vehicle
-        order["client"] = client
-        order["tech_name"] = tech["name"] if tech else "Desconocido"
-        order["payment"] = payment
-        enriched_orders.append(order)
-    
-    return enriched_orders
+    if city:
+        query["location.city"] = {"$regex": city, "$options": "i"}
+    screens = await db.screens.find(query).to_list(100)
+    return serialize_doc(screens)
 
-@api_router.get("/work-orders/{order_id}")
-async def get_work_order(order_id: str, current_user: dict = Depends(get_current_user)):
-    order = await db.work_orders.find_one({
-        "id": order_id,
-        "workshop_id": current_user["workshop_id"]
-    })
-    if not order:
-        raise HTTPException(status_code=404, detail="Orden no encontrada")
-    
-    # Get vehicle - either from vehicles collection or from stored vehicle field
-    vehicle = None
-    if order.get("vehicle_id"):
-        vehicle = await db.vehicles.find_one({"id": order["vehicle_id"]})
-    elif order.get("vehicle"):
-        # Vehicle info stored directly in the order (when tech scans after assignment)
-        vehicle = order.get("vehicle")
-    
-    client = await db.clients.find_one({"id": order["client_id"]})
-    tech = await db.users.find_one({"id": order["tech_id"]})
-    payment = await db.payments.find_one({"work_order_id": order["id"]})
-    
-    order["vehicle"] = serialize_doc(vehicle) if isinstance(vehicle, dict) and "_id" in vehicle else vehicle
-    order["client"] = serialize_doc(client)
-    order["tech_name"] = tech["name"] if tech else "Desconocido"
-    order["payment"] = serialize_doc(payment)
-    
-    return serialize_doc(order)
+@api_router.get("/screens/cities")
+async def get_cities():
+    cities = await db.screens.distinct("location.city", {"status": "active"})
+    return sorted(cities)
 
-@api_router.put("/work-orders/{order_id}")
-async def update_work_order(order_id: str, order_data: WorkOrderUpdate, current_user: dict = Depends(get_current_user)):
-    # Get current order to check status
-    current_order = await db.work_orders.find_one({
-        "id": order_id,
-        "workshop_id": current_user["workshop_id"]
-    })
-    
-    if not current_order:
-        raise HTTPException(status_code=404, detail="Orden no encontrada")
-    
-    update_dict = {k: v for k, v in order_data.dict().items() if v is not None}
-    
-    # Tech reassignment validation (admin only)
-    if "tech_id" in update_dict and current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo el administrador puede reasignar técnicos")
-    
-    # Services/prices modification validation
-    # Admin can always modify, Tech can modify price if order is assigned to them and not completed
-    if "services" in update_dict:
-        if current_user["role"] != "admin":
-            # Tech can only update price if order is assigned to them
-            if current_order.get("tech_id") != current_user["id"]:
-                raise HTTPException(status_code=403, detail="No puedes modificar una orden que no te fue asignada")
-            # Tech cannot modify if order is completed
-            if current_order.get("status") == "terminado":
-                raise HTTPException(status_code=403, detail="No puedes modificar el precio de una orden terminada")
-    
-    # Status change validation
-    if "status" in update_dict:
-        current_status = current_order.get("status", "iniciado")
-        new_status = update_dict["status"]
-        
-        # Define status order (asignado is before iniciado)
-        status_order = {"asignado": 0, "iniciado": 1, "pendiente": 2, "terminado": 3}
-        
-        # If not admin, only allow forward progression
-        if current_user["role"] != "admin":
-            if status_order.get(new_status, 0) < status_order.get(current_status, 0):
-                raise HTTPException(
-                    status_code=403, 
-                    detail="Solo el administrador puede revertir el estado"
-                )
-        
-        # When tech starts assigned work
-        if new_status == "iniciado" and current_status == "asignado":
-            update_dict["started_at"] = datetime.utcnow()
-        
-        if new_status == "terminado":
-            update_dict["completed_at"] = datetime.utcnow()
-        elif new_status != "terminado" and current_status == "terminado":
-            # If reverting from terminado, clear completed_at (admin only)
-            update_dict["completed_at"] = None
-    
-    result = await db.work_orders.update_one(
-        {"id": order_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": update_dict}
+@api_router.get("/screens/{screen_id}")
+async def get_screen(screen_id: str):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    active = await db.campaigns.count_documents(
+        {"screen_id": screen_id, "status": {"$in": ["approved", "active"]}}
     )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="No se pudo actualizar la orden")
-    
-    # Log status change
-    if "status" in update_dict:
-        await db.order_history.insert_one({
-            "id": str(uuid.uuid4()),
-            "work_order_id": order_id,
-            "user_id": current_user["id"],
-            "user_name": current_user["name"],
-            "action": f"Estado cambiado a {update_dict['status']}",
-            "timestamp": datetime.utcnow()
-        })
-    
-    return {"message": "Orden actualizada"}
+    result = serialize_doc(screen)
+    result["active_campaigns"] = active
+    return result
 
-# ============ PAYMENT ROUTES ============
+@api_router.post("/screens/{screen_id}/calculate-price")
+async def calc_price(screen_id: str, schedule: CampaignSchedule):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return calculate_campaign_price(screen.get("pricing", {}), schedule.dict())
+
+# ============ ROUTES: CAMPAIGNS ============
+
+@api_router.post("/campaigns")
+async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get_current_user)):
+    screen = await db.screens.find_one({"id": data.screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    pricing = calculate_campaign_price(screen.get("pricing", {}), data.schedule.dict())
+    campaign = {
+        "id": gen_id(), "user_id": current_user["id"],
+        "screen_id": data.screen_id, "name": data.name,
+        "status": "draft", "schedule": data.schedule.dict(),
+        "media_ids": data.media_ids, "pricing": pricing,
+        "payment_id": None, "admin_notes": None,
+        "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+    }
+    await db.campaigns.insert_one(campaign)
+    return serialize_doc(campaign)
+
+@api_router.get("/campaigns")
+async def list_campaigns(status: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    query = {"user_id": current_user["id"]}
+    if status:
+        query["status"] = status
+    campaigns = await db.campaigns.find(query).sort("created_at", -1).to_list(100)
+    enriched = []
+    for c in campaigns:
+        screen = await db.screens.find_one({"id": c.get("screen_id")})
+        c["screen"] = serialize_doc(screen) if screen else None
+        enriched.append(c)
+    return serialize_doc(enriched)
+
+@api_router.get("/campaigns/{campaign_id}")
+async def get_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": campaign_id, "user_id": current_user["id"]})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    screen = await db.screens.find_one({"id": campaign.get("screen_id")})
+    campaign["screen"] = serialize_doc(screen) if screen else None
+    media_items = []
+    for mid in campaign.get("media_ids", []):
+        media = await db.media.find_one({"id": mid})
+        if media:
+            media_items.append(serialize_doc(media))
+    campaign["media"] = media_items
+    if campaign.get("payment_id"):
+        payment = await db.payments.find_one({"id": campaign["payment_id"]})
+        campaign["payment"] = serialize_doc(payment)
+    return serialize_doc(campaign)
+
+@api_router.put("/campaigns/{campaign_id}")
+async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": campaign_id, "user_id": current_user["id"]})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign["status"] not in ["draft", "rejected"]:
+        raise HTTPException(status_code=400, detail="Can only edit draft or rejected campaigns")
+    update = {k: v for k, v in data.dict().items() if v is not None}
+    if "schedule" in update and data.schedule:
+        update["schedule"] = data.schedule.dict()
+        screen = await db.screens.find_one({"id": campaign["screen_id"]})
+        if screen:
+            update["pricing"] = calculate_campaign_price(screen.get("pricing", {}), update["schedule"])
+    update["updated_at"] = datetime.utcnow()
+    await db.campaigns.update_one({"id": campaign_id}, {"$set": update})
+    return {"message": "Campaign updated"}
+
+@api_router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": campaign_id, "user_id": current_user["id"]})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign["status"] != "draft":
+        raise HTTPException(status_code=400, detail="Can only delete draft campaigns")
+    await db.campaigns.delete_one({"id": campaign_id})
+    return {"message": "Campaign deleted"}
+
+# ============ ROUTES: MEDIA ============
+
+@api_router.post("/media/upload")
+async def upload_media(data: MediaUpload, current_user: dict = Depends(get_current_user)):
+    allowed = ["image/jpeg", "image/png", "image/jpg", "video/mp4"]
+    if data.content_type not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed)}")
+    try:
+        file_bytes = base64.b64decode(data.data)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid base64 data")
+    file_ext = data.filename.rsplit(".", 1)[-1] if "." in data.filename else "bin"
+    file_id = gen_id()
+    stored_name = f"{file_id}.{file_ext}"
+    file_path = os.path.join(MEDIA_DIR, stored_name)
+    with open(file_path, "wb") as f:
+        f.write(file_bytes)
+    is_image = data.content_type.startswith("image/")
+    media_doc = {
+        "id": file_id, "user_id": current_user["id"],
+        "filename": data.filename, "stored_filename": stored_name,
+        "content_type": data.content_type, "size": len(file_bytes),
+        "type": "image" if is_image else "video",
+        "data": data.data if is_image else None,
+        "created_at": datetime.utcnow()
+    }
+    await db.media.insert_one(media_doc)
+    return {"id": file_id, "filename": data.filename,
+            "content_type": data.content_type, "size": len(file_bytes),
+            "type": media_doc["type"]}
+
+@api_router.get("/media")
+async def list_media(current_user: dict = Depends(get_current_user)):
+    media = await db.media.find({"user_id": current_user["id"]}, {"data": 0}).sort("created_at", -1).to_list(100)
+    return serialize_doc(media)
+
+@api_router.get("/media/{media_id}")
+async def get_media(media_id: str):
+    media = await db.media.find_one({"id": media_id})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    return serialize_doc(media)
+
+@api_router.get("/media/{media_id}/file")
+async def get_media_file(media_id: str):
+    media = await db.media.find_one({"id": media_id})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    file_path = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+    with open(file_path, "rb") as f:
+        content = f.read()
+    return Response(content=content, media_type=media.get("content_type", "application/octet-stream"))
+
+@api_router.delete("/media/{media_id}")
+async def delete_media(media_id: str, current_user: dict = Depends(get_current_user)):
+    media = await db.media.find_one({"id": media_id, "user_id": current_user["id"]})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    file_path = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
+    if os.path.exists(file_path):
+        os.remove(file_path)
+    await db.media.delete_one({"id": media_id})
+    return {"message": "Media deleted"}
+
+# ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
 @api_router.post("/payments")
-async def create_payment(payment_data: PaymentCreate, current_user: dict = Depends(get_current_user)):
-    # Check if payment exists
-    existing = await db.payments.find_one({"work_order_id": payment_data.work_order_id})
+async def create_payment(data: PaymentCreate, current_user: dict = Depends(get_current_user)):
+    campaign = await db.campaigns.find_one({"id": data.campaign_id, "user_id": current_user["id"]})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    existing = await db.payments.find_one({"campaign_id": data.campaign_id, "status": "completed"})
     if existing:
-        raise HTTPException(status_code=400, detail="Ya existe un pago para esta orden")
-    
-    payment_obj = Payment(
-        workshop_id=current_user["workshop_id"],
-        **payment_data.dict()
+        raise HTTPException(status_code=400, detail="Payment already exists")
+    pricing = campaign.get("pricing", {})
+    payment = {
+        "id": gen_id(), "user_id": current_user["id"],
+        "campaign_id": data.campaign_id,
+        "amount": pricing.get("total", 0),
+        "subtotal": pricing.get("subtotal", 0),
+        "tax": pricing.get("tax", 0),
+        "currency": pricing.get("currency", "USD"),
+        "status": "completed",
+        "method": data.method,
+        "card_last4": data.card_last4 or "4242",
+        "stripe_payment_id": f"mock_pi_{uuid.uuid4().hex[:16]}",
+        "invoice_number": gen_invoice(),
+        "created_at": datetime.utcnow()
+    }
+    await db.payments.insert_one(payment)
+    await db.campaigns.update_one(
+        {"id": data.campaign_id},
+        {"$set": {"payment_id": payment["id"], "status": "pending", "updated_at": datetime.utcnow()}}
     )
-    await db.payments.insert_one(payment_obj.dict())
-    return payment_obj.dict()
-
-@api_router.put("/payments/{payment_id}")
-async def update_payment(payment_id: str, payment_data: PaymentUpdate, current_user: dict = Depends(get_current_user)):
-    update_dict = {k: v for k, v in payment_data.dict().items() if v is not None}
-    update_dict["updated_at"] = datetime.utcnow()
-    
-    result = await db.payments.update_one(
-        {"id": payment_id, "workshop_id": current_user["workshop_id"]},
-        {"$set": update_dict}
-    )
-    
-    if result.modified_count == 0:
-        raise HTTPException(status_code=404, detail="Pago no encontrado")
-    
-    return {"message": "Pago actualizado"}
-
-@api_router.get("/payments/{work_order_id}")
-async def get_payment(work_order_id: str, current_user: dict = Depends(get_current_user)):
-    payment = await db.payments.find_one({
-        "work_order_id": work_order_id,
-        "workshop_id": current_user["workshop_id"]
-    })
     return serialize_doc(payment)
 
-# ============ REPORTS ============
+@api_router.get("/payments")
+async def list_payments(current_user: dict = Depends(get_current_user)):
+    payments = await db.payments.find({"user_id": current_user["id"]}).sort("created_at", -1).to_list(100)
+    enriched = []
+    for p in payments:
+        campaign = await db.campaigns.find_one({"id": p.get("campaign_id")})
+        if campaign:
+            screen = await db.screens.find_one({"id": campaign.get("screen_id")})
+            p["campaign_name"] = campaign.get("name", "")
+            p["screen_name"] = screen.get("name", "") if screen else ""
+        enriched.append(p)
+    return serialize_doc(enriched)
 
-@api_router.get("/reports/daily")
-async def get_daily_report(
-    date: Optional[str] = None,
-    tech_id: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    # Default to today
-    if date:
-        try:
-            filter_date = datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    else:
-        filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    next_day = filter_date + timedelta(days=1)
-    
-    query = {
-        "workshop_id": current_user["workshop_id"],
-        "created_at": {"$gte": filter_date, "$lt": next_day}
+@api_router.get("/payments/{payment_id}")
+async def get_payment(payment_id: str, current_user: dict = Depends(get_current_user)):
+    payment = await db.payments.find_one({"id": payment_id, "user_id": current_user["id"]})
+    if not payment:
+        raise HTTPException(status_code=404, detail="Payment not found")
+    return serialize_doc(payment)
+
+# ============ ROUTES: ADMIN ============
+
+@api_router.get("/admin/users")
+async def admin_list_users(admin: dict = Depends(require_admin)):
+    users = await db.users.find({}, {"password_hash": 0}).sort("created_at", -1).to_list(500)
+    return serialize_doc(users)
+
+@api_router.put("/admin/users/{user_id}")
+async def admin_update_user(user_id: str, active: bool, admin: dict = Depends(require_admin)):
+    result = await db.users.update_one({"id": user_id}, {"$set": {"active": active}})
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    return {"message": "User updated"}
+
+@api_router.get("/admin/campaigns")
+async def admin_list_campaigns(status: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query = {}
+    if status:
+        query["status"] = status
+    campaigns = await db.campaigns.find(query).sort("created_at", -1).to_list(500)
+    enriched = []
+    for c in campaigns:
+        screen = await db.screens.find_one({"id": c.get("screen_id")})
+        user = await db.users.find_one({"id": c.get("user_id")}, {"password_hash": 0})
+        c["screen"] = serialize_doc(screen) if screen else None
+        c["user"] = serialize_doc(user) if user else None
+        enriched.append(c)
+    return serialize_doc(enriched)
+
+@api_router.put("/admin/campaigns/{campaign_id}/approve")
+async def admin_approve(campaign_id: str, admin: dict = Depends(require_admin)):
+    campaign = await db.campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign["status"] != "pending":
+        raise HTTPException(status_code=400, detail="Only pending campaigns can be approved")
+    new_status = "approved"
+    try:
+        start = datetime.strptime(campaign.get("schedule", {}).get("start_date", ""), "%Y-%m-%d")
+        if start.date() <= datetime.utcnow().date():
+            new_status = "active"
+    except Exception:
+        pass
+    await db.campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {"status": new_status, "admin_notes": f"Approved by {admin['name']}",
+                  "updated_at": datetime.utcnow()}}
+    )
+    return {"message": f"Campaign {new_status}"}
+
+@api_router.put("/admin/campaigns/{campaign_id}/reject")
+async def admin_reject(campaign_id: str, notes: Optional[str] = None, admin: dict = Depends(require_admin)):
+    campaign = await db.campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    await db.campaigns.update_one(
+        {"id": campaign_id},
+        {"$set": {"status": "rejected",
+                  "admin_notes": notes or f"Rejected by {admin['name']}",
+                  "updated_at": datetime.utcnow()}}
+    )
+    return {"message": "Campaign rejected"}
+
+@api_router.post("/admin/screens")
+async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
+    screen = {
+        "id": gen_id(), "name": data.name, "description": data.description,
+        "location": data.location.dict(), "pricing": data.pricing.dict(),
+        "specs": data.specs.dict(), "preview_image": data.preview_image,
+        "status": data.status, "active": True,
+        "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
-    
-    if tech_id:
-        query["tech_id"] = tech_id
-    elif current_user["role"] != "admin":
-        query["tech_id"] = current_user["id"]
-    
-    orders = await db.work_orders.find(query).to_list(1000)
-    
-    total_orders = len(orders)
-    total_billed = 0.0
-    total_paid = 0.0
-    total_pending = 0.0
-    
-    by_status = {"asignado": 0, "iniciado": 0, "pendiente": 0, "terminado": 0}
-    by_tech = {}
-    
-    for order in orders:
-        status = order.get("status", "iniciado")
-        by_status[status] = by_status.get(status, 0) + 1
-        
-        tech_id_order = order.get("tech_id", "")
-        if tech_id_order not in by_tech:
-            tech = await db.users.find_one({"id": tech_id_order})
-            by_tech[tech_id_order] = {
-                "name": tech["name"] if tech else "Desconocido",
-                "orders": 0,
-                "billed": 0.0,
-                "paid": 0.0
+    await db.screens.insert_one(screen)
+    return serialize_doc(screen)
+
+@api_router.put("/admin/screens/{screen_id}")
+async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = Depends(require_admin)):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    update = {k: v for k, v in data.dict(exclude_none=True).items()}
+    update["updated_at"] = datetime.utcnow()
+    await db.screens.update_one({"id": screen_id}, {"$set": update})
+    updated = await db.screens.find_one({"id": screen_id})
+    return serialize_doc(updated)
+
+@api_router.delete("/admin/screens/{screen_id}")
+async def admin_delete_screen(screen_id: str, admin: dict = Depends(require_admin)):
+    active = await db.campaigns.count_documents(
+        {"screen_id": screen_id, "status": {"$in": ["pending", "approved", "active"]}}
+    )
+    if active > 0:
+        raise HTTPException(status_code=400, detail="Cannot delete screen with active campaigns")
+    result = await db.screens.delete_one({"id": screen_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return {"message": "Screen deleted"}
+
+@api_router.get("/admin/analytics")
+async def admin_analytics(admin: dict = Depends(require_admin)):
+    total_users = await db.users.count_documents({"role": "customer"})
+    total_screens = await db.screens.count_documents({})
+    active_screens = await db.screens.count_documents({"status": "active"})
+    total_campaigns = await db.campaigns.count_documents({})
+    active_campaigns = await db.campaigns.count_documents({"status": "active"})
+    pending_campaigns = await db.campaigns.count_documents({"status": "pending"})
+    payments = await db.payments.find({"status": "completed"}).to_list(10000)
+    total_revenue = sum(p.get("amount", 0) for p in payments)
+    monthly = {}
+    for p in payments:
+        mk = p.get("created_at", datetime.utcnow()).strftime("%Y-%m")
+        monthly[mk] = monthly.get(mk, 0) + p.get("amount", 0)
+    recent = await db.campaigns.find({}).sort("created_at", -1).to_list(10)
+    for c in recent:
+        user = await db.users.find_one({"id": c.get("user_id")}, {"password_hash": 0})
+        c["user_name"] = user.get("name", "Unknown") if user else "Unknown"
+    return {
+        "total_users": total_users, "total_screens": total_screens,
+        "active_screens": active_screens, "total_campaigns": total_campaigns,
+        "active_campaigns": active_campaigns, "pending_campaigns": pending_campaigns,
+        "total_revenue": round(total_revenue, 2), "monthly_revenue": monthly,
+        "recent_campaigns": serialize_doc(recent)
+    }
+
+# ============ ROUTES: PLAYER API ============
+
+@api_router.get("/player/{screen_id}/playlist")
+async def get_playlist(screen_id: str):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    now = datetime.utcnow()
+    cd = now.strftime("%Y-%m-%d")
+    ct = now.strftime("%H:%M")
+    campaigns = await db.campaigns.find({
+        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
+        "schedule.start_date": {"$lte": cd}, "schedule.end_date": {"$gte": cd}
+    }).to_list(100)
+    items = []
+    for c in campaigns:
+        s = c.get("schedule", {})
+        if s.get("start_time", "00:00") <= ct <= s.get("end_time", "23:59"):
+            for mid in c.get("media_ids", []):
+                media = await db.media.find_one({"id": mid})
+                if media:
+                    items.append({
+                        "campaign_id": c["id"], "media_id": media["id"],
+                        "filename": media.get("filename"),
+                        "content_type": media.get("content_type"),
+                        "duration": s.get("slot_duration", 15),
+                        "media_url": f"/api/player/media/{media['id']}"
+                    })
+    return {"screen_id": screen_id, "screen_name": screen.get("name"),
+            "generated_at": now.isoformat(), "total_items": len(items), "items": items}
+
+@api_router.get("/player/{screen_id}/schedule")
+async def get_schedule(screen_id: str, date: Optional[str] = None):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    td = date or datetime.utcnow().strftime("%Y-%m-%d")
+    campaigns = await db.campaigns.find({
+        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
+        "schedule.start_date": {"$lte": td}, "schedule.end_date": {"$gte": td}
+    }).to_list(100)
+    entries = []
+    for c in campaigns:
+        s = c.get("schedule", {})
+        for mid in c.get("media_ids", []):
+            media = await db.media.find_one({"id": mid})
+            entries.append({
+                "campaign_id": c["id"], "campaign_name": c.get("name"),
+                "time_start": s.get("start_time", "08:00"),
+                "time_end": s.get("end_time", "22:00"),
+                "duration": s.get("slot_duration", 15),
+                "frequency_minutes": s.get("frequency", 5),
+                "media_id": mid, "media_url": f"/api/player/media/{mid}",
+                "filename": media.get("filename") if media else None,
+                "content_type": media.get("content_type") if media else None
+            })
+    return {"screen_id": screen_id, "date": td, "entries": entries}
+
+@api_router.get("/player/media/{media_id}")
+async def player_media(media_id: str):
+    media = await db.media.find_one({"id": media_id})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    fp = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
+    if not os.path.exists(fp):
+        raise HTTPException(status_code=404, detail="File not found")
+    with open(fp, "rb") as f:
+        content = f.read()
+    return Response(
+        content=content,
+        media_type=media.get("content_type", "application/octet-stream"),
+        headers={"Content-Disposition": f"attachment; filename={media.get('filename', 'media')}",
+                 "Cache-Control": "public, max-age=86400"}
+    )
+
+# ============ ROUTES: USER ANALYTICS ============
+
+@api_router.get("/analytics/dashboard")
+async def user_analytics(current_user: dict = Depends(get_current_user)):
+    uid = current_user["id"]
+    total = await db.campaigns.count_documents({"user_id": uid})
+    active = await db.campaigns.count_documents({"user_id": uid, "status": "active"})
+    pending = await db.campaigns.count_documents({"user_id": uid, "status": "pending"})
+    payments = await db.payments.find({"user_id": uid, "status": "completed"}).to_list(1000)
+    spent = sum(p.get("amount", 0) for p in payments)
+    recent = await db.campaigns.find({"user_id": uid}).sort("created_at", -1).to_list(5)
+    for c in recent:
+        screen = await db.screens.find_one({"id": c.get("screen_id")})
+        c["screen_name"] = screen.get("name", "") if screen else ""
+    return {"total_campaigns": total, "active_campaigns": active,
+            "pending_campaigns": pending, "total_spent": round(spent, 2),
+            "recent_campaigns": serialize_doc(recent)}
+
+# ============ SEED DATA ============
+
+async def seed_data():
+    admin_exists = await db.users.find_one({"email": "admin@mediaviewads.com"})
+    if not admin_exists:
+        admin = {
+            "id": gen_id(), "name": "MediaView Admin",
+            "email": "admin@mediaviewads.com",
+            "password_hash": hash_password("MediaViewAdmin#2026"),
+            "role": "admin", "company_name": "MediaView Inc.",
+            "phone": None, "language": "en", "active": True,
+            "created_at": datetime.utcnow()
+        }
+        await db.users.insert_one(admin)
+        logger.info("Admin user created: admin@mediaviewads.com")
+
+    if await db.screens.count_documents({}) == 0:
+        screens = [
+            {
+                "id": gen_id(), "name": "Times Square Center Display",
+                "description": "Premium LED display in the heart of Times Square. Maximum visibility with over 300,000 daily pedestrians.",
+                "location": {"city": "New York", "address": "1560 Broadway, Times Square", "state": "NY", "country": "US", "lat": 40.7580, "lng": -73.9855},
+                "pricing": {"per_hour": 500.0, "per_day": 4000.0, "per_slot": 50.0, "currency": "USD"},
+                "specs": {"size": "40ft x 20ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Broadway Avenue Digital",
+                "description": "Eye-catching digital billboard on Broadway. Perfect for entertainment and retail advertising.",
+                "location": {"city": "New York", "address": "1475 Broadway", "state": "NY", "country": "US", "lat": 40.7565, "lng": -73.9860},
+                "pricing": {"per_hour": 350.0, "per_day": 2800.0, "per_slot": 35.0, "currency": "USD"},
+                "specs": {"size": "30ft x 15ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Sunset Boulevard LED",
+                "description": "Iconic display on the famous Sunset Strip in Los Angeles. Reach millions of drivers and pedestrians.",
+                "location": {"city": "Los Angeles", "address": "8555 Sunset Blvd", "state": "CA", "country": "US", "lat": 34.0900, "lng": -118.3696},
+                "pricing": {"per_hour": 400.0, "per_day": 3200.0, "per_slot": 40.0, "currency": "USD"},
+                "specs": {"size": "35ft x 18ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Miami Beach Boardwalk",
+                "description": "Beachfront LED display reaching tourists and locals along Miami Beach. High foot traffic area.",
+                "location": {"city": "Miami", "address": "1001 Ocean Drive", "state": "FL", "country": "US", "lat": 25.7826, "lng": -80.1340},
+                "pricing": {"per_hour": 300.0, "per_day": 2400.0, "per_slot": 30.0, "currency": "USD"},
+                "specs": {"size": "25ft x 12ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Chicago Magnificent Mile",
+                "description": "Premium digital display on Chicago's premier shopping and tourist destination.",
+                "location": {"city": "Chicago", "address": "625 N Michigan Ave", "state": "IL", "country": "US", "lat": 41.8932, "lng": -87.6245},
+                "pricing": {"per_hour": 280.0, "per_day": 2200.0, "per_slot": 28.0, "currency": "USD"},
+                "specs": {"size": "28ft x 14ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Las Vegas Strip Mega Display",
+                "description": "Giant LED screen on the Las Vegas Strip. Maximum impact with 24/7 visibility to millions of visitors.",
+                "location": {"city": "Las Vegas", "address": "3570 Las Vegas Blvd S", "state": "NV", "country": "US", "lat": 36.1162, "lng": -115.1745},
+                "pricing": {"per_hour": 450.0, "per_day": 3600.0, "per_slot": 45.0, "currency": "USD"},
+                "specs": {"size": "50ft x 25ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "San Francisco Union Square",
+                "description": "Digital billboard in downtown San Francisco's busiest shopping district. Tech-savvy audience.",
+                "location": {"city": "San Francisco", "address": "333 Post St", "state": "CA", "country": "US", "lat": 37.7879, "lng": -122.4074},
+                "pricing": {"per_hour": 320.0, "per_day": 2560.0, "per_slot": 32.0, "currency": "USD"},
+                "specs": {"size": "22ft x 11ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Houston Galleria Display",
+                "description": "High-traffic LED display near Houston's premier shopping center. Ideal for retail advertising.",
+                "location": {"city": "Houston", "address": "5085 Westheimer Rd", "state": "TX", "country": "US", "lat": 29.7406, "lng": -95.4621},
+                "pricing": {"per_hour": 250.0, "per_day": 2000.0, "per_slot": 25.0, "currency": "USD"},
+                "specs": {"size": "20ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Dallas Downtown Tower",
+                "description": "Modern LED display in downtown Dallas business district. Excellent for B2B and corporate advertising.",
+                "location": {"city": "Dallas", "address": "1530 Main St", "state": "TX", "country": "US", "lat": 32.7815, "lng": -96.7975},
+                "pricing": {"per_hour": 220.0, "per_day": 1760.0, "per_slot": 22.0, "currency": "USD"},
+                "specs": {"size": "18ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "Seattle Pike Place",
+                "description": "Digital display near Seattle's famous Pike Place Market. Popular tourist and local destination.",
+                "location": {"city": "Seattle", "address": "85 Pike St", "state": "WA", "country": "US", "lat": 47.6097, "lng": -122.3422},
+                "pricing": {"per_hour": 260.0, "per_day": 2080.0, "per_slot": 26.0, "currency": "USD"},
+                "specs": {"size": "24ft x 12ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
             }
-        by_tech[tech_id_order]["orders"] += 1
-        
-        payment = await db.payments.find_one({"work_order_id": order["id"]})
-        if payment:
-            total_billed += payment.get("total", 0)
-            by_tech[tech_id_order]["billed"] += payment.get("total", 0)
-            
-            if payment.get("payment_status") == "pagado":
-                total_paid += payment.get("paid_amount", 0)
-                by_tech[tech_id_order]["paid"] += payment.get("paid_amount", 0)
-            else:
-                total_pending += payment.get("total", 0) - payment.get("paid_amount", 0)
-    
-    return {
-        "date": filter_date.strftime("%Y-%m-%d"),
-        "total_orders": total_orders,
-        "total_billed": total_billed,
-        "total_paid": total_paid,
-        "total_pending": total_pending,
-        "by_status": by_status,
-        "by_tech": list(by_tech.values())
-    }
+        ]
+        await db.screens.insert_many(screens)
+        logger.info(f"Created {len(screens)} sample screens")
 
-@api_router.get("/reports/daily-detailed")
-async def get_daily_detailed_report(
-    date: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    """Get detailed daily report with payment methods breakdown - Admin only"""
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo administradores pueden acceder a este reporte")
-    
-    # Default to today
-    if date:
-        try:
-            filter_date = datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    else:
-        filter_date = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    
-    next_day = filter_date + timedelta(days=1)
-    
-    # Get workshop info
-    workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
-    workshop_name = workshop.get("name", "Ohio Airbag Light Reset") if workshop else "Ohio Airbag Light Reset"
-    
-    query = {
-        "workshop_id": current_user["workshop_id"],
-        "created_at": {"$gte": filter_date, "$lt": next_day}
-    }
-    
-    orders = await db.work_orders.find(query).to_list(1000)
-    
-    # Initialize counters
-    total_orders = len(orders)
-    total_billed = 0.0
-    total_paid = 0.0
-    total_pending = 0.0
-    
-    # Payment methods breakdown
-    by_payment_method = {
-        "cash": {"count": 0, "amount": 0.0, "label": "Efectivo"},
-        "zelle": {"count": 0, "amount": 0.0, "label": "Zelle"},
-        "check": {"count": 0, "amount": 0.0, "label": "Cheque"},
-        "other": {"count": 0, "amount": 0.0, "label": "Otro"},
-    }
-    
-    # Detailed orders list
-    orders_detail = []
-    
-    for order in orders:
-        payment = await db.payments.find_one({"work_order_id": order["id"]})
-        client = await db.clients.find_one({"id": order.get("client_id")})
-        tech = await db.users.find_one({"id": order.get("tech_id")}) if order.get("tech_id") else None
-        
-        vehicle = order.get("vehicle", {})
-        services = order.get("services", [])
-        
-        order_total = 0.0
-        payment_method = "pending"
-        payment_status = "pendiente"
-        
-        if payment:
-            order_total = payment.get("total", 0)
-            total_billed += order_total
-            payment_method = payment.get("method", "other")
-            payment_status = payment.get("payment_status", "pendiente")
-            
-            if payment_status == "pagado":
-                paid_amount = payment.get("paid_amount", order_total)
-                total_paid += paid_amount
-                
-                # Add to payment method breakdown
-                if payment_method in by_payment_method:
-                    by_payment_method[payment_method]["count"] += 1
-                    by_payment_method[payment_method]["amount"] += paid_amount
-                else:
-                    by_payment_method["other"]["count"] += 1
-                    by_payment_method["other"]["amount"] += paid_amount
-            else:
-                total_pending += order_total
-        
-        # Get services names
-        service_names = [s.get("service_name", "Servicio") for s in services]
-        
-        orders_detail.append({
-            "id": order["id"],
-            "vehicle": f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}".strip(),
-            "vin_last6": order.get("vehicle", {}).get("vin", "")[-6:] if order.get("vehicle", {}).get("vin") else "",
-            "client_name": client.get("name", "N/A") if client else "N/A",
-            "tech_name": tech.get("name", "No asignado") if tech else "No asignado",
-            "services": service_names,
-            "total": order_total,
-            "payment_method": payment_method,
-            "payment_status": payment_status,
-            "status": order.get("status", "iniciado"),
-        })
-    
-    return {
-        "date": filter_date.strftime("%Y-%m-%d"),
-        "workshop_name": workshop_name,
-        "total_orders": total_orders,
-        "total_billed": total_billed,
-        "total_paid": total_paid,
-        "total_pending": total_pending,
-        "by_payment_method": by_payment_method,
-        "orders_detail": orders_detail,
-    }
+# ============ APP CONFIGURATION ============
 
-# ============ WORKSHOP SETTINGS ============
-
-@api_router.get("/workshop")
-async def get_workshop(current_user: dict = Depends(get_current_user)):
-    workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
-    if not workshop:
-        raise HTTPException(status_code=404, detail="Taller no encontrado")
-    return serialize_doc(workshop)
-
-@api_router.put("/workshop")
-async def update_workshop(
-    tax_rate: Optional[float] = None,
-    name: Optional[str] = None,
-    address: Optional[str] = None,
-    phone: Optional[str] = None,
-    current_user: dict = Depends(get_current_user)
-):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Solo admin puede modificar configuración")
-    
-    update_dict = {}
-    if tax_rate is not None:
-        update_dict["tax_rate"] = tax_rate
-    if name is not None:
-        update_dict["name"] = name
-    if address is not None:
-        update_dict["address"] = address
-    if phone is not None:
-        update_dict["phone"] = phone
-    
-    if update_dict:
-        await db.workshops.update_one(
-            {"id": current_user["workshop_id"]},
-            {"$set": update_dict}
-        )
-    
-    return {"message": "Configuración actualizada"}
-
-# ============ WHATSAPP NOTIFICATIONS ============
-
-class WhatsAppNotificationRequest(BaseModel):
-    order_id: str
-    phone_numbers: List[str] = []  # If empty, will use default numbers
-
-# Default notification phone numbers
-DEFAULT_NOTIFICATION_PHONES = [
-    {"name": "Dueño", "phone": "+16146326262"},
-    {"name": "Administradora", "phone": "+16143696040"},
-    {"name": "Técnico 1", "phone": "+16144242644"},
-    {"name": "Técnico 2", "phone": "+12095097845"},
-]
-
-@api_router.post("/whatsapp/notify-completed")
-async def send_whatsapp_notifications(
-    request: WhatsAppNotificationRequest,
-    current_user: dict = Depends(get_current_user)
-):
-    """Send WhatsApp notifications when a work order is completed"""
-    
-    if not twilio_client:
-        raise HTTPException(status_code=500, detail="WhatsApp service not configured")
-    
-    # Get the order details
-    order = await db.work_orders.find_one({"id": request.order_id})
-    if not order:
-        raise HTTPException(status_code=404, detail="Orden no encontrada")
-    
-    # Get workshop info
-    workshop = await db.workshops.find_one({"id": current_user["workshop_id"]})
-    workshop_name = workshop.get("name", "Ohio Airbag Light Reset") if workshop else "Ohio Airbag Light Reset"
-    
-    # Get client info
-    client_doc = await db.clients.find_one({"id": order.get("client_id")})
-    client_name = client_doc.get("name", "N/A") if client_doc else "N/A"
-    client_phone = client_doc.get("phone", "") if client_doc else ""
-    
-    # Get technician info
-    tech_name = "No asignado"
-    if order.get("tech_id"):
-        tech_doc = await db.users.find_one({"id": order.get("tech_id")})
-        if tech_doc:
-            tech_name = tech_doc.get("name", "No asignado")
-    
-    # Build the message
-    vehicle = order.get("vehicle", {})
-    services = order.get("services", [])
-    
-    # Get VIN - last 6 digits
-    vin = vehicle.get('vin', '')
-    vin_display = f"***{vin[-6:]}" if len(vin) >= 6 else vin
-    
-    date_str = datetime.now().strftime("%d/%m/%Y")
-    
-    message = f"✅ TRABAJO COMPLETADO\n\n"
-    message += f"🔧 {workshop_name}\n"
-    message += f"📅 Fecha: {date_str}\n\n"
-    message += f"🚗 Vehículo:\n"
-    message += f"{vehicle.get('year', '')} {vehicle.get('make', '')} {vehicle.get('model', '')}\n"
-    if vin:
-        message += f"VIN: {vin_display}\n"
-    message += f"\n👤 Cliente: {client_name}\n"
-    message += f"👷 Técnico: {tech_name}\n"
-    message += f"\n📋 Servicios Realizados:\n"
-    
-    for i, service in enumerate(services, 1):
-        message += f"{i}. {service.get('service_name', 'Servicio')}\n"
-    
-    total = sum(s.get('price', 0) * s.get('quantity', 1) for s in services)
-    message += f"\n💰 Total: ${total:.2f}\n"
-    message += f"\n¡Vehículo listo para entregar! 🚗✨"
-    
-    # Determine which numbers to send to
-    numbers_to_notify = []
-    
-    # Add client phone if available
-    if client_phone:
-        clean_phone = ''.join(filter(str.isdigit, client_phone))
-        if len(clean_phone) == 10:
-            clean_phone = f"1{clean_phone}"
-        numbers_to_notify.append({"name": "Cliente", "phone": f"+{clean_phone}"})
-    
-    # Add default notification numbers
-    for contact in DEFAULT_NOTIFICATION_PHONES:
-        numbers_to_notify.append(contact)
-    
-    # Send messages
-    results = []
-    for contact in numbers_to_notify:
-        try:
-            phone = contact["phone"]
-            # Format phone number for WhatsApp
-            if not phone.startswith("+"):
-                phone = f"+{phone}"
-            
-            whatsapp_to = f"whatsapp:{phone}"
-            
-            msg = twilio_client.messages.create(
-                body=message,
-                from_=TWILIO_WHATSAPP_NUMBER,
-                to=whatsapp_to
-            )
-            
-            results.append({
-                "contact": contact["name"],
-                "phone": phone,
-                "status": "sent",
-                "message_sid": msg.sid
-            })
-            logging.info(f"WhatsApp sent to {contact['name']} ({phone}): {msg.sid}")
-            
-        except Exception as e:
-            error_msg = str(e)
-            results.append({
-                "contact": contact["name"],
-                "phone": contact["phone"],
-                "status": "failed",
-                "error": error_msg
-            })
-            logging.error(f"Failed to send WhatsApp to {contact['name']}: {error_msg}")
-    
-    return {
-        "message": "Notificaciones procesadas",
-        "results": results,
-        "total_sent": len([r for r in results if r["status"] == "sent"]),
-        "total_failed": len([r for r in results if r["status"] == "failed"])
-    }
-
-# Include the router in the main app
 app.include_router(api_router)
 
 app.add_middleware(
@@ -1260,13 +861,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+@app.on_event("startup")
+async def startup():
+    await seed_data()
+    logger.info("MediaView Digital Signage API started")
+
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown():
     client.close()

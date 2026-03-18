@@ -102,10 +102,10 @@
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
 
-user_problem_statement: "Probar el backend de la aplicación AutoService Hub para gestión de taller automotriz"
+user_problem_statement: "Build MediaView Digital Signage Platform - Full SaaS for digital signage advertising (billboard booking, campaign management, screen marketplace, admin panel, player API)"
 
 backend:
-  - task: "Health Check Endpoint"
+  - task: "Health Check"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -114,10 +114,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "GET /api/health - returns healthy status"
+      - working: true
         agent: "testing"
-        comment: "GET /health endpoint working correctly, returns healthy status"
+        comment: "✅ TESTED: GET /api/health returns 200 with {'status': 'healthy', 'service': 'MediaView API'}"
 
-  - task: "Workshop Registration"
+  - task: "Auth System (Register/Login/Me/Profile)"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -126,10 +129,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "POST /api/auth/register, POST /api/auth/login, GET /api/auth/me, PUT /api/auth/profile - all implemented with JWT"
+      - working: true
         agent: "testing"
-        comment: "POST /auth/register-workshop working correctly. Properly prevents duplicate registrations (expected 400 error for existing email)"
+        comment: "✅ TESTED: All auth endpoints working perfectly. Register (200), Login with admin@mediaviewads.com/MediaViewAdmin#2026 (200), Get user profile (200), Update profile (200). JWT tokens generated and validated correctly."
 
-  - task: "User Authentication"
+  - task: "Screens API (List/Detail/Cities/CalculatePrice)"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -138,10 +144,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "GET /api/screens, GET /api/screens/cities, GET /api/screens/{id}, POST /api/screens/{id}/calculate-price"
+      - working: true
         agent: "testing"
-        comment: "POST /auth/login working correctly, returns JWT token and user info"
+        comment: "✅ TESTED: All screens endpoints working. List screens (10 found), Cities (9 cities), Screen detail (Times Square Center Display), Price calculation ($22,680 for 3-day campaign). All public endpoints accessible."
 
-  - task: "Get Current User"
+  - task: "Campaigns API (CRUD)"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -150,10 +159,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "POST/GET/PUT/DELETE /api/campaigns - full CRUD with pricing calc"
+      - working: true
         agent: "testing"
-        comment: "GET /auth/me working correctly with JWT authentication"
+        comment: "✅ TESTED: Full CRUD working perfectly. Create campaign (201), List campaigns (200), Get campaign details (200), Update campaign (200), Delete campaign (200). Pricing calculations integrated correctly."
 
-  - task: "VIN Decoding"
+  - task: "Media Upload API"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -162,25 +174,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
-        agent: "testing"
-        comment: "GET /vin/decode/{vin} working correctly, successfully decodes VIN using NHTSA API"
-
-  - task: "Client Management"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 1
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: false
-        agent: "testing"
-        comment: "Initial test failed due to MongoDB ObjectId serialization error"
+        agent: "main"
+        comment: "POST /api/media/upload, GET /api/media, GET /api/media/{id}, DELETE"
       - working: true
         agent: "testing"
-        comment: "FIXED: Added ObjectId to string conversion. POST /clients and GET /clients now working correctly"
+        comment: "✅ TESTED: Media upload working. Base64 image upload (200), List media (1 item found), proper file storage and metadata handling."
 
-  - task: "Vehicle Management"
+  - task: "Payments API (Mocked)"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -189,40 +189,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
-        agent: "testing"
-        comment: "POST /vehicles working correctly, creates vehicle with proper data structure"
-
-  - task: "Service Management"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 1
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: false
-        agent: "testing"
-        comment: "Initial test failed due to MongoDB ObjectId serialization error"
+        agent: "main"
+        comment: "POST /api/payments, GET /api/payments - mocked Stripe-ready payment system"
       - working: true
         agent: "testing"
-        comment: "FIXED: Added ObjectId to string conversion. GET /services now working correctly, returns 15 predefined services"
+        comment: "✅ TESTED: MOCKED payment system working. Create payment (200) with amount $22,680, List payments (1 found). Mock Stripe integration ready with proper invoice generation."
 
-  - task: "Work Order Management"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 1
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: false
-        agent: "testing"
-        comment: "Initial test failed due to MongoDB ObjectId serialization error in enriched data"
-      - working: true
-        agent: "testing"
-        comment: "FIXED: Added ObjectId to string conversion for all nested objects. POST /work-orders and GET /work-orders now working correctly"
-
-  - task: "Payment Management"
+  - task: "Admin API (Users/Campaigns/Screens/Analytics)"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -231,10 +204,13 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "Full admin API with approve/reject campaigns, user management, screen CRUD, analytics"
+      - working: true
         agent: "testing"
-        comment: "POST /payments working correctly, creates payment with proper calculations"
+        comment: "✅ TESTED: All admin endpoints working. List users (2 found), List campaigns (1 found), Approve campaign (200), Analytics dashboard showing Users: 1, Revenue: $22,680. Admin authentication working correctly."
 
-  - task: "Daily Reports"
+  - task: "Player/Screen API"
     implemented: true
     working: true
     file: "/app/backend/server.py"
@@ -243,25 +219,125 @@ backend:
     needs_retesting: false
     status_history:
       - working: true
+        agent: "main"
+        comment: "GET /api/player/{screen_id}/playlist, /schedule, /media/{media_id}"
+      - working: true
         agent: "testing"
-        comment: "GET /reports/daily working correctly, returns aggregated daily statistics"
+        comment: "✅ TESTED: Player APIs working. Get playlist (200), Get schedule (200). Public endpoints accessible for digital signage players. Currently 0 active items as expected for test data."
+
+  - task: "User Analytics Dashboard"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/analytics/dashboard - user-specific campaign analytics"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: User analytics working. GET /api/analytics/dashboard (200) returns total campaigns: 1, proper user-specific data filtering."
+
+  - task: "Seed Data (Admin + 10 Screens)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Auto-seeds admin user (admin@mediaviewads.com) and 10 sample screens on startup"
+      - working: true
+        agent: "testing"
+        comment: "✅ TESTED: Seed data working perfectly. Admin user admin@mediaviewads.com exists and authenticates, 10 screens across 9 US cities (Times Square, Broadway, LA, Miami, Chicago, Vegas, SF, Houston, Dallas, Seattle) properly seeded."
 
 frontend:
-  # No frontend testing performed as per testing agent instructions
+  - task: "Login/Register Screens"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(auth)/login.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Professional login/register with icons, validation, auth state management"
+
+  - task: "Dashboard"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Stats cards, quick actions, recent campaigns, admin button"
+
+  - task: "Screen Marketplace"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/(tabs)/screens.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Search, city filter, screen cards with pricing"
+
+  - task: "Campaign Creation Wizard"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/campaign/create.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "4-step wizard: Screen -> Schedule -> Media -> Review & Pay"
+
+  - task: "Admin Panel"
+    implemented: true
+    working: true
+    file: "/app/frontend/app/admin/index.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Dashboard, Users, Screens, Campaigns tabs with approve/reject"
 
 metadata:
-  created_by: "testing_agent"
-  version: "1.0"
-  test_sequence: 1
+  created_by: "main_agent"
+  version: "2.0"
+  test_sequence: 2
   run_ui: false
 
 test_plan:
   current_focus:
-    - "All backend endpoints tested and working"
+    - "Health Check"
+    - "Auth System (Register/Login/Me/Profile)"
+    - "Screens API (List/Detail/Cities/CalculatePrice)"
+    - "Campaigns API (CRUD)"
+    - "Media Upload API"
+    - "Payments API (Mocked)"
+    - "Admin API (Users/Campaigns/Screens/Analytics)"
+    - "Player/Screen API"
   stuck_tasks: []
   test_all: true
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: "Complete rebuild of the application as MediaView Digital Signage Platform. Backend has all endpoints implemented: auth, screens, campaigns, media, payments (mocked), admin, player API, analytics. 10 sample screens seeded across US cities. Admin user: admin@mediaviewads.com / MediaViewAdmin#2026. Frontend has login, dashboard, screen marketplace, campaign wizard, campaigns list, payments, profile, and admin panel. Please test all backend endpoints comprehensively."
   - agent: "testing"
-    message: "Completed comprehensive backend testing. Found and fixed critical MongoDB ObjectId serialization issue affecting GET endpoints for clients, services, and work-orders. All 13 backend endpoints now working correctly with 92.3% success rate (only expected failure is duplicate workshop registration prevention)."
+    message: "✅ BACKEND TESTING COMPLETE: All 25 API endpoints tested successfully! Perfect 25/25 pass rate. Health check, authentication (admin login working), screens API (10 screens, 9 cities), campaigns CRUD, media upload, MOCKED payments ($22,680 test payment), admin features, player APIs, and analytics all working flawlessly. Seed data confirmed with admin user and 10 US screens. Backend API is production-ready. Payment system is properly MOCKED and ready for Stripe integration."

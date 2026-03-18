@@ -1,500 +1,639 @@
 #!/usr/bin/env python3
 """
-AutoService Hub Backend API Test Suite
-Tests all endpoints according to the review request
+MediaView Digital Signage Platform - Backend API Testing
+Comprehensive testing of all backend endpoints
 """
 
 import requests
 import json
 import sys
-from datetime import datetime
+import base64
 
-# Base URL from frontend .env
-BASE_URL = "https://screensync-ads.preview.emergentagent.com/api"
+# Configuration from frontend .env
+BASE_URL = "https://screensync-ads.preview.emergentagent.com"
+API_URL = f"{BASE_URL}/api"
 
-class AutoServiceTester:
-    def __init__(self):
-        self.base_url = BASE_URL
-        self.token = None
-        self.workshop_id = None
-        self.user_id = None
-        self.client_id = None
-        self.vehicle_id = None
-        self.work_order_id = None
-        self.payment_id = None
-        self.test_results = []
-        
-    def log_test(self, test_name, success, details="", response_data=None):
-        """Log test results"""
-        status = "✅ PASS" if success else "❌ FAIL"
-        print(f"{status} {test_name}")
-        if details:
-            print(f"   Details: {details}")
-        if response_data and not success:
-            print(f"   Response: {response_data}")
-        print()
-        
-        self.test_results.append({
-            "test": test_name,
-            "success": success,
-            "details": details,
-            "response": response_data
-        })
-    
-    def make_request(self, method, endpoint, data=None, params=None, use_auth=True):
-        """Make HTTP request with optional authentication"""
-        url = f"{self.base_url}{endpoint}"
-        headers = {"Content-Type": "application/json"}
-        
-        if use_auth and self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
-        
-        try:
-            if method.upper() == "GET":
-                response = requests.get(url, headers=headers, params=params, timeout=30)
-            elif method.upper() == "POST":
-                response = requests.post(url, headers=headers, json=data, params=params, timeout=30)
-            elif method.upper() == "PUT":
-                response = requests.put(url, headers=headers, json=data, params=params, timeout=30)
-            else:
-                raise ValueError(f"Unsupported method: {method}")
-            
-            return response
-        except requests.exceptions.RequestException as e:
-            return None, str(e)
-    
-    def test_health_check(self):
-        """Test 1: GET /health - Health check"""
-        response = self.make_request("GET", "/health", use_auth=False)
-        
-        if isinstance(response, tuple):
-            self.log_test("Health Check", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
+# Test data
+admin_credentials = {
+    "email": "admin@mediaviewads.com",
+    "password": "MediaViewAdmin#2026"
+}
+
+test_user_data = {
+    "name": "Test User",
+    "email": "testuser@example.com",
+    "password": "Test123!",
+    "company_name": "Test Co"
+}
+
+# Global variables for test
+admin_token = None
+user_token = None
+test_screen_id = None
+test_campaign_id = None
+test_payment_id = None
+test_media_id = None
+
+class TestColors:
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    BLUE = '\033[94m'
+    ENDC = '\033[0m'
+
+def print_test(name, success, details=""):
+    status = f"{TestColors.GREEN}✅ PASS{TestColors.ENDC}" if success else f"{TestColors.RED}❌ FAIL{TestColors.ENDC}"
+    print(f"{status} {name}")
+    if details:
+        print(f"    {details}")
+
+def test_health_check():
+    """Test 1: Health Check"""
+    try:
+        response = requests.get(f"{API_URL}/health", timeout=10)
+        success = response.status_code == 200 and "healthy" in response.json().get("status", "")
+        print_test("Health Check", success, f"Status: {response.status_code}, Response: {response.json()}")
+        return success
+    except Exception as e:
+        print_test("Health Check", False, f"Error: {str(e)}")
+        return False
+
+def test_auth_register():
+    """Test 2: Auth Register"""
+    global user_token
+    try:
+        response = requests.post(f"{API_URL}/auth/register", json=test_user_data, timeout=10)
+        success = response.status_code in [200, 201, 400]  # 400 might be "already exists"
+        if success and response.status_code in [200, 201]:
             data = response.json()
-            if data.get("status") == "healthy":
-                self.log_test("Health Check", True, "Service is healthy")
-                return True
-            else:
-                self.log_test("Health Check", False, f"Unexpected response: {data}")
-                return False
+            user_token = data.get("access_token")
+        print_test("Auth Register", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Auth Register", False, f"Error: {str(e)}")
+        return False
+
+def test_auth_login():
+    """Test 3: Auth Login (Admin)"""
+    global admin_token
+    try:
+        response = requests.post(f"{API_URL}/auth/login", json=admin_credentials, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            admin_token = data.get("access_token")
+            print_test("Auth Login (Admin)", success, f"Token received: {'Yes' if admin_token else 'No'}")
         else:
-            self.log_test("Health Check", False, f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+            print_test("Auth Login (Admin)", success, f"Status: {response.status_code}, Response: {response.text}")
+        return success
+    except Exception as e:
+        print_test("Auth Login (Admin)", False, f"Error: {str(e)}")
+        return False
+
+def test_auth_me():
+    """Test 4: Auth Me"""
+    if not admin_token:
+        print_test("Auth Me", False, "No admin token available")
+        return False
     
-    def test_register_workshop(self):
-        """Test 2: POST /auth/register-workshop - Register workshop with admin"""
-        workshop_data = {
-            "name": "Taller AutoService Test",
-            "address": "123 Test Street, Test City",
-            "phone": "+1-555-0123"
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/auth/me", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Auth Me", success, f"User: {data.get('name')}, Role: {data.get('role')}")
+        else:
+            print_test("Auth Me", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Auth Me", False, f"Error: {str(e)}")
+        return False
+
+def test_profile_update():
+    """Test 5: Profile Update"""
+    if not admin_token:
+        print_test("Profile Update", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        update_data = {"name": "Updated Admin"}
+        response = requests.put(f"{API_URL}/auth/profile", headers=headers, json=update_data, timeout=10)
+        success = response.status_code == 200
+        print_test("Profile Update", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Profile Update", False, f"Error: {str(e)}")
+        return False
+
+def test_screens_list():
+    """Test 6: Screens List (Public)"""
+    global test_screen_id
+    try:
+        response = requests.get(f"{API_URL}/screens", timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            if isinstance(data, list) and len(data) > 0:
+                test_screen_id = data[0].get("id")
+                print_test("Screens List", success, f"Found {len(data)} screens, first ID: {test_screen_id}")
+            else:
+                print_test("Screens List", False, "No screens found")
+                success = False
+        else:
+            print_test("Screens List", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Screens List", False, f"Error: {str(e)}")
+        return False
+
+def test_screens_cities():
+    """Test 7: Screens Cities"""
+    try:
+        response = requests.get(f"{API_URL}/screens/cities", timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Screens Cities", success, f"Found cities: {len(data) if isinstance(data, list) else 0}")
+        else:
+            print_test("Screens Cities", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Screens Cities", False, f"Error: {str(e)}")
+        return False
+
+def test_screen_detail():
+    """Test 8: Screen Detail"""
+    if not test_screen_id:
+        print_test("Screen Detail", False, "No screen ID available")
+        return False
+    
+    try:
+        response = requests.get(f"{API_URL}/screens/{test_screen_id}", timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Screen Detail", success, f"Screen: {data.get('name')}")
+        else:
+            print_test("Screen Detail", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Screen Detail", False, f"Error: {str(e)}")
+        return False
+
+def test_calculate_price():
+    """Test 9: Calculate Price"""
+    if not test_screen_id:
+        print_test("Calculate Price", False, "No screen ID available")
+        return False
+    
+    try:
+        price_data = {
+            "start_date": "2026-04-01",
+            "end_date": "2026-04-03",
+            "start_time": "08:00",
+            "end_time": "22:00",
+            "slot_duration": 15,
+            "frequency": 5
         }
-        
-        params = {
-            "admin_email": "admin@autoservice-test.com",
-            "admin_password": "SecurePass123!",
-            "admin_name": "Admin Test User"
+        response = requests.post(f"{API_URL}/screens/{test_screen_id}/calculate-price", json=price_data, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Calculate Price", success, f"Total: ${data.get('total', 0)}")
+        else:
+            print_test("Calculate Price", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Calculate Price", False, f"Error: {str(e)}")
+        return False
+
+def test_create_campaign():
+    """Test 10: Create Campaign"""
+    global test_campaign_id
+    if not admin_token or not test_screen_id:
+        print_test("Create Campaign", False, "Missing admin token or screen ID")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        campaign_data = {
+            "name": "Test Campaign",
+            "screen_id": test_screen_id,
+            "schedule": {
+                "start_date": "2026-04-01",
+                "end_date": "2026-04-03",
+                "start_time": "08:00",
+                "end_time": "22:00",
+                "slot_duration": 15,
+                "frequency": 5
+            },
+            "media_ids": []
         }
-        
-        response = self.make_request("POST", "/auth/register-workshop", 
-                                   data=workshop_data, params=params, use_auth=False)
-        
-        if isinstance(response, tuple):
-            self.log_test("Register Workshop", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
+        response = requests.post(f"{API_URL}/campaigns", headers=headers, json=campaign_data, timeout=10)
+        success = response.status_code in [200, 201]
+        if success:
             data = response.json()
-            if "access_token" in data and "user" in data and "workshop" in data:
-                self.token = data["access_token"]
-                self.workshop_id = data["user"]["workshop_id"]
-                self.user_id = data["user"]["id"]
-                self.log_test("Register Workshop", True, 
-                            f"Workshop created with ID: {self.workshop_id}")
-                return True
-            else:
-                self.log_test("Register Workshop", False, f"Missing required fields in response: {data}")
-                return False
+            test_campaign_id = data.get("id")
+            print_test("Create Campaign", success, f"Campaign ID: {test_campaign_id}")
         else:
-            self.log_test("Register Workshop", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+            print_test("Create Campaign", success, f"Status: {response.status_code}, Response: {response.text}")
+        return success
+    except Exception as e:
+        print_test("Create Campaign", False, f"Error: {str(e)}")
+        return False
+
+def test_list_campaigns():
+    """Test 11: List Campaigns"""
+    if not admin_token:
+        print_test("List Campaigns", False, "No admin token available")
+        return False
     
-    def test_login(self):
-        """Test 3: POST /auth/login - Login with email and password"""
-        login_data = {
-            "email": "admin@autoservice-test.com",
-            "password": "SecurePass123!"
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/campaigns", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("List Campaigns", success, f"Found {len(data) if isinstance(data, list) else 0} campaigns")
+        else:
+            print_test("List Campaigns", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("List Campaigns", False, f"Error: {str(e)}")
+        return False
+
+def test_get_campaign():
+    """Test 12: Get Campaign"""
+    if not admin_token or not test_campaign_id:
+        print_test("Get Campaign", False, "Missing admin token or campaign ID")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/campaigns/{test_campaign_id}", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Get Campaign", success, f"Campaign: {data.get('name')}")
+        else:
+            print_test("Get Campaign", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Get Campaign", False, f"Error: {str(e)}")
+        return False
+
+def test_update_campaign():
+    """Test 13: Update Campaign"""
+    if not admin_token or not test_campaign_id:
+        print_test("Update Campaign", False, "Missing admin token or campaign ID")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        update_data = {"name": "Updated Campaign"}
+        response = requests.put(f"{API_URL}/campaigns/{test_campaign_id}", headers=headers, json=update_data, timeout=10)
+        success = response.status_code == 200
+        print_test("Update Campaign", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Update Campaign", False, f"Error: {str(e)}")
+        return False
+
+def test_media_upload():
+    """Test 14: Media Upload"""
+    global test_media_id
+    if not admin_token:
+        print_test("Media Upload", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        # Create a simple 1x1 PNG image in base64
+        png_data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+        media_data = {
+            "filename": "test.jpg",
+            "content_type": "image/jpeg",
+            "data": png_data
         }
-        
-        response = self.make_request("POST", "/auth/login", data=login_data, use_auth=False)
-        
-        if isinstance(response, tuple):
-            self.log_test("Login", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
+        response = requests.post(f"{API_URL}/media/upload", headers=headers, json=media_data, timeout=10)
+        success = response.status_code in [200, 201]
+        if success:
             data = response.json()
-            if "access_token" in data and "user" in data:
-                # Update token (should be same as registration)
-                self.token = data["access_token"]
-                self.log_test("Login", True, f"Login successful for user: {data['user']['name']}")
-                return True
-            else:
-                self.log_test("Login", False, f"Missing required fields in response: {data}")
-                return False
+            test_media_id = data.get("id")
+            print_test("Media Upload", success, f"Media ID: {test_media_id}")
         else:
-            self.log_test("Login", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+            print_test("Media Upload", success, f"Status: {response.status_code}, Response: {response.text}")
+        return success
+    except Exception as e:
+        print_test("Media Upload", False, f"Error: {str(e)}")
+        return False
+
+def test_list_media():
+    """Test 15: List Media"""
+    if not admin_token:
+        print_test("List Media", False, "No admin token available")
+        return False
     
-    def test_get_me(self):
-        """Test 4: GET /auth/me - Get current user (requires token)"""
-        response = self.make_request("GET", "/auth/me")
-        
-        if isinstance(response, tuple):
-            self.log_test("Get Current User", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/media", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
             data = response.json()
-            if "id" in data and "name" in data and "email" in data and "role" in data:
-                self.log_test("Get Current User", True, 
-                            f"User info retrieved: {data['name']} ({data['role']})")
-                return True
-            else:
-                self.log_test("Get Current User", False, f"Missing required fields: {data}")
-                return False
+            print_test("List Media", success, f"Found {len(data) if isinstance(data, list) else 0} media items")
         else:
-            self.log_test("Get Current User", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+            print_test("List Media", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("List Media", False, f"Error: {str(e)}")
+        return False
+
+def test_create_payment():
+    """Test 16: Create Payment"""
+    global test_payment_id
+    if not admin_token or not test_campaign_id:
+        print_test("Create Payment", False, "Missing admin token or campaign ID")
+        return False
     
-    def test_decode_vin(self):
-        """Test 5: GET /vin/decode/{vin} - Decode VIN using NHTSA API"""
-        test_vin = "1HGBH41JXMN109186"
-        response = self.make_request("GET", f"/vin/decode/{test_vin}")
-        
-        if isinstance(response, tuple):
-            self.log_test("VIN Decode", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "vin" in data and "make" in data and "model" in data:
-                self.log_test("VIN Decode", True, 
-                            f"VIN decoded: {data.get('year', 'N/A')} {data.get('make', 'N/A')} {data.get('model', 'N/A')}")
-                return True
-            else:
-                self.log_test("VIN Decode", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("VIN Decode", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_create_client(self):
-        """Test 6: POST /clients - Create client"""
-        client_data = {
-            "name": "Juan Carlos Pérez",
-            "phone": "+1-555-0199",
-            "email": "juan.perez@email.com",
-            "address": "456 Client Avenue, Client City",
-            "notes": "Cliente preferencial - vehículo Honda Civic"
-        }
-        
-        response = self.make_request("POST", "/clients", data=client_data)
-        
-        if isinstance(response, tuple):
-            self.log_test("Create Client", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "id" in data and "name" in data:
-                self.client_id = data["id"]
-                self.log_test("Create Client", True, 
-                            f"Client created: {data['name']} (ID: {self.client_id})")
-                return True
-            else:
-                self.log_test("Create Client", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("Create Client", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_get_clients(self):
-        """Test 7: GET /clients - List clients"""
-        response = self.make_request("GET", "/clients")
-        
-        if isinstance(response, tuple):
-            self.log_test("Get Clients", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list):
-                self.log_test("Get Clients", True, f"Retrieved {len(data)} clients")
-                return True
-            else:
-                self.log_test("Get Clients", False, f"Expected list, got: {type(data)}")
-                return False
-        else:
-            self.log_test("Get Clients", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_create_vehicle(self):
-        """Test 8: POST /vehicles - Create vehicle"""
-        if not self.client_id:
-            self.log_test("Create Vehicle", False, "No client_id available")
-            return False
-        
-        vehicle_data = {
-            "client_id": self.client_id,
-            "vin": "1HGBH41JXMN109186",
-            "make": "Honda",
-            "model": "Civic",
-            "year": 2021,
-            "trim": "EX",
-            "body_type": "Sedan",
-            "engine": "1.5L Turbo",
-            "color": "Blanco Perla"
-        }
-        
-        response = self.make_request("POST", "/vehicles", data=vehicle_data)
-        
-        if isinstance(response, tuple):
-            self.log_test("Create Vehicle", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "id" in data and "vin" in data:
-                self.vehicle_id = data["id"]
-                self.log_test("Create Vehicle", True, 
-                            f"Vehicle created: {data.get('year', 'N/A')} {data.get('make', 'N/A')} {data.get('model', 'N/A')} (ID: {self.vehicle_id})")
-                return True
-            else:
-                self.log_test("Create Vehicle", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("Create Vehicle", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_get_services(self):
-        """Test 9: GET /services - List predefined services"""
-        response = self.make_request("GET", "/services")
-        
-        if isinstance(response, tuple):
-            self.log_test("Get Services", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list):
-                self.log_test("Get Services", True, f"Retrieved {len(data)} services")
-                return True
-            else:
-                self.log_test("Get Services", False, f"Expected list, got: {type(data)}")
-                return False
-        else:
-            self.log_test("Get Services", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_create_work_order(self):
-        """Test 10: POST /work-orders - Create work order"""
-        if not self.client_id or not self.vehicle_id:
-            self.log_test("Create Work Order", False, "Missing client_id or vehicle_id")
-            return False
-        
-        work_order_data = {
-            "vehicle_id": self.vehicle_id,
-            "client_id": self.client_id,
-            "services": [
-                {
-                    "service_id": "srs001",
-                    "service_name": "Reset módulo SRS",
-                    "quantity": 1,
-                    "price": 150.0,
-                    "notes": "Reset completo del sistema SRS"
-                },
-                {
-                    "service_id": "srs004",
-                    "service_name": "Bolsa volante",
-                    "quantity": 1,
-                    "price": 180.0,
-                    "notes": "Reemplazo de airbag del volante"
-                }
-            ],
-            "odometer": 45000,
-            "notes": "Cliente reporta luz de SRS encendida después de accidente menor"
-        }
-        
-        response = self.make_request("POST", "/work-orders", data=work_order_data)
-        
-        if isinstance(response, tuple):
-            self.log_test("Create Work Order", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "id" in data and "status" in data:
-                self.work_order_id = data["id"]
-                self.log_test("Create Work Order", True, 
-                            f"Work order created with status: {data['status']} (ID: {self.work_order_id})")
-                return True
-            else:
-                self.log_test("Create Work Order", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("Create Work Order", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_get_work_orders(self):
-        """Test 11: GET /work-orders - List work orders"""
-        response = self.make_request("GET", "/work-orders")
-        
-        if isinstance(response, tuple):
-            self.log_test("Get Work Orders", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if isinstance(data, list):
-                self.log_test("Get Work Orders", True, f"Retrieved {len(data)} work orders")
-                return True
-            else:
-                self.log_test("Get Work Orders", False, f"Expected list, got: {type(data)}")
-                return False
-        else:
-            self.log_test("Get Work Orders", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
-    
-    def test_create_payment(self):
-        """Test 12: POST /payments - Create payment"""
-        if not self.work_order_id:
-            self.log_test("Create Payment", False, "No work_order_id available")
-            return False
-        
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
         payment_data = {
-            "work_order_id": self.work_order_id,
-            "method": "zelle",
-            "payment_status": "pagado",
-            "subtotal": 330.0,
-            "tax": 23.10,  # 7% tax
-            "discount": 0.0,
-            "total": 353.10,
-            "paid_amount": 353.10,
-            "reference": "ZELLE-20241201-001"
+            "campaign_id": test_campaign_id,
+            "method": "card",
+            "card_last4": "4242"
+        }
+        response = requests.post(f"{API_URL}/payments", headers=headers, json=payment_data, timeout=10)
+        success = response.status_code in [200, 201]
+        if success:
+            data = response.json()
+            test_payment_id = data.get("id")
+            print_test("Create Payment (MOCKED)", success, f"Payment ID: {test_payment_id}, Amount: ${data.get('amount')}")
+        else:
+            print_test("Create Payment", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Create Payment", False, f"Error: {str(e)}")
+        return False
+
+def test_list_payments():
+    """Test 17: List Payments"""
+    if not admin_token:
+        print_test("List Payments", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/payments", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("List Payments", success, f"Found {len(data) if isinstance(data, list) else 0} payments")
+        else:
+            print_test("List Payments", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("List Payments", False, f"Error: {str(e)}")
+        return False
+
+def test_admin_list_users():
+    """Test 18: Admin List Users"""
+    if not admin_token:
+        print_test("Admin List Users", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/admin/users", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Admin List Users", success, f"Found {len(data) if isinstance(data, list) else 0} users")
+        else:
+            print_test("Admin List Users", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Admin List Users", False, f"Error: {str(e)}")
+        return False
+
+def test_admin_list_campaigns():
+    """Test 19: Admin List Campaigns"""
+    if not admin_token:
+        print_test("Admin List Campaigns", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/admin/campaigns", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Admin List Campaigns", success, f"Found {len(data) if isinstance(data, list) else 0} campaigns")
+        else:
+            print_test("Admin List Campaigns", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Admin List Campaigns", False, f"Error: {str(e)}")
+        return False
+
+def test_admin_approve_campaign():
+    """Test 20: Admin Approve Campaign"""
+    if not admin_token or not test_campaign_id:
+        print_test("Admin Approve Campaign", False, "Missing admin token or campaign ID")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.put(f"{API_URL}/admin/campaigns/{test_campaign_id}/approve", headers=headers, timeout=10)
+        success = response.status_code in [200, 400]  # 400 might be "not pending" which is OK
+        if success:
+            print_test("Admin Approve Campaign", True, f"Status: {response.status_code}")
+        else:
+            print_test("Admin Approve Campaign", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Admin Approve Campaign", False, f"Error: {str(e)}")
+        return False
+
+def test_admin_analytics():
+    """Test 21: Admin Analytics"""
+    if not admin_token:
+        print_test("Admin Analytics", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/admin/analytics", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Admin Analytics", success, f"Users: {data.get('total_users')}, Revenue: ${data.get('total_revenue')}")
+        else:
+            print_test("Admin Analytics", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Admin Analytics", False, f"Error: {str(e)}")
+        return False
+
+def test_player_playlist():
+    """Test 22: Player Playlist"""
+    if not test_screen_id:
+        print_test("Player Playlist", False, "No screen ID available")
+        return False
+    
+    try:
+        response = requests.get(f"{API_URL}/player/{test_screen_id}/playlist", timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Player Playlist", success, f"Items: {data.get('total_items', 0)}")
+        else:
+            print_test("Player Playlist", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Player Playlist", False, f"Error: {str(e)}")
+        return False
+
+def test_player_schedule():
+    """Test 23: Player Schedule"""
+    if not test_screen_id:
+        print_test("Player Schedule", False, "No screen ID available")
+        return False
+    
+    try:
+        response = requests.get(f"{API_URL}/player/{test_screen_id}/schedule", timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("Player Schedule", success, f"Entries: {len(data.get('entries', []))}")
+        else:
+            print_test("Player Schedule", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Player Schedule", False, f"Error: {str(e)}")
+        return False
+
+def test_user_analytics():
+    """Test 24: User Analytics"""
+    if not admin_token:
+        print_test("User Analytics", False, "No admin token available")
+        return False
+    
+    try:
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(f"{API_URL}/analytics/dashboard", headers=headers, timeout=10)
+        success = response.status_code == 200
+        if success:
+            data = response.json()
+            print_test("User Analytics", success, f"Total campaigns: {data.get('total_campaigns')}")
+        else:
+            print_test("User Analytics", success, f"Status: {response.status_code}")
+        return success
+    except Exception as e:
+        print_test("User Analytics", False, f"Error: {str(e)}")
+        return False
+
+def test_delete_campaign():
+    """Test 25: Delete Campaign"""
+    if not admin_token:
+        print_test("Delete Campaign (Create & Delete)", False, "No admin token available")
+        return False
+    
+    try:
+        # First create a new draft campaign
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        campaign_data = {
+            "name": "Campaign to Delete",
+            "screen_id": test_screen_id if test_screen_id else "dummy",
+            "schedule": {
+                "start_date": "2026-04-01",
+                "end_date": "2026-04-03",
+                "start_time": "08:00",
+                "end_time": "22:00",
+                "slot_duration": 15,
+                "frequency": 5
+            },
+            "media_ids": []
         }
         
-        response = self.make_request("POST", "/payments", data=payment_data)
-        
-        if isinstance(response, tuple):
-            self.log_test("Create Payment", False, f"Request failed: {response[1]}")
+        if not test_screen_id:
+            print_test("Delete Campaign", False, "No screen ID available")
+            return False
+            
+        response = requests.post(f"{API_URL}/campaigns", headers=headers, json=campaign_data, timeout=10)
+        if response.status_code not in [200, 201]:
+            print_test("Delete Campaign (Create)", False, f"Could not create campaign: {response.status_code}")
             return False
         
-        if response.status_code == 200:
-            data = response.json()
-            if "id" in data and "method" in data:
-                self.payment_id = data["id"]
-                self.log_test("Create Payment", True, 
-                            f"Payment created: ${data.get('total', 0):.2f} via {data['method']} (ID: {self.payment_id})")
-                return True
-            else:
-                self.log_test("Create Payment", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("Create Payment", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+        campaign_id = response.json().get("id")
+        
+        # Now delete it
+        delete_response = requests.delete(f"{API_URL}/campaigns/{campaign_id}", headers=headers, timeout=10)
+        success = delete_response.status_code == 200
+        print_test("Delete Campaign", success, f"Delete Status: {delete_response.status_code}")
+        return success
+    except Exception as e:
+        print_test("Delete Campaign", False, f"Error: {str(e)}")
+        return False
+
+def run_tests():
+    """Run all tests in sequence"""
+    print(f"{TestColors.BLUE}{'='*60}{TestColors.ENDC}")
+    print(f"{TestColors.BLUE}MediaView Digital Signage Platform - Backend API Tests{TestColors.ENDC}")
+    print(f"{TestColors.BLUE}Testing URL: {API_URL}{TestColors.ENDC}")
+    print(f"{TestColors.BLUE}{'='*60}{TestColors.ENDC}")
     
-    def test_daily_report(self):
-        """Test 13: GET /reports/daily - Get daily report"""
-        today = datetime.now().strftime("%Y-%m-%d")
-        params = {"date": today}
-        
-        response = self.make_request("GET", "/reports/daily", params=params)
-        
-        if isinstance(response, tuple):
-            self.log_test("Daily Report", False, f"Request failed: {response[1]}")
-            return False
-        
-        if response.status_code == 200:
-            data = response.json()
-            if "date" in data and "total_orders" in data and "total_billed" in data:
-                self.log_test("Daily Report", True, 
-                            f"Report for {data['date']}: {data['total_orders']} orders, ${data.get('total_billed', 0):.2f} billed")
-                return True
-            else:
-                self.log_test("Daily Report", False, f"Missing required fields: {data}")
-                return False
-        else:
-            self.log_test("Daily Report", False, 
-                        f"Status code: {response.status_code}, Response: {response.text}")
-            return False
+    tests = [
+        test_health_check,
+        test_auth_register,
+        test_auth_login,
+        test_auth_me,
+        test_profile_update,
+        test_screens_list,
+        test_screens_cities,
+        test_screen_detail,
+        test_calculate_price,
+        test_create_campaign,
+        test_list_campaigns,
+        test_get_campaign,
+        test_update_campaign,
+        test_media_upload,
+        test_list_media,
+        test_create_payment,
+        test_list_payments,
+        test_admin_list_users,
+        test_admin_list_campaigns,
+        test_admin_approve_campaign,
+        test_admin_analytics,
+        test_player_playlist,
+        test_player_schedule,
+        test_user_analytics,
+        test_delete_campaign
+    ]
     
-    def run_all_tests(self):
-        """Run complete test suite"""
-        print("=" * 60)
-        print("AutoService Hub Backend API Test Suite")
-        print("=" * 60)
-        print(f"Base URL: {self.base_url}")
-        print()
-        
-        tests = [
-            self.test_health_check,
-            self.test_register_workshop,
-            self.test_login,
-            self.test_get_me,
-            self.test_decode_vin,
-            self.test_create_client,
-            self.test_get_clients,
-            self.test_create_vehicle,
-            self.test_get_services,
-            self.test_create_work_order,
-            self.test_get_work_orders,
-            self.test_create_payment,
-            self.test_daily_report
-        ]
-        
-        passed = 0
-        failed = 0
-        
-        for test in tests:
-            try:
-                if test():
-                    passed += 1
-                else:
-                    failed += 1
-            except Exception as e:
-                print(f"❌ FAIL {test.__name__} - Exception: {str(e)}")
-                failed += 1
-        
-        print("=" * 60)
-        print("TEST SUMMARY")
-        print("=" * 60)
-        print(f"Total Tests: {passed + failed}")
-        print(f"Passed: {passed}")
-        print(f"Failed: {failed}")
-        print(f"Success Rate: {(passed / (passed + failed) * 100):.1f}%")
-        
-        if failed > 0:
-            print("\nFAILED TESTS:")
-            for result in self.test_results:
-                if not result["success"]:
-                    print(f"- {result['test']}: {result['details']}")
-        
-        return failed == 0
+    passed = 0
+    total = len(tests)
+    
+    for test_func in tests:
+        if test_func():
+            passed += 1
+        print()  # Add spacing between tests
+    
+    print(f"{TestColors.BLUE}{'='*60}{TestColors.ENDC}")
+    print(f"Test Results: {TestColors.GREEN if passed == total else TestColors.YELLOW}{passed}/{total}{TestColors.ENDC} passed")
+    
+    if passed == total:
+        print(f"{TestColors.GREEN}All tests passed! ✅{TestColors.ENDC}")
+    elif passed >= total * 0.8:
+        print(f"{TestColors.YELLOW}Most tests passed, check failures above ⚠️{TestColors.ENDC}")
+    else:
+        print(f"{TestColors.RED}Multiple failures detected, check logs above ❌{TestColors.ENDC}")
+    
+    print(f"{TestColors.BLUE}{'='*60}{TestColors.ENDC}")
+    
+    return passed, total
 
 if __name__ == "__main__":
-    tester = AutoServiceTester()
-    success = tester.run_all_tests()
-    sys.exit(0 if success else 1)
+    passed, total = run_tests()
+    sys.exit(0 if passed == total else 1)
