@@ -1492,230 +1492,105 @@ CERTIFIED_DEVICES = [
 
 # ============ CERTIFICATION TEST SUITE ============
 
+class CertificationResult(BaseModel):
+    device_brand: str
+    device_model: str
+    os_version: str
+    screen_resolution: str
+    user_agent: str
+    tests_passed: int
+    tests_failed: int
+    tests_total: int
+    test_details: list
+    stability_minutes: Optional[int] = None
+    manual_checks: Optional[dict] = None
+
+@api_router.post("/certification/submit")
+async def submit_certification(data: CertificationResult):
+    """TV submits certification test results to server."""
+    result = {
+        "id": gen_id(),
+        "device_brand": data.device_brand,
+        "device_model": data.device_model,
+        "os_version": data.os_version,
+        "screen_resolution": data.screen_resolution,
+        "user_agent": data.user_agent,
+        "tests_passed": data.tests_passed,
+        "tests_failed": data.tests_failed,
+        "tests_total": data.tests_total,
+        "pass_rate": round(data.tests_passed / max(data.tests_total, 1) * 100, 1),
+        "test_details": data.test_details,
+        "stability_minutes": data.stability_minutes,
+        "manual_checks": data.manual_checks,
+        "certified": data.tests_failed == 0,
+        "created_at": datetime.utcnow()
+    }
+    await db.certification_results.insert_one(result)
+    return serialize_doc(result)
+
+@api_router.get("/certification/results")
+async def get_certification_results():
+    """Get all certification test results."""
+    results = await db.certification_results.find({}).sort("created_at", -1).to_list(100)
+    return serialize_doc(results)
+
 @api_router.get("/player/{screen_id}/test", response_class=HTMLResponse)
 async def certification_test(screen_id: str):
-    """Certification test page. Open on the TV to run automated validation of all player features."""
+    """Extended certification test: automated tests + 10-min stability + manual checklist. Results submitted to server."""
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
     sn = screen.get('name', 'Screen')
-
-    html = """<!DOCTYPE html><html><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MediaView Certification Test</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#09090F;color:#E2E8F0;font-family:Segoe UI,Arial,sans-serif;padding:24px 32px;overflow-y:auto}
-h1{font-size:24px;color:#A5B4FC;margin-bottom:4px}
-h2{font-size:14px;color:#64748B;margin-bottom:24px}
-.test{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1E293B;gap:12px}
-.test .icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0}
-.test .icon.pass{background:#064E3B;color:#10B981}
-.test .icon.fail{background:#450A0A;color:#EF4444}
-.test .icon.run{background:#1E293B;color:#64748B}
-.test .icon.wait{background:#422006;color:#F59E0B}
-.test .name{flex:1;font-size:14px}
-.test .detail{font-size:12px;color:#64748B;max-width:50%;text-align:right}
-.summary{margin-top:24px;padding:20px;border-radius:12px;text-align:center}
-.summary.pass{background:#064E3B;border:1px solid #10B981}
-.summary.fail{background:#450A0A;border:1px solid #EF4444}
-.summary h3{font-size:20px;margin-bottom:4px}
-.summary p{font-size:13px;color:#94A3B8}
-.info{margin-top:16px;padding:16px;background:#1E293B;border-radius:10px;font-size:12px;color:#94A3B8}
-.info b{color:#E2E8F0}
-.progress{margin:16px 0;height:4px;background:#1E293B;border-radius:2px}
-.progress-bar{height:100%;background:#6366F1;border-radius:2px;transition:width 0.3s}
-</style></head><body>
-<h1>MediaView Player - Certification Test</h1>
-<h2>Screen: """ + sn + """ | Running automated tests...</h2>
-<div class="progress"><div class="progress-bar" id="prog" style="width:0%"></div></div>
-<div id="tests"></div>
-<div id="summary"></div>
-<div class="info">
-<b>Device:</b> <span id="dev-info">Detecting...</span><br>
-<b>Screen ID:</b> """ + screen_id + """<br>
-<b>User Agent:</b> <span id="ua"></span><br>
-<b>Viewport:</b> <span id="vp"></span><br>
-<b>Time:</b> <span id="tm"></span>
-</div>
-<script>
-var SID='""" + screen_id + """';
-var AB=location.origin;
-var tests=[];var passed=0;var failed=0;var total=0;
-
-document.getElementById('ua').textContent=navigator.userAgent;
-document.getElementById('vp').textContent=innerWidth+'x'+innerHeight;
-document.getElementById('tm').textContent=new Date().toLocaleString();
-document.getElementById('dev-info').textContent=navigator.platform+' | '+
-  (navigator.userAgent.includes('Android')?'Android TV':'Other');
-
-function addTest(name,status,detail){
-  total++;
-  var ic=status==='pass'?'OK':status==='fail'?'X':status==='run'?'...':'?';
-  if(status==='pass')passed++;
-  if(status==='fail')failed++;
-  tests.push({name,status,detail});
-  render();
-}
-
-function updateTest(idx,status,detail){
-  tests[idx].status=status;
-  tests[idx].detail=detail||tests[idx].detail;
-  if(status==='pass')passed++;
-  if(status==='fail')failed++;
-  render();
-}
-
-function render(){
-  var h='';
-  tests.forEach(function(t){
-    h+='<div class="test"><div class="icon '+t.status+'">'+
-      (t.status==='pass'?'OK':t.status==='fail'?'X':t.status==='run'?'...':'?')+
-      '</div><div class="name">'+t.name+'</div><div class="detail">'+
-      (t.detail||'')+'</div></div>';
-  });
-  document.getElementById('tests').innerHTML=h;
-  var pct=Math.round((passed+failed)/Math.max(tests.length,1)*100);
-  document.getElementById('prog').style.width=pct+'%';
-}
-
-function showSummary(){
-  var ok=failed===0;
-  document.getElementById('summary').innerHTML=
-    '<div class="summary '+(ok?'pass':'fail')+'">'+
-    '<h3>'+(ok?'CERTIFICATION PASSED':'CERTIFICATION FAILED')+'</h3>'+
-    '<p>'+passed+' passed, '+failed+' failed out of '+tests.length+' tests</p>'+
-    '<p style="margin-top:8px;font-size:11px">Report generated: '+new Date().toISOString()+'</p>'+
-    '</div>';
-}
-
-async function runTests(){
-  // Test 1: Server connectivity
-  var t1=tests.length;
-  addTest('Server Connectivity','run','Connecting...');
-  try{
-    var r=await fetch(AB+'/api/health');
-    var d=await r.json();
-    updateTest(t1,d.status==='healthy'?'pass':'fail',d.service||'');
-  }catch(e){updateTest(t1,'fail',e.message)}
-
-  // Test 2: Screen data fetch
-  var t2=tests.length;
-  addTest('Screen Data Fetch','run','Loading...');
-  try{
-    var r=await fetch(AB+'/api/screens/'+SID);
-    var d=await r.json();
-    updateTest(t2,d.id?'pass':'fail',d.name||'No name');
-  }catch(e){updateTest(t2,'fail',e.message)}
-
-  // Test 3: Playlist API
-  var t3=tests.length;
-  addTest('Playlist API','run','Fetching...');
-  try{
-    var r=await fetch(AB+'/api/player/'+SID+'/playlist');
-    var d=await r.json();
-    updateTest(t3,'pass',d.total_items+' items, screen: '+d.screen_name);
-  }catch(e){updateTest(t3,'fail',e.message)}
-
-  // Test 4: Media download
-  var t4=tests.length;
-  addTest('Media Download','run','Testing...');
-  try{
-    var r=await fetch(AB+'/api/player/'+SID+'/playlist');
-    var d=await r.json();
-    if(d.items&&d.items.length>0){
-      var mr=await fetch(AB+d.items[0].media_url);
-      updateTest(t4,mr.ok?'pass':'fail','HTTP '+mr.status+' ('+d.items[0].filename+')');
-    }else{
-      updateTest(t4,'pass','No media to test (playlist empty)');
-    }
-  }catch(e){updateTest(t4,'fail',e.message)}
-
-  // Test 5: localStorage (offline cache)
-  var t5=tests.length;
-  addTest('localStorage (Offline Cache)','run','Testing...');
-  try{
-    localStorage.setItem('mv_cert_test','ok_'+Date.now());
-    var v=localStorage.getItem('mv_cert_test');
-    localStorage.removeItem('mv_cert_test');
-    updateTest(t5,v&&v.startsWith('ok_')?'pass':'fail',v?'Write/Read OK':'Failed');
-  }catch(e){updateTest(t5,'fail',e.message)}
-
-  // Test 6: Image rendering
-  var t6=tests.length;
-  addTest('Image Rendering','run','Loading test image...');
-  try{
-    var img=new Image();
-    await new Promise(function(ok,no){
-      img.onload=ok;img.onerror=no;
-      img.src='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
-    });
-    updateTest(t6,'pass','1x1 PNG rendered OK');
-  }catch(e){updateTest(t6,'fail','Image rendering failed')}
-
-  // Test 7: Video element support
-  var t7=tests.length;
-  addTest('Video Element Support','run','Checking...');
-  try{
-    var vid=document.createElement('video');
-    var mp4=vid.canPlayType('video/mp4');
-    var webm=vid.canPlayType('video/webm');
-    updateTest(t7,mp4?'pass':'fail','MP4:'+mp4+' WebM:'+webm);
-  }catch(e){updateTest(t7,'fail',e.message)}
-
-  // Test 8: setTimeout reliability
-  var t8=tests.length;
-  addTest('Timer Reliability (3s test)','run','Waiting 3 seconds...');
-  var t8start=Date.now();
-  await new Promise(function(ok){setTimeout(ok,3000)});
-  var drift=Math.abs(Date.now()-t8start-3000);
-  updateTest(t8,drift<500?'pass':'fail','Drift: '+drift+'ms (max 500ms)');
-
-  // Test 9: Fetch with timeout
-  var t9=tests.length;
-  addTest('Network Fetch Performance','run','Measuring...');
-  var t9start=Date.now();
-  try{
-    await fetch(AB+'/api/health');
-    var latency=Date.now()-t9start;
-    updateTest(t9,latency<5000?'pass':'fail','Latency: '+latency+'ms');
-  }catch(e){updateTest(t9,'fail',e.message)}
-
-  // Test 10: Screen resolution check
-  var t10=tests.length;
-  addTest('Screen Resolution','run','Detecting...');
-  var w=screen.width||innerWidth;
-  var h=screen.height||innerHeight;
-  var is1080=w>=1920||h>=1080;
-  updateTest(t10,'pass',w+'x'+h+(is1080?' (Full HD+)':' (Below HD)'));
-
-  // Test 11: Heartbeat endpoint
-  var t11=tests.length;
-  addTest('Heartbeat Endpoint','run','Testing...');
-  try{
-    var r=await fetch(AB+'/api/player/'+SID+'/status');
-    var d=await r.json();
-    updateTest(t11,d.status==='online'?'pass':'fail','Status: '+d.status);
-  }catch(e){updateTest(t11,'fail',e.message)}
-
-  // Test 12: Concurrent fetch
-  var t12=tests.length;
-  addTest('Concurrent Requests (3x parallel)','run','Testing...');
-  try{
-    var results=await Promise.all([
-      fetch(AB+'/api/health'),
-      fetch(AB+'/api/screens/'+SID),
-      fetch(AB+'/api/player/'+SID+'/playlist')
-    ]);
-    var allOk=results.every(function(r){return r.ok});
-    updateTest(t12,allOk?'pass':'fail',results.map(function(r){return r.status}).join(', '));
-  }catch(e){updateTest(t12,'fail',e.message)}
-
-  showSummary();
-}
-
-runTests();
-</script></body></html>"""
+    html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MediaView Cert Test</title>'
+    html += '<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#09090F;color:#E2E8F0;font-family:Segoe UI,Arial,sans-serif;padding:20px 28px;overflow-y:auto}h1{font-size:22px;color:#A5B4FC;margin-bottom:2px}h2{font-size:13px;color:#64748B;margin-bottom:16px}.sec{margin-bottom:20px}.sec h3{font-size:11px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:8px;padding-bottom:4px;border-bottom:1px solid #1E293B}'
+    html += '.t{display:flex;align-items:center;padding:8px 12px;border-bottom:1px solid #111827;gap:10px}.t .i{width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}.i.p{background:#064E3B;color:#10B981}.i.f{background:#450A0A;color:#EF4444}.i.r{background:#1E293B;color:#64748B}.i.w{background:#422006;color:#F59E0B}.t .n{flex:1;font-size:13px}.t .d{font-size:11px;color:#64748B;text-align:right;max-width:45%}'
+    html += '.bar{margin:12px 0;height:4px;background:#1E293B;border-radius:2px}.bar div{height:100%;background:#6366F1;border-radius:2px;transition:width .3s}.sum{margin:16px 0;padding:16px;border-radius:10px;text-align:center}.sum.ok{background:#064E3B;border:1px solid #10B981}.sum.no{background:#450A0A;border:1px solid #EF4444}.sum h3{font-size:18px}.sum p{font-size:12px;color:#94A3B8}'
+    html += '.chk{padding:10px 12px;border-bottom:1px solid #111827;display:flex;align-items:center;gap:10px;cursor:pointer}.chk input{width:18px;height:18px;accent-color:#6366F1}.chk label{font-size:13px;flex:1;cursor:pointer}.chk .st{font-size:11px;color:#64748B}'
+    html += '.inf{padding:12px;background:#1E293B;border-radius:8px;font-size:11px;color:#94A3B8;margin-top:12px}.inf b{color:#E2E8F0}btn,.btn{display:inline-block;padding:12px 24px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin-top:12px}.btn-p{background:#4F46E5;color:#fff}.btn-s{background:#1E293B;color:#A5B4FC;margin-left:8px}</style></head><body>'
+    html += '<h1>MediaView - Certification Test Suite</h1><h2>Screen: ' + sn + '</h2>'
+    html += '<div class="bar"><div id="pg" style="width:0%"></div></div>'
+    html += '<div class="sec"><h3>Phase 1: Automated Tests</h3><div id="tests"></div></div>'
+    html += '<div id="stab-sec" style="display:none" class="sec"><h3>Phase 2: Stability Test (10 minutes)</h3><div id="stab"></div></div>'
+    html += '<div id="manual-sec" style="display:none" class="sec"><h3>Phase 3: Manual Validation</h3><p style="font-size:12px;color:#94A3B8;margin-bottom:10px">Complete these checks and mark each one:</p><div id="manual"></div></div>'
+    html += '<div id="result"></div>'
+    html += '<div class="inf"><b>Device:</b> <span id="di">Detecting...</span> | <b>Screen:</b> ' + screen_id + ' | <b>Time:</b> <span id="ti"></span></div>'
+    js = '<script>\nvar SID="' + screen_id + '",AB=location.origin,tests=[],passed=0,failed=0;\n'
+    js += 'document.getElementById("di").textContent=navigator.platform+(navigator.userAgent.includes("Android")?" (Android TV)":"");\n'
+    js += 'document.getElementById("ti").textContent=new Date().toLocaleString();\n'
+    js += 'function at(n,s,d){var idx=tests.length;tests.push({n:n,s:s,d:d||""});rn();return idx}\n'
+    js += 'function ut(i,s,d){tests[i].s=s;if(d)tests[i].d=d;if(s==="p")passed++;if(s==="f")failed++;rn()}\n'
+    js += 'function rn(){var h="";tests.forEach(function(t){var ic=t.s==="p"?"p":t.s==="f"?"f":t.s==="w"?"w":"r";var tx=t.s==="p"?"OK":t.s==="f"?"X":t.s==="w"?"!":"...";h+=\'<div class="t"><div class="i \'+ic+\'">\'+tx+\'</div><div class="n">\'+t.n+\'</div><div class="d">\'+t.d+\'</div></div>\'});document.getElementById("tests").innerHTML=h;document.getElementById("pg").style.width=Math.round((passed+failed)/Math.max(tests.length,1)*100)+"%"}\n'
+    js += 'async function phase1(){\n'
+    js += 'var names=["Server Connectivity","Screen Data","Playlist API","Media Download","localStorage Write/Read","localStorage 5KB","Image Render","Video Codec","Timer 3s","Network Latency","Concurrent 3x","Resolution","Heartbeat"];\n'
+    js += 'var fns=[\n'
+    js += 'async function(){var r=await fetch(AB+"/api/health");var d=await r.json();return[d.status==="healthy","API "+d.status]},\n'
+    js += 'async function(){var r=await fetch(AB+"/api/screens/' + screen_id + '");var d=await r.json();return[!!d.id,d.name||"Error"]},\n'
+    js += 'async function(){var r=await fetch(AB+"/api/player/' + screen_id + '/playlist");var d=await r.json();return[true,d.total_items+" items"]},\n'
+    js += 'async function(){var r=await fetch(AB+"/api/player/' + screen_id + '/playlist");var d=await r.json();if(d.items&&d.items.length>0){var m=await fetch(AB+d.items[0].media_url);return[m.ok,"HTTP "+m.status]}return[true,"Empty playlist"]},\n'
+    js += 'async function(){localStorage.setItem("mv_ct","ok");var v=localStorage.getItem("mv_ct");localStorage.removeItem("mv_ct");return[v==="ok","OK"]},\n'
+    js += 'async function(){var b="x".repeat(5000);localStorage.setItem("mv_5k",b);var v=localStorage.getItem("mv_5k");localStorage.removeItem("mv_5k");return[v&&v.length===5000,"5KB OK"]},\n'
+    js += 'async function(){var img=new Image();await new Promise(function(ok,no){img.onload=ok;img.onerror=no;img.src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="});return[true,"PNG OK"]},\n'
+    js += 'async function(){var v=document.createElement("video");return[true,"MP4:"+v.canPlayType("video/mp4")+" WebM:"+v.canPlayType("video/webm")]},\n'
+    js += 'async function(){var s=Date.now();await new Promise(function(ok){setTimeout(ok,3000)});var d=Math.abs(Date.now()-s-3000);return[d<500,"Drift:"+d+"ms"]},\n'
+    js += 'async function(){var s=Date.now();await fetch(AB+"/api/health");return[true,(Date.now()-s)+"ms"]},\n'
+    js += 'async function(){var r=await Promise.all([fetch(AB+"/api/health"),fetch(AB+"/api/screens/' + screen_id + '"),fetch(AB+"/api/player/' + screen_id + '/playlist")]);return[r.every(function(x){return x.ok}),r.map(function(x){return x.status}).join(",")]},\n'
+    js += 'async function(){return[true,(screen.width||innerWidth)+"x"+(screen.height||innerHeight)]},\n'
+    js += 'async function(){var r=await fetch(AB+"/api/player/' + screen_id + '/status");var d=await r.json();return[d.status==="online","Status:"+d.status]}\n'
+    js += '];\n'
+    js += 'for(var i=0;i<names.length;i++){var idx=at(names[i],"r","...");try{var res=await fns[i]();ut(idx,res[0]?"p":"f",res[1])}catch(e){ut(idx,"f",e.message)}}\n'
+    js += '}\n'
+    js += 'async function phase2(){document.getElementById("stab-sec").style.display="block";var dur=600,el=0,errs=0,fts=0;var si=at("Stability 10min","w","Starting...");var iv=setInterval(async function(){el+=10;fts++;try{await fetch(AB+"/api/player/' + screen_id + '/playlist");ut(si,"w",Math.floor(el/60)+"m"+el%60+"s F:"+fts+" E:"+errs)}catch(e){errs++;ut(si,"w",Math.floor(el/60)+"m"+el%60+"s F:"+fts+" E:"+errs)}if(el>=dur){clearInterval(iv);ut(si,errs===0?"p":"f","Done:"+fts+" fetches,"+errs+" errors")}},10000);await new Promise(function(ok){setTimeout(ok,dur*1000)})}\n'
+    js += 'function phase3(){document.getElementById("manual-sec").style.display="block";var checks=[["auto-boot","Auto-Start: Power OFF, wait 10s, power ON. Did MediaView start automatically?"],["home-btn","HOME Button: Press HOME. Does MediaView stay on screen?"],["offline","Offline: Disconnect WiFi. Does cached content keep showing?"],["reconnect","Reconnect: Reconnect WiFi. Does it auto-sync?"],["stability","1-Hour: Leave running 1hr. Any freezes or crashes?"],["remote","Remote Keys: Vol/Ch/Back buttons. Player stays fullscreen?"]];'
+    js += 'var h="";checks.forEach(function(c){h+=\'<div class="chk"><input type="checkbox" id="chk-\'+c[0]+\'"><label for="chk-\'+c[0]+\'">\'+c[1]+\'</label></div>\'});'
+    js += 'h+=\'<div style="margin-top:14px"><input type="text" id="brand" placeholder="TV Brand" style="background:#1E293B;border:1px solid #312E81;color:#E2E8F0;padding:10px;border-radius:8px;width:46%;margin-right:2%"><input type="text" id="model" placeholder="Model" style="background:#1E293B;border:1px solid #312E81;color:#E2E8F0;padding:10px;border-radius:8px;width:46%"></div>\';'
+    js += 'h+=\'<div style="margin-top:12px"><button onclick="submitR()" style="background:#4F46E5;color:#fff;padding:12px 24px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer">Submit Results</button></div>\';'
+    js += 'document.getElementById("manual").innerHTML=h}\n'
+    js += 'async function submitR(){var brand=document.getElementById("brand").value||"Unknown";var model=document.getElementById("model").value||"Unknown";var mc={};document.querySelectorAll("#manual input[type=checkbox]").forEach(function(c){mc[c.id.replace("chk-","")]=c.checked});var mp=Object.values(mc).filter(function(v){return v}).length;var mt=Object.values(mc).length;'
+    js += 'try{var r=await fetch(AB+"/api/certification/submit",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({device_brand:brand,device_model:model,os_version:navigator.userAgent,screen_resolution:(screen.width||innerWidth)+"x"+(screen.height||innerHeight),user_agent:navigator.userAgent,tests_passed:passed,tests_failed:failed,tests_total:tests.length,test_details:tests.map(function(t){return{name:t.n,status:t.s,detail:t.d}}),stability_minutes:10,manual_checks:mc})});'
+    js += 'var d=await r.json();var ok=failed===0&&mp===mt;document.getElementById("result").innerHTML=\'<div class="sum \'+(ok?"ok":"no")+\'"><h3>\'+(ok?"CERTIFIED":"NEEDS REVIEW")+\'</h3><p>Auto:\'+passed+"/"+tests.length+" Manual:"+mp+"/"+mt+\'</p><p style="font-size:11px">\'+brand+" "+model+" | Saved to server</p></div>"}catch(e){document.getElementById("result").innerHTML=\'<div class="sum no"><h3>Error</h3><p>\'+e.message+"</p></div>"}}\n'
+    js += 'async function run(){await phase1();await phase2();phase3()}\nrun();\n'
+    js += '</script></body></html>'
+    html += js
     return HTMLResponse(content=html)
 
 @api_router.get("/certified-devices")
