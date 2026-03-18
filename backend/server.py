@@ -1328,6 +1328,77 @@ async def seed_data():
         await db.screens.insert_many(screens)
         logger.info(f"Created {len(screens)} sample screens")
 
+# ============ CERTIFIED DEVICES PROGRAM ============
+
+CERTIFIED_DEVICES = [
+    {
+        "brand": "TCL",
+        "tier": "primary",
+        "certification": "full",
+        "auto_start_method": "Safety Guard Auto Launch + Home Launcher replacement",
+        "models": [
+            {"model": "TCL P755", "sizes": ["43", "50", "55", "65", "75", "85"], "os": "Google TV", "year": 2024, "price_range": "$300-$800", "certification": "full", "notes": "Best value. Safety Guard enables reliable auto-start."},
+            {"model": "TCL C755", "sizes": ["55", "65", "75", "85", "98"], "os": "Google TV", "year": 2024, "price_range": "$500-$2000", "certification": "full", "notes": "Premium QLED. Higher brightness for well-lit environments."},
+            {"model": "TCL C655", "sizes": ["55", "65", "75", "85"], "os": "Google TV", "year": 2024, "price_range": "$400-$1000", "certification": "full", "notes": "Mid-range QLED. Good balance price/quality."},
+            {"model": "TCL S5400A", "sizes": ["32", "40", "43"], "os": "Google TV", "year": 2024, "price_range": "$150-$250", "certification": "full", "notes": "Budget entry. Ideal for small signage."},
+            {"model": "TCL QM6K", "sizes": ["55", "65", "75", "85", "98"], "os": "Google TV", "year": 2024, "price_range": "$500-$1800", "certification": "full", "notes": "High brightness Mini-LED. Best for sunlit areas."},
+        ],
+        "setup_script": "setup-tcl-production.sh",
+        "setup_steps": [
+            "Enable Developer Mode: Settings > System > About > tap Build 7x",
+            "Enable USB Debugging: Settings > System > Developer Options > ON",
+            "Connect via ADB: adb connect <IP>:5555",
+            "Install APK: adb install mediaview-player.apk",
+            "Configure Safety Guard: Settings > Apps > Safety Guard > Permission Shield > Auto Launch > Auto Manager OFF, MediaView Player ON",
+            "Set as Home: adb shell cmd package set-home-activity com.mediaview.player/.MainActivity",
+            "Disable Google launcher: adb shell pm disable-user --user 0 com.google.android.tvlauncher",
+            "Disable screen timeout: adb shell settings put system screen_off_timeout 2147483647",
+            "Reboot and verify: adb reboot",
+        ],
+        "features_verified": {
+            "auto_start_on_boot": True, "kiosk_mode": True, "offline_cache": True,
+            "crash_recovery": True, "remote_update": True, "diagnostics_hud": True,
+        },
+        "limitations": [
+            "Consumer panel rated ~16hrs/day continuous (not 24/7)",
+            "Safety Guard step requires one-time manual config on TV remote",
+        ],
+    },
+    {
+        "brand": "Philips",
+        "tier": "secondary",
+        "certification": "partial",
+        "auto_start_method": "Pro/Hotel Mode via remote sequence",
+        "models": [
+            {"model": "Philips PUS7608", "sizes": ["43", "50", "55", "65", "75"], "os": "Google TV", "year": 2024, "price_range": "$300-$700", "certification": "partial", "notes": "Hotel mode available via service menu."},
+        ],
+        "setup_steps": [
+            "Enable Pro Mode: Power on > press Display(i+) > Mute > Vol Up > Home",
+            "Configure startup app in Pro Mode menu",
+            "Standard ADB setup for remaining configuration",
+        ],
+        "features_verified": {
+            "auto_start_on_boot": True, "kiosk_mode": True, "offline_cache": True,
+            "crash_recovery": True, "remote_update": True, "diagnostics_hud": True,
+        },
+        "limitations": [
+            "Pro Mode sequence varies by model year",
+            "Less documentation available than TCL",
+        ],
+    },
+]
+
+@api_router.get("/certified-devices")
+async def get_certified_devices():
+    """Public endpoint: list of MediaView certified TV models."""
+    return {
+        "program": "MediaView Certified Devices",
+        "version": "1.0",
+        "primary_brand": "TCL",
+        "total_models": sum(len(b["models"]) for b in CERTIFIED_DEVICES),
+        "devices": CERTIFIED_DEVICES,
+    }
+
 # ============ APP CONFIGURATION ============
 
 app.include_router(api_router)
