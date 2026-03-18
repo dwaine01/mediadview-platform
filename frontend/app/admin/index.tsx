@@ -6,10 +6,10 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { adminAPI, screensAPI } from '../../src/services/api';
+import { adminAPI, screensAPI, adminDevicesAPI } from '../../src/services/api';
 import { getStatusStyle } from '../../src/constants/theme';
 
-const TABS = ['Dashboard', 'Users', 'Screens', 'Campaigns'];
+const TABS = ['Dashboard', 'Users', 'Screens', 'Campaigns', 'Devices'];
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -21,6 +21,10 @@ export default function AdminPanel() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [devices, setDevices] = useState<any[]>([]);
+  const [activateCode, setActivateCode] = useState('');
+  const [activateScreenId, setActivateScreenId] = useState('');
+  const [activating, setActivating] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -64,7 +68,53 @@ export default function AdminPanel() {
   useEffect(() => {
     if (tab === 2) fetchAllScreens();
     if (tab === 3) fetchAllCampaigns();
+    if (tab === 4) fetchDevices();
   }, [tab]);
+
+  const fetchDevices = async () => {
+    try {
+      const res = await adminDevicesAPI.list();
+      setDevices(res.data);
+    } catch (e) {
+      console.log('Devices fetch error:', e);
+    }
+  };
+
+  const handleActivateDevice = async () => {
+    if (!activateCode.trim() || !activateScreenId) {
+      Alert.alert('Error', 'Enter activation code and select a screen');
+      return;
+    }
+    setActivating(true);
+    try {
+      const res = await adminDevicesAPI.activate({
+        activation_code: activateCode.trim().toUpperCase(),
+        screen_id: activateScreenId,
+      });
+      Alert.alert('Success', `Device activated for ${res.data.screen_name}`);
+      setActivateCode('');
+      setActivateScreenId('');
+      fetchDevices();
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.detail || 'Activation failed');
+    } finally {
+      setActivating(false);
+    }
+  };
+
+  const removeDevice = async (id: string) => {
+    Alert.alert('Remove Device', 'This will unlink and remove the device.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Remove', style: 'destructive', onPress: async () => {
+        try {
+          await adminDevicesAPI.remove(id);
+          fetchDevices();
+        } catch (e: any) {
+          Alert.alert('Error', e.response?.data?.detail || 'Failed');
+        }
+      }},
+    ]);
+  };
 
   const toggleUser = async (userId: string, active: boolean) => {
     try {
@@ -250,6 +300,100 @@ export default function AdminPanel() {
       {tab === 1 && renderUsers()}
       {tab === 2 && renderScreens()}
       {tab === 3 && renderCampaigns()}
+      {tab === 4 && (
+        <ScrollView contentContainerStyle={styles.scrollPad}>
+          {/* Activation Form */}
+          <View style={[styles.listCard, { flexDirection: 'column', alignItems: 'stretch' }]}>
+            <Text style={[styles.listName, { marginBottom: 12 }]}>Activate New Device</Text>
+            <TextInput
+              style={styles.activateInput}
+              placeholder="Enter 6-digit activation code"
+              placeholderTextColor="#94A3B8"
+              value={activateCode}
+              onChangeText={setActivateCode}
+              autoCapitalize="characters"
+              maxLength={6}
+            />
+            <Text style={[styles.listSub, { marginTop: 8, marginBottom: 4 }]}>Assign to Screen:</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12, maxHeight: 40 }}>
+              {screens.map(s => (
+                <TouchableOpacity
+                  key={s.id}
+                  style={[styles.screenChip, activateScreenId === s.id && styles.screenChipActive]}
+                  onPress={() => setActivateScreenId(s.id)}
+                >
+                  <Text style={[styles.screenChipText, activateScreenId === s.id && styles.screenChipTextActive]}
+                    numberOfLines={1}>{s.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={[styles.approveBtn, { alignSelf: 'flex-start' }]}
+              onPress={handleActivateDevice}
+              disabled={activating}
+            >
+              <Ionicons name="link" size={16} color="#FFFFFF" />
+              <Text style={styles.approveBtnText}>{activating ? 'Activating...' : 'Activate Device'}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Device List */}
+          <Text style={[styles.listName, { marginBottom: 8, marginTop: 16 }]}>
+            Registered Devices ({devices.length})
+          </Text>
+          {devices.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name="phone-portrait-outline" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyText}>No devices registered</Text>
+              <Text style={[styles.listSub, { textAlign: 'center', marginTop: 4 }]}>
+                Install MediaView Player on a TV and it will appear here
+              </Text>
+            </View>
+          ) : (
+            devices.map(d => {
+              const isOnline = d.last_heartbeat &&
+                (new Date().getTime() - new Date(d.last_heartbeat).getTime()) < 120000;
+              return (
+                <View key={d.id} style={styles.listCard}>
+                  <View style={{ flex: 1 }}>
+                    <View style={styles.campaignRow}>
+                      <Text style={styles.listName}>{d.device_name || 'Player'}</Text>
+                      <View style={[styles.badge, {
+                        backgroundColor: d.status === 'active' ? '#D1FAE5' :
+                          d.status === 'pending' ? '#FEF3C7' : '#FEE2E2'
+                      }]}>
+                        <Text style={[styles.badgeText, {
+                          color: d.status === 'active' ? '#065F46' :
+                            d.status === 'pending' ? '#92400E' : '#991B1B'
+                        }]}>{d.status}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.listSub}>
+                      Code: {d.activation_code} | Screen: {d.screen_name || 'Not assigned'}
+                    </Text>
+                    <Text style={styles.listRole}>
+                      {d.device_info?.model || 'Unknown'} | Last seen: {
+                        d.last_heartbeat ? new Date(d.last_heartbeat).toLocaleString() : 'Never'
+                      }
+                    </Text>
+                    <View style={[styles.actionRow, { marginTop: 8 }]}>
+                      <View style={[styles.statusDot, { backgroundColor: isOnline ? '#10B981' : '#94A3B8', width: 8, height: 8, borderRadius: 4 }]} />
+                      <Text style={[styles.listRole, { marginTop: 0 }]}>{isOnline ? 'Online' : 'Offline'}</Text>
+                      <TouchableOpacity
+                        style={[styles.rejectBtn, { marginLeft: 'auto' }]}
+                        onPress={() => removeDevice(d.id)}
+                      >
+                        <Ionicons name="trash" size={14} color="#EF4444" />
+                        <Text style={styles.rejectBtnText}>Remove</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -312,4 +456,16 @@ const styles = StyleSheet.create({
   rejectBtnText: { color: '#EF4444', fontSize: 13, fontWeight: '600' },
   emptyState: { alignItems: 'center', paddingTop: 60 },
   emptyText: { fontSize: 16, color: '#94A3B8', marginTop: 12 },
+  activateInput: {
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 20, fontWeight: '700', color: '#0F172A', letterSpacing: 4, textAlign: 'center',
+  },
+  screenChip: {
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,
+    backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 6,
+  },
+  screenChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
+  screenChipText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
+  screenChipTextActive: { color: '#FFFFFF' },
 });

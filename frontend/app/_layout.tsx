@@ -21,6 +21,7 @@ export default function RootLayout() {
         <Stack.Screen name="campaign/[id]" />
         <Stack.Screen name="screen/[id]" />
         <Stack.Screen name="admin/index" />
+        <Stack.Screen name="player" />
       </Stack>
     </>
   );

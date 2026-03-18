@@ -75,6 +75,23 @@ export const adminAPI = {
   analytics: () => api.get('/admin/analytics'),
 };
 
+// Devices (Player App)
+export const devicesAPI = {
+  register: (data: any) => api.post('/devices/register', data),
+  check: (deviceId: string) => api.get(`/devices/${deviceId}/check`),
+  heartbeat: (deviceId: string, data: any) => api.post(`/devices/${deviceId}/heartbeat`, data),
+  playlist: (deviceId: string) => api.get(`/devices/${deviceId}/playlist`),
+};
+
+// Admin Devices
+export const adminDevicesAPI = {
+  list: () => api.get('/admin/devices'),
+  activate: (data: any) => api.post('/admin/devices/activate', data),
+  remove: (deviceId: string) => api.delete(`/admin/devices/${deviceId}`),
+  reassign: (deviceId: string, screenId: string) =>
+    api.put(`/admin/devices/${deviceId}/reassign?screen_id=${screenId}`),
+};
+
 export const analyticsAPI = {
   dashboard: () => api.get('/analytics/dashboard'),
 };

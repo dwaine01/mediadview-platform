@@ -161,6 +161,35 @@ class PaymentCreate(BaseModel):
     method: str = "card"
     card_last4: Optional[str] = None
 
+# Device / Player Models
+class DeviceRegister(BaseModel):
+    device_name: Optional[str] = None
+    device_model: Optional[str] = None
+    os_version: Optional[str] = None
+    app_version: Optional[str] = None
+    resolution: Optional[str] = None
+
+class DeviceHeartbeat(BaseModel):
+    status: str = "online"
+    current_media_id: Optional[str] = None
+    uptime_seconds: Optional[int] = None
+    free_storage_mb: Optional[int] = None
+    cached_media_count: Optional[int] = None
+    last_error: Optional[str] = None
+
+class DeviceActivate(BaseModel):
+    activation_code: str
+    screen_id: str
+    device_name: Optional[str] = None
+
+import random
+import string
+
+def gen_activation_code():
+    """Generate 6-char easy-to-read activation code (no ambiguous chars)"""
+    chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return ''.join(random.choices(chars, k=6))
+
 # ============ AUTH HELPERS ============
 
 def hash_password(password: str) -> str:
@@ -1007,6 +1036,227 @@ async def player_heartbeat(screen_id: str):
         "status": "online",
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080")
     }
+
+# ============ ROUTES: DEVICE MANAGEMENT (Player App) ============
+
+@api_router.post("/devices/register")
+async def register_device(data: DeviceRegister):
+    """Called by the Player App on first launch. Returns device_id + activation_code."""
+    code = gen_activation_code()
+    # Ensure code is unique
+    while await db.devices.find_one({"activation_code": code, "status": "pending"}):
+        code = gen_activation_code()
+
+    device = {
+        "id": gen_id(),
+        "activation_code": code,
+        "device_name": data.device_name or "MediaView Player",
+        "device_info": {
+            "model": data.device_model,
+            "os_version": data.os_version,
+            "app_version": data.app_version,
+            "resolution": data.resolution,
+        },
+        "screen_id": None,
+        "status": "pending",  # pending | active | offline | disabled
+        "last_heartbeat": datetime.utcnow(),
+        "last_sync": None,
+        "activated_at": None,
+        "errors": [],
+        "created_at": datetime.utcnow()
+    }
+    await db.devices.insert_one(device)
+    logger.info(f"Device registered: {device['id']} code={code}")
+    return {
+        "device_id": device["id"],
+        "activation_code": code,
+        "status": "pending",
+        "message": "Device registered. Enter the activation code in the admin panel to link this device to a screen."
+    }
+
+@api_router.get("/devices/{device_id}/check")
+async def check_device_activation(device_id: str):
+    """Polled by Player App to check if device has been activated by admin."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    result = {
+        "device_id": device["id"],
+        "activation_code": device.get("activation_code"),
+        "status": device.get("status"),
+        "screen_id": device.get("screen_id"),
+        "screen_name": None,
+        "activated_at": serialize_doc(device.get("activated_at")),
+    }
+
+    if device.get("screen_id"):
+        screen = await db.screens.find_one({"id": device["screen_id"]})
+        if screen:
+            result["screen_name"] = screen.get("name")
+            result["screen_resolution"] = screen.get("specs", {}).get("resolution", "1920x1080")
+
+    return result
+
+@api_router.post("/devices/{device_id}/heartbeat")
+async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
+    """Called periodically by the Player App to report status."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    update = {
+        "last_heartbeat": datetime.utcnow(),
+        "status": "active" if device.get("screen_id") else "pending",
+    }
+    if data.last_error:
+        update["last_error"] = data.last_error
+
+    await db.devices.update_one({"id": device_id}, {"$set": update})
+
+    # Return instructions for the player
+    response = {"status": "ok", "server_time": datetime.utcnow().isoformat()}
+    if device.get("screen_id"):
+        response["action"] = "play"
+        response["screen_id"] = device["screen_id"]
+    else:
+        response["action"] = "wait"
+
+    return response
+
+@api_router.get("/devices/{device_id}/playlist")
+async def device_playlist(device_id: str):
+    """Get playlist for an activated device. Used by the Player App."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    if not device.get("screen_id"):
+        return {"device_id": device_id, "status": "not_activated", "items": []}
+
+    screen_id = device["screen_id"]
+    screen = await db.screens.find_one({"id": screen_id})
+
+    now = datetime.utcnow()
+    cd = now.strftime("%Y-%m-%d")
+    ct = now.strftime("%H:%M")
+
+    campaigns = await db.campaigns.find({
+        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
+        "schedule.start_date": {"$lte": cd}, "schedule.end_date": {"$gte": cd}
+    }).to_list(100)
+
+    items = []
+    for c in campaigns:
+        s = c.get("schedule", {})
+        if s.get("start_time", "00:00") <= ct <= s.get("end_time", "23:59"):
+            for mid in c.get("media_ids", []):
+                media = await db.media.find_one({"id": mid})
+                if media:
+                    items.append({
+                        "campaign_id": c["id"],
+                        "media_id": media["id"],
+                        "filename": media.get("filename"),
+                        "content_type": media.get("content_type"),
+                        "size": media.get("size", 0),
+                        "duration": s.get("slot_duration", 15),
+                        "download_url": f"/api/player/media/{media['id']}",
+                        "checksum": media.get("id"),  # Use media_id as cache key
+                    })
+
+    # Update last_sync
+    await db.devices.update_one({"id": device_id}, {"$set": {"last_sync": datetime.utcnow()}})
+
+    return {
+        "device_id": device_id,
+        "screen_id": screen_id,
+        "screen_name": screen.get("name") if screen else "Unknown",
+        "resolution": screen.get("specs", {}).get("resolution", "1920x1080") if screen else "1920x1080",
+        "generated_at": now.isoformat(),
+        "total_items": len(items),
+        "items": items,
+        "loop": True,
+        "poll_interval_seconds": 60,
+    }
+
+# Admin: Device Management
+@api_router.get("/admin/devices")
+async def admin_list_devices(admin: dict = Depends(require_admin)):
+    """List all registered devices."""
+    devices = await db.devices.find({}).sort("created_at", -1).to_list(500)
+    enriched = []
+    for d in devices:
+        if d.get("screen_id"):
+            screen = await db.screens.find_one({"id": d["screen_id"]})
+            d["screen_name"] = screen.get("name") if screen else "Unknown"
+        else:
+            d["screen_name"] = None
+        enriched.append(d)
+    return serialize_doc(enriched)
+
+@api_router.post("/admin/devices/activate")
+async def admin_activate_device(data: DeviceActivate, admin: dict = Depends(require_admin)):
+    """Admin enters activation code to link device to a screen."""
+    device = await db.devices.find_one({
+        "activation_code": data.activation_code.upper(),
+        "status": "pending"
+    })
+    if not device:
+        raise HTTPException(status_code=404, detail="Invalid or already used activation code")
+
+    screen = await db.screens.find_one({"id": data.screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    # Check if screen already has a device
+    existing = await db.devices.find_one({"screen_id": data.screen_id, "status": "active"})
+    if existing:
+        # Deactivate old device
+        await db.devices.update_one(
+            {"id": existing["id"]},
+            {"$set": {"status": "disabled", "screen_id": None}}
+        )
+
+    await db.devices.update_one(
+        {"id": device["id"]},
+        {"$set": {
+            "screen_id": data.screen_id,
+            "status": "active",
+            "device_name": data.device_name or device.get("device_name"),
+            "activated_at": datetime.utcnow()
+        }}
+    )
+
+    logger.info(f"Device {device['id']} activated for screen {screen.get('name')}")
+    return {
+        "message": "Device activated successfully",
+        "device_id": device["id"],
+        "screen_id": data.screen_id,
+        "screen_name": screen.get("name")
+    }
+
+@api_router.delete("/admin/devices/{device_id}")
+async def admin_remove_device(device_id: str, admin: dict = Depends(require_admin)):
+    """Remove/deactivate a device."""
+    result = await db.devices.delete_one({"id": device_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return {"message": "Device removed"}
+
+@api_router.put("/admin/devices/{device_id}/reassign")
+async def admin_reassign_device(device_id: str, screen_id: str, admin: dict = Depends(require_admin)):
+    """Reassign a device to a different screen."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    await db.devices.update_one(
+        {"id": device_id},
+        {"$set": {"screen_id": screen_id, "status": "active"}}
+    )
+    return {"message": f"Device reassigned to {screen.get('name')}"}
 
 # ============ ROUTES: USER ANALYTICS ============
 
