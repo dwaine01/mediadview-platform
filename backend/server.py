@@ -781,10 +781,10 @@ async def web_player(screen_id: str):
     html += '<div id="hud"><h2>MediaView Player - Diagnostics</h2><div id="hc"></div><div class="ch">Press i or click to close</div></div>'
     html += """<script>
 (function(){
-var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin+'/api',PI=60000,HI=30000,V='2.0.0';
+var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin,PI=60000,HI=30000,V='2.0.0';
 var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false;
 function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
-async function fp(){try{var r=await fetch(AB+'/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
+async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
 if(pl.length>0&&!ip){sf(false);pn()}else if(pl.length===0){sf(true,'No campaigns scheduled','Waiting for active campaigns...')}
@@ -798,7 +798,7 @@ if(ii){var img=document.createElement('img');img.src=u;img.className='fi';img.on
 else{var vid=document.createElement('video');vid.src=u;vid.autoplay=true;vid.muted=false;vid.playsInline=true;vid.className='fi';vid.onended=pn;vid.onerror=function(){log('error','Vid fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(vid);pt=setTimeout(pn,Math.max((it.duration||15)*1e3,6e4))}
 usb();log('info','Play: '+it.filename+' ('+(ci+1)+'/'+pl.length+')')}
 function sf(s,m,su){var el=document.getElementById('fb');el.style.display=s?'flex':'none';if(m)document.getElementById('fbs').textContent=m;if(su)document.getElementById('fbu').textContent=su;if(s)ip=false}
-async function hb(){try{await fetch(AB+'/player/'+SID+'/status')}catch(e){}}
+async function hb(){try{await fetch(AB+'/api/player/'+SID+'/status')}catch(e){}}
 function usb(){var i=pl.length>0?'Item '+(ci+1)+'/'+pl.length+(io?' [OFFLINE]':''):'No content';document.getElementById('sbi').textContent=i;document.getElementById('sbd').style.background=io?'#F59E0B':'#10B981'}
 function ssb(){var b=document.getElementById('sb');b.classList.add('v');document.body.classList.add('sc');clearTimeout(window._sbt);window._sbt=setTimeout(function(){b.classList.remove('v');document.body.classList.remove('sc')},6e3)}
 function th(){hv=!hv;document.getElementById('hud').classList.toggle('v',hv);if(hv)rh()}
