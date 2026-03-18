@@ -1,16 +1,17 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
-  View, Text, StyleSheet, Image, Dimensions, AppState,
-  TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, Image, Dimensions, TouchableOpacity,
+  ActivityIndicator, AppState,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { devicesAPI } from '../../src/services/api';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 
 const { width: SW, height: SH } = Dimensions.get('window');
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
-interface PlaylistItem {
+interface MediaItem {
   campaign_id: string;
   media_id: string;
   filename: string;
@@ -18,170 +19,232 @@ interface PlaylistItem {
   duration: number;
   download_url: string;
   size: number;
+  checksum: string;
 }
 
-export default function PlayerDisplayScreen() {
+export default function PlayerDisplay() {
   const router = useRouter();
-  const [playlist, setPlaylist] = useState<PlaylistItem[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [playlist, setPlaylist] = useState<MediaItem[]>([]);
+  const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [offline, setOffline] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [showOverlay, setShowOverlay] = useState(false);
-  const [lastSync, setLastSync] = useState<string>('');
+  const [lastSync, setLastSync] = useState('');
   const [deviceId, setDeviceId] = useState('');
+  const [screenName, setScreenName] = useState('');
+  const [uptime, setUptime] = useState(0);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const heartbeatRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const overlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<any>(null);
+  const pollRef = useRef<any>(null);
+  const heartbeatRef = useRef<any>(null);
+  const uptimeRef = useRef<any>(null);
+  const overlayRef = useRef<any>(null);
+  const startTime = useRef(Date.now());
+  const retryCount = useRef(0);
 
   useEffect(() => {
+    activateKeepAwakeAsync().catch(() => {});
     init();
     return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-      if (pollRef.current) clearInterval(pollRef.current);
-      if (heartbeatRef.current) clearInterval(heartbeatRef.current);
+      deactivateKeepAwake();
+      [timerRef, pollRef, heartbeatRef, uptimeRef].forEach(r => {
+        if (r.current) clearInterval(r.current);
+      });
     };
   }, []);
 
+  // Track app state for reconnection
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && deviceId) {
+        fetchPlaylist(deviceId);
+      }
+    });
+    return () => sub.remove();
+  }, [deviceId]);
+
   const init = async () => {
-    const id = await AsyncStorage.getItem('player_device_id');
+    const id = await AsyncStorage.getItem('mv_device_id');
     if (!id) { router.replace('/player'); return; }
     setDeviceId(id);
     await fetchPlaylist(id);
 
-    // Poll for playlist updates every 60s
     pollRef.current = setInterval(() => fetchPlaylist(id), 60000);
-    // Send heartbeat every 30s
     heartbeatRef.current = setInterval(() => sendHeartbeat(id), 30000);
+    uptimeRef.current = setInterval(() => {
+      setUptime(Math.floor((Date.now() - startTime.current) / 1000));
+    }, 1000);
   };
 
   const fetchPlaylist = async (id: string) => {
     try {
       const res = await devicesAPI.playlist(id);
-      const items = res.data.items || [];
+      const items: MediaItem[] = res.data.items || [];
       setOffline(false);
       setLastSync(new Date().toLocaleTimeString());
+      setScreenName(res.data.screen_name || '');
+      retryCount.current = 0;
+      setErrorMsg(null);
 
-      // Cache playlist
-      await AsyncStorage.setItem('player_cached_playlist', JSON.stringify(items));
+      await AsyncStorage.setItem('mv_cached_playlist', JSON.stringify(items));
 
-      if (JSON.stringify(items.map((i: any) => i.media_id)) !== JSON.stringify(playlist.map(i => i.media_id))) {
+      const newIds = items.map(i => i.media_id).join(',');
+      const oldIds = playlist.map(i => i.media_id).join(',');
+      if (newIds !== oldIds) {
         setPlaylist(items);
-        setCurrentIndex(0);
+        if (items.length > 0) setIdx(0);
       }
       setLoading(false);
-    } catch (e) {
+    } catch (e: any) {
       setOffline(true);
-      // Try cached playlist
-      try {
-        const cached = await AsyncStorage.getItem('player_cached_playlist');
-        if (cached) {
-          const items = JSON.parse(cached);
-          if (items.length > 0 && playlist.length === 0) {
-            setPlaylist(items);
-            setCurrentIndex(0);
+      retryCount.current++;
+      setErrorMsg(`Connection lost (retry #${retryCount.current})`);
+
+      // Load from cache
+      if (playlist.length === 0) {
+        try {
+          const cached = await AsyncStorage.getItem('mv_cached_playlist');
+          if (cached) {
+            const items = JSON.parse(cached);
+            if (items.length > 0) {
+              setPlaylist(items);
+              setIdx(0);
+            }
           }
-        }
-      } catch (ce) {}
+        } catch (ce) {}
+      }
       setLoading(false);
+
+      // Send error log
+      try {
+        await devicesAPI.heartbeat(id, { status: 'error', last_error: `Playlist fetch failed: ${e.message}` });
+      } catch (he) {}
     }
   };
 
   const sendHeartbeat = async (id: string) => {
     try {
-      await devicesAPI.heartbeat(id, {
-        status: 'online',
-        current_media_id: playlist[currentIndex]?.media_id || null,
+      const res = await devicesAPI.heartbeat(id, {
+        status: offline ? 'degraded' : 'online',
+        current_media_id: playlist[idx]?.media_id || null,
         cached_media_count: playlist.length,
+        uptime_seconds: Math.floor((Date.now() - startTime.current) / 1000),
+        app_version: '1.0.0',
       });
+      // Check if server wants us to do something
+      if (res.data.action === 'wait') {
+        // Device was unlinked - go back to activation
+        router.replace('/player/activate');
+      }
     } catch (e) {}
   };
 
-  // Auto-advance to next item
+  // Auto-advance
   useEffect(() => {
     if (playlist.length === 0) return;
-    const item = playlist[currentIndex];
+    const item = playlist[idx];
     if (!item) return;
-
-    const duration = (item.duration || 15) * 1000;
+    const dur = (item.duration || 15) * 1000;
     timerRef.current = setTimeout(() => {
-      setCurrentIndex(prev => (prev + 1) % playlist.length);
-    }, duration);
-
+      setIdx(prev => (prev + 1) % playlist.length);
+    }, dur);
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, [currentIndex, playlist]);
+  }, [idx, playlist]);
 
-  const handlePress = () => {
+  const toggleOverlay = () => {
     setShowOverlay(true);
-    if (overlayTimerRef.current) clearTimeout(overlayTimerRef.current);
-    overlayTimerRef.current = setTimeout(() => setShowOverlay(false), 5000);
+    if (overlayRef.current) clearTimeout(overlayRef.current);
+    overlayRef.current = setTimeout(() => setShowOverlay(false), 6000);
   };
 
-  const currentItem = playlist[currentIndex];
-  const mediaUrl = currentItem ? `${API_URL}/api${currentItem.download_url}` : null;
+  const formatUptime = (s: number) => {
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return `${h}h ${m}m`;
+  };
 
+  const item = playlist[idx];
+  const mediaUrl = item ? `${API_URL}/api${item.download_url}` : null;
+
+  // Loading state
   if (loading) {
     return (
       <View style={styles.container}>
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading content...</Text>
+        <View style={styles.loadingBox}>
+          <ActivityIndicator size="large" color="#6366F1" />
+          <Text style={styles.loadingText}>Loading content...</Text>
+        </View>
       </View>
     );
   }
 
+  // No content - fallback screen
   if (playlist.length === 0) {
     return (
-      <View style={styles.container}>
-        <View style={styles.noContent}>
-          <View style={styles.noContentIcon}>
-            <Text style={styles.noContentIconText}>TV</Text>
+      <TouchableOpacity style={styles.container} activeOpacity={1} onPress={toggleOverlay}>
+        <View style={styles.fallback}>
+          <View style={styles.fallbackLogo}>
+            <Text style={styles.fallbackLogoText}>MV</Text>
           </View>
-          <Text style={styles.noContentTitle}>MediaView Player</Text>
-          <Text style={styles.noContentSub}>No content scheduled</Text>
-          <Text style={styles.noContentInfo}>Waiting for campaigns to be assigned...</Text>
-          {offline && <Text style={styles.offlineBadge}>OFFLINE</Text>}
+          <Text style={styles.fallbackTitle}>MediaView</Text>
+          <Text style={styles.fallbackSub}>{screenName || 'Digital Signage'}</Text>
+          <View style={styles.fallbackDivider} />
+          <Text style={styles.fallbackStatus}>
+            {offline ? 'Offline - Waiting for connection...' : 'No campaigns scheduled'}
+          </Text>
+          {offline && <Text style={styles.fallbackRetry}>Auto-retry every 60s</Text>}
         </View>
-        <TouchableOpacity style={styles.infoBtn} onPress={() => router.push('/player/info')}>
-          <Text style={styles.infoBtnText}>Info</Text>
-        </TouchableOpacity>
-      </View>
+        {showOverlay && (
+          <View style={styles.overlayBar}>
+            <TouchableOpacity onPress={() => router.push('/player/info')} style={styles.overlayInfoBtn}>
+              <Text style={styles.overlayInfoText}>Device Info</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
     );
   }
 
+  // Playing content
   return (
-    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={handlePress}>
-      {currentItem?.content_type?.startsWith('image/') ? (
+    <TouchableOpacity style={styles.container} activeOpacity={1} onPress={toggleOverlay}>
+      {item?.content_type?.startsWith('image/') ? (
         <Image
           source={{ uri: mediaUrl || '' }}
-          style={styles.fullMedia}
+          style={styles.fullscreen}
           resizeMode="contain"
         />
       ) : (
-        <View style={styles.fullMedia}>
-          <Text style={styles.videoPlaceholder}>Video: {currentItem?.filename}</Text>
+        <View style={styles.fullscreen}>
+          <Text style={styles.videoLabel}>Video: {item?.filename}</Text>
         </View>
       )}
 
-      {/* Status Overlay */}
+      {/* HUD Overlay */}
       {showOverlay && (
         <View style={styles.overlay}>
           <View style={styles.overlayTop}>
-            <View style={styles.overlayLogo}>
-              <Text style={styles.overlayLogoText}>TV</Text>
+            <View style={styles.overlayBrand}>
+              <View style={styles.overlayMiniLogo}><Text style={styles.overlayLogoT}>MV</Text></View>
+              <Text style={styles.overlayBrandName}>MediaView Player</Text>
             </View>
-            <Text style={styles.overlayTitle}>MediaView Player</Text>
             <View style={{ flex: 1 }} />
-            {offline && <Text style={styles.offlineTag}>OFFLINE</Text>}
-            <Text style={styles.overlaySync}>Sync: {lastSync}</Text>
+            {offline && (
+              <View style={styles.offlinePill}>
+                <Text style={styles.offlinePillText}>OFFLINE</Text>
+              </View>
+            )}
+            <Text style={styles.overlayMeta}>Uptime: {formatUptime(uptime)}</Text>
+            <Text style={styles.overlayMeta}>Sync: {lastSync}</Text>
           </View>
           <View style={styles.overlayBottom}>
             <Text style={styles.overlayInfo}>
-              {currentIndex + 1}/{playlist.length} | {currentItem?.filename} | {currentItem?.duration}s
+              {idx + 1}/{playlist.length} | {item?.filename} | {item?.duration}s
             </Text>
-            <TouchableOpacity style={styles.overlayInfoBtn} onPress={() => router.push('/player/info')}>
-              <Text style={styles.overlayInfoBtnText}>Device Info</Text>
+            <Text style={styles.overlayScreen}>{screenName}</Text>
+            <TouchableOpacity onPress={() => router.push('/player/info')} style={styles.overlayInfoBtn}>
+              <Text style={styles.overlayInfoText}>Device Info</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -191,49 +254,53 @@ export default function PlayerDisplayScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000000', justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#000' },
+  loadingBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: '#64748B', fontSize: 16, marginTop: 16 },
-  noContent: { alignItems: 'center' },
-  noContentIcon: {
+  fullscreen: { width: SW, height: SH, justifyContent: 'center', alignItems: 'center' },
+  videoLabel: { color: '#FFF', fontSize: 20 },
+  // Fallback
+  fallback: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#09090F' },
+  fallbackLogo: {
     width: 80, height: 80, borderRadius: 20, backgroundColor: '#1E1B4B',
     justifyContent: 'center', alignItems: 'center', marginBottom: 20,
+    borderWidth: 2, borderColor: '#312E81',
   },
-  noContentIconText: { fontSize: 28, fontWeight: '800', color: '#4F46E5' },
-  noContentTitle: { fontSize: 32, fontWeight: '700', color: '#FFFFFF' },
-  noContentSub: { fontSize: 18, color: '#64748B', marginTop: 8 },
-  noContentInfo: { fontSize: 14, color: '#475569', marginTop: 4 },
-  offlineBadge: {
-    fontSize: 12, fontWeight: '700', color: '#F59E0B', backgroundColor: '#422006',
-    paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, marginTop: 16,
-  },
-  infoBtn: { position: 'absolute', bottom: 30, right: 30 },
-  infoBtnText: { fontSize: 13, color: '#334155' },
-  fullMedia: { width: SW, height: SH },
-  videoPlaceholder: { color: '#FFF', fontSize: 24, textAlign: 'center', marginTop: SH / 2 - 20 },
-  overlay: {
-    ...StyleSheet.absoluteFillObject, justifyContent: 'space-between',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-  },
+  fallbackLogoText: { fontSize: 28, fontWeight: '900', color: '#6366F1' },
+  fallbackTitle: { fontSize: 36, fontWeight: '800', color: '#E2E8F0' },
+  fallbackSub: { fontSize: 16, color: '#6366F1', marginTop: 4 },
+  fallbackDivider: { width: 80, height: 2, backgroundColor: '#1E293B', marginVertical: 24 },
+  fallbackStatus: { fontSize: 15, color: '#64748B' },
+  fallbackRetry: { fontSize: 12, color: '#475569', marginTop: 4 },
+  // Overlay
+  overlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.75)', justifyContent: 'space-between' },
   overlayTop: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingHorizontal: 24, paddingTop: 24,
+    paddingHorizontal: 28, paddingTop: 24,
   },
-  overlayLogo: {
-    width: 36, height: 36, borderRadius: 8, backgroundColor: '#4F46E5',
+  overlayBrand: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  overlayMiniLogo: {
+    width: 30, height: 30, borderRadius: 6, backgroundColor: '#4F46E5',
     justifyContent: 'center', alignItems: 'center',
   },
-  overlayLogoText: { fontSize: 12, fontWeight: '800', color: '#FFF' },
-  overlayTitle: { fontSize: 16, fontWeight: '700', color: '#FFFFFF' },
-  overlaySync: { fontSize: 12, color: '#94A3B8' },
-  offlineTag: {
-    fontSize: 11, fontWeight: '700', color: '#F59E0B', backgroundColor: '#422006',
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 4, marginRight: 12,
+  overlayLogoT: { fontSize: 10, fontWeight: '900', color: '#FFF' },
+  overlayBrandName: { fontSize: 14, fontWeight: '700', color: '#E2E8F0' },
+  overlayMeta: { fontSize: 12, color: '#94A3B8', marginLeft: 16 },
+  offlinePill: {
+    backgroundColor: '#7C2D12', paddingHorizontal: 10, paddingVertical: 3,
+    borderRadius: 6, marginRight: 8,
   },
+  offlinePillText: { fontSize: 10, fontWeight: '800', color: '#FB923C' },
   overlayBottom: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 24, paddingBottom: 24,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    paddingHorizontal: 28, paddingBottom: 24,
   },
-  overlayInfo: { fontSize: 14, color: '#94A3B8' },
+  overlayInfo: { fontSize: 13, color: '#94A3B8', flex: 1 },
+  overlayScreen: { fontSize: 13, color: '#6366F1', fontWeight: '600' },
   overlayInfoBtn: { backgroundColor: '#1E293B', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  overlayInfoBtnText: { fontSize: 13, fontWeight: '600', color: '#FFFFFF' },
+  overlayInfoText: { fontSize: 13, fontWeight: '600', color: '#E2E8F0' },
+  overlayBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)', padding: 16, alignItems: 'flex-end',
+  },
 });

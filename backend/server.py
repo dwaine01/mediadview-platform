@@ -168,6 +168,9 @@ class DeviceRegister(BaseModel):
     os_version: Optional[str] = None
     app_version: Optional[str] = None
     resolution: Optional[str] = None
+    platform: Optional[str] = None  # android_tv, fire_tv, tizen, webos
+    ip_address: Optional[str] = None
+    mac_address: Optional[str] = None
 
 class DeviceHeartbeat(BaseModel):
     status: str = "online"
@@ -176,11 +179,21 @@ class DeviceHeartbeat(BaseModel):
     free_storage_mb: Optional[int] = None
     cached_media_count: Optional[int] = None
     last_error: Optional[str] = None
+    ip_address: Optional[str] = None
+    cpu_usage: Optional[float] = None
+    memory_usage: Optional[float] = None
+    app_version: Optional[str] = None
+    temperature: Optional[float] = None
 
 class DeviceActivate(BaseModel):
     activation_code: str
     screen_id: str
     device_name: Optional[str] = None
+
+class DeviceLog(BaseModel):
+    level: str = "info"  # info, warn, error, crash
+    message: str
+    details: Optional[str] = None
 
 import random
 import string
@@ -1100,7 +1113,7 @@ async def check_device_activation(device_id: str):
 
 @api_router.post("/devices/{device_id}/heartbeat")
 async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
-    """Called periodically by the Player App to report status."""
+    """Called periodically by the Player App to report status and diagnostics."""
     device = await db.devices.find_one({"id": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
@@ -1108,6 +1121,17 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     update = {
         "last_heartbeat": datetime.utcnow(),
         "status": "active" if device.get("screen_id") else "pending",
+        "diagnostics": {
+            "uptime_seconds": data.uptime_seconds,
+            "free_storage_mb": data.free_storage_mb,
+            "cached_media_count": data.cached_media_count,
+            "cpu_usage": data.cpu_usage,
+            "memory_usage": data.memory_usage,
+            "ip_address": data.ip_address,
+            "app_version": data.app_version,
+            "temperature": data.temperature,
+            "reported_at": datetime.utcnow(),
+        }
     }
     if data.last_error:
         update["last_error"] = data.last_error
@@ -1115,7 +1139,11 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     await db.devices.update_one({"id": device_id}, {"$set": update})
 
     # Return instructions for the player
-    response = {"status": "ok", "server_time": datetime.utcnow().isoformat()}
+    response = {
+        "status": "ok",
+        "server_time": datetime.utcnow().isoformat(),
+        "poll_interval_seconds": 60,
+    }
     if device.get("screen_id"):
         response["action"] = "play"
         response["screen_id"] = device["screen_id"]
@@ -1123,6 +1151,62 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
         response["action"] = "wait"
 
     return response
+
+@api_router.post("/devices/{device_id}/log")
+async def device_log(device_id: str, data: DeviceLog):
+    """Player App sends logs (errors, crashes, info) to server."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    log_entry = {
+        "id": gen_id(),
+        "device_id": device_id,
+        "level": data.level,
+        "message": data.message,
+        "details": data.details,
+        "created_at": datetime.utcnow()
+    }
+    await db.device_logs.insert_one(log_entry)
+
+    # If crash, update device status
+    if data.level == "crash":
+        await db.devices.update_one(
+            {"id": device_id},
+            {"$set": {"last_error": data.message}}
+        )
+
+    return {"status": "logged"}
+
+@api_router.get("/admin/devices/{device_id}/logs")
+async def admin_device_logs(device_id: str, limit: int = 50, admin: dict = Depends(require_admin)):
+    """Get recent logs for a device."""
+    logs = await db.device_logs.find({"device_id": device_id}).sort("created_at", -1).to_list(limit)
+    return serialize_doc(logs)
+
+@api_router.get("/admin/devices/{device_id}/diagnostics")
+async def admin_device_diagnostics(device_id: str, admin: dict = Depends(require_admin)):
+    """Get full diagnostics for a device."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    screen = None
+    if device.get("screen_id"):
+        screen = await db.screens.find_one({"id": device["screen_id"]})
+
+    recent_logs = await db.device_logs.find({"device_id": device_id}).sort("created_at", -1).to_list(10)
+    error_count = await db.device_logs.count_documents({"device_id": device_id, "level": {"$in": ["error", "crash"]}})
+
+    return {
+        "device": serialize_doc(device),
+        "screen": serialize_doc(screen),
+        "diagnostics": device.get("diagnostics", {}),
+        "recent_logs": serialize_doc(recent_logs),
+        "error_count": error_count,
+        "is_online": device.get("last_heartbeat") and
+            (datetime.utcnow() - device["last_heartbeat"]).total_seconds() < 120,
+    }
 
 @api_router.get("/devices/{device_id}/playlist")
 async def device_playlist(device_id: str):
