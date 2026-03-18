@@ -189,11 +189,21 @@ class DeviceActivate(BaseModel):
     activation_code: str
     screen_id: str
     device_name: Optional[str] = None
+    tier: Optional[str] = None  # "tv_direct" or "player_dedicated"
 
 class DeviceLog(BaseModel):
-    level: str = "info"  # info, warn, error, crash
+    level: str = "info"
     message: str
     details: Optional[str] = None
+
+class DeviceProvision(BaseModel):
+    """Pre-provision a device before shipping (MediaView Player Dedicated)"""
+    device_name: str
+    screen_id: str
+    server_url: str
+    tier: str = "player_dedicated"
+    reboot_time: str = "03:00"  # Nightly reboot time (HH:MM)
+    notes: Optional[str] = None
 
 import random
 import string
@@ -1116,6 +1126,10 @@ async def device_playlist(device_id: str):
         "items": items,
         "loop": True,
         "poll_interval_seconds": 60,
+        "config": {
+            "reboot_time": device.get("reboot_time", "03:00"),
+            "tier": device.get("tier", "tv_direct"),
+        }
     }
 
 # Admin: Device Management
@@ -1162,16 +1176,57 @@ async def admin_activate_device(data: DeviceActivate, admin: dict = Depends(requ
             "screen_id": data.screen_id,
             "status": "active",
             "device_name": data.device_name or device.get("device_name"),
+            "tier": data.tier or "tv_direct",
+            "reboot_time": "03:00",
             "activated_at": datetime.utcnow()
         }}
     )
 
-    logger.info(f"Device {device['id']} activated for screen {screen.get('name')}")
+    logger.info(f"Device {device['id']} activated for screen {screen.get('name')} (tier: {data.tier or 'tv_direct'})")
     return {
         "message": "Device activated successfully",
         "device_id": device["id"],
         "screen_id": data.screen_id,
-        "screen_name": screen.get("name")
+        "screen_name": screen.get("name"),
+        "tier": data.tier or "tv_direct"
+    }
+
+@api_router.post("/admin/devices/provision")
+async def admin_provision_device(data: DeviceProvision, admin: dict = Depends(require_admin)):
+    """Pre-provision a device for the MediaView Player Dedicated line.
+    Creates a device record with pre-assigned screen, ready for first boot."""
+    screen = await db.screens.find_one({"id": data.screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    code = gen_activation_code()
+    device = {
+        "id": gen_id(),
+        "activation_code": code,
+        "device_name": data.device_name,
+        "device_info": {"provisioned": True, "server_url": data.server_url},
+        "screen_id": data.screen_id,
+        "status": "provisioned",
+        "tier": data.tier,
+        "reboot_time": data.reboot_time,
+        "notes": data.notes,
+        "last_heartbeat": None,
+        "last_sync": None,
+        "activated_at": datetime.utcnow(),
+        "created_at": datetime.utcnow()
+    }
+    await db.devices.insert_one(device)
+
+    logger.info(f"Device pre-provisioned: {device['id']} for screen {screen.get('name')}")
+    return {
+        "message": "Device pre-provisioned",
+        "device_id": device["id"],
+        "activation_code": code,
+        "screen_id": data.screen_id,
+        "screen_name": screen.get("name"),
+        "tier": data.tier,
+        "setup_url": f"{data.server_url}/api/player/{data.screen_id}/web",
+        "adb_command": f'adb shell am start -n com.mediaview.player/.MainActivity --es server_url "{data.server_url}" --es screen_id "{data.screen_id}"',
     }
 
 @api_router.delete("/admin/devices/{device_id}")
