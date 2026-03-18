@@ -112,7 +112,7 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#F1F5F9' },
+  flex: { flex: 1, backgroundColor: '#0B0F1A' },
   container: {
     flexGrow: 1,
     paddingHorizontal: 24,
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 16,
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
@@ -134,7 +134,7 @@ const styles = StyleSheet.create({
   logoText: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#0F172A',
+    color: '#F1F5F9',
     letterSpacing: -0.5,
   },
   tagline: {
@@ -143,19 +143,16 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#111827',
     borderRadius: 20,
     padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#1E293B',
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#0F172A',
+    color: '#F1F5F9',
     marginBottom: 4,
   },
   subtitle: {
@@ -169,15 +166,15 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
+    color: '#94A3B8',
     marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#1F2937',
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: '#374151',
     borderRadius: 12,
     paddingHorizontal: 12,
   },
@@ -188,13 +185,13 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#0F172A',
+    color: '#F1F5F9',
   },
   eyeIcon: {
     padding: 4,
   },
   button: {
-    backgroundColor: '#4F46E5',
+    backgroundColor: '#6366F1',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
