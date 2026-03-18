@@ -16,166 +16,80 @@ export default function RegisterScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [company, setCompany] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
 
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-    if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters');
-      return;
-    }
-    try {
-      await register(name.trim(), email.trim(), password, company.trim() || undefined);
-      router.replace('/(tabs)');
-    } catch (error: any) {
-      Alert.alert('Registration Failed', error.message);
-    }
+    if (!name.trim() || !email.trim() || !password.trim()) { Alert.alert('Error', 'Fill in all required fields'); return; }
+    if (password.length < 6) { Alert.alert('Error', 'Password must be 6+ characters'); return; }
+    try { await register(name.trim(), email.trim(), password, company.trim() || undefined); router.replace('/(tabs)'); }
+    catch (e: any) { Alert.alert('Registration Failed', e.message); }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView
-        contentContainerStyle={[styles.container, { paddingTop: insets.top + 40 }]}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.logoContainer}>
-          <View style={styles.logoIcon}>
-            <Ionicons name="tv" size={32} color="#FFFFFF" />
-          </View>
-          <Text style={styles.logoText}>MediaView</Text>
+    <KeyboardAvoidingView style={$.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView contentContainerStyle={[$.container, { paddingTop: insets.top + 40 }]} keyboardShouldPersistTaps="handled">
+        <View style={$.logo}>
+          <View style={$.logoIcon}><Ionicons name="tv" size={28} color="#FFF" /></View>
+          <Text style={$.logoText}>MediaView</Text>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Start advertising on digital screens</Text>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Full Name *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="person-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="John Doe"
-                placeholderTextColor="#94A3B8"
-                value={name}
-                onChangeText={setName}
-              />
+        <View style={$.card}>
+          <Text style={$.title}>Create Account</Text>
+          <Text style={$.subtitle}>Start advertising on digital screens</Text>
+          {[{l:'Full Name *',v:name,s:setName,p:'John Doe',i:'person-outline'},
+            {l:'Email *',v:email,s:setEmail,p:'your@email.com',i:'mail-outline',k:'email-address' as any},
+          ].map((f,i) => (
+            <View key={i} style={$.group}>
+              <Text style={$.label}>{f.l}</Text>
+              <View style={$.inputW}>
+                <Ionicons name={f.i as any} size={20} color="#64748B" style={{marginRight:8}} />
+                <TextInput style={$.input} placeholder={f.p} placeholderTextColor="#475569" value={f.v} onChangeText={f.s} keyboardType={f.k} autoCapitalize={f.k?'none':undefined} />
+              </View>
+            </View>
+          ))}
+          <View style={$.group}>
+            <Text style={$.label}>Password *</Text>
+            <View style={$.inputW}>
+              <Ionicons name="lock-closed-outline" size={20} color="#64748B" style={{marginRight:8}} />
+              <TextInput style={$.input} placeholder="Min 6 characters" placeholderTextColor="#475569" value={password} onChangeText={setPassword} secureTextEntry={!showPwd} />
+              <TouchableOpacity onPress={() => setShowPwd(!showPwd)}><Ionicons name={showPwd?'eye-off-outline':'eye-outline'} size={20} color="#64748B" /></TouchableOpacity>
             </View>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="mail-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="your@email.com"
-                placeholderTextColor="#94A3B8"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
+          <View style={$.group}>
+            <Text style={$.label}>Company (Optional)</Text>
+            <View style={$.inputW}>
+              <Ionicons name="business-outline" size={20} color="#64748B" style={{marginRight:8}} />
+              <TextInput style={$.input} placeholder="Your company" placeholderTextColor="#475569" value={company} onChangeText={setCompany} />
             </View>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Password *</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="lock-closed-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Min 6 characters"
-                placeholderTextColor="#94A3B8"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Company Name (Optional)</Text>
-            <View style={styles.inputWrapper}>
-              <Ionicons name="business-outline" size={20} color="#94A3B8" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Your company"
-                placeholderTextColor="#94A3B8"
-                value={company}
-                onChangeText={setCompany}
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity
-            style={[styles.button, isLoading && styles.buttonDisabled]}
-            onPress={handleRegister}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.buttonText}>Create Account</Text>
-            )}
+          <TouchableOpacity style={[$.btn, isLoading && $.btnDis]} onPress={handleRegister} disabled={isLoading}>
+            {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={$.btnT}>Create Account</Text>}
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity
-          style={styles.linkContainer}
-          onPress={() => router.back()}
-        >
-          <Text style={styles.linkText}>
-            Already have an account? <Text style={styles.linkBold}>Sign In</Text>
-          </Text>
+        <TouchableOpacity style={$.link} onPress={() => router.back()}>
+          <Text style={$.linkT}>Already have an account? <Text style={$.linkB}>Sign In</Text></Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#F1F5F9' },
+const $ = StyleSheet.create({
+  flex: { flex: 1, backgroundColor: '#0B0F1A' },
   container: { flexGrow: 1, paddingHorizontal: 24, paddingBottom: 40 },
-  logoContainer: { alignItems: 'center', marginBottom: 32 },
-  logoIcon: {
-    width: 56, height: 56, borderRadius: 14,
-    backgroundColor: '#4F46E5', justifyContent: 'center', alignItems: 'center', marginBottom: 8,
-  },
-  logoText: { fontSize: 24, fontWeight: '800', color: '#0F172A' },
-  card: {
-    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 12, elevation: 3,
-  },
-  title: { fontSize: 24, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  logo: { alignItems: 'center', marginBottom: 32 },
+  logoIcon: { width: 56, height: 56, borderRadius: 14, backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  logoText: { fontSize: 24, fontWeight: '800', color: '#F1F5F9' },
+  card: { backgroundColor: '#111827', borderRadius: 20, padding: 24, borderWidth: 1, borderColor: '#1E293B' },
+  title: { fontSize: 24, fontWeight: '700', color: '#F1F5F9', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#64748B', marginBottom: 24 },
-  inputGroup: { marginBottom: 14 },
-  label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
-  inputWrapper: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
-    borderRadius: 12, paddingHorizontal: 12,
-  },
-  inputIcon: { marginRight: 8 },
-  input: { flex: 1, paddingVertical: 14, fontSize: 16, color: '#0F172A' },
-  eyeIcon: { padding: 4 },
-  button: {
-    backgroundColor: '#4F46E5', borderRadius: 12,
-    paddingVertical: 16, alignItems: 'center', marginTop: 8,
-  },
-  buttonDisabled: { opacity: 0.7 },
-  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  linkContainer: { alignItems: 'center', marginTop: 24 },
-  linkText: { fontSize: 14, color: '#64748B' },
-  linkBold: { color: '#4F46E5', fontWeight: '700' },
+  group: { marginBottom: 14 },
+  label: { fontSize: 13, fontWeight: '600', color: '#94A3B8', marginBottom: 6 },
+  inputW: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1F2937', borderWidth: 1, borderColor: '#374151', borderRadius: 12, paddingHorizontal: 12 },
+  input: { flex: 1, paddingVertical: 14, fontSize: 16, color: '#F1F5F9' },
+  btn: { backgroundColor: '#6366F1', borderRadius: 12, paddingVertical: 16, alignItems: 'center', marginTop: 8 },
+  btnDis: { opacity: 0.7 },
+  btnT: { color: '#FFF', fontSize: 16, fontWeight: '700' },
+  link: { alignItems: 'center', marginTop: 24 },
+  linkT: { fontSize: 14, color: '#64748B' },
+  linkB: { color: '#818CF8', fontWeight: '700' },
 });

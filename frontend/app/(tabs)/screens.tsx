@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, ActivityIndicator, TextInput,
+  RefreshControl, ActivityIndicator, TextInput, Dimensions, Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,30 +10,28 @@ import { screensAPI } from '../../src/services/api';
 import { Screen } from '../../src/types';
 import { CITY_COLORS } from '../../src/constants/theme';
 
+const { width: SW } = Dimensions.get('window');
+const W = Platform.OS === 'web' && SW > 860;
+
 export default function ScreensScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [screens, setScreens] = useState<Screen[]>([]);
   const [cities, setCities] = useState<string[]>([]);
-  const [selectedCity, setSelectedCity] = useState<string>('');
+  const [selectedCity, setSelectedCity] = useState('');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [screensRes, citiesRes] = await Promise.all([
+      const [sr, cr] = await Promise.all([
         screensAPI.list(selectedCity ? { city: selectedCity } : {}),
         screensAPI.getCities(),
       ]);
-      setScreens(screensRes.data);
-      setCities(citiesRes.data);
-    } catch (e) {
-      console.log('Screens fetch error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      setScreens(sr.data);
+      setCities(cr.data);
+    } catch (e) {} finally { setLoading(false); setRefreshing(false); }
   }, [selectedCity]);
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);
@@ -42,96 +40,63 @@ export default function ScreensScreen() {
     s.name.toLowerCase().includes(search.toLowerCase()) ||
     s.location?.city?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const getCityColor = (city: string) => CITY_COLORS[city] || '#4F46E5';
+  const getC = (city: string) => CITY_COLORS[city] || '#6366F1';
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top }]}>
-      <View style={styles.headerSection}>
-        <Text style={styles.title}>Screen Marketplace</Text>
-        <Text style={styles.subtitle}>{screens.length} screens available</Text>
+    <View style={[$.ct, { paddingTop: W ? 28 : insets.top }]}>
+      <View style={[$.hd, { paddingHorizontal: W ? 32 : 16 }]}>
+        <View>
+          <Text style={$.title}>Screen Marketplace</Text>
+          <Text style={$.sub}>{screens.length} screens available</Text>
+        </View>
+      </View>
 
-        <View style={styles.searchWrapper}>
-          <Ionicons name="search" size={18} color="#94A3B8" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search screens..."
-            placeholderTextColor="#94A3B8"
-            value={search}
-            onChangeText={setSearch}
-          />
-          {search ? (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Ionicons name="close-circle" size={18} color="#94A3B8" />
-            </TouchableOpacity>
-          ) : null}
+      <View style={{ paddingHorizontal: W ? 32 : 16 }}>
+        <View style={$.search}>
+          <Ionicons name="search" size={18} color="#64748B" />
+          <TextInput style={$.searchInput} placeholder="Search screens..." placeholderTextColor="#475569" value={search} onChangeText={setSearch} />
+          {search ? <TouchableOpacity onPress={() => setSearch('')}><Ionicons name="close-circle" size={18} color="#475569" /></TouchableOpacity> : null}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.cityFilter}>
-          <TouchableOpacity
-            style={[styles.cityChip, !selectedCity && styles.cityChipActive]}
-            onPress={() => setSelectedCity('')}
-          >
-            <Text style={[styles.cityChipText, !selectedCity && styles.cityChipTextActive]}>All Cities</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 40 }}>
+          <TouchableOpacity style={[$.chip, !selectedCity && $.chipA]} onPress={() => setSelectedCity('')}>
+            <Text style={[$.chipT, !selectedCity && $.chipTA]}>All Cities</Text>
           </TouchableOpacity>
-          {cities.map(city => (
-            <TouchableOpacity
-              key={city}
-              style={[styles.cityChip, selectedCity === city && styles.cityChipActive]}
-              onPress={() => setSelectedCity(selectedCity === city ? '' : city)}
-            >
-              <Text style={[styles.cityChipText, selectedCity === city && styles.cityChipTextActive]}>{city}</Text>
+          {cities.map(c => (
+            <TouchableOpacity key={c} style={[$.chip, selectedCity === c && $.chipA]} onPress={() => setSelectedCity(selectedCity === c ? '' : c)}>
+              <Text style={[$.chipT, selectedCity === c && $.chipTA]}>{c}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#4F46E5" />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#4F46E5" />}
-        >
+      {loading ? <View style={$.ctr}><ActivityIndicator size="large" color="#6366F1" /></View> : (
+        <ScrollView contentContainerStyle={{ paddingHorizontal: W ? 32 : 16, paddingBottom: 100 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#6366F1" />}>
           {filtered.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="tv-outline" size={48} color="#CBD5E1" />
-              <Text style={styles.emptyText}>No screens found</Text>
-            </View>
+            <View style={$.empty}><Ionicons name="tv-outline" size={48} color="#374151" /><Text style={$.emptyT}>No screens found</Text></View>
           ) : (
-            filtered.map(screen => (
-              <TouchableOpacity
-                key={screen.id}
-                style={styles.screenCard}
-                onPress={() => router.push(`/screen/${screen.id}`)}
-                activeOpacity={0.8}
-              >
-                <View style={[styles.screenImage, { backgroundColor: getCityColor(screen.location?.city) }]}>
-                  <Ionicons name="tv" size={36} color="rgba(255,255,255,0.3)" style={styles.screenBgIcon} />
-                  <View style={styles.screenOverlay}>
-                    <View style={styles.screenBadge}>
-                      <Ionicons name="location" size={12} color="#FFFFFF" />
-                      <Text style={styles.screenBadgeText}>{screen.location?.city}, {screen.location?.state}</Text>
+            <View style={W ? $.grid : undefined}>
+              {filtered.map(sc => (
+                <TouchableOpacity key={sc.id} style={[$.card, W && { width: '31%' }]} onPress={() => router.push(`/screen/${sc.id}`)} activeOpacity={0.7}>
+                  <View style={[$.cardImg, { backgroundColor: getC(sc.location?.city) }]}>
+                    <Ionicons name="tv" size={32} color="rgba(255,255,255,0.2)" style={{ position: 'absolute', right: 14, top: 14 }} />
+                    <View style={$.locBadge}>
+                      <Ionicons name="location" size={11} color="#FFF" />
+                      <Text style={$.locT}>{sc.location?.city}, {sc.location?.state}</Text>
                     </View>
                   </View>
-                </View>
-                <View style={styles.screenInfo}>
-                  <Text style={styles.screenName} numberOfLines={1}>{screen.name}</Text>
-                  <Text style={styles.screenAddress} numberOfLines={1}>{screen.location?.address}</Text>
-                  <View style={styles.screenFooter}>
-                    <View style={styles.screenSpec}>
-                      <Ionicons name="resize" size={14} color="#64748B" />
-                      <Text style={styles.specText}>{screen.specs?.size}</Text>
+                  <View style={$.cardBody}>
+                    <Text style={$.cardName} numberOfLines={1}>{sc.name}</Text>
+                    <Text style={$.cardAddr} numberOfLines={1}>{sc.location?.address}</Text>
+                    <View style={$.cardFoot}>
+                      <View style={$.spec}><Ionicons name="resize" size={13} color="#64748B" /><Text style={$.specT}>{sc.specs?.size}</Text></View>
+                      <Text style={$.price}>${sc.pricing?.per_hour}<Text style={$.priceU}>/hr</Text></Text>
                     </View>
-                    <Text style={styles.screenPrice}>
-                      ${screen.pricing?.per_hour}<Text style={styles.priceUnit}>/hr</Text>
-                    </Text>
                   </View>
-                </View>
-              </TouchableOpacity>
-            ))
+                </TouchableOpacity>
+              ))}
+            </View>
           )}
         </ScrollView>
       )}
@@ -139,50 +104,35 @@ export default function ScreensScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F1F5F9' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  headerSection: { paddingHorizontal: 20, paddingTop: 16 },
-  title: { fontSize: 24, fontWeight: '700', color: '#0F172A' },
-  subtitle: { fontSize: 13, color: '#64748B', marginTop: 2, marginBottom: 16 },
-  searchWrapper: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF',
+const $ = StyleSheet.create({
+  ct: { flex: 1, backgroundColor: '#0B0F1A' },
+  ctr: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  hd: { paddingTop: 16, paddingBottom: 12 },
+  title: { fontSize: 22, fontWeight: '700', color: '#F1F5F9' },
+  sub: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  search: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10,
-    borderWidth: 1, borderColor: '#E2E8F0', gap: 8,
+    borderWidth: 1, borderColor: '#1E293B', gap: 8, marginBottom: 12,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#0F172A' },
-  cityFilter: { marginTop: 12, marginBottom: 12 },
-  cityChip: {
-    paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
-    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', marginRight: 8,
-  },
-  cityChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
-  cityChipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
-  cityChipTextActive: { color: '#FFFFFF' },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 100 },
-  screenCard: {
-    backgroundColor: '#FFFFFF', borderRadius: 16, marginBottom: 14, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 3,
-  },
-  screenImage: {
-    height: 120, justifyContent: 'flex-end', padding: 14,
-  },
-  screenBgIcon: { position: 'absolute', right: 16, top: 16 },
-  screenOverlay: { flexDirection: 'row' },
-  screenBadge: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.3)',
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, gap: 4,
-  },
-  screenBadgeText: { color: '#FFFFFF', fontSize: 12, fontWeight: '600' },
-  screenInfo: { padding: 14 },
-  screenName: { fontSize: 16, fontWeight: '700', color: '#0F172A', marginBottom: 2 },
-  screenAddress: { fontSize: 13, color: '#64748B', marginBottom: 10 },
-  screenFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  screenSpec: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  specText: { fontSize: 12, color: '#64748B' },
-  screenPrice: { fontSize: 18, fontWeight: '700', color: '#4F46E5' },
-  priceUnit: { fontSize: 12, fontWeight: '500', color: '#64748B' },
-  emptyState: { alignItems: 'center', paddingTop: 60 },
-  emptyText: { fontSize: 16, color: '#94A3B8', marginTop: 12 },
+  searchInput: { flex: 1, fontSize: 15, color: '#F1F5F9' },
+  chip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', marginRight: 8 },
+  chipA: { backgroundColor: '#6366F1', borderColor: '#6366F1' },
+  chipT: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  chipTA: { color: '#FFF' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 16 },
+  card: { backgroundColor: '#111827', borderRadius: 16, marginBottom: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#1E293B' },
+  cardImg: { height: 110, justifyContent: 'flex-end', padding: 12 },
+  locBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.4)', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, gap: 4, alignSelf: 'flex-start' },
+  locT: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  cardBody: { padding: 14 },
+  cardName: { fontSize: 16, fontWeight: '700', color: '#F1F5F9', marginBottom: 2 },
+  cardAddr: { fontSize: 13, color: '#64748B', marginBottom: 10 },
+  cardFoot: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  spec: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  specT: { fontSize: 12, color: '#64748B' },
+  price: { fontSize: 18, fontWeight: '700', color: '#22D3EE' },
+  priceU: { fontSize: 12, fontWeight: '500', color: '#64748B' },
+  empty: { alignItems: 'center', paddingTop: 60 },
+  emptyT: { fontSize: 16, color: '#475569', marginTop: 12 },
 });
