@@ -4,7 +4,7 @@
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import Response
+from fastapi.responses import Response, HTMLResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -718,6 +718,295 @@ async def player_media(media_id: str):
         headers={"Content-Disposition": f"attachment; filename={media.get('filename', 'media')}",
                  "Cache-Control": "public, max-age=86400"}
     )
+
+# ============ WEB PLAYER (Universal HTML5 Player for any screen/device) ============
+
+@api_router.get("/player/{screen_id}/web", response_class=HTMLResponse)
+async def web_player(screen_id: str):
+    """Full-screen HTML5 player that fetches and loops content from the playlist API.
+    Works on any device with a browser: Android boxes, Raspberry Pi, Smart TVs, PCs.
+    Can be used as HDMI source for Colorlight A35 via connected device."""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    # Determine base URL for media - use request origin or fallback
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MediaView Player - {screen.get('name', 'Screen')}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+html,body{{width:100%;height:100%;overflow:hidden;background:#000;font-family:Arial,sans-serif}}
+#player{{width:100%;height:100%;position:relative}}
+#media-container{{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}}
+#media-container img,#media-container video{{max-width:100%;max-height:100%;object-fit:contain}}
+#status-bar{{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;
+  padding:8px 16px;font-size:12px;display:flex;justify-content:space-between;
+  opacity:0;transition:opacity 0.3s}}
+#status-bar.visible{{opacity:1}}
+#no-content{{color:#666;text-align:center;position:absolute;top:50%;left:50%;
+  transform:translate(-50%,-50%)}}
+#no-content h2{{font-size:24px;margin-bottom:8px;color:#333}}
+#no-content p{{font-size:14px}}
+.spinner{{width:40px;height:40px;border:3px solid #333;border-top-color:#4F46E5;
+  border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}}
+@keyframes spin{{to{{transform:rotate(360deg)}}}}
+</style>
+</head>
+<body>
+<div id="player">
+  <div id="media-container">
+    <div id="no-content">
+      <div class="spinner"></div>
+      <h2>MediaView Player</h2>
+      <p>Screen: {screen.get('name', 'Unknown')}</p>
+      <p id="status-text">Connecting to server...</p>
+    </div>
+  </div>
+  <div id="status-bar">
+    <span id="screen-info">Screen: {screen.get('name', '')}</span>
+    <span id="playlist-info">Loading...</span>
+    <span id="time-info"></span>
+  </div>
+</div>
+<script>
+const SCREEN_ID = "{screen_id}";
+const API_BASE = window.location.origin + "/api";
+const POLL_INTERVAL = 60000; // Poll every 60 seconds
+const STATUS_SHOW_TIME = 5000; // Show status bar for 5 seconds
+
+let playlist = [];
+let currentIndex = -1;
+let playTimer = null;
+let pollTimer = null;
+let mediaCache = {{}};
+
+// Fetch playlist from server
+async function fetchPlaylist() {{
+  try {{
+    const res = await fetch(API_BASE + "/player/" + SCREEN_ID + "/playlist");
+    const data = await res.json();
+    const newItems = data.items || [];
+
+    // Check if playlist changed
+    const newIds = newItems.map(i => i.media_id).join(",");
+    const oldIds = playlist.map(i => i.media_id).join(",");
+
+    if (newIds !== oldIds) {{
+      playlist = newItems;
+      currentIndex = -1;
+      console.log("[MediaView] Playlist updated:", playlist.length, "items");
+      updateStatusBar();
+
+      // Pre-cache media
+      for (const item of playlist) {{
+        if (!mediaCache[item.media_id]) {{
+          precacheMedia(item);
+        }}
+      }}
+    }}
+
+    if (playlist.length > 0 && currentIndex === -1) {{
+      playNext();
+    }} else if (playlist.length === 0) {{
+      showNoContent("Waiting for scheduled content...");
+    }}
+
+    document.getElementById("status-text").textContent =
+      playlist.length > 0 ? "Playing " + playlist.length + " items" : "No content scheduled";
+  }} catch (err) {{
+    console.error("[MediaView] Fetch error:", err);
+    document.getElementById("status-text").textContent = "Connection error - retrying...";
+  }}
+}}
+
+// Pre-cache media file
+async function precacheMedia(item) {{
+  try {{
+    const url = API_BASE + item.media_url;
+    if (item.content_type && item.content_type.startsWith("image/")) {{
+      const img = new Image();
+      img.src = url;
+      mediaCache[item.media_id] = {{ type: "image", element: img, url: url }};
+    }} else {{
+      mediaCache[item.media_id] = {{ type: "video", url: url }};
+    }}
+  }} catch (e) {{
+    console.error("[MediaView] Cache error:", e);
+  }}
+}}
+
+// Play next item in playlist
+function playNext() {{
+  if (playlist.length === 0) return;
+
+  currentIndex = (currentIndex + 1) % playlist.length;
+  const item = playlist[currentIndex];
+  const container = document.getElementById("media-container");
+  const isImage = item.content_type && item.content_type.startsWith("image/");
+  const mediaUrl = API_BASE + item.media_url;
+
+  // Clear previous
+  container.innerHTML = "";
+
+  if (isImage) {{
+    const img = document.createElement("img");
+    img.src = mediaUrl;
+    img.alt = item.filename || "Ad";
+    img.style.width = "100%";
+    img.style.height = "100%";
+    img.style.objectFit = "contain";
+    container.appendChild(img);
+
+    // Schedule next after duration
+    clearTimeout(playTimer);
+    playTimer = setTimeout(playNext, (item.duration || 15) * 1000);
+  }} else {{
+    const video = document.createElement("video");
+    video.src = mediaUrl;
+    video.autoplay = true;
+    video.muted = false;
+    video.playsInline = true;
+    video.style.width = "100%";
+    video.style.height = "100%";
+    video.style.objectFit = "contain";
+    video.onended = playNext;
+    video.onerror = () => {{
+      clearTimeout(playTimer);
+      playTimer = setTimeout(playNext, 3000);
+    }};
+    container.appendChild(video);
+
+    // Fallback timeout
+    clearTimeout(playTimer);
+    playTimer = setTimeout(playNext, (item.duration || 15) * 1000);
+  }}
+
+  updateStatusBar();
+  showStatusBar();
+  console.log("[MediaView] Playing:", item.filename, "(" + (currentIndex+1) + "/" + playlist.length + ")");
+}}
+
+function showNoContent(msg) {{
+  const container = document.getElementById("media-container");
+  container.innerHTML = '<div id="no-content"><div class="spinner"></div>' +
+    '<h2>MediaView Player</h2><p>' + msg + '</p></div>';
+}}
+
+function updateStatusBar() {{
+  document.getElementById("playlist-info").textContent =
+    playlist.length > 0 ? "Item " + (currentIndex+1) + "/" + playlist.length : "No content";
+  document.getElementById("time-info").textContent = new Date().toLocaleTimeString();
+}}
+
+function showStatusBar() {{
+  const bar = document.getElementById("status-bar");
+  bar.classList.add("visible");
+  setTimeout(() => bar.classList.remove("visible"), STATUS_SHOW_TIME);
+}}
+
+// Mouse move shows status bar
+document.addEventListener("mousemove", showStatusBar);
+
+// Initialize
+fetchPlaylist();
+pollTimer = setInterval(fetchPlaylist, POLL_INTERVAL);
+setInterval(() => {{
+  document.getElementById("time-info").textContent = new Date().toLocaleTimeString();
+}}, 1000);
+
+console.log("[MediaView] Player initialized for screen:", SCREEN_ID);
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+# ============ A35 BRIDGE: Export endpoint for Colorlight A35 integration ============
+
+@api_router.get("/player/{screen_id}/export")
+async def export_playlist_for_bridge(screen_id: str, date: Optional[str] = None):
+    """Export playlist in a format optimized for the A35 Bridge script.
+    Returns full media data (base64) for offline caching, plus metadata.
+    Used by the bridge script that pushes content to PlayerMaster/ColorlightCloud."""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    now = datetime.utcnow()
+    td = date or now.strftime("%Y-%m-%d")
+    ct = now.strftime("%H:%M")
+
+    campaigns = await db.campaigns.find({
+        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
+        "schedule.start_date": {"$lte": td}, "schedule.end_date": {"$gte": td}
+    }).to_list(100)
+
+    export_items = []
+    for c in campaigns:
+        s = c.get("schedule", {})
+        for mid in c.get("media_ids", []):
+            media = await db.media.find_one({"id": mid})
+            if not media:
+                continue
+            # Read file for base64 export
+            fp = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
+            file_base64 = None
+            if os.path.exists(fp):
+                with open(fp, "rb") as f:
+                    file_base64 = base64.b64encode(f.read()).decode()
+
+            export_items.append({
+                "campaign_id": c["id"],
+                "campaign_name": c.get("name"),
+                "media_id": mid,
+                "filename": media.get("filename"),
+                "stored_filename": media.get("stored_filename"),
+                "content_type": media.get("content_type"),
+                "size": media.get("size"),
+                "duration": s.get("slot_duration", 15),
+                "time_start": s.get("start_time", "08:00"),
+                "time_end": s.get("end_time", "22:00"),
+                "frequency_minutes": s.get("frequency", 5),
+                "file_base64": file_base64,
+                "download_url": f"/api/player/media/{mid}"
+            })
+
+    return {
+        "screen_id": screen_id,
+        "screen_name": screen.get("name"),
+        "resolution": screen.get("specs", {}).get("resolution", "1920x1080"),
+        "orientation": screen.get("specs", {}).get("orientation", "landscape"),
+        "export_date": td,
+        "generated_at": now.isoformat(),
+        "total_items": len(export_items),
+        "items": export_items
+    }
+
+@api_router.get("/player/{screen_id}/status")
+async def player_heartbeat(screen_id: str):
+    """Endpoint for player devices to report status / check connectivity."""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+
+    now = datetime.utcnow()
+    td = now.strftime("%Y-%m-%d")
+    active_count = await db.campaigns.count_documents({
+        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
+        "schedule.start_date": {"$lte": td}, "schedule.end_date": {"$gte": td}
+    })
+
+    return {
+        "screen_id": screen_id,
+        "screen_name": screen.get("name"),
+        "server_time": now.isoformat(),
+        "active_campaigns": active_count,
+        "status": "online",
+        "resolution": screen.get("specs", {}).get("resolution", "1920x1080")
+    }
 
 # ============ ROUTES: USER ANALYTICS ============
 
