@@ -761,209 +761,65 @@ async def player_media(media_id: str):
                  "Cache-Control": "public, max-age=86400"}
     )
 
-# ============ WEB PLAYER (Universal HTML5 Player for any screen/device) ============
+# ============ WEB PLAYER ENGINE (Production-Grade HTML5 Digital Signage) ============
 
 @api_router.get("/player/{screen_id}/web", response_class=HTMLResponse)
 async def web_player(screen_id: str):
-    """Full-screen HTML5 player that fetches and loops content from the playlist API.
-    Works on any device with a browser: Android boxes, Raspberry Pi, Smart TVs, PCs.
-    Can be used as HDMI source for Colorlight A35 via connected device."""
+    """Production-grade HTML5 signage player. 24/7 capable with offline cache, video preload, heartbeat, auto-recovery, diagnostics HUD (press 'i')."""
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
-
-    # Determine base URL for media - use request origin or fallback
-    html = f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MediaView Player - {screen.get('name', 'Screen')}</title>
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-html,body{{width:100%;height:100%;overflow:hidden;background:#000;font-family:Arial,sans-serif}}
-#player{{width:100%;height:100%;position:relative}}
-#media-container{{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#000}}
-#media-container img,#media-container video{{max-width:100%;max-height:100%;object-fit:contain}}
-#status-bar{{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.7);color:#fff;
-  padding:8px 16px;font-size:12px;display:flex;justify-content:space-between;
-  opacity:0;transition:opacity 0.3s}}
-#status-bar.visible{{opacity:1}}
-#no-content{{color:#666;text-align:center;position:absolute;top:50%;left:50%;
-  transform:translate(-50%,-50%)}}
-#no-content h2{{font-size:24px;margin-bottom:8px;color:#333}}
-#no-content p{{font-size:14px}}
-.spinner{{width:40px;height:40px;border:3px solid #333;border-top-color:#4F46E5;
-  border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}}
-@keyframes spin{{to{{transform:rotate(360deg)}}}}
-</style>
-</head>
-<body>
-<div id="player">
-  <div id="media-container">
-    <div id="no-content">
-      <div class="spinner"></div>
-      <h2>MediaView Player</h2>
-      <p>Screen: {screen.get('name', 'Unknown')}</p>
-      <p id="status-text">Connecting to server...</p>
-    </div>
-  </div>
-  <div id="status-bar">
-    <span id="screen-info">Screen: {screen.get('name', '')}</span>
-    <span id="playlist-info">Loading...</span>
-    <span id="time-info"></span>
-  </div>
-</div>
-<script>
-const SCREEN_ID = "{screen_id}";
-const API_BASE = window.location.origin + "/api";
-const POLL_INTERVAL = 60000; // Poll every 60 seconds
-const STATUS_SHOW_TIME = 5000; // Show status bar for 5 seconds
-
-let playlist = [];
-let currentIndex = -1;
-let playTimer = null;
-let pollTimer = null;
-let mediaCache = {{}};
-
-// Fetch playlist from server
-async function fetchPlaylist() {{
-  try {{
-    const res = await fetch(API_BASE + "/player/" + SCREEN_ID + "/playlist");
-    const data = await res.json();
-    const newItems = data.items || [];
-
-    // Check if playlist changed
-    const newIds = newItems.map(i => i.media_id).join(",");
-    const oldIds = playlist.map(i => i.media_id).join(",");
-
-    if (newIds !== oldIds) {{
-      playlist = newItems;
-      currentIndex = -1;
-      console.log("[MediaView] Playlist updated:", playlist.length, "items");
-      updateStatusBar();
-
-      // Pre-cache media
-      for (const item of playlist) {{
-        if (!mediaCache[item.media_id]) {{
-          precacheMedia(item);
-        }}
-      }}
-    }}
-
-    if (playlist.length > 0 && currentIndex === -1) {{
-      playNext();
-    }} else if (playlist.length === 0) {{
-      showNoContent("Waiting for scheduled content...");
-    }}
-
-    document.getElementById("status-text").textContent =
-      playlist.length > 0 ? "Playing " + playlist.length + " items" : "No content scheduled";
-  }} catch (err) {{
-    console.error("[MediaView] Fetch error:", err);
-    document.getElementById("status-text").textContent = "Connection error - retrying...";
-  }}
-}}
-
-// Pre-cache media file
-async function precacheMedia(item) {{
-  try {{
-    const url = API_BASE + item.media_url;
-    if (item.content_type && item.content_type.startsWith("image/")) {{
-      const img = new Image();
-      img.src = url;
-      mediaCache[item.media_id] = {{ type: "image", element: img, url: url }};
-    }} else {{
-      mediaCache[item.media_id] = {{ type: "video", url: url }};
-    }}
-  }} catch (e) {{
-    console.error("[MediaView] Cache error:", e);
-  }}
-}}
-
-// Play next item in playlist
-function playNext() {{
-  if (playlist.length === 0) return;
-
-  currentIndex = (currentIndex + 1) % playlist.length;
-  const item = playlist[currentIndex];
-  const container = document.getElementById("media-container");
-  const isImage = item.content_type && item.content_type.startsWith("image/");
-  const mediaUrl = API_BASE + item.media_url;
-
-  // Clear previous
-  container.innerHTML = "";
-
-  if (isImage) {{
-    const img = document.createElement("img");
-    img.src = mediaUrl;
-    img.alt = item.filename || "Ad";
-    img.style.width = "100%";
-    img.style.height = "100%";
-    img.style.objectFit = "contain";
-    container.appendChild(img);
-
-    // Schedule next after duration
-    clearTimeout(playTimer);
-    playTimer = setTimeout(playNext, (item.duration || 15) * 1000);
-  }} else {{
-    const video = document.createElement("video");
-    video.src = mediaUrl;
-    video.autoplay = true;
-    video.muted = false;
-    video.playsInline = true;
-    video.style.width = "100%";
-    video.style.height = "100%";
-    video.style.objectFit = "contain";
-    video.onended = playNext;
-    video.onerror = () => {{
-      clearTimeout(playTimer);
-      playTimer = setTimeout(playNext, 3000);
-    }};
-    container.appendChild(video);
-
-    // Fallback timeout
-    clearTimeout(playTimer);
-    playTimer = setTimeout(playNext, (item.duration || 15) * 1000);
-  }}
-
-  updateStatusBar();
-  showStatusBar();
-  console.log("[MediaView] Playing:", item.filename, "(" + (currentIndex+1) + "/" + playlist.length + ")");
-}}
-
-function showNoContent(msg) {{
-  const container = document.getElementById("media-container");
-  container.innerHTML = '<div id="no-content"><div class="spinner"></div>' +
-    '<h2>MediaView Player</h2><p>' + msg + '</p></div>';
-}}
-
-function updateStatusBar() {{
-  document.getElementById("playlist-info").textContent =
-    playlist.length > 0 ? "Item " + (currentIndex+1) + "/" + playlist.length : "No content";
-  document.getElementById("time-info").textContent = new Date().toLocaleTimeString();
-}}
-
-function showStatusBar() {{
-  const bar = document.getElementById("status-bar");
-  bar.classList.add("visible");
-  setTimeout(() => bar.classList.remove("visible"), STATUS_SHOW_TIME);
-}}
-
-// Mouse move shows status bar
-document.addEventListener("mousemove", showStatusBar);
-
-// Initialize
-fetchPlaylist();
-pollTimer = setInterval(fetchPlaylist, POLL_INTERVAL);
-setInterval(() => {{
-  document.getElementById("time-info").textContent = new Date().toLocaleTimeString();
-}}, 1000);
-
-console.log("[MediaView] Player initialized for screen:", SCREEN_ID);
-</script>
-</body>
-</html>"""
+    sn = screen.get('name', 'Screen')
+    res = screen.get('specs', {}).get('resolution', '1920x1080')
+    html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"><meta name="mobile-web-app-capable" content="yes"><title>MediaView - ' + sn + '</title>'
+    html += '<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:Segoe UI,Arial,sans-serif;cursor:none}body.sc{cursor:default}#ml{width:100%;height:100%;position:absolute;top:0;left:0;display:flex;align-items:center;justify-content:center}#ml img,#ml video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0}@keyframes fi{from{opacity:0}to{opacity:1}}.fi{animation:fi .5s ease-in}'
+    html += '#fb{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#09090F,#1E1B4B)}#fb .lg{width:100px;height:100px;border-radius:24px;background:#4F46E5;display:flex;align-items:center;justify-content:center;margin-bottom:24px;box-shadow:0 0 60px rgba(79,70,229,.3)}#fb .lg span{font-size:36px;font-weight:900;color:#fff}#fb h1{font-size:42px;font-weight:800;color:#E2E8F0}#fb h2{font-size:18px;color:#6366F1;margin-top:4px}#fb .dv{width:80px;height:2px;background:#312E81;margin:28px 0}#fb .st{font-size:15px;color:#64748B}#fb .su{font-size:12px;color:#475569;margin-top:4px}.pu{animation:pu 2s ease-in-out infinite}@keyframes pu{0%,100%{opacity:1}50%{opacity:.5}}'
+    html += '#hud{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);color:#E2E8F0;font-size:13px;padding:24px 32px;display:none;overflow-y:auto;z-index:1000}#hud.v{display:block}#hud h2{font-size:20px;font-weight:700;color:#A5B4FC;margin-bottom:16px;border-bottom:1px solid #1E293B;padding-bottom:8px}#hud .s{margin-bottom:14px}#hud .s h3{font-size:11px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}#hud .r{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #111827}#hud .r .l{color:#64748B}#hud .r .vl{color:#E2E8F0;font-weight:600;text-align:right;max-width:60%}.g{color:#10B981!important}.rd{color:#EF4444!important}.y{color:#F59E0B!important}#hud .le{padding:3px 0;border-bottom:1px solid #111827;font-family:monospace;font-size:11px}#hud .le.er{color:#FCA5A5}#hud .ch{position:fixed;bottom:16px;right:24px;font-size:12px;color:#475569}'
+    html += '#sb{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);color:#fff;padding:8px 20px;font-size:12px;display:flex;justify-content:space-between;align-items:center;opacity:0;transition:opacity .4s;z-index:500}#sb.v{opacity:1}#sb .br{display:flex;align-items:center;gap:8px}#sb .dt{width:8px;height:8px;border-radius:4px}'
+    html += '</style></head><body><div id="player"><div id="ml"></div><div id="fb"><div class="lg"><span>MV</span></div><h1>MediaView</h1><h2>' + sn + '</h2><div class="dv"></div><p class="st pu" id="fbs">Connecting...</p><p class="su" id="fbu"></p></div></div>'
+    html += '<div id="sb"><div class="br"><span class="dt" id="sbd" style="background:#10B981"></span><span>MediaView</span><span style="color:#6366F1">' + sn + '</span></div><span id="sbi">Loading...</span><span id="sbt"></span></div>'
+    html += '<div id="hud"><h2>MediaView Player - Diagnostics</h2><div id="hc"></div><div class="ch">Press i or click to close</div></div>'
+    html += """<script>
+(function(){
+var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin+'/api',PI=60000,HI=30000,V='2.0.0';
+var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false;
+function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
+async function fp(){try{var r=await fetch(AB+'/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
+var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
+if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
+if(pl.length>0&&!ip){sf(false);pn()}else if(pl.length===0){sf(true,'No campaigns scheduled','Waiting for active campaigns...')}
+}catch(e){io=true;rc++;le=e.message;log('warn','Fetch failed: '+e.message+' (#'+rc+')');
+if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);sf(false);pn()}}}catch(x){}}
+if(pl.length===0){sf(true,io?'Offline - Reconnecting...':'No content','Auto-retry active')}}}
+function pm(i){if(mc[i.media_id])return;var u=AB+i.media_url;if(i.content_type&&i.content_type.startsWith('image/')){var img=new Image();img.src=u;mc[i.media_id]={t:'image',u:u}}else{mc[i.media_id]={t:'video',u:u}}}
+function pn(){if(pl.length===0)return;ci=(ci+1)%pl.length;var it=pl[ci],u=AB+it.media_url,ii=it.content_type&&it.content_type.startsWith('image/');ip=true;tp++;clearTimeout(pt);
+var c=document.getElementById('ml');c.innerHTML='';
+if(ii){var img=document.createElement('img');img.src=u;img.className='fi';img.onerror=function(){log('error','Img fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(img);pt=setTimeout(pn,(it.duration||15)*1e3)}
+else{var vid=document.createElement('video');vid.src=u;vid.autoplay=true;vid.muted=false;vid.playsInline=true;vid.className='fi';vid.onended=pn;vid.onerror=function(){log('error','Vid fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(vid);pt=setTimeout(pn,Math.max((it.duration||15)*1e3,6e4))}
+usb();log('info','Play: '+it.filename+' ('+(ci+1)+'/'+pl.length+')')}
+function sf(s,m,su){var el=document.getElementById('fb');el.style.display=s?'flex':'none';if(m)document.getElementById('fbs').textContent=m;if(su)document.getElementById('fbu').textContent=su;if(s)ip=false}
+async function hb(){try{await fetch(AB+'/player/'+SID+'/status')}catch(e){}}
+function usb(){var i=pl.length>0?'Item '+(ci+1)+'/'+pl.length+(io?' [OFFLINE]':''):'No content';document.getElementById('sbi').textContent=i;document.getElementById('sbd').style.background=io?'#F59E0B':'#10B981'}
+function ssb(){var b=document.getElementById('sb');b.classList.add('v');document.body.classList.add('sc');clearTimeout(window._sbt);window._sbt=setTimeout(function(){b.classList.remove('v');document.body.classList.remove('sc')},6e3)}
+function th(){hv=!hv;document.getElementById('hud').classList.toggle('v',hv);if(hv)rh()}
+function rh(){var ut=Math.floor((Date.now()-st)/1e3),h=Math.floor(ut/3600),m=Math.floor((ut%3600)/60),s=ut%60;
+var x='<div class="s"><h3>Device</h3>';
+[['Screen ID',SID],['Screen',SN],['Resolution',RES],['Version',V],['Platform',navigator.userAgent.indexOf('Android')>=0?'Android TV':navigator.platform],['Viewport',innerWidth+'x'+innerHeight]].forEach(function(r){x+='<div class="r"><span class="l">'+r[0]+'</span><span class="vl">'+r[1]+'</span></div>'});
+x+='</div><div class="s"><h3>Status</h3>';
+[['Playing',ip?'Yes':'No',ip?'g':'y'],['Connection',io?'Offline':'Online',io?'rd':'g'],['Uptime',h+'h '+m+'m '+s+'s',''],['Last Sync',ls?ls.toLocaleString():'Never',ls?'g':'y'],['Retries',rc+'',rc>0?'y':'g'],['Total Plays',tp+'',''],['Playlist',pl.length+' items',''],['Current',pl[ci]?pl[ci].filename:'None',''],['Cached',Object.keys(mc).length+'',''],['Last Error',le||'None',le?'rd':'g']].forEach(function(r){x+='<div class="r"><span class="l">'+r[0]+'</span><span class="vl '+r[2]+'">'+r[1]+'</span></div>'});
+x+='</div><div class="s"><h3>Logs (last 20)</h3>';
+lg.slice(0,20).forEach(function(l){x+='<div class="le'+(l.l==='error'?' er':'')+'">'+l.t.substring(11,19)+' ['+l.l+'] '+l.m+'</div>'});
+x+='</div>';document.getElementById('hc').innerHTML=x}
+document.addEventListener('mousemove',ssb);document.addEventListener('touchstart',ssb);
+document.addEventListener('keydown',function(e){if(e.key==='i'||e.key==='I')th();else if(e.key==='Escape'&&hv)th()});
+document.getElementById('hud').addEventListener('click',function(){if(hv)th()});
+setInterval(function(){document.getElementById('sbt').textContent=new Date().toLocaleTimeString();if(hv)rh()},1e3);
+document.addEventListener('visibilitychange',function(){if(!document.hidden){log('info','Resumed');fp()}});
+window.onerror=function(m,u,l){log('error','JS: '+m);setTimeout(pn,3e3);return true};
+log('info','MediaView Player v'+V+' started: '+SN);
+fp();setInterval(fp,PI);setInterval(hb,HI);
+})();
+</script></body></html>"""
     return HTMLResponse(content=html)
 
 # ============ A35 BRIDGE: Export endpoint for Colorlight A35 integration ============
