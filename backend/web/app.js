@@ -211,21 +211,64 @@ const loaders={
     const el=document.getElementById('pg-admin');
     if(user?.role!=='admin'){el.innerHTML='<p style="color:var(--red)">Admin access required</p>';return}
     try{
-      const [users,campaigns,analyticsData]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/admin/analytics')]);
+      const [users,campaigns,analyticsData,screens]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/admin/analytics'),api('/screens')]);
       el.innerHTML=`
         <h1 style="font-size:28px;font-weight:800;margin-bottom:24px">Admin Panel</h1>
+
+        <!-- Screen Management -->
+        <div style="margin-bottom:28px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <h2 style="font-size:16px;font-weight:700">Screens (${screens.length})</h2>
+            <button class="btn-p" onclick="document.getElementById('add-screen-form').style.display=document.getElementById('add-screen-form').style.display==='none'?'block':'none'" style="font-size:11px;padding:6px 14px">+ Add Screen</button>
+          </div>
+          <div id="add-screen-form" style="display:none;margin-bottom:16px">
+            <div class="card" style="padding:20px">
+              <div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+                <div><label class="inp-label">Screen Name</label><input class="inp" id="ns-name" placeholder="e.g. Downtown LED Display"></div>
+                <div><label class="inp-label">City</label><input class="inp" id="ns-city" placeholder="e.g. New York"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
+                <div><label class="inp-label">Address</label><input class="inp" id="ns-addr" placeholder="e.g. 123 Main St"></div>
+                <div><label class="inp-label">State</label><input class="inp" id="ns-state" placeholder="e.g. NY"></div>
+                <div><label class="inp-label">Size</label><input class="inp" id="ns-size" placeholder="e.g. 20ft x 10ft"></div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+                <div><label class="inp-label">Price per Hour ($)</label><input class="inp" id="ns-phr" type="number" placeholder="250"></div>
+                <div><label class="inp-label">Price per Day ($)</label><input class="inp" id="ns-pday" type="number" placeholder="2000"></div>
+                <div><label class="inp-label">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div>
+              </div>
+              <div style="display:flex;gap:8px">
+                <button class="btn-p" onclick="addScreen()" style="font-size:12px;padding:8px 20px">Create Screen</button>
+                <button class="btn-s" onclick="document.getElementById('add-screen-form').style.display='none'">Cancel</button>
+              </div>
+              <p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p>
+            </div>
+          </div>
+          <div class="card">
+            <div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr auto"><span>Screen</span><span>Location</span><span>Price/hr</span><span>Status</span><span></span></div>
+            ${screens.map(s=>`<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr auto">
+              <div><span style="font-size:13px;font-weight:600">${s.name}</span><div style="font-size:10px;color:var(--t-4)">${s.specs?.size||''} · ${s.specs?.resolution||''}</div></div>
+              <span style="font-size:12px;color:var(--t-3)">${s.location?.city}, ${s.location?.state}</span>
+              <span style="font-size:14px;font-weight:700;color:var(--cyan)">$${s.pricing?.per_hour}</span>
+              <span class="tag-on">${s.status}</span>
+              <button onclick="removeScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button>
+            </div>`).join('')}
+          </div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Users (${users.length})</h2>
             <div class="card">
-              <div class="tbl-h" style="grid-template-columns:1fr 1fr auto""><span>Name</span><span>Email</span><span>Status</span></div>
+              <div class="tbl-h" style="grid-template-columns:1fr 1fr auto"><span>Name</span><span>Email</span><span>Status</span></div>
               ${users.map(u=>`<div class="tbl-r" style="grid-template-columns:1fr 1fr auto"><span style="font-size:13px;font-weight:600">${u.name}</span><span style="font-size:12px;color:var(--t-3)">${u.email}</span><span class="${u.active!==false?'tag-on':'tag-off'}">${u.active!==false?'Active':'Disabled'}</span></div>`).join('')}
             </div>
           </div>
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Campaigns (${campaigns.length})</h2>
             <div class="card">
-              ${campaigns.slice(0,8).map(c=>`<div class="lr"><div class="dot" style="background:${dot(c.status)}"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--t-4)">${c.user?.name||''} · $${(c.pricing?.total||0).toLocaleString()}</div></div>${badge(c.status)}${c.status==='pending'?`<button onclick="approveCamp('${c.id}')" style="padding:4px 12px;border-radius:6px;background:rgba(52,211,153,.12);color:var(--green);font-size:11px;font-weight:700;border:none;cursor:pointer">Approve</button>`:''}</div>`).join('')}
+              ${campaigns.slice(0,8).map(c=>`<div class="lr"><div class="dot" style="background:${dot(c.status)}"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--t-4)">${c.user?.name||''} · $${(c.pricing?.total||0).toLocaleString()}</div></div>${badge(c.status)}${c.status==='pending'?`<button onclick="approveCamp('${c.id}')" class="btn-approve">Approve</button>`:''}</div>`).join('')}
             </div>
           </div>
         </div>`;
@@ -340,6 +383,16 @@ async function submitCampaign(){
   }catch(e){alert('Error: '+e.message)}
 }
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+async function addScreen(){
+  const name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,phr=document.getElementById('ns-phr')?.value,pday=document.getElementById('ns-pday')?.value,res=document.getElementById('ns-res')?.value;
+  const msg=document.getElementById('ns-msg');msg.style.display='none';
+  if(!name||!city||!phr){msg.textContent='Name, city and price/hr are required';msg.style.color='var(--red)';msg.style.display='block';return}
+  try{
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_hour:parseFloat(phr),per_day:parseFloat(pday)||parseFloat(phr)*8,per_slot:parseFloat(phr)/10,currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:'landscape'},status:'active'})});
+    msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
+    setTimeout(()=>loaders.admin(),800);
+  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+async function removeScreen(id){if(!confirm('Remove this screen?'))return;try{await api('/admin/screens/'+id,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
 async function createAdmin(){
   const name=document.getElementById('sa-name')?.value,email=document.getElementById('sa-email')?.value,pwd=document.getElementById('sa-pwd')?.value,company=document.getElementById('sa-company')?.value;
   const msg=document.getElementById('sa-msg');msg.style.display='none';
