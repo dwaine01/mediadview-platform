@@ -7,6 +7,10 @@ android {
     namespace = "com.mediaview.player"
     compileSdk = 34
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "com.mediaview.player"
         minSdk = 21
