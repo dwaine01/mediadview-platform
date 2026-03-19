@@ -223,7 +223,44 @@ const loaders={
     }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
   },
 
-  devices(){document.getElementById('pg-devices').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Devices</h1><p style="color:var(--t-3);font-size:14px;margin-bottom:24px">Connected players</p><div class="card" style="padding:48px;text-align:center"><svg width="48" height="48" fill="none" stroke="var(--t-4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><p style="font-size:16px;font-weight:600;color:var(--t-2)">Device Management</p><p style="font-size:13px;color:var(--t-4)">Install MediaView Player on a TV to see devices here</p></div>`},
+  async devices(){
+    const el=document.getElementById('pg-devices');
+    try{
+      const devs=user?.role==='admin'?await api('/admin/devices'):[];
+      const screens=await api('/screens');
+      const screenMap={};screens.forEach(s=>screenMap[s.id]=s.name);
+      el.innerHTML=`
+        <div class="ph"><div><h1>Devices</h1><p>${devs.length} registered players</p></div></div>
+        ${devs.length===0?'<div class="card" style="padding:48px;text-align:center"><svg width="40" height="40" fill="none" stroke="var(--t-4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><p style="font-size:15px;font-weight:600;color:var(--t-2)">No devices registered</p><p style="font-size:12px;color:var(--t-4)">Install MediaView Player on a TV to see devices</p></div>':
+        `<div style="display:flex;flex-direction:column;gap:10px">${devs.map(d=>{
+          const isOnline=d.last_heartbeat&&(new Date()-new Date(d.last_heartbeat))<120000;
+          const upH=d.diagnostics?.uptime_seconds?Math.floor(d.diagnostics.uptime_seconds/3600):0;
+          const upD=Math.floor(upH/24);
+          const syncAgo=d.last_sync?Math.round((new Date()-new Date(d.last_sync))/60000):null;
+          return`<div class="card" style="padding:18px">
+            <div style="display:flex;align-items:flex-start;gap:14px">
+              <div style="width:44px;height:44px;border-radius:12px;background:${d.status==='active'?'rgba(52,211,153,.1)':d.status==='pending'?'rgba(251,191,36,.1)':'rgba(148,163,184,.1)'};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="20" height="20" fill="none" stroke="${d.status==='active'?'var(--green)':d.status==='pending'?'var(--amber)':'var(--t-3)'}" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
+              </div>
+              <div style="flex:1;min-width:0">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                  <span style="font-size:15px;font-weight:700">${d.device_name||'MediaView Player'}</span>
+                  <span class="bdg bdg-${d.status}">${d.status}</span>
+                  <span class="${isOnline?'tag-on':'tag-off'}" style="margin-left:4px">${isOnline?'Online':'Offline'}</span>
+                </div>
+                <div style="font-size:12px;color:var(--t-3);margin-bottom:8px">${d.device_info?.model||'Unknown'} · ${d.tier==='player_dedicated'?'Dedicated Player':'TV Direct'} · Code: <span style="color:var(--brand-l);font-weight:600">${d.activation_code}</span></div>
+                <div style="display:flex;gap:20px;flex-wrap:wrap">
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Screen:</span> ${d.screen_name||screenMap[d.screen_id]||'Not assigned'}</div>
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">IP:</span> ${d.diagnostics?.ip_address||'—'}</div>
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Uptime:</span> ${upD>0?upD+'d ':''} ${upH%24}h</div>
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Last sync:</span> ${syncAgo!==null?(syncAgo<1?'Just now':syncAgo+'m ago'):'Never'}</div>
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Version:</span> ${d.diagnostics?.app_version||d.device_info?.app_version||'—'}</div>
+                </div>
+              </div>
+            </div>
+          </div>`}).join('')}</div>`}`;
+    }catch(e){el.innerHTML=`<div class="ph"><div><h1>Devices</h1><p>Connected players</p></div></div><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Sign in as admin to manage devices</div>`}
+  },
 
   settings(){document.getElementById('pg-settings').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:28px">Settings</h1><div style="max-width:560px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.25)">${(user?.name||'U')[0]}</div><div><div style="font-size:20px;font-weight:700">${user?.name}</div><div style="font-size:13px;color:var(--t-3)">${user?.email}</div><span class="bdg" style="margin-top:6px;background:${user?.role==='admin'?'rgba(99,102,241,.12)':'rgba(52,211,153,.12)'};color:${user?.role==='admin'?'var(--brand-l)':'var(--green)'}">${user?.role==='admin'?'Administrator':'Customer'}</span></div></div><div class="card" style="margin-bottom:20px"><div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--t-2);text-transform:uppercase;letter-spacing:1.5px">Account</div>${[['Name',user?.name],['Email',user?.email],['Company',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div style="padding:14px 20px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(30,41,59,.2)"><span style="font-size:13px;color:var(--t-3)">${l}</span><span style="font-size:13px;font-weight:600">${v}</span></div>`).join('')}</div><button onclick="doLogout()" style="width:100%;padding:12px;border-radius:var(--radius-sm);background:none;border:1px solid var(--bg-3);color:var(--t-3);font-size:13px;cursor:pointer">Sign Out</button></div>`}
 };
