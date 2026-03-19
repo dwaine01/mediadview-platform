@@ -19,7 +19,7 @@ android {
         versionName = "1.0.0"
 
         // MediaView server URL - change this for production
-        buildConfigField("String", "SERVER_URL", "\"https://your-server.com\"")
+        buildConfigField("String", "SERVER_URL", "\"https://screensync-ads.preview.emergentagent.com\"")
     }
 
     buildTypes {
