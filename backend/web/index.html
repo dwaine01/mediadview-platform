@@ -10,66 +10,58 @@
 </head>
 <body>
 
-<!-- ====== LOGIN ====== -->
+<!-- LOGIN -->
 <div id="view-login">
   <div class="orb" style="width:450px;height:450px;top:-180px;right:-120px;background:radial-gradient(circle,rgba(99,102,241,.09),transparent 70%)"></div>
   <div class="orb" style="width:350px;height:350px;bottom:-120px;left:-100px;background:radial-gradient(circle,rgba(34,211,238,.05),transparent 70%)"></div>
-
-  <div class="login-card fade-in">
-    <div class="login-logo">
-      <div class="icon">MV</div>
-      <h1>MediaView</h1>
-      <p>Digital Signage Platform</p>
-    </div>
-    <div class="glass" style="border-radius:var(--radius);padding:32px">
-      <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">Welcome back</h2>
-      <p style="font-size:13px;color:var(--t-3);margin-bottom:28px">Sign in to your account</p>
+  <div class="login-card fade">
+    <div class="login-logo"><div class="icon">MV</div><h1>MediaView</h1><p>Digital Signage Platform</p></div>
+    <div class="glass" style="border-radius:var(--r);padding:28px">
+      <h2 style="font-size:17px;font-weight:700;margin-bottom:2px">Welcome back</h2>
+      <p style="font-size:12px;color:var(--t-3);margin-bottom:24px">Sign in to your account</p>
       <div>
-        <label class="input-label">Email</label>
-        <input id="in-email" type="email" class="input" placeholder="admin@mediaviewads.com" style="margin-bottom:18px">
-        <label class="input-label">Password</label>
-        <input id="in-pwd" type="password" class="input" placeholder="Enter your password" style="margin-bottom:24px">
-        <button onclick="doLogin()" class="btn-primary" style="width:100%;justify-content:center;padding:14px">Sign In</button>
+        <label class="inp-label">Email</label>
+        <input id="in-email" type="email" class="inp" placeholder="admin@mediaviewads.com" style="margin-bottom:14px">
+        <label class="inp-label">Password</label>
+        <input id="in-pwd" type="password" class="inp" placeholder="Enter your password" style="margin-bottom:20px">
+        <button onclick="doLogin()" class="btn-p" style="width:100%;justify-content:center;padding:12px">Sign In</button>
       </div>
-      <p id="login-err" style="color:var(--red);font-size:13px;text-align:center;margin-top:16px;display:none"></p>
+      <p id="login-err" style="color:var(--red);font-size:12px;text-align:center;margin-top:14px;display:none"></p>
     </div>
   </div>
 </div>
 
-<!-- ====== APP ====== -->
+<!-- APP -->
 <div id="view-app">
-  <aside class="sidebar">
-    <div class="sidebar-brand">
-      <div class="logo">MV</div>
-      <div><div class="name">MediaView</div><div class="sub">Digital Signage</div></div>
-    </div>
+  <aside class="sb">
+    <div class="sb-brand"><div class="logo">MV</div><div><div class="name">MediaView</div><div class="sub">Digital Signage</div></div></div>
     <nav>
-      <div class="nav-link active" data-p="dashboard" onclick="go('dashboard')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard</div>
-      <div class="nav-link" data-p="screens" onclick="go('screens')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>Screens</div>
-      <div class="nav-link" data-p="campaigns" onclick="go('campaigns')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg>Campaigns</div>
-      <div class="nav-link" data-p="payments" onclick="go('payments')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg>Payments</div>
-      <div class="nav-link" data-p="analytics" onclick="go('analytics')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>Analytics</div>
-      <div class="nav-sep"></div>
-      <div class="nav-link" data-p="devices" onclick="go('devices')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>Devices</div>
-      <div class="nav-link" data-p="settings" onclick="go('settings')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</div>
+      <div class="ni on" data-p="dashboard" onclick="go('dashboard')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></div>
+      <div class="ni" data-p="screens" onclick="go('screens')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg><span>Screens</span></div>
+      <div class="ni" data-p="campaigns" onclick="go('campaigns')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg><span>Campaigns</span></div>
+      <div class="ni" data-p="payments" onclick="go('payments')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg><span>Payments</span></div>
+      <div class="ni" data-p="analytics" onclick="go('analytics')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0h6m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"/></svg><span>Analytics</span></div>
+      <div class="sep"></div>
+      <div class="ni" data-p="devices" onclick="go('devices')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><span>Devices</span></div>
+      <div class="ni" data-p="admin" onclick="go('admin')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg><span>Admin</span></div>
+      <div class="ni" data-p="settings" onclick="go('settings')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></div>
     </nav>
-    <div class="sidebar-footer">
+    <div class="sb-ft">
       <div class="av" id="sb-av">U</div>
       <div style="flex:1;min-width:0"><div id="sb-name" style="font-size:11px;font-weight:600;color:var(--t-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User</div><div id="sb-email" style="font-size:9px;color:var(--t-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">email</div></div>
       <button onclick="doLogout()" style="background:none;color:var(--t-4);padding:4px" title="Sign out"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9"/></svg></button>
     </div>
   </aside>
-
   <div class="main">
-    <div id="pg-dashboard" class="page on"></div>
-    <div id="pg-screens" class="page"></div>
-    <div id="pg-campaigns" class="page"></div>
-    <div id="pg-create" class="page"></div>
-    <div id="pg-payments" class="page"></div>
-    <div id="pg-devices" class="page"></div>
-    <div id="pg-analytics" class="page"></div>
-    <div id="pg-admin" class="page"></div>
-    <div id="pg-settings" class="page"></div>
+    <div id="pg-dashboard" class="pg on fade"></div>
+    <div id="pg-screens" class="pg fade"></div>
+    <div id="pg-campaigns" class="pg fade"></div>
+    <div id="pg-create" class="pg fade"></div>
+    <div id="pg-payments" class="pg fade"></div>
+    <div id="pg-analytics" class="pg fade"></div>
+    <div id="pg-admin" class="pg fade"></div>
+    <div id="pg-devices" class="pg fade"></div>
+    <div id="pg-settings" class="pg fade"></div>
   </div>
 </div>
 
