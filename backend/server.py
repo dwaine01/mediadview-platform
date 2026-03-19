@@ -247,8 +247,13 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         raise HTTPException(status_code=401, detail="Invalid token")
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "admin":
+    if current_user.get("role") not in ("admin", "superadmin"):
         raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+async def require_superadmin(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") != "superadmin":
+        raise HTTPException(status_code=403, detail="Super Admin access required")
     return current_user
 
 # ============ PRICING CALCULATOR ============
@@ -572,6 +577,79 @@ async def get_payment(payment_id: str, current_user: dict = Depends(get_current_
     if not payment:
         raise HTTPException(status_code=404, detail="Payment not found")
     return serialize_doc(payment)
+
+# ============ ROUTES: SUPER ADMIN ============
+
+class CreateAdminRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    company_name: Optional[str] = None
+
+@api_router.post("/superadmin/create-admin")
+async def create_admin(data: CreateAdminRequest, sa: dict = Depends(require_superadmin)):
+    """Super Admin creates a new Admin account."""
+    existing = await db.users.find_one({"email": data.email.lower()})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    admin = {
+        "id": gen_id(), "name": data.name, "email": data.email.lower(),
+        "password_hash": hash_password(data.password), "role": "admin",
+        "company_name": data.company_name, "phone": None,
+        "language": "en", "active": True,
+        "created_by": sa["id"],
+        "created_at": datetime.utcnow()
+    }
+    await db.users.insert_one(admin)
+    return {"message": "Admin created", "admin_id": admin["id"], "email": admin["email"]}
+
+@api_router.get("/superadmin/admins")
+async def list_admins(sa: dict = Depends(require_superadmin)):
+    """List all admin accounts."""
+    admins = await db.users.find({"role": "admin"}, {"password_hash": 0}).sort("created_at", -1).to_list(100)
+    enriched = []
+    for a in admins:
+        customers = await db.users.count_documents({"role": "customer"})
+        campaigns = await db.campaigns.count_documents({})
+        a["total_customers"] = customers
+        a["total_campaigns"] = campaigns
+        enriched.append(a)
+    return serialize_doc(enriched)
+
+@api_router.put("/superadmin/admins/{admin_id}/toggle")
+async def toggle_admin(admin_id: str, sa: dict = Depends(require_superadmin)):
+    """Enable/disable an admin account."""
+    admin = await db.users.find_one({"id": admin_id, "role": "admin"})
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    new_status = not admin.get("active", True)
+    await db.users.update_one({"id": admin_id}, {"$set": {"active": new_status}})
+    return {"message": f"Admin {'enabled' if new_status else 'disabled'}", "active": new_status}
+
+@api_router.delete("/superadmin/admins/{admin_id}")
+async def delete_admin(admin_id: str, sa: dict = Depends(require_superadmin)):
+    """Remove an admin account."""
+    admin = await db.users.find_one({"id": admin_id, "role": "admin"})
+    if not admin:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    await db.users.delete_one({"id": admin_id})
+    return {"message": "Admin removed"}
+
+@api_router.get("/superadmin/overview")
+async def superadmin_overview(sa: dict = Depends(require_superadmin)):
+    """Platform-wide overview for Super Admin."""
+    total_admins = await db.users.count_documents({"role": "admin"})
+    total_customers = await db.users.count_documents({"role": "customer"})
+    total_screens = await db.screens.count_documents({})
+    total_campaigns = await db.campaigns.count_documents({})
+    total_devices = await db.devices.count_documents({})
+    payments = await db.payments.find({"status": "completed"}).to_list(10000)
+    total_revenue = sum(p.get("amount", 0) for p in payments)
+    return {
+        "total_admins": total_admins, "total_customers": total_customers,
+        "total_screens": total_screens, "total_campaigns": total_campaigns,
+        "total_devices": total_devices, "total_revenue": round(total_revenue, 2),
+    }
 
 # ============ ROUTES: ADMIN ============
 
@@ -1303,6 +1381,20 @@ async def seed_data():
         }
         await db.users.insert_one(admin)
         logger.info("Admin user created: admin@mediaviewads.com")
+
+    # Create Super Admin
+    sa_exists = await db.users.find_one({"email": "superadmin@mediadview.com"})
+    if not sa_exists:
+        sa = {
+            "id": gen_id(), "name": "Super Admin",
+            "email": "superadmin@mediadview.com",
+            "password_hash": hash_password("SuperAdmin#2026"),
+            "role": "superadmin", "company_name": "MediaView Platform",
+            "phone": None, "language": "en", "active": True,
+            "created_at": datetime.utcnow()
+        }
+        await db.users.insert_one(sa)
+        logger.info("Super Admin created: superadmin@mediadview.com")
 
     if await db.screens.count_documents({}) == 0:
         screens = [

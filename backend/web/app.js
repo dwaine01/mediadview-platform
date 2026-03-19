@@ -5,7 +5,15 @@ let wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08
 async function api(p,o={}){const h={'Content-Type':'application/json',...(o.headers||{})};if(token)h['Authorization']='Bearer '+token;const r=await fetch(API+p,{...o,headers:h});if(r.status===401){doLogout();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}return r.json()}
 async function doLogin(){const e=document.getElementById('in-email').value,p=document.getElementById('in-pwd').value,err=document.getElementById('login-err');err.style.display='none';try{const d=await api('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;localStorage.setItem('mv_t',token);localStorage.setItem('mv_u',JSON.stringify(user));enterApp()}catch(x){err.textContent=x.message;err.style.display='block'}}
 function doLogout(){token=null;user=null;localStorage.removeItem('mv_t');localStorage.removeItem('mv_u');document.getElementById('view-login').classList.remove('off');document.getElementById('view-app').classList.remove('on')}
-function enterApp(){document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();go('dashboard')}
+function enterApp(){
+  document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
+  document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
+  document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();
+  // Show/hide role-specific nav items
+  document.querySelectorAll('[data-p="admin"]').forEach(e=>e.style.display=user?.role==='admin'||user?.role==='superadmin'?'':'none');
+  document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=user?.role==='superadmin'?'':'none');
+  go('dashboard');
+}
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 function go(p){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+p)?.classList.add('on');document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.querySelector(`[data-p="${p}"]`)?.classList.add('on');loaders[p]?.()}
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
@@ -224,10 +232,50 @@ const loaders={
     }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
   },
 
+  // Super Admin Panel
+  async superadmin(){
+    const el=document.getElementById('pg-superadmin');
+    if(user?.role!=='superadmin'){el.innerHTML='<p style="color:var(--red);padding:40px">Super Admin access required</p>';return}
+    try{
+      const [overview,admins]=await Promise.all([api('/superadmin/overview'),api('/superadmin/admins')]);
+      el.innerHTML=`
+        <div class="ph"><div><h1 style="font-size:28px;font-weight:800">Super Admin</h1><p style="color:var(--t-3)">Platform management</p></div></div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:28px">
+          ${[{l:'Admins',v:overview.total_admins,c:'--brand-l'},{l:'Customers',v:overview.total_customers,c:'--cyan'},{l:'Screens',v:overview.total_screens,c:'--green'},{l:'Campaigns',v:overview.total_campaigns,c:'--amber'},{l:'Devices',v:overview.total_devices,c:'--violet'},{l:'Revenue',v:'$'+overview.total_revenue?.toLocaleString(),c:'--cyan'}].map(s=>stat(s.l,s.v,'',s.c,'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6')).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div>
+            <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Admin Accounts (${admins.length})</h2>
+            <div class="card">${admins.length===0?'<div style="padding:32px;text-align:center;color:var(--t-4)">No admins yet</div>':admins.map((a,i)=>`
+              <div class="lr" style="gap:14px">
+                <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--brand-l);flex-shrink:0">${(a.name||'A')[0]}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="font-size:14px;font-weight:700">${a.name}</div>
+                  <div style="font-size:11px;color:var(--t-4)">${a.email}${a.company_name?' · '+a.company_name:''}</div>
+                </div>
+                <span class="${a.active!==false?'tag-on':'tag-off'}">${a.active!==false?'Active':'Disabled'}</span>
+                <button onclick="toggleAdmin('${a.id}')" class="btn-s" style="font-size:10px;padding:4px 10px">${a.active!==false?'Disable':'Enable'}</button>
+              </div>`).join('')}</div>
+          </div>
+          <div>
+            <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Create New Admin</h2>
+            <div class="card" style="padding:20px">
+              <div style="margin-bottom:12px"><label class="inp-label">Name</label><input class="inp" id="sa-name" placeholder="Admin name"></div>
+              <div style="margin-bottom:12px"><label class="inp-label">Email</label><input class="inp" id="sa-email" placeholder="admin@company.com"></div>
+              <div style="margin-bottom:12px"><label class="inp-label">Password</label><input class="inp" id="sa-pwd" type="password" placeholder="Min 6 characters"></div>
+              <div style="margin-bottom:16px"><label class="inp-label">Company</label><input class="inp" id="sa-company" placeholder="Company name (optional)"></div>
+              <button class="btn-p" onclick="createAdmin()" style="width:100%;justify-content:center">Create Admin Account</button>
+              <p id="sa-msg" style="font-size:12px;text-align:center;margin-top:12px;display:none"></p>
+            </div>
+          </div>
+        </div>`;
+    }catch(e){el.innerHTML=`<p style="color:var(--red);padding:40px">${e.message}</p>`}
+  },
+
   async devices(){
     const el=document.getElementById('pg-devices');
     try{
-      const devs=user?.role==='admin'?await api('/admin/devices'):[];
+      const devs=(user?.role==='admin'||user?.role==='superadmin')?await api('/admin/devices'):[];
       const screens=await api('/screens');
       const screenMap={};screens.forEach(s=>screenMap[s.id]=s.name);
       el.innerHTML=`
@@ -292,5 +340,15 @@ async function submitCampaign(){
   }catch(e){alert('Error: '+e.message)}
 }
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+async function createAdmin(){
+  const name=document.getElementById('sa-name')?.value,email=document.getElementById('sa-email')?.value,pwd=document.getElementById('sa-pwd')?.value,company=document.getElementById('sa-company')?.value;
+  const msg=document.getElementById('sa-msg');msg.style.display='none';
+  if(!name||!email||!pwd){msg.textContent='Fill in all required fields';msg.style.color='var(--red)';msg.style.display='block';return}
+  try{await api('/superadmin/create-admin',{method:'POST',body:JSON.stringify({name,email,password:pwd,company_name:company||null})});
+    msg.textContent='Admin created successfully!';msg.style.color='var(--green)';msg.style.display='block';
+    document.getElementById('sa-name').value='';document.getElementById('sa-email').value='';document.getElementById('sa-pwd').value='';document.getElementById('sa-company').value='';
+    setTimeout(()=>loaders.superadmin(),1000);
+  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',{method:'PUT'});loaders.superadmin()}catch(e){alert(e.message)}}
 
 if(token&&user){enterApp()}
