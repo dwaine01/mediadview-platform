@@ -1,0 +1,346 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<component name="MainScene" extends="Scene">
+    <interface>
+    </interface>
+    
+    <script type="text/brightscript">
+    <![CDATA[
+    
+    sub init()
+        m.top.backgroundColor = "0x030712FF"
+        m.top.backgroundURI = ""
+        
+        ' Server config
+        m.serverUrl = "https://screensync-ads.preview.emergentagent.com"
+        m.pollInterval = 60
+        m.currentIndex = 0
+        m.playlist = []
+        
+        ' Create UI
+        createUI()
+        
+        ' Start loading
+        m.timer = createObject("roSGNode", "Timer")
+        m.timer.repeat = true
+        m.timer.duration = m.pollInterval
+        m.timer.observeField("fire", "onPollTimer")
+        
+        m.playTimer = createObject("roSGNode", "Timer")
+        m.playTimer.repeat = false
+        m.playTimer.observeField("fire", "onPlayNext")
+        
+        ' Register device first
+        registerDevice()
+    end sub
+    
+    sub createUI()
+        ' Background
+        m.bg = createObject("roSGNode", "Rectangle")
+        m.bg.width = 1920
+        m.bg.height = 1080
+        m.bg.color = "0x030712FF"
+        m.top.appendChild(m.bg)
+        
+        ' Logo text (fallback)
+        m.logoLabel = createObject("roSGNode", "Label")
+        m.logoLabel.text = "MediAd View"
+        m.logoLabel.font = createObject("roSGNode", "Font")
+        m.logoLabel.font.size = 64
+        m.logoLabel.color = "0xF1F5F9FF"
+        m.logoLabel.horizAlign = "center"
+        m.logoLabel.vertAlign = "center"
+        m.logoLabel.width = 1920
+        m.logoLabel.height = 200
+        m.logoLabel.translation = [0, 350]
+        m.top.appendChild(m.logoLabel)
+        
+        ' Subtitle
+        m.subLabel = createObject("roSGNode", "Label")
+        m.subLabel.text = "Advertising Solution"
+        m.subLabel.font = createObject("roSGNode", "Font")
+        m.subLabel.font.size = 28
+        m.subLabel.color = "0x818CF8FF"
+        m.subLabel.horizAlign = "center"
+        m.subLabel.width = 1920
+        m.subLabel.height = 80
+        m.subLabel.translation = [0, 460]
+        m.top.appendChild(m.subLabel)
+        
+        ' Status text
+        m.statusLabel = createObject("roSGNode", "Label")
+        m.statusLabel.text = "Initializing..."
+        m.statusLabel.font = createObject("roSGNode", "Font")
+        m.statusLabel.font.size = 24
+        m.statusLabel.color = "0x64748BFF"
+        m.statusLabel.horizAlign = "center"
+        m.statusLabel.width = 1920
+        m.statusLabel.height = 60
+        m.statusLabel.translation = [0, 560]
+        m.top.appendChild(m.statusLabel)
+        
+        ' Activation code display
+        m.codeLabel = createObject("roSGNode", "Label")
+        m.codeLabel.text = ""
+        m.codeLabel.font = createObject("roSGNode", "Font")
+        m.codeLabel.font.size = 96
+        m.codeLabel.color = "0xA5B4FCFF"
+        m.codeLabel.horizAlign = "center"
+        m.codeLabel.width = 1920
+        m.codeLabel.height = 150
+        m.codeLabel.translation = [0, 640]
+        m.codeLabel.visible = false
+        m.top.appendChild(m.codeLabel)
+        
+        ' Media poster (for images)
+        m.mediaPoster = createObject("roSGNode", "Poster")
+        m.mediaPoster.width = 1920
+        m.mediaPoster.height = 1080
+        m.mediaPoster.loadDisplayMode = "scaleToFit"
+        m.mediaPoster.visible = false
+        m.top.appendChild(m.mediaPoster)
+        
+        ' Video player
+        m.videoPlayer = createObject("roSGNode", "Video")
+        m.videoPlayer.width = 1920
+        m.videoPlayer.height = 1080
+        m.videoPlayer.visible = false
+        m.videoPlayer.observeField("state", "onVideoState")
+        m.top.appendChild(m.videoPlayer)
+    end sub
+    
+    sub registerDevice()
+        m.statusLabel.text = "Registering device..."
+        
+        ' Check if already registered
+        sec = createObject("roRegistrySection", "mediadview")
+        m.deviceId = sec.Read("device_id")
+        m.activationCode = sec.Read("activation_code")
+        
+        if m.deviceId <> "" and m.deviceId <> invalid
+            m.statusLabel.text = "Checking activation..."
+            checkActivation()
+        else
+            ' Register new device
+            doRegister()
+        end if
+    end sub
+    
+    sub doRegister()
+        url = m.serverUrl + "/api/devices/register"
+        request = createObject("roUrlTransfer")
+        request.setUrl(url)
+        request.setCertificatesFile("common:/certs/ca-bundle.crt")
+        request.initClientCertificates()
+        request.addHeader("Content-Type", "application/json")
+        
+        body = FormatJson({
+            device_name: "MediAd View Roku Player",
+            device_model: "Roku/" + createObject("roDeviceInfo").getModel(),
+            os_version: createObject("roDeviceInfo").getVersion(),
+            app_version: "1.0.0",
+            resolution: "1920x1080",
+            platform: "roku"
+        })
+        
+        response = request.postFromString(body)
+        if response <> invalid and response <> ""
+            json = ParseJson(response)
+            if json <> invalid and json.device_id <> invalid
+                m.deviceId = json.device_id
+                m.activationCode = json.activation_code
+                
+                ' Save to registry
+                sec = createObject("roRegistrySection", "mediadview")
+                sec.Write("device_id", m.deviceId)
+                sec.Write("activation_code", m.activationCode)
+                sec.Flush()
+                
+                showActivationScreen()
+            else
+                m.statusLabel.text = "Registration failed. Retrying..."
+                sleep(5000)
+                doRegister()
+            end if
+        else
+            m.statusLabel.text = "Cannot connect to server. Retrying..."
+            sleep(5000)
+            doRegister()
+        end if
+    end sub
+    
+    sub showActivationScreen()
+        m.logoLabel.visible = true
+        m.subLabel.visible = true
+        m.codeLabel.visible = true
+        m.codeLabel.text = m.activationCode
+        m.statusLabel.text = "Enter this code in the MediAd View Admin Panel"
+        m.mediaPoster.visible = false
+        m.videoPlayer.visible = false
+        
+        ' Start polling for activation
+        m.timer.duration = 5
+        m.timer.control = "start"
+    end sub
+    
+    sub checkActivation()
+        if m.deviceId = "" or m.deviceId = invalid then return
+        
+        url = m.serverUrl + "/api/devices/" + m.deviceId + "/check"
+        request = createObject("roUrlTransfer")
+        request.setUrl(url)
+        request.setCertificatesFile("common:/certs/ca-bundle.crt")
+        request.initClientCertificates()
+        
+        response = request.getToString()
+        if response <> invalid and response <> ""
+            json = ParseJson(response)
+            if json <> invalid and json.status = "active" and json.screen_id <> invalid
+                ' Device is activated!
+                m.screenId = json.screen_id
+                sec = createObject("roRegistrySection", "mediadview")
+                sec.Write("screen_id", m.screenId)
+                sec.Flush()
+                
+                startPlaying()
+            else
+                ' Not activated yet
+                if m.codeLabel.visible = false
+                    showActivationScreen()
+                end if
+            end if
+        end if
+    end sub
+    
+    sub startPlaying()
+        m.logoLabel.visible = false
+        m.subLabel.visible = false
+        m.codeLabel.visible = false
+        m.statusLabel.text = "Loading content..."
+        
+        ' Switch to content polling
+        m.timer.duration = m.pollInterval
+        m.timer.control = "start"
+        
+        fetchPlaylist()
+    end sub
+    
+    sub fetchPlaylist()
+        if m.deviceId = "" or m.deviceId = invalid then return
+        
+        url = m.serverUrl + "/api/devices/" + m.deviceId + "/playlist"
+        request = createObject("roUrlTransfer")
+        request.setUrl(url)
+        request.setCertificatesFile("common:/certs/ca-bundle.crt")
+        request.initClientCertificates()
+        
+        response = request.getToString()
+        if response <> invalid and response <> ""
+            json = ParseJson(response)
+            if json <> invalid and json.items <> invalid
+                m.playlist = json.items
+                if m.playlist.count() > 0
+                    m.statusLabel.visible = false
+                    m.currentIndex = 0
+                    playCurrentItem()
+                else
+                    showFallback("No campaigns scheduled")
+                end if
+            end if
+        else
+            showFallback("Connection lost - retrying...")
+        end if
+        
+        ' Send heartbeat
+        sendHeartbeat()
+    end sub
+    
+    sub playCurrentItem()
+        if m.playlist.count() = 0 then return
+        if m.currentIndex >= m.playlist.count() then m.currentIndex = 0
+        
+        item = m.playlist[m.currentIndex]
+        mediaUrl = m.serverUrl + item.download_url
+        duration = item.duration
+        if duration = invalid then duration = 15
+        
+        contentType = item.content_type
+        if contentType <> invalid and Left(contentType, 6) = "image/"
+            ' Show image
+            m.mediaPoster.uri = mediaUrl
+            m.mediaPoster.visible = true
+            m.videoPlayer.visible = false
+            
+            ' Schedule next
+            m.playTimer.duration = duration
+            m.playTimer.control = "start"
+        else
+            ' Play video
+            content = createObject("roSGNode", "ContentNode")
+            content.url = mediaUrl
+            content.streamFormat = "mp4"
+            m.videoPlayer.content = content
+            m.videoPlayer.visible = true
+            m.mediaPoster.visible = false
+            m.videoPlayer.control = "play"
+            
+            ' Fallback timer
+            m.playTimer.duration = duration
+            m.playTimer.control = "start"
+        end if
+    end sub
+    
+    sub onPlayNext()
+        m.currentIndex = m.currentIndex + 1
+        if m.currentIndex >= m.playlist.count() then m.currentIndex = 0
+        playCurrentItem()
+    end sub
+    
+    sub onVideoState()
+        state = m.videoPlayer.state
+        if state = "finished" or state = "error"
+            onPlayNext()
+        end if
+    end sub
+    
+    sub onPollTimer()
+        if m.screenId <> invalid and m.screenId <> ""
+            fetchPlaylist()
+        else
+            checkActivation()
+        end if
+    end sub
+    
+    sub showFallback(msg as string)
+        m.logoLabel.visible = true
+        m.subLabel.visible = true
+        m.statusLabel.visible = true
+        m.statusLabel.text = msg
+        m.codeLabel.visible = false
+        m.mediaPoster.visible = false
+        m.videoPlayer.visible = false
+    end sub
+    
+    sub sendHeartbeat()
+        if m.deviceId = "" or m.deviceId = invalid then return
+        
+        url = m.serverUrl + "/api/devices/" + m.deviceId + "/heartbeat"
+        request = createObject("roUrlTransfer")
+        request.setUrl(url)
+        request.setCertificatesFile("common:/certs/ca-bundle.crt")
+        request.initClientCertificates()
+        request.addHeader("Content-Type", "application/json")
+        
+        body = FormatJson({
+            status: "online",
+            app_version: "1.0.0"
+        })
+        
+        request.postFromString(body)
+    end sub
+    
+    ]]>
+    </script>
+    
+    <children>
+    </children>
+</component>
