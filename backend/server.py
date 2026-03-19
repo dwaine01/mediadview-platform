@@ -697,6 +697,22 @@ async def admin_analytics(admin: dict = Depends(require_admin)):
         "recent_campaigns": serialize_doc(recent)
     }
 
+@api_router.get("/admin/payments")
+async def admin_list_payments(admin: dict = Depends(require_admin)):
+    """List ALL payments (admin view)."""
+    payments = await db.payments.find({}).sort("created_at", -1).to_list(500)
+    enriched = []
+    for p in payments:
+        campaign = await db.campaigns.find_one({"id": p.get("campaign_id")})
+        user = await db.users.find_one({"id": p.get("user_id")}, {"password_hash": 0})
+        if campaign:
+            screen = await db.screens.find_one({"id": campaign.get("screen_id")})
+            p["campaign_name"] = campaign.get("name", "")
+            p["screen_name"] = screen.get("name", "") if screen else ""
+        p["user_name"] = user.get("name", "") if user else ""
+        enriched.append(p)
+    return serialize_doc(enriched)
+
 # ============ ROUTES: PLAYER API ============
 
 @api_router.get("/player/{screen_id}/playlist")
