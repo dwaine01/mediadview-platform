@@ -1611,9 +1611,11 @@ async def get_certified_devices():
 WEB_DIR = str(ROOT_DIR / 'web')
 
 @api_router.get("/dashboard")
-@api_router.get("/dashboard/{path:path}")
-async def serve_dashboard(path: str = ""):
-    return FileResponse(os.path.join(WEB_DIR, 'index.html'))
+async def serve_dashboard():
+    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+
+# Mount static assets under /api/ prefix for K8s ingress compatibility
+app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
 app.include_router(api_router)
 
