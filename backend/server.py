@@ -1775,6 +1775,10 @@ WEB_DIR = str(ROOT_DIR / 'web')
 async def serve_dashboard():
     return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
 
+@api_router.get("/download")
+async def serve_download():
+    return FileResponse(os.path.join(WEB_DIR, 'download.html'), media_type='text/html')
+
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
