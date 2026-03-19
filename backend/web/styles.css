@@ -142,4 +142,46 @@ input { font-family:inherit; }
 .list-row:hover { background:rgba(255,255,255,.02); }
 .list-row + .list-row { border-top:1px solid rgba(30,41,59,.3); }
 .list-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+
+/* ===== WIZARD ===== */
+.wizard-steps { display:flex; align-items:center; gap:4px; margin-bottom:32px; }
+.wizard-step { display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:var(--radius-sm); font-size:12px; font-weight:600; color:var(--t-4); background:var(--bg-2); border:1px solid var(--border); transition:all .2s; }
+.wizard-step.active { background:rgba(99,102,241,.1); color:var(--brand-l); border-color:rgba(99,102,241,.3); }
+.wizard-step.done { background:rgba(52,211,153,.08); color:var(--green); border-color:rgba(52,211,153,.2); }
+.wizard-step .num { width:24px; height:24px; border-radius:50%; background:var(--bg-3); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; }
+.wizard-step.active .num { background:var(--brand); color:#fff; }
+.wizard-step.done .num { background:var(--green); color:#fff; }
+.wizard-conn { width:20px; height:2px; background:var(--bg-3); }
+.wizard-conn.done { background:var(--green); }
+
+.screen-select { display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+.screen-opt { padding:14px; border-radius:var(--radius-sm); border:2px solid var(--border); cursor:pointer; transition:all .2s; background:var(--bg-2); }
+.screen-opt:hover { border-color:rgba(99,102,241,.3); }
+.screen-opt.selected { border-color:var(--brand); background:rgba(99,102,241,.06); }
+
+/* ===== CHARTS ===== */
+.chart-bar-row { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.chart-bar-label { width:50px; font-size:11px; color:var(--t-3); text-align:right; }
+.chart-bar-track { flex:1; height:28px; background:var(--bg-3); border-radius:6px; overflow:hidden; }
+.chart-bar-fill { height:100%; border-radius:6px; transition:width .6s ease; display:flex; align-items:center; padding-left:10px; font-size:11px; font-weight:700; color:#fff; }
+.chart-donut { width:120px; height:120px; border-radius:50%; position:relative; }
+.chart-donut-center { position:absolute; inset:20px; border-radius:50%; background:var(--bg-2); display:flex; flex-direction:column; align-items:center; justify-content:center; }
+.chart-legend { display:flex; flex-direction:column; gap:8px; }
+.chart-legend-item { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--t-2); }
+.chart-legend-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+/* ===== ADMIN TABLE ===== */
+.table-header { display:grid; padding:10px 16px; font-size:10px; font-weight:700; color:var(--t-3); text-transform:uppercase; letter-spacing:1px; border-bottom:1px solid var(--border); }
+.table-row { display:grid; padding:12px 16px; align-items:center; border-bottom:1px solid rgba(30,41,59,.2); transition:background .15s; }
+.table-row:hover { background:rgba(255,255,255,.02); }
+.tag-online { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:var(--green); }
+.tag-online::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--green); }
+.tag-offline { display:inline-flex; align-items:center; gap:4px; font-size:10px; font-weight:600; color:var(--t-4); }
+.tag-offline::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--t-4); }
+
+/* ===== PRICE BOX ===== */
+.price-box { background:rgba(34,211,238,.06); border:1px solid rgba(34,211,238,.15); border-radius:var(--radius-sm); padding:16px; }
+.price-row { display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px; }
+.price-total { display:flex; justify-content:space-between; font-size:18px; font-weight:800; padding-top:10px; margin-top:10px; border-top:1px solid var(--border); }
+
 </style>
