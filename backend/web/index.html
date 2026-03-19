@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>MediaView — Digital Signage Platform</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{fontFamily:{sans:['Inter','-apple-system','sans-serif']},colors:{brand:{50:'#eef2ff',100:'#e0e7ff',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',900:'#1e1b4b'},dark:{950:'#030712',900:'#0a0f1a',800:'#0f172a',700:'#1e293b',600:'#334155',500:'#475569',400:'#64748b',300:'#94a3b8',200:'#cbd5e1',100:'#e2e8f0',50:'#f8fafc'}}}}}
+</script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',-apple-system,sans-serif;background:#030712;color:#e2e8f0;overflow-x:hidden}
+::selection{background:rgba(99,102,241,.3);color:#fff}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:#0a0f1a}
+::-webkit-scrollbar-thumb{background:#1e293b;border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:#334155}
+.glass{background:rgba(15,23,42,.6);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(30,41,59,.5)}
+.glow-sm{box-shadow:0 0 15px -3px var(--glow-color,rgba(99,102,241,.3))}
+.glow-md{box-shadow:0 0 30px -5px var(--glow-color,rgba(99,102,241,.4))}
+.gradient-text{background:linear-gradient(135deg,#818cf8,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.gradient-border{position:relative}
+.gradient-border::before{content:'';position:absolute;inset:-1px;border-radius:inherit;padding:1px;background:linear-gradient(135deg,rgba(99,102,241,.4),rgba(34,211,238,.2));-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.stat-card{transition:all .3s ease}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 30px -8px var(--glow-color,rgba(99,102,241,.2))}
+.nav-item{transition:all .2s ease}
+.nav-item:hover{background:rgba(99,102,241,.08)}
+.nav-item.active{background:rgba(99,102,241,.12);color:#818cf8}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);transition:all .3s ease;box-shadow:0 4px 15px -3px rgba(99,102,241,.4)}
+.btn-primary:hover{box-shadow:0 6px 25px -3px rgba(99,102,241,.5);transform:translateY(-1px)}
+.card-hover{transition:all .3s ease;border:1px solid rgba(30,41,59,.5)}
+.card-hover:hover{border-color:rgba(99,102,241,.3);box-shadow:0 4px 20px -5px rgba(99,102,241,.1)}
+.input-field{transition:all .2s ease;border:1.5px solid #1e293b}
+.input-field:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.15);outline:none}
+.fade-in{animation:fadeIn .4s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.4}}
+.pulse-dot{animation:pulse-dot 2s ease-in-out infinite}
+.page{display:none}.page.active{display:block}
+#app.active{display:flex!important}
+.orb{position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0}
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- Decorative orbs -->
+<div class="orb" style="width:400px;height:400px;top:-150px;right:-100px;background:radial-gradient(circle,rgba(99,102,241,.08),transparent 70%)"></div>
+<div class="orb" style="width:300px;height:300px;bottom:-100px;left:-80px;background:radial-gradient(circle,rgba(34,211,238,.05),transparent 70%)"></div>
+
+<!-- ==================== LOGIN PAGE ==================== -->
+<div id="login-page" class="page active min-h-screen flex items-center justify-center p-6 relative">
+  <div class="orb" style="width:500px;height:500px;top:-200px;right:-150px;background:radial-gradient(circle,rgba(99,102,241,.1),transparent 70%)"></div>
+  <div class="orb" style="width:400px;height:400px;bottom:-150px;left:-100px;background:radial-gradient(circle,rgba(34,211,238,.06),transparent 70%)"></div>
+
+  <div class="w-full max-w-md fade-in relative z-10">
+    <!-- Logo -->
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 mb-5 shadow-lg shadow-brand-500/30">
+        <span class="text-2xl font-black text-white tracking-wider">MV</span>
+      </div>
+      <h1 class="text-3xl font-extrabold text-white tracking-tight">MediaView</h1>
+      <p class="text-brand-400 text-sm font-medium mt-1 tracking-wide">Digital Signage Platform</p>
+    </div>
+
+    <!-- Login Card -->
+    <div class="glass rounded-2xl p-8">
+      <h2 class="text-xl font-bold text-white mb-1">Welcome back</h2>
+      <p class="text-dark-400 text-sm mb-8">Sign in to manage your signage network</p>
+
+      <div class="space-y-5">
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 uppercase tracking-wider mb-2">Email</label>
+          <div class="relative">
+            <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>
+            <input id="login-email" type="email" placeholder="you@company.com" class="input-field w-full bg-dark-900/80 text-white placeholder-dark-500 rounded-xl py-3.5 pl-11 pr-4 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-dark-300 uppercase tracking-wider mb-2">Password</label>
+          <div class="relative">
+            <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <input id="login-password" type="password" placeholder="Enter your password" class="input-field w-full bg-dark-900/80 text-white placeholder-dark-500 rounded-xl py-3.5 pl-11 pr-4 text-sm">
+          </div>
+        </div>
+        <button onclick="doLogin()" id="login-btn" class="btn-primary w-full text-white font-bold py-3.5 rounded-xl text-sm tracking-wide">
+          Sign In
+        </button>
+      </div>
+      <p id="login-error" class="text-red-400 text-sm mt-4 text-center hidden"></p>
+    </div>
+
+    <p class="text-center mt-8 text-sm text-dark-400">
+      Don't have an account? <a onclick="showPage('register-page')" class="text-brand-400 font-semibold cursor-pointer hover:text-brand-300 transition">Create one</a>
+    </p>
+  </div>
+</div>
+
+<!-- ==================== MAIN APP (after login) ==================== -->
+<div id="app" class="page min-h-screen flex">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="w-60 bg-dark-800/50 border-r border-dark-700/50 flex flex-col fixed h-full z-30 backdrop-blur-sm">
+    <!-- Brand -->
+    <div class="flex items-center gap-3 px-5 py-6 border-b border-dark-700/30">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center shadow-lg shadow-brand-500/20">
+        <span class="text-xs font-black text-white">MV</span>
+      </div>
+      <div>
+        <div class="text-sm font-bold text-white">MediaView</div>
+        <div class="text-[10px] text-dark-400">Digital Signage</div>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-4 space-y-0.5">
+      <a onclick="navigate('dashboard')" class="nav-item active flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium cursor-pointer" data-nav="dashboard">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+        Dashboard
+      </a>
+      <a onclick="navigate('screens')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-dark-300 cursor-pointer" data-nav="screens">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        Screens
+      </a>
+      <a onclick="navigate('campaigns')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-dark-300 cursor-pointer" data-nav="campaigns">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+        Campaigns
+      </a>
+      <a onclick="navigate('payments')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-dark-300 cursor-pointer" data-nav="payments">
+        <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        Payments
+      </a>
+
+      <div class="pt-4 mt-4 border-t border-dark-700/30">
+        <a onclick="navigate('devices')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-dark-300 cursor-pointer" data-nav="devices">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          Devices
+        </a>
+        <a onclick="navigate('settings')" class="nav-item flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-dark-300 cursor-pointer" data-nav="settings">
+          <svg class="w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Settings
+        </a>
+      </div>
+    </nav>
+
+    <!-- User -->
+    <div class="px-4 py-4 border-t border-dark-700/30">
+      <div class="flex items-center gap-3">
+        <div id="sidebar-avatar" class="w-8 h-8 rounded-lg bg-brand-900 flex items-center justify-center text-brand-400 text-xs font-bold">U</div>
+        <div class="flex-1 min-w-0">
+          <div id="sidebar-name" class="text-xs font-semibold text-dark-100 truncate">User</div>
+          <div id="sidebar-email" class="text-[10px] text-dark-400 truncate">email</div>
+        </div>
+        <button onclick="doLogout()" class="text-dark-500 hover:text-dark-300 transition" title="Sign out">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 ml-60 min-h-screen">
+    <!-- ===== DASHBOARD ===== -->
+    <div id="pg-dashboard" class="page active p-8 lg:p-10 fade-in">
+      <div class="flex items-start justify-between mb-10">
+        <div>
+          <p class="text-xs font-bold text-brand-400 uppercase tracking-[0.2em] mb-2">WELCOME BACK</p>
+          <h1 id="dash-name" class="text-3xl lg:text-4xl font-extrabold text-white tracking-tight">Admin</h1>
+          <p class="text-dark-400 mt-1">Your digital signage network at a glance</p>
+        </div>
+        <button onclick="navigate('campaigns')" class="btn-primary flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold text-white">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          New Campaign
+        </button>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10" id="dash-stats"></div>
+
+      <!-- Two columns -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Recent -->
+        <div class="lg:col-span-2">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-white">Recent Campaigns</h2>
+            <a onclick="navigate('campaigns')" class="text-xs text-brand-400 font-semibold cursor-pointer hover:text-brand-300 flex items-center gap-1">View All <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></a>
+          </div>
+          <div id="dash-campaigns" class="glass rounded-2xl overflow-hidden"></div>
+        </div>
+        <!-- Actions -->
+        <div>
+          <h2 class="text-lg font-bold text-white mb-4">Quick Actions</h2>
+          <div class="space-y-3" id="dash-actions"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== SCREENS ===== -->
+    <div id="pg-screens" class="page p-8 lg:p-10 fade-in">
+      <h1 class="text-3xl font-extrabold text-white mb-2">Screens</h1>
+      <p class="text-dark-400 mb-8">Browse available LED displays</p>
+      <div id="screens-list" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5"></div>
+    </div>
+
+    <!-- ===== CAMPAIGNS ===== -->
+    <div id="pg-campaigns" class="page p-8 lg:p-10 fade-in">
+      <div class="flex items-center justify-between mb-8">
+        <div><h1 class="text-3xl font-extrabold text-white mb-1">Campaigns</h1><p class="text-dark-400">Manage your ad campaigns</p></div>
+        <button class="btn-primary px-5 py-3 rounded-xl text-sm font-bold text-white">+ New Campaign</button>
+      </div>
+      <div id="campaigns-list" class="space-y-3"></div>
+    </div>
+
+    <!-- ===== PAYMENTS ===== -->
+    <div id="pg-payments" class="page p-8 lg:p-10 fade-in">
+      <h1 class="text-3xl font-extrabold text-white mb-2">Payments</h1>
+      <p class="text-dark-400 mb-8">Transaction history and invoices</p>
+      <div id="payments-list" class="space-y-3"></div>
+    </div>
+
+    <!-- ===== DEVICES ===== -->
+    <div id="pg-devices" class="page p-8 lg:p-10 fade-in">
+      <h1 class="text-3xl font-extrabold text-white mb-2">Devices</h1>
+      <p class="text-dark-400 mb-8">Manage connected players and screens</p>
+      <div id="devices-content"></div>
+    </div>
+
+    <!-- ===== SETTINGS ===== -->
+    <div id="pg-settings" class="page p-8 lg:p-10 fade-in">
+      <h1 class="text-3xl font-extrabold text-white mb-8">Settings</h1>
+      <div id="settings-content"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+const AB='/api';
+let token=localStorage.getItem('mv_token');
+let user=JSON.parse(localStorage.getItem('mv_user')||'null');
+
+// Auth
+async function api(path,opts={}){
+  const h={'Content-Type':'application/json',...(opts.headers||{})};
+  if(token)h['Authorization']='Bearer '+token;
+  const r=await fetch(AB+path,{...opts,headers:h});
+  if(r.status===401){doLogout();throw new Error('Unauthorized');}
+  return r.json();
+}
+
+function showPage(id){document.querySelectorAll('body > .page').forEach(p=>{p.classList.remove('active');p.style.display='none'});var el=document.getElementById(id);if(el){el.classList.add('active');el.style.display=id==='app'?'flex':'block'}}
+
+async function doLogin(){
+  const email=document.getElementById('login-email').value;
+  const pwd=document.getElementById('login-password').value;
+  const errEl=document.getElementById('login-error');
+  errEl.classList.add('hidden');
+  try{
+    const d=await api('/auth/login',{method:'POST',body:JSON.stringify({email,password:pwd})});
+    token=d.access_token;user=d.user;
+    localStorage.setItem('mv_token',token);localStorage.setItem('mv_user',JSON.stringify(user));
+    enterApp();
+  }catch(e){errEl.textContent=e.message||'Login failed';errEl.classList.remove('hidden')}
+}
+
+function doLogout(){token=null;user=null;localStorage.removeItem('mv_token');localStorage.removeItem('mv_user');showPage('login-page')}
+
+function enterApp(){
+  showPage('app');
+  document.getElementById('sidebar-name').textContent=user.name;
+  document.getElementById('sidebar-email').textContent=user.email;
+  document.getElementById('sidebar-avatar').textContent=(user.name||'U')[0].toUpperCase();
+  document.getElementById('dash-name').textContent=user.name;
+  navigate('dashboard');
+}
+
+// Navigation
+function navigate(page){
+  document.querySelectorAll('#app .page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pg-'+page)?.classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n=>{n.classList.remove('active');n.classList.add('text-dark-300')});
+  document.querySelector(`[data-nav="${page}"]`)?.classList.add('active');
+  document.querySelector(`[data-nav="${page}"]`)?.classList.remove('text-dark-300');
+  if(page==='dashboard')loadDashboard();
+  if(page==='screens')loadScreens();
+  if(page==='campaigns')loadCampaigns();
+  if(page==='payments')loadPayments();
+  if(page==='settings')loadSettings();
+}
+
+// Dashboard
+async function loadDashboard(){
+  try{
+    const d=await api('/analytics/dashboard');
+    let ad=null;if(user?.role==='admin')try{ad=await api('/admin/analytics')}catch(e){}
+    const rev=ad?.total_revenue||d.total_spent||0;
+    const scr=ad?.active_screens||d.active_campaigns||0;
+    const camp=d.total_campaigns||0;
+    const pend=d.pending_campaigns||0;
+
+    const stats=[
+      {l:'Total Revenue',v:'$'+rev.toLocaleString(),s:'All time',c:'from-cyan-400 to-cyan-600',bg:'bg-cyan-500/10',tc:'text-cyan-400',bc:'border-cyan-500/20',ic:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/>'},
+      {l:'Active Screens',v:scr,s:'Online now',c:'from-emerald-400 to-emerald-600',bg:'bg-emerald-500/10',tc:'text-emerald-400',bc:'border-emerald-500/20',ic:'<circle cx="12" cy="12" r="3" stroke-width="2"/><path stroke-width="2" d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>'},
+      {l:'Campaigns',v:camp,s:'Total created',c:'from-violet-400 to-violet-600',bg:'bg-violet-500/10',tc:'text-violet-400',bc:'border-violet-500/20',ic:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>'},
+      {l:'Pending',v:pend,s:'Awaiting review',c:'from-amber-400 to-amber-500',bg:'bg-amber-500/10',tc:'text-amber-400',bc:'border-amber-500/20',ic:'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>'},
+    ];
+    document.getElementById('dash-stats').innerHTML=stats.map(s=>`
+      <div class="stat-card glass rounded-2xl p-5 border ${s.bc}" style="--glow-color:var(--tw-shadow-color)">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="${s.bg} w-10 h-10 rounded-xl flex items-center justify-center">
+            <svg class="w-5 h-5 ${s.tc}" fill="none" stroke="currentColor" viewBox="0 0 24 24">${s.ic}</svg>
+          </div>
+          <span class="text-xs font-semibold text-dark-400">${s.l}</span>
+        </div>
+        <div class="${s.tc} text-3xl font-extrabold tracking-tight">${s.v}</div>
+        <div class="text-[11px] text-dark-500 mt-1">${s.s}</div>
+      </div>`).join('');
+
+    // Campaigns
+    const camps=d.recent_campaigns||[];
+    if(camps.length===0){
+      document.getElementById('dash-campaigns').innerHTML='<div class="p-12 text-center"><div class="w-14 h-14 rounded-2xl bg-dark-700 flex items-center justify-center mx-auto mb-4"><svg class="w-6 h-6 text-dark-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg></div><p class="text-dark-400 font-medium">No campaigns yet</p><p class="text-dark-500 text-sm mt-1">Create your first campaign</p></div>';
+    }else{
+      document.getElementById('dash-campaigns').innerHTML=camps.map((c,i)=>{
+        const sc=statusColor(c.status);
+        return `<div class="flex items-center gap-4 px-5 py-4 hover:bg-white/[0.02] transition cursor-pointer ${i>0?'border-t border-dark-700/30':''}">
+          <div class="w-2 h-2 rounded-full ${sc.dot}"></div>
+          <div class="flex-1 min-w-0"><div class="text-sm font-semibold text-dark-100 truncate">${c.name}</div><div class="text-xs text-dark-500">${c.screen_name||'Screen'} · ${c.schedule?.start_date||''}</div></div>
+          <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide ${sc.bg} ${sc.text}">${c.status}</span>
+        </div>`}).join('');
+    }
+
+    // Actions
+    const actions=[
+      {l:'Create Campaign',d:'Launch a new ad campaign',ic:'M12 4v16m8-8H4',c:'brand',r:'campaigns'},
+      {l:'Browse Screens',d:'Explore available displays',ic:'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',c:'cyan',r:'screens'},
+      {l:'Payment History',d:'View invoices and billing',ic:'M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z',c:'emerald',r:'payments'},
+    ];
+    document.getElementById('dash-actions').innerHTML=actions.map(a=>`
+      <div onclick="navigate('${a.r}')" class="card-hover glass rounded-xl p-4 flex items-center gap-4 cursor-pointer">
+        <div class="w-10 h-10 rounded-xl bg-${a.c}-500/10 border border-${a.c}-500/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-${a.c}-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${a.ic}"/></svg>
+        </div>
+        <div class="flex-1"><div class="text-sm font-semibold text-dark-100">${a.l}</div><div class="text-[11px] text-dark-500">${a.d}</div></div>
+        <svg class="w-4 h-4 text-dark-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </div>`).join('');
+  }catch(e){console.error('Dashboard error:',e)}
+}
+
+// Screens
+async function loadScreens(){
+  try{
+    const d=await api('/screens');
+    const colors=['from-blue-600 to-blue-800','from-orange-600 to-orange-800','from-teal-600 to-teal-800','from-purple-600 to-purple-800','from-amber-600 to-amber-800','from-pink-600 to-pink-800','from-emerald-600 to-emerald-800','from-indigo-600 to-indigo-800','from-cyan-600 to-cyan-800','from-rose-600 to-rose-800'];
+    document.getElementById('screens-list').innerHTML=d.map((s,i)=>`
+      <div class="card-hover glass rounded-2xl overflow-hidden cursor-pointer group">
+        <div class="h-28 bg-gradient-to-br ${colors[i%colors.length]} relative flex items-end p-4">
+          <svg class="absolute top-4 right-4 w-8 h-8 text-white/20" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          <span class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-black/30 text-white backdrop-blur-sm">${s.location?.city}, ${s.location?.state}</span>
+        </div>
+        <div class="p-5">
+          <h3 class="text-base font-bold text-white mb-1 group-hover:text-brand-400 transition">${s.name}</h3>
+          <p class="text-xs text-dark-400 mb-4">${s.location?.address}</p>
+          <div class="flex items-center justify-between">
+            <span class="text-xs text-dark-400">${s.specs?.size||''}</span>
+            <span class="text-lg font-extrabold text-cyan-400">$${s.pricing?.per_hour}<span class="text-xs text-dark-500 font-normal">/hr</span></span>
+          </div>
+        </div>
+      </div>`).join('');
+  }catch(e){}
+}
+
+// Campaigns
+async function loadCampaigns(){
+  try{
+    const d=await api('/campaigns');
+    if(d.length===0){document.getElementById('campaigns-list').innerHTML='<div class="glass rounded-2xl p-12 text-center"><p class="text-dark-400">No campaigns yet</p></div>';return}
+    document.getElementById('campaigns-list').innerHTML=d.map(c=>{
+      const sc=statusColor(c.status);
+      return `<div class="card-hover glass rounded-xl p-5 flex items-center gap-4 cursor-pointer">
+        <div class="w-2 h-8 rounded-full ${sc.dot}"></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-white">${c.name}</div>
+          <div class="text-xs text-dark-400 mt-1">${c.screen?.name||'Screen'} · ${c.schedule?.start_date||''} to ${c.schedule?.end_date||''}</div>
+        </div>
+        <span class="px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wide ${sc.bg} ${sc.text}">${c.status}</span>
+        <span class="text-lg font-extrabold text-cyan-400">$${(c.pricing?.total||0).toLocaleString()}</span>
+      </div>`}).join('');
+  }catch(e){}
+}
+
+// Payments
+async function loadPayments(){
+  try{
+    const d=await api('/payments');
+    if(d.length===0){document.getElementById('payments-list').innerHTML='<div class="glass rounded-2xl p-12 text-center"><p class="text-dark-400">No payments yet</p></div>';return}
+    document.getElementById('payments-list').innerHTML=d.map(p=>`
+      <div class="card-hover glass rounded-xl p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-brand-500/10 flex items-center justify-center"><svg class="w-5 h-5 text-brand-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-bold text-white">${p.campaign_name||'Campaign'}</div>
+          <div class="text-xs text-dark-400">${p.invoice_number} · ${p.screen_name||''}</div>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${p.status==='completed'?'bg-emerald-500/15 text-emerald-400':'bg-amber-500/15 text-amber-400'}">${p.status}</span>
+        <span class="text-xl font-extrabold text-white">$${(p.amount||0).toLocaleString()}</span>
+      </div>`).join('');
+  }catch(e){}
+}
+
+// Settings
+function loadSettings(){
+  document.getElementById('settings-content').innerHTML=`
+    <div class="max-w-2xl">
+      <div class="flex items-center gap-5 mb-10">
+        <div class="w-20 h-20 rounded-2xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center text-3xl font-black text-white shadow-lg shadow-brand-500/20">${(user?.name||'U')[0]}</div>
+        <div><h2 class="text-2xl font-bold text-white">${user?.name||''}</h2><p class="text-dark-400">${user?.email||''}</p>
+        <span class="inline-flex items-center gap-1.5 mt-2 px-3 py-1 rounded-full text-xs font-semibold ${user?.role==='admin'?'bg-brand-500/15 text-brand-400':'bg-emerald-500/15 text-emerald-400'}"><span class="w-1.5 h-1.5 rounded-full ${user?.role==='admin'?'bg-brand-400':'bg-emerald-400'}"></span>${user?.role==='admin'?'Administrator':'Customer'}</span></div>
+      </div>
+      <div class="glass rounded-2xl overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-dark-700/30"><span class="text-xs font-bold text-dark-300 uppercase tracking-wider">Account</span></div>
+        ${[['Name',user?.name],['Email',user?.email],['Company',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div class="px-6 py-4 flex justify-between border-b border-dark-700/20"><span class="text-sm text-dark-400">${l}</span><span class="text-sm font-medium text-white">${v}</span></div>`).join('')}
+      </div>
+      <button onclick="doLogout()" class="w-full py-3 rounded-xl border border-dark-700 text-dark-400 text-sm font-medium hover:border-red-500/30 hover:text-red-400 transition">Sign Out</button>
+    </div>`;
+}
+
+function statusColor(s){
+  const m={active:{dot:'bg-emerald-400',bg:'bg-emerald-500/15',text:'text-emerald-400'},pending:{dot:'bg-amber-400',bg:'bg-amber-500/15',text:'text-amber-400'},approved:{dot:'bg-blue-400',bg:'bg-blue-500/15',text:'text-blue-400'},rejected:{dot:'bg-red-400',bg:'bg-red-500/15',text:'text-red-400'},draft:{dot:'bg-dark-400',bg:'bg-dark-500/15',text:'text-dark-300'},completed:{dot:'bg-violet-400',bg:'bg-violet-500/15',text:'text-violet-400'}};
+  return m[s]||m.draft;
+}
+
+// Enter key login
+document.getElementById('login-password')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
+
+// Auto-login
+if(token&&user){enterApp()}
+</script>
+</body>
+</html>
