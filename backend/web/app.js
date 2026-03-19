@@ -1,4 +1,4 @@
-// MediaView Dashboard v2 — Complete SPA
+// MediAd View Dashboard v2 — Complete SPA
 const API='/api';let token=localStorage.getItem('mv_t'),user=JSON.parse(localStorage.getItem('mv_u')||'null');
 let wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,pricing:null};
 
@@ -344,7 +344,7 @@ const loaders={
           <div class="card" style="padding:20px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
               <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,211,153,.1);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg></div>
-              <div><div style="font-size:15px;font-weight:700">Download MediaView Player</div><div style="font-size:11px;color:var(--t-4)">Install on Android TV, Fire TV or any Smart TV</div></div>
+              <div><div style="font-size:15px;font-weight:700">Download MediAd View Player</div><div style="font-size:11px;color:var(--t-4)">Install on Android TV, Fire TV or any Smart TV</div></div>
             </div>
             <div style="display:flex;flex-direction:column;gap:8px">
               <div style="padding:12px;border-radius:var(--rs);background:var(--bg-1);border:1px solid var(--border);display:flex;align-items:center;gap:12px">
@@ -365,7 +365,7 @@ const loaders={
         </div>
 
         <!-- Device List -->
-        ${devs.length===0?'<div class="card" style="padding:40px;text-align:center"><p style="font-size:14px;color:var(--t-3)">No devices registered yet</p><p style="font-size:12px;color:var(--t-4);margin-top:4px">Install MediaView Player on a TV — it will appear here with an activation code</p></div>':
+        ${devs.length===0?'<div class="card" style="padding:40px;text-align:center"><p style="font-size:14px;color:var(--t-3)">No devices registered yet</p><p style="font-size:12px;color:var(--t-4);margin-top:4px">Install MediAd View Player on a TV — it will appear here with an activation code</p></div>':
         `<div style="display:flex;flex-direction:column;gap:10px">${devs.map(d=>{
           const isOnline=d.last_heartbeat&&(new Date()-new Date(d.last_heartbeat))<120000;
           const upH=d.diagnostics?.uptime_seconds?Math.floor(d.diagnostics.uptime_seconds/3600):0;
@@ -378,7 +378,7 @@ const loaders={
               </div>
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                  <span style="font-size:15px;font-weight:700">${d.device_name||'MediaView Player'}</span>
+                  <span style="font-size:15px;font-weight:700">${d.device_name||'MediAd View Player'}</span>
                   <span class="bdg bdg-${d.status}">${d.status}</span>
                   <span class="${isOnline?'tag-on':'tag-off'}" style="margin-left:4px">${isOnline?'Online':'Offline'}</span>
                 </div>
