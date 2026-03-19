@@ -11,14 +11,13 @@ import { analyticsAPI, adminAPI } from '../../src/services/api';
 import { getStatusStyle } from '../../src/constants/theme';
 
 const { width: SW } = Dimensions.get('window');
-const IS_WIDE = SW > 860;
+const W = Platform.OS === 'web' && SW > 860;
 
 export default function DashboardScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const [data, setData] = useState<any>(null);
-  const [devices, setDevices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -28,100 +27,87 @@ export default function DashboardScreen() {
       setData(res.data);
       if (user?.role === 'admin') {
         try {
-          const devRes = await adminAPI.analytics();
-          setDevices([]);
-          // Merge admin data
-          setData((prev: any) => ({
-            ...prev,
-            total_revenue: devRes.data.total_revenue,
-            total_screens: devRes.data.total_screens,
-            active_screens: devRes.data.active_screens,
-          }));
+          const adm = await adminAPI.analytics();
+          setData((p: any) => ({ ...p, total_revenue: adm.data.total_revenue, total_screens: adm.data.total_screens, active_screens: adm.data.active_screens }));
         } catch (e) {}
       }
-    } catch (e) {
-      console.log('Dashboard error:', e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+    } catch (e) {} finally { setLoading(false); setRefreshing(false); }
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  if (loading) {
-    return <View style={s.loadingContainer}><ActivityIndicator size="large" color="#6366F1" /></View>;
-  }
+  if (loading) return <View style={s.loadC}><ActivityIndicator size="large" color="#6366F1" /></View>;
 
   const stats = [
-    { label: 'Total Revenue', value: `$${(data?.total_revenue || data?.total_spent || 0).toLocaleString()}`, icon: 'wallet', color: '#22D3EE', bgColor: 'rgba(34,211,238,0.1)' },
-    { label: 'Active Screens', value: data?.active_screens || data?.active_campaigns || 0, icon: 'tv', color: '#10B981', bgColor: 'rgba(16,185,129,0.1)' },
-    { label: 'Campaigns', value: data?.total_campaigns || 0, icon: 'megaphone', color: '#818CF8', bgColor: 'rgba(129,140,248,0.1)' },
-    { label: 'Pending', value: data?.pending_campaigns || 0, icon: 'time', color: '#F59E0B', bgColor: 'rgba(245,158,11,0.1)' },
+    { label: 'Total Revenue', value: `$${(data?.total_revenue || data?.total_spent || 0).toLocaleString()}`, icon: 'trending-up', color: '#22D3EE', glow: 'rgba(34,211,238,0.08)', border: 'rgba(34,211,238,0.25)' },
+    { label: 'Active Screens', value: data?.active_screens || data?.active_campaigns || 0, icon: 'radio-button-on', color: '#10B981', glow: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
+    { label: 'Total Campaigns', value: data?.total_campaigns || 0, icon: 'layers', color: '#818CF8', glow: 'rgba(129,140,248,0.08)', border: 'rgba(129,140,248,0.25)' },
+    { label: 'Pending Review', value: data?.pending_campaigns || 0, icon: 'hourglass', color: '#FBBF24', glow: 'rgba(251,191,36,0.08)', border: 'rgba(251,191,36,0.25)' },
   ];
 
   return (
-    <ScrollView
-      style={s.container}
-      contentContainerStyle={{ paddingTop: IS_WIDE ? 28 : insets.top + 16, paddingBottom: 100, paddingHorizontal: IS_WIDE ? 32 : 16 }}
-      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#6366F1" />}
-    >
-      {/* Header */}
-      <View style={s.header}>
-        <View>
-          <Text style={s.greeting}>Welcome back</Text>
-          <Text style={s.userName}>{user?.name || 'User'}</Text>
+    <ScrollView style={s.ct} contentContainerStyle={{ paddingTop: W ? 36 : insets.top + 20, paddingBottom: 120, paddingHorizontal: W ? 40 : 18 }}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#6366F1" />}>
+
+      {/* Hero Header */}
+      <View style={s.hero}>
+        <View style={s.heroLeft}>
+          <Text style={s.heroGreeting}>Welcome back</Text>
+          <Text style={s.heroName}>{user?.name || 'User'}</Text>
+          <Text style={s.heroSub}>Here's what's happening with your signage network today.</Text>
         </View>
-        <View style={s.headerActions}>
-          <TouchableOpacity style={s.createBtn} onPress={() => router.push('/campaign/create')}>
-            <Ionicons name="add" size={18} color="#FFF" />
-            <Text style={s.createBtnText}>New Campaign</Text>
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity style={s.heroBtn} onPress={() => router.push('/campaign/create')}>
+          <Ionicons name="add" size={18} color="#FFF" />
+          <Text style={s.heroBtnT}>New Campaign</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Stats Grid */}
+      {/* Stats Grid - Premium Cards with glow border */}
       <View style={s.statsGrid}>
-        {stats.map((stat, i) => (
-          <View key={i} style={s.statCard}>
-            <View style={s.statTop}>
-              <View style={[s.statIconBox, { backgroundColor: stat.bgColor }]}>
-                <Ionicons name={stat.icon as any} size={20} color={stat.color} />
-              </View>
-              <Text style={s.statLabel}>{stat.label}</Text>
+        {stats.map((st, i) => (
+          <View key={i} style={[s.statCard, { backgroundColor: st.glow, borderColor: st.border }]}>
+            <View style={s.statHeader}>
+              <View style={[s.statDot, { backgroundColor: st.color }]} />
+              <Text style={s.statLabel}>{st.label}</Text>
             </View>
-            <Text style={[s.statValue, { color: stat.color }]}>{stat.value}</Text>
+            <Text style={[s.statValue, { color: st.color }]}>{st.value}</Text>
           </View>
         ))}
       </View>
 
-      {/* Content grid */}
-      <View style={IS_WIDE ? s.gridRow : undefined}>
+      {/* Two-column layout */}
+      <View style={W ? s.gridRow : undefined}>
         {/* Recent Campaigns */}
-        <View style={[s.section, IS_WIDE && { flex: 1, marginRight: 16 }]}>
-          <View style={s.sectionHeader}>
-            <Text style={s.sectionTitle}>Recent Campaigns</Text>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/campaigns')}>
-              <Text style={s.seeAll}>View All</Text>
+        <View style={[s.section, W && { flex: 1, marginRight: 20 }]}>
+          <View style={s.secHeader}>
+            <View>
+              <Text style={s.secTitle}>Recent Campaigns</Text>
+              <Text style={s.secSub}>Latest activity in your account</Text>
+            </View>
+            <TouchableOpacity style={s.seeAllBtn} onPress={() => router.push('/(tabs)/campaigns')}>
+              <Text style={s.seeAllT}>View All</Text>
+              <Ionicons name="arrow-forward" size={14} color="#818CF8" />
             </TouchableOpacity>
           </View>
           <View style={s.card}>
             {(data?.recent_campaigns || []).length === 0 ? (
               <View style={s.emptyCard}>
-                <Ionicons name="megaphone-outline" size={32} color="#374151" />
-                <Text style={s.emptyText}>No campaigns yet</Text>
+                <View style={s.emptyIcon}><Ionicons name="megaphone-outline" size={28} color="#475569" /></View>
+                <Text style={s.emptyT}>No campaigns yet</Text>
+                <Text style={s.emptySub}>Create your first campaign to get started</Text>
               </View>
             ) : (
               (data?.recent_campaigns || []).map((c: any, i: number) => {
                 const st = getStatusStyle(c.status);
                 return (
-                  <TouchableOpacity key={c.id} style={[s.listItem, i > 0 && s.listItemBorder]} onPress={() => router.push(`/campaign/${c.id}`)}>
+                  <TouchableOpacity key={c.id} style={[s.listItem, i > 0 && s.listBorder]} onPress={() => router.push(`/campaign/${c.id}`)}>
+                    <View style={[s.campDot, { backgroundColor: st.text }]} />
                     <View style={{ flex: 1 }}>
                       <Text style={s.listTitle} numberOfLines={1}>{c.name}</Text>
-                      <Text style={s.listSub}>{c.screen_name || 'Screen'} | {c.schedule?.start_date}</Text>
+                      <Text style={s.listSub}>{c.screen_name || 'Screen'} \u2022 {c.schedule?.start_date}</Text>
                     </View>
                     <View style={[s.badge, { backgroundColor: st.bg }]}>
-                      <Text style={[s.badgeText, { color: st.text }]}>{c.status}</Text>
+                      <Text style={[s.badgeT, { color: st.text }]}>{c.status}</Text>
                     </View>
                   </TouchableOpacity>
                 );
@@ -131,21 +117,26 @@ export default function DashboardScreen() {
         </View>
 
         {/* Quick Actions */}
-        <View style={[s.section, IS_WIDE && { width: 280 }]}>
-          <Text style={s.sectionTitle}>Quick Actions</Text>
+        <View style={[s.section, W && { width: 300 }]}>
+          <View style={s.secHeader}>
+            <View><Text style={s.secTitle}>Quick Actions</Text><Text style={s.secSub}>Navigate to key features</Text></View>
+          </View>
           <View style={s.card}>
             {[
-              { label: 'Create Campaign', icon: 'add-circle', color: '#6366F1', route: '/campaign/create' },
-              { label: 'Browse Screens', icon: 'tv', color: '#22D3EE', route: '/(tabs)/screens' },
-              { label: 'View Payments', icon: 'card', color: '#10B981', route: '/(tabs)/payments' },
-              ...(user?.role === 'admin' ? [{ label: 'Admin Panel', icon: 'shield-checkmark', color: '#F59E0B', route: '/admin' }] : []),
-            ].map((action, i) => (
-              <TouchableOpacity key={i} style={[s.actionItem, i > 0 && s.listItemBorder]} onPress={() => router.push(action.route as any)}>
-                <View style={[s.actionIcon, { backgroundColor: action.color + '18' }]}>
-                  <Ionicons name={action.icon as any} size={18} color={action.color} />
+              { label: 'Create Campaign', desc: 'Launch a new ad campaign', icon: 'add-circle', color: '#6366F1', route: '/campaign/create' },
+              { label: 'Browse Screens', desc: 'Explore available displays', icon: 'tv', color: '#22D3EE', route: '/(tabs)/screens' },
+              { label: 'Payment History', desc: 'View invoices & billing', icon: 'card', color: '#10B981', route: '/(tabs)/payments' },
+              ...(user?.role === 'admin' ? [{ label: 'Admin Panel', desc: 'Manage the entire platform', icon: 'shield-checkmark', color: '#FBBF24', route: '/admin' }] : []),
+            ].map((a, i) => (
+              <TouchableOpacity key={i} style={[s.actionItem, i > 0 && s.listBorder]} onPress={() => router.push(a.route as any)}>
+                <View style={[s.actionIcon, { backgroundColor: a.color + '15', borderColor: a.color + '30' }]}>
+                  <Ionicons name={a.icon as any} size={18} color={a.color} />
                 </View>
-                <Text style={s.actionLabel}>{action.label}</Text>
-                <Ionicons name="chevron-forward" size={16} color="#475569" />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.actionLabel}>{a.label}</Text>
+                  <Text style={s.actionDesc}>{a.desc}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color="#374151" />
               </TouchableOpacity>
             ))}
           </View>
@@ -156,41 +147,57 @@ export default function DashboardScreen() {
 }
 
 const s = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#0B0F1A' },
-  loadingContainer: { flex: 1, backgroundColor: '#0B0F1A', justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
-  greeting: { fontSize: 13, color: '#64748B' },
-  userName: { fontSize: 22, fontWeight: '700', color: '#F1F5F9', marginTop: 2 },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  createBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#6366F1', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10,
-  },
-  createBtnText: { color: '#FFF', fontSize: 13, fontWeight: '600' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 24 },
+  ct: { flex: 1, backgroundColor: '#0B0F1A' },
+  loadC: { flex: 1, backgroundColor: '#0B0F1A', justifyContent: 'center', alignItems: 'center' },
+
+  // Hero
+  hero: { flexDirection: W ? 'row' : 'column', justifyContent: 'space-between', alignItems: W ? 'flex-end' : 'flex-start', marginBottom: 32, gap: 16 },
+  heroLeft: { flex: 1 },
+  heroGreeting: { fontSize: 14, color: '#64748B', fontWeight: '500', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 },
+  heroName: { fontSize: 32, fontWeight: '800', color: '#F1F5F9', letterSpacing: -0.5, marginBottom: 6 },
+  heroSub: { fontSize: 15, color: '#64748B', lineHeight: 22, maxWidth: 500 },
+  heroBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#6366F1', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, shadowColor: '#6366F1', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 6 },
+  heroBtnT: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+
+  // Stats
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginBottom: 32 },
   statCard: {
-    backgroundColor: '#111827', borderRadius: 14, padding: 16, minWidth: 160,
-    flex: 1, flexBasis: IS_WIDE ? '22%' : '46%', borderWidth: 1, borderColor: '#1E293B',
+    flex: 1, flexBasis: W ? '22%' : '46%', minWidth: 160,
+    borderRadius: 16, padding: 20, borderWidth: 1,
   },
-  statTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  statIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  statLabel: { fontSize: 12, color: '#64748B', fontWeight: '500' },
-  statValue: { fontSize: 26, fontWeight: '700' },
+  statHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  statDot: { width: 8, height: 8, borderRadius: 4 },
+  statLabel: { fontSize: 13, color: '#94A3B8', fontWeight: '500' },
+  statValue: { fontSize: 30, fontWeight: '800', letterSpacing: -1 },
+
+  // Sections
   gridRow: { flexDirection: 'row' },
-  section: { marginBottom: 20 },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '600', color: '#E2E8F0', marginBottom: 10 },
-  seeAll: { fontSize: 12, color: '#6366F1', fontWeight: '600' },
-  card: { backgroundColor: '#111827', borderRadius: 14, borderWidth: 1, borderColor: '#1E293B', overflow: 'hidden' },
-  emptyCard: { padding: 32, alignItems: 'center', gap: 8 },
-  emptyText: { fontSize: 13, color: '#475569' },
-  listItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 10 },
-  listItemBorder: { borderTopWidth: 1, borderTopColor: '#1E293B' },
-  listTitle: { fontSize: 14, fontWeight: '600', color: '#E2E8F0' },
-  listSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  section: { marginBottom: 24 },
+  secHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  secTitle: { fontSize: 18, fontWeight: '700', color: '#F1F5F9', letterSpacing: -0.3 },
+  secSub: { fontSize: 12, color: '#475569', marginTop: 2 },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  seeAllT: { fontSize: 13, color: '#818CF8', fontWeight: '600' },
+
+  // Card
+  card: { backgroundColor: '#111827', borderRadius: 16, borderWidth: 1, borderColor: '#1E293B', overflow: 'hidden' },
+  emptyCard: { padding: 40, alignItems: 'center' },
+  emptyIcon: { width: 56, height: 56, borderRadius: 16, backgroundColor: '#1F2937', justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  emptyT: { fontSize: 15, color: '#64748B', fontWeight: '600' },
+  emptySub: { fontSize: 13, color: '#475569', marginTop: 4 },
+
+  // List
+  listItem: { flexDirection: 'row', alignItems: 'center', padding: 16, gap: 12 },
+  listBorder: { borderTopWidth: 1, borderTopColor: '#1E293B' },
+  campDot: { width: 6, height: 6, borderRadius: 3 },
+  listTitle: { fontSize: 14, fontWeight: '600', color: '#E2E8F0', marginBottom: 2 },
+  listSub: { fontSize: 12, color: '#64748B' },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  badgeText: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
-  actionItem: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 10 },
-  actionIcon: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
-  actionLabel: { flex: 1, fontSize: 13, fontWeight: '500', color: '#E2E8F0' },
+  badgeT: { fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Actions
+  actionItem: { flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
+  actionIcon: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  actionLabel: { fontSize: 14, fontWeight: '600', color: '#E2E8F0' },
+  actionDesc: { fontSize: 11, color: '#475569', marginTop: 1 },
 });
