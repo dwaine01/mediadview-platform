@@ -59,7 +59,13 @@ const loaders={
               ${user?.role==='admin'?actCard('Admin Panel','Manage platform','#fbbf24','M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z','admin'):''}
             </div>
           </div>
+        </div>
+        <div style="margin-top:24px">
+          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Proof of Play (Last 7 Days)</h2>
+          <div id="proof-of-play" class="card" style="padding:20px"><p style="color:var(--t-4)">Loading...</p></div>
         </div>`;
+      // Load proof of play
+      loadProofOfPlay();
     }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
   },
 
@@ -495,6 +501,24 @@ async function unlinkDev(id,e){if(e)e.stopPropagation();if(!confirm('Unlink this
 async function removeDev(id,e){if(e)e.stopPropagation();if(!confirm('Remove device?'))return;try{await api('/admin/devices/'+id,{method:'DELETE'});loaders.devices()}catch(e){alert(e.message)}}
 async function setAnim(mediaId,anim,e){if(e)e.stopPropagation();try{await api('/media/'+mediaId+'/animation?animation='+anim,{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function delMedia(campId,mediaId,e){if(e)e.stopPropagation();if(!confirm('Remove from playlist?'))return;try{await api('/admin/campaigns/'+campId+'/media/'+mediaId,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
+
+async function loadProofOfPlay(){
+  try{
+    var d=await api('/admin/playlogs?days=7');
+    var el=document.getElementById('proof-of-play');if(!el)return;
+    var s=d.stats;
+    el.innerHTML='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">'+
+      '<div style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--cyan)">'+s.total_plays+'</div><div style="font-size:10px;color:var(--t-4)">Total Plays</div></div>'+
+      '<div style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--green)">'+s.unique_media+'</div><div style="font-size:10px;color:var(--t-4)">Unique Media</div></div>'+
+      '<div style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--brand-l)">'+s.unique_screens+'</div><div style="font-size:10px;color:var(--t-4)">Screens</div></div>'+
+      '<div style="text-align:center"><div style="font-size:24px;font-weight:800;color:var(--amber)">'+s.total_play_time_minutes+'</div><div style="font-size:10px;color:var(--t-4)">Minutes Played</div></div>'+
+      '</div>'+
+      (d.logs.length===0?'<p style="color:var(--t-4);text-align:center;padding:12px">No play data yet. Content plays will be logged here.</p>':
+      '<div style="max-height:300px;overflow-y:auto">'+d.logs.slice(0,50).map(function(l){return'<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,41,59,.2);font-size:12px"><span style="color:var(--green);flex-shrink:0">▶</span><span style="flex:1;color:var(--t-2)">'+l.media_name+'</span><span style="color:var(--t-4)">'+l.screen_name+'</span><span style="color:var(--t-4);flex-shrink:0">'+(l.played_at?new Date(l.played_at).toLocaleString():'')+'</span></div>'}).join('')+'</div>');
+  }catch(e){var el=document.getElementById('proof-of-play');if(el)el.innerHTML='<p style="color:var(--t-4)">Login as admin to view play logs</p>'}
+}
+
+async function sendCmd(id,cmd,e){if(e)e.stopPropagation();try{await api('/admin/devices/'+id+'/command?command='+cmd,{method:'PUT'});alert('Command "'+cmd+'" sent!')}catch(e){alert(e.message)}}
 
 async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',{method:'PUT'});loaders.superadmin()}catch(e){alert(e.message)}}
 

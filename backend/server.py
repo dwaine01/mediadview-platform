@@ -1204,6 +1204,13 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     else:
         response["action"] = "wait"
 
+    # Check for pending commands (remote restart, etc.)
+    pending_cmd = device.get("pending_command")
+    if pending_cmd:
+        response["command"] = pending_cmd
+        # Clear the command after sending
+        await db.devices.update_one({"id": device_id}, {"$unset": {"pending_command": ""}})
+
     return response
 
 @api_router.post("/devices/{device_id}/log")
@@ -1454,6 +1461,83 @@ async def admin_unlink_device(device_id: str, admin: dict = Depends(require_admi
         {"$set": {"screen_id": None, "status": "pending"}}
     )
     return {"message": "Device unlinked from screen"}
+
+# ============ PROOF OF PLAY ============
+
+@api_router.post("/playlog")
+async def log_play(media_id: str, device_id: str, screen_id: str, duration: int = 0):
+    """Player reports each media play event."""
+    log = {
+        "id": gen_id(),
+        "media_id": media_id,
+        "device_id": device_id,
+        "screen_id": screen_id,
+        "duration": duration,
+        "played_at": datetime.utcnow()
+    }
+    await db.play_logs.insert_one(log)
+    return {"status": "logged"}
+
+@api_router.get("/admin/playlogs")
+async def get_play_logs(screen_id: Optional[str] = None, days: int = 7, admin: dict = Depends(require_admin)):
+    """Get proof of play report."""
+    since = datetime.utcnow() - timedelta(days=days)
+    query = {"played_at": {"$gte": since}}
+    if screen_id:
+        query["screen_id"] = screen_id
+    logs = await db.play_logs.find(query).sort("played_at", -1).to_list(1000)
+    # Enrich with media and screen names
+    for log in logs:
+        media = await db.media.find_one({"id": log.get("media_id")}, {"data": 0})
+        screen = await db.screens.find_one({"id": log.get("screen_id")})
+        log["media_name"] = media.get("filename", "Unknown") if media else "Deleted"
+        log["screen_name"] = screen.get("name", "Unknown") if screen else "Unknown"
+    
+    # Stats
+    total_plays = len(logs)
+    unique_media = len(set(l.get("media_id") for l in logs))
+    unique_screens = len(set(l.get("screen_id") for l in logs))
+    total_seconds = sum(l.get("duration", 0) for l in logs)
+    
+    return {
+        "stats": {
+            "total_plays": total_plays,
+            "unique_media": unique_media,
+            "unique_screens": unique_screens,
+            "total_play_time_minutes": round(total_seconds / 60, 1),
+        },
+        "logs": serialize_doc(logs[:200])
+    }
+
+# ============ REMOTE COMMANDS ============
+
+@api_router.put("/admin/devices/{device_id}/command")
+async def send_device_command(device_id: str, command: str, admin: dict = Depends(require_admin)):
+    """Send command to device: restart, reload, update."""
+    if command not in ["restart", "reload", "update", "clear_cache"]:
+        raise HTTPException(status_code=400, detail="Invalid command")
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    await db.devices.update_one(
+        {"id": device_id},
+        {"$set": {"pending_command": command, "command_sent_at": datetime.utcnow()}}
+    )
+    return {"message": f"Command '{command}' sent to device"}
+
+# ============ APP VERSION / AUTO-UPDATE ============
+
+APP_VERSION = "1.1.0"
+
+@api_router.get("/app/version")
+async def get_app_version():
+    """Check latest app version for auto-update."""
+    return {
+        "version": APP_VERSION,
+        "update_available": True,
+        "download_url": "/api/web/mediaview-player-android.zip",
+        "release_notes": "Nightly reboot, content pre-caching, proof of play, remote commands"
+    }
 
 @api_router.delete("/admin/campaigns/{campaign_id}/media/{media_id}")
 async def admin_remove_media_from_campaign(campaign_id: str, media_id: str, admin: dict = Depends(require_admin)):
