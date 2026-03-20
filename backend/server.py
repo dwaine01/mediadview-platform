@@ -560,7 +560,7 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
             import base64 as b64mod
             with open(file_path, "rb") as f:
                 new_data = b64mod.b64encode(f.read()).decode()
-            await db.media.update_one({"id": media_id}, {"$set": {"data": new_data, "rotation": 0}})
+            await db.media.update_one({"id": media_id}, {"$set": {"data": new_data, "rotation": rotation}})
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Image rotation failed: {str(e)}")
     
@@ -578,7 +578,7 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
             
             if result.returncode == 0 and os.path.exists(temp_path):
                 os.replace(temp_path, file_path)
-                await db.media.update_one({"id": media_id}, {"$set": {"rotation": 0}})
+                await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
             else:
                 if os.path.exists(temp_path):
                     os.remove(temp_path)
