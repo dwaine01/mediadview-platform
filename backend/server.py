@@ -1529,6 +1529,136 @@ async def send_device_command(device_id: str, command: str, admin: dict = Depend
 
 APP_VERSION = "1.1.0"
 
+# ============ WIDGETS / INTEGRATIONS ============
+
+WIDGET_TYPES = ["weather", "clock", "ticker", "qrcode", "countdown", "slides", "youtube", "webpage", "menu", "calendar"]
+
+class WidgetCreate(BaseModel):
+    screen_id: str
+    widget_type: str
+    name: str
+    config: dict = {}
+    duration: int = 30
+    enabled: bool = True
+
+@api_router.post("/admin/widgets")
+async def create_widget(data: WidgetCreate, admin: dict = Depends(require_admin)):
+    if data.widget_type not in WIDGET_TYPES:
+        raise HTTPException(status_code=400, detail=f"Type must be: {', '.join(WIDGET_TYPES)}")
+    widget = {
+        "id": gen_id(), "screen_id": data.screen_id, "widget_type": data.widget_type,
+        "name": data.name, "config": data.config, "duration": data.duration,
+        "enabled": data.enabled, "created_at": datetime.utcnow()
+    }
+    await db.widgets.insert_one(widget)
+    return serialize_doc(widget)
+
+@api_router.get("/admin/widgets")
+async def list_widgets(screen_id: Optional[str] = None, admin: dict = Depends(require_admin)):
+    query = {"screen_id": screen_id} if screen_id else {}
+    widgets = await db.widgets.find(query).sort("created_at", -1).to_list(100)
+    return serialize_doc(widgets)
+
+@api_router.delete("/admin/widgets/{widget_id}")
+async def delete_widget(widget_id: str, admin: dict = Depends(require_admin)):
+    await db.widgets.delete_one({"id": widget_id})
+    return {"message": "Widget deleted"}
+
+@api_router.put("/admin/widgets/{widget_id}/toggle")
+async def toggle_widget(widget_id: str, admin: dict = Depends(require_admin)):
+    w = await db.widgets.find_one({"id": widget_id})
+    if not w: raise HTTPException(status_code=404, detail="Widget not found")
+    await db.widgets.update_one({"id": widget_id}, {"$set": {"enabled": not w.get("enabled", True)}})
+    return {"message": "Widget toggled"}
+
+@api_router.get("/widgets/{widget_id}/render", response_class=HTMLResponse)
+async def render_widget(widget_id: str):
+    """Render widget as full HTML page for player display."""
+    w = await db.widgets.find_one({"id": widget_id})
+    if not w: raise HTTPException(status_code=404, detail="Widget not found")
+    cfg = w.get("config", {})
+    wt = w.get("widget_type")
+    
+    base_style = "body{margin:0;font-family:'Inter',Arial,sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}"
+    
+    if wt == "weather":
+        city = cfg.get("city", "New York")
+        api_key = cfg.get("api_key", "demo")
+        html = f"""<html><head><style>{base_style}.w{{text-align:center}}.temp{{font-size:120px;font-weight:900}}.city{{font-size:28px;color:#94a3b8}}.desc{{font-size:22px;color:#22d3ee;margin-top:8px}}</style></head><body><div class="w"><div class="city">{city}</div><div class="temp" id="temp">--°</div><div class="desc" id="desc">Loading...</div></div><script>
+        fetch('https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial')
+        .then(r=>r.json()).then(d=>{{document.getElementById('temp').textContent=Math.round(d.main.temp)+'°F';document.getElementById('desc').textContent=d.weather[0].description}})
+        .catch(()=>{{document.getElementById('desc').textContent='{city}'}});
+        </script></body></html>"""
+    
+    elif wt == "clock":
+        fmt = cfg.get("format", "12h")
+        bg = cfg.get("bg_color", "#000000")
+        html = f"""<html><head><style>{base_style}body{{background:{bg}}}.c{{text-align:center}}.time{{font-size:140px;font-weight:900;letter-spacing:-4px}}.date{{font-size:32px;color:#64748b;margin-top:8px}}</style></head><body><div class="c"><div class="time" id="t"></div><div class="date" id="d"></div></div><script>
+        function u(){{var n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,'0'),ap='';
+        if('{fmt}'==='12h'){{ap=h>=12?' PM':' AM';h=h%12||12}}
+        document.getElementById('t').textContent=h+':'+m+ap;
+        document.getElementById('d').textContent=n.toLocaleDateString('en-US',{{weekday:'long',month:'long',day:'numeric',year:'numeric'}})}}
+        u();setInterval(u,1000);
+        </script></body></html>"""
+    
+    elif wt == "ticker":
+        text = cfg.get("text", "Breaking News: Welcome to MediAd View Digital Signage Platform")
+        speed = cfg.get("speed", 80)
+        bg = cfg.get("bg_color", "#111827")
+        html = f"""<html><head><style>body{{margin:0;background:{bg};display:flex;align-items:center;height:100vh;overflow:hidden}}.t{{white-space:nowrap;font-size:48px;font-weight:700;color:#22d3ee;font-family:Arial,sans-serif;animation:scroll {speed}s linear infinite}}@keyframes scroll{{0%{{transform:translateX(100vw)}}100%{{transform:translateX(-100%)}}}}</style></head><body><div class="t">{text}</div></body></html>"""
+    
+    elif wt == "qrcode":
+        url = cfg.get("url", "https://mediadview.com")
+        label = cfg.get("label", "Scan Me")
+        html = f"""<html><head><script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script><style>{base_style}.q{{text-align:center}}.label{{font-size:28px;color:#22d3ee;margin-top:20px}}</style></head><body><div class="q"><div id="qr"></div><div class="label">{label}</div></div><script>
+        var q=qrcode(0,'M');q.addData('{url}');q.make();
+        document.getElementById('qr').innerHTML=q.createSvgTag(8,0);
+        document.querySelector('svg').style.width='300px';document.querySelector('svg').style.height='300px';
+        </script></body></html>"""
+    
+    elif wt == "countdown":
+        target = cfg.get("target_date", "2026-12-31T00:00:00")
+        title = cfg.get("title", "Coming Soon")
+        html = f"""<html><head><style>{base_style}.c{{text-align:center}}.title{{font-size:36px;color:#22d3ee;margin-bottom:30px}}.nums{{display:flex;gap:20px;justify-content:center}}.n{{background:#111827;padding:20px 30px;border-radius:16px;border:1px solid #1e293b}}.n .v{{font-size:72px;font-weight:900}}.n .l{{font-size:14px;color:#64748b}}</style></head><body><div class="c"><div class="title">{title}</div><div class="nums"><div class="n"><div class="v" id="d">0</div><div class="l">Days</div></div><div class="n"><div class="v" id="h">0</div><div class="l">Hours</div></div><div class="n"><div class="v" id="m">0</div><div class="l">Minutes</div></div><div class="n"><div class="v" id="s">0</div><div class="l">Seconds</div></div></div></div><script>
+        function u(){{var t=new Date('{target}')-new Date();if(t<0)t=0;var d=Math.floor(t/86400000),h=Math.floor(t%86400000/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
+        document.getElementById('d').textContent=d;document.getElementById('h').textContent=h;document.getElementById('m').textContent=m;document.getElementById('s').textContent=s}}u();setInterval(u,1000);
+        </script></body></html>"""
+    
+    elif wt == "slides":
+        url = cfg.get("url", "")
+        html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}" allowfullscreen></iframe></body></html>"""
+    
+    elif wt == "youtube":
+        video_id = cfg.get("video_id", "")
+        html = f"""<html><head><style>body{{margin:0;background:#000}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="https://www.youtube.com/embed/{video_id}?autoplay=1&mute=1&loop=1&playlist={video_id}&controls=0" allowfullscreen allow="autoplay"></iframe></body></html>"""
+    
+    elif wt == "webpage":
+        url = cfg.get("url", "https://google.com")
+        html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}"></iframe></body></html>"""
+    
+    elif wt == "menu":
+        title = cfg.get("title", "Today's Menu")
+        items = cfg.get("items", [{"name": "Burger", "price": "$12"}, {"name": "Pizza", "price": "$15"}, {"name": "Salad", "price": "$10"}])
+        items_html = "".join([f'<div class="item"><span>{i.get("name","")}</span><span class="dots"></span><span class="p">{i.get("price","")}</span></div>' for i in items])
+        html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.m{{width:80%;max-width:600px}}.title{{font-size:48px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:40px}}.item{{display:flex;align-items:baseline;font-size:28px;padding:16px 0;border-bottom:1px solid #1e293b}}.dots{{flex:1;border-bottom:2px dotted #334155;margin:0 12px}}.p{{color:#22d3ee;font-weight:700}}</style></head><body><div class="m"><div class="title">{title}</div>{items_html}</div></body></html>"""
+    
+    elif wt == "calendar":
+        html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.cal{{text-align:center;width:90%}}.month{{font-size:36px;font-weight:700;color:#22d3ee;margin-bottom:20px}}.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}}.hd{{font-size:14px;color:#64748b;padding:8px}}.day{{font-size:20px;padding:12px;border-radius:8px}}.day.today{{background:#6366f1;color:#fff;font-weight:700}}</style></head><body><div class="cal"><div class="month" id="mon"></div><div class="grid" id="gr"></div></div><script>
+        var n=new Date(),y=n.getFullYear(),m=n.getMonth();
+        document.getElementById('mon').textContent=n.toLocaleDateString('en-US',{{month:'long',year:'numeric'}});
+        var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+        var h=days.map(d=>'<div class="hd">'+d+'</div>').join('');
+        var first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
+        var cells='';for(var i=0;i<first;i++)cells+='<div class="day"></div>';
+        for(var d=1;d<=last;d++)cells+='<div class="day'+(d===n.getDate()?' today':'')+'">'+d+'</div>';
+        document.getElementById('gr').innerHTML=h+cells;
+        </script></body></html>"""
+    
+    else:
+        html = f"<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Unknown widget type: {wt}</body></html>"
+    
+    return HTMLResponse(content=html)
+
 @api_router.get("/app/version")
 async def get_app_version():
     """Check latest app version for auto-update."""

@@ -331,6 +331,35 @@ const loaders={
     }catch(e){el.innerHTML=`<p style="color:var(--red);padding:40px">${e.message}</p>`}
   },
 
+  async widgets(){
+    const el=document.getElementById('pg-widgets');
+    if(!el){return}
+    try{
+      const screens=await api('/screens');
+      const widgets=user?.role==='admin'||user?.role==='superadmin'?await api('/admin/widgets'):[];
+      const types=[
+        {id:'weather',name:'Weather',icon:'🌤️',desc:'Live temperature & forecast'},
+        {id:'clock',name:'Clock/Date',icon:'🕐',desc:'Real-time clock and date'},
+        {id:'ticker',name:'News Ticker',icon:'📰',desc:'Scrolling text marquee'},
+        {id:'qrcode',name:'QR Code',icon:'📱',desc:'Dynamic QR for scanning'},
+        {id:'countdown',name:'Countdown',icon:'⏳',desc:'Timer to event date'},
+        {id:'slides',name:'Google Slides',icon:'📊',desc:'Embed presentations'},
+        {id:'youtube',name:'YouTube',icon:'▶️',desc:'Play YouTube videos'},
+        {id:'webpage',name:'Web Page',icon:'🌐',desc:'Show any website'},
+        {id:'menu',name:'Restaurant Menu',icon:'🍔',desc:'Menu with prices'},
+        {id:'calendar',name:'Calendar',icon:'📅',desc:'Monthly calendar view'},
+      ];
+      el.innerHTML='<div class="ph"><div><h1>Widgets & Integrations</h1><p>Add dynamic content to your screens</p></div></div>'+
+        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">'+types.map(t=>
+          '<div class="card card-i" style="padding:14px;text-align:center" onclick="addWidget(\''+t.id+'\')"><div style="font-size:28px;margin-bottom:6px">'+t.icon+'</div><div style="font-size:13px;font-weight:700">'+t.name+'</div><div style="font-size:10px;color:var(--t-4)">'+t.desc+'</div></div>').join('')+'</div>'+
+        '<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Active Widgets ('+widgets.length+')</h2>'+
+        (widgets.length===0?'<div class="card" style="padding:32px;text-align:center;color:var(--t-4)">No widgets added yet. Click a widget above to add one.</div>':
+        '<div style="display:flex;flex-direction:column;gap:8px">'+widgets.map(w=>{
+          var screen=screens.find(s=>s.id===w.screen_id);
+          return'<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px"><div style="font-size:24px">'+types.find(t=>t.id===w.widget_type)?.icon||'📦'+'</div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+w.name+'</div><div style="font-size:11px;color:var(--t-4)">'+w.widget_type+' · '+(screen?.name||'Unknown screen')+'</div></div><a href="/api/widgets/'+w.id+'/render" target="_blank" style="padding:4px 10px;border-radius:5px;background:rgba(34,211,238,.1);color:var(--cyan);font-size:10px;font-weight:600;text-decoration:none">Preview</a><button onclick="toggleWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:'+(w.enabled?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';color:'+(w.enabled?'var(--green)':'var(--red)')+';font-size:10px;font-weight:600;border:none;cursor:pointer">'+(w.enabled?'ON':'OFF')+'</button><button onclick="delWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Delete</button></div>'}).join('')+'</div>');
+    }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
+  },
+
   async devices(){
     const el=document.getElementById('pg-devices');
     const isAdmin=user?.role==='admin'||user?.role==='superadmin';
@@ -517,6 +546,27 @@ async function loadProofOfPlay(){
       '<div style="max-height:300px;overflow-y:auto">'+d.logs.slice(0,50).map(function(l){return'<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid rgba(30,41,59,.2);font-size:12px"><span style="color:var(--green);flex-shrink:0">▶</span><span style="flex:1;color:var(--t-2)">'+l.media_name+'</span><span style="color:var(--t-4)">'+l.screen_name+'</span><span style="color:var(--t-4);flex-shrink:0">'+(l.played_at?new Date(l.played_at).toLocaleString():'')+'</span></div>'}).join('')+'</div>');
   }catch(e){var el=document.getElementById('proof-of-play');if(el)el.innerHTML='<p style="color:var(--t-4)">Login as admin to view play logs</p>'}
 }
+
+async function addWidget(type){
+  var screens=await api('/screens');
+  var screenHtml=screens.map(s=>s.name+' ('+s.location_code+')').join('\n');
+  var screenIdx=prompt('Select screen number (1-'+screens.length+'):\n'+screens.map((s,i)=>(i+1)+'. '+s.name).join('\n'));
+  if(!screenIdx)return;
+  var screen=screens[parseInt(screenIdx)-1];if(!screen){alert('Invalid selection');return}
+  var name=prompt('Widget name:',type.charAt(0).toUpperCase()+type.slice(1)+' Widget');if(!name)return;
+  var config={};
+  if(type==='weather')config.city=prompt('City name:','New York')||'New York';
+  if(type==='ticker')config.text=prompt('Ticker text:','Welcome to our store! Special offers today.')||'';
+  if(type==='qrcode'){config.url=prompt('QR URL:','https://mediadview.com')||'';config.label=prompt('Label:','Scan Me')||''}
+  if(type==='countdown'){config.target_date=prompt('Target date (YYYY-MM-DD):','2026-12-31')||'';config.title=prompt('Title:','Coming Soon')||''}
+  if(type==='youtube')config.video_id=prompt('YouTube Video ID:','')||'';
+  if(type==='slides')config.url=prompt('Google Slides embed URL:','')||'';
+  if(type==='webpage')config.url=prompt('Website URL:','https://google.com')||'';
+  if(type==='menu'){var items=prompt('Menu items (name:price, separated by commas):','Burger:$12,Pizza:$15,Salad:$10');config.items=(items||'').split(',').map(i=>{var p=i.split(':');return{name:p[0]?.trim(),price:p[1]?.trim()}})}
+  try{await api('/admin/widgets',{method:'POST',body:JSON.stringify({screen_id:screen.id,widget_type:type,name:name,config:config,duration:30,enabled:true})});loaders.widgets()}catch(e){alert(e.message)}
+}
+async function delWid(id,e){if(e)e.stopPropagation();if(!confirm('Delete widget?'))return;try{await api('/admin/widgets/'+id,{method:'DELETE'});loaders.widgets()}catch(e){alert(e.message)}}
+async function toggleWid(id,e){if(e)e.stopPropagation();try{await api('/admin/widgets/'+id+'/toggle',{method:'PUT'});loaders.widgets()}catch(e){alert(e.message)}}
 
 async function sendCmd(id,cmd,e){if(e)e.stopPropagation();try{await api('/admin/devices/'+id+'/command?command='+cmd,{method:'PUT'});alert('Command "'+cmd+'" sent!')}catch(e){alert(e.message)}}
 
