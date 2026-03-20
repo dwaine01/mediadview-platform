@@ -51,7 +51,7 @@ class MainActivity : Activity() {
     companion object {
         // Your MediaView server URL
         // For production, change this to your actual server
-        const val DEFAULT_SERVER = "https://your-mediaview-server.com"
+        const val DEFAULT_SERVER = "https://screensync-ads.preview.emergentagent.com"
 
         // Screen ID - can be configured via:
         // 1. SharedPreferences (set via activation flow)
