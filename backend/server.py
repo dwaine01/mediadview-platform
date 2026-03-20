@@ -530,67 +530,14 @@ async def delete_media(media_id: str, current_user: dict = Depends(get_current_u
 
 @api_router.put("/media/{media_id}/rotate")
 async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = Depends(get_current_user)):
-    """Physically rotate image or video. Uses Pillow for images, FFmpeg for videos."""
+    """Set rotation angle. Player applies visually via CSS. No file modification."""
     if rotation not in [0, 90, 180, 270]:
         raise HTTPException(status_code=400, detail="Rotation must be 0, 90, 180 or 270")
     media = await db.media.find_one({"id": media_id})
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
-    
-    file_path = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    
-    if rotation == 0:
-        return {"message": "No rotation needed"}
-
-    content_type = media.get("content_type", "")
-    
-    if content_type.startswith("image/"):
-        try:
-            from PIL import Image as PILImage
-            img = PILImage.open(file_path)
-            if rotation == 90:
-                img = img.transpose(PILImage.ROTATE_270)
-            elif rotation == 180:
-                img = img.transpose(PILImage.ROTATE_180)
-            elif rotation == 270:
-                img = img.transpose(PILImage.ROTATE_90)
-            img.save(file_path)
-            import base64 as b64mod
-            with open(file_path, "rb") as f:
-                new_data = b64mod.b64encode(f.read()).decode()
-            await db.media.update_one({"id": media_id}, {"$set": {"data": new_data, "rotation": rotation}})
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Image rotation failed: {str(e)}")
-    
-    elif content_type.startswith("video/"):
-        try:
-            import subprocess
-            transpose_map = {90: "transpose=1", 180: "transpose=1,transpose=1", 270: "transpose=2"}
-            filter_str = transpose_map.get(rotation, "")
-            if not filter_str:
-                return {"message": "No rotation needed"}
-            
-            temp_path = file_path + ".rotated.mp4"
-            cmd = ["ffmpeg", "-y", "-i", file_path, "-vf", filter_str, "-c:a", "copy", temp_path]
-            result = subprocess.run(cmd, capture_output=True, timeout=120)
-            
-            if result.returncode == 0 and os.path.exists(temp_path):
-                os.replace(temp_path, file_path)
-                await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
-            else:
-                if os.path.exists(temp_path):
-                    os.remove(temp_path)
-                raise HTTPException(status_code=500, detail="FFmpeg rotation failed")
-        except subprocess.TimeoutExpired:
-            raise HTTPException(status_code=500, detail="Video rotation timed out")
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Video rotation failed: {str(e)}")
-    
-    return {"message": f"Rotated {rotation} degrees"}
+    await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
+    return {"message": f"Rotation set to {rotation} degrees"}
 
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
