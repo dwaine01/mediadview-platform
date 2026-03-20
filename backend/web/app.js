@@ -257,6 +257,12 @@ const loaders={
           </div>
         </div>
 
+        <!-- Playlist Viewer -->
+        <div style="margin-bottom:28px">
+          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Now Playing (Playlists)</h2>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px" id="admin-playlists"></div>
+        </div>
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Users (${users.length})</h2>
@@ -272,6 +278,8 @@ const loaders={
             </div>
           </div>
         </div>`;
+      // Load playlists for screens
+      loadPlaylists(screens);
     }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
   },
 
@@ -452,5 +460,25 @@ async function createAdmin(){
     setTimeout(()=>loaders.superadmin(),1000);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
 async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',{method:'PUT'});loaders.superadmin()}catch(e){alert(e.message)}}
+
+async function loadPlaylists(screens){
+  var container=document.getElementById('admin-playlists');if(!container)return;
+  var html='';
+  for(var s of screens.slice(0,6)){
+    try{
+      var r=await api('/player/'+s.id+'/playlist');
+      var items=r.items||[];
+      html+='<div class="card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:14px;font-weight:700">'+s.name+'</div><span style="font-size:11px;color:var(--cyan)">'+items.length+' items</span></div>';
+      if(items.length===0){html+='<div style="font-size:12px;color:var(--t-4);padding:8px 0">No content scheduled</div>'}
+      else{items.forEach(function(item){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(30,41,59,.2)"><div class="dot" style="background:var(--green)"></div><div style="flex:1;font-size:12px">'+item.filename+'</div><div style="display:flex;gap:4px"><button onclick="rotateMedia(\''+item.media_id+'\',0)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===0||!item.rotation?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===0||!item.rotation?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">0°</button><button onclick="rotateMedia(\''+item.media_id+'\',90)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===90?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===90?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">90°</button><button onclick="rotateMedia(\''+item.media_id+'\',180)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===180?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===180?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">180°</button><button onclick="rotateMedia(\''+item.media_id+'\',270)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===270?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===270?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">270°</button></div><span style="font-size:11px;color:var(--t-4)">'+item.duration+'s</span></div>'})}
+      html+='</div>';
+    }catch(e){html+='<div class="card" style="padding:14px"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:12px;color:var(--t-4)">Error loading</div></div>'}
+  }
+  container.innerHTML=html;
+}
+
+async function rotateMedia(mediaId,degrees){
+  try{await api('/media/'+mediaId+'/rotate?rotation='+degrees,{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}
+}
 
 if(token&&user){enterApp()}

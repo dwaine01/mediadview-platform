@@ -526,6 +526,17 @@ async def delete_media(media_id: str, current_user: dict = Depends(get_current_u
     await db.media.delete_one({"id": media_id})
     return {"message": "Media deleted"}
 
+@api_router.put("/media/{media_id}/rotate")
+async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = Depends(get_current_user)):
+    """Set rotation for media: 0, 90, 180, 270 degrees"""
+    if rotation not in [0, 90, 180, 270]:
+        raise HTTPException(status_code=400, detail="Rotation must be 0, 90, 180 or 270")
+    media = await db.media.find_one({"id": media_id})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+    await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
+    return {"message": f"Rotation set to {rotation} degrees"}
+
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
 @api_router.post("/payments")
@@ -817,6 +828,7 @@ async def get_playlist(screen_id: str):
                         "filename": media.get("filename"),
                         "content_type": media.get("content_type"),
                         "duration": s.get("slot_duration", 15),
+                        "rotation": media.get("rotation", 0),
                         "media_url": f"/api/player/media/{media['id']}"
                     })
     return {"screen_id": screen_id, "screen_name": screen.get("name"),
@@ -1204,8 +1216,9 @@ async def device_playlist(device_id: str):
                         "content_type": media.get("content_type"),
                         "size": media.get("size", 0),
                         "duration": s.get("slot_duration", 15),
+                        "rotation": media.get("rotation", 0),
                         "download_url": f"/api/player/media/{media['id']}",
-                        "checksum": media.get("id"),  # Use media_id as cache key
+                        "checksum": media.get("id"),
                     })
 
     # Update last_sync
