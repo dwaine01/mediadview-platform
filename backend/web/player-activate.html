@@ -7,7 +7,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{background:#000;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.logo{margin-bottom:12px}
+.logo{margin-bottom:20px}
 .tagline{font-size:18px;color:#22d3ee;letter-spacing:3px;font-weight:600;margin-bottom:50px}
 .code-box{display:flex;gap:14px;margin-bottom:30px}
 .code-char{width:72px;height:92px;background:#0a0f1a;border:2px solid #22d3ee;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:800;color:#22d3ee}
@@ -17,16 +17,19 @@ body{background:#000;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh
 .step{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:15px;color:#94a3b8}
 .step .num{width:28px;height:28px;border-radius:50%;background:#0a0f1a;border:1px solid #22d3ee;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#22d3ee;flex-shrink:0}
 .spinner{width:36px;height:36px;border:3px solid #1e293b;border-top-color:#22d3ee;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
-@keyframes spin{to{transform:rotate(360deg)}}video::-webkit-media-controls{display:none!important}video::-webkit-media-controls-play-button{display:none!important}video::-webkit-media-controls-overlay-play-button{display:none!important}video::-webkit-media-controls-start-playback-button{display:none!important}
+@keyframes spin{to{transform:rotate(360deg)}}
+video::-webkit-media-controls{display:none!important}
+video::-webkit-media-controls-overlay-play-button{display:none!important}
+#player{display:none;width:100%;height:100vh;background:#000;position:fixed;top:0;left:0}
+#player img{width:100%;height:100%;object-fit:contain}
+.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000}
+.hidden{display:none}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes zoomIn{from{transform:scale(1.15);opacity:0}to{transform:scale(1);opacity:1}}
 .anim-fade{animation:fadeIn .8s ease}
 .anim-slide{animation:slideIn .6s ease}
 .anim-zoom{animation:zoomIn .8s ease}
-#player{display:none;width:100%;height:100vh;background:#000;position:fixed;top:0;left:0}
-#player img,#player video{width:100%;height:100%;object-fit:contain}
-.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000}
 </style>
 </head>
 <body>
@@ -48,96 +51,196 @@ body{background:#000;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh
 <div id="player"></div>
 
 <script>
-var AB=location.origin;
-var deviceId=localStorage.getItem('mv_did');
-var code=localStorage.getItem('mv_code');
-var screenId=localStorage.getItem('mv_sid');
-var polling=null;var playIndex=0;var playlist=[];var playTimer=null;
+// ===== CONFIG =====
+var AB = location.origin;
+var deviceId = localStorage.getItem('mv_did');
+var code = localStorage.getItem('mv_code');
+var screenId = localStorage.getItem('mv_sid');
+var polling = null;
+var playIndex = 0;
+var playlist = [];
+var playTimer = null;
+var mediaCache = {};
+var rebootTime = '03:00';
 
-async function start(){
-  if(deviceId&&screenId){checkAndPlay();return}
-  if(deviceId){showCode(code);pollActivation();return}
+// ===== STARTUP =====
+async function start() {
+  if (deviceId && screenId) { checkAndPlay(); return; }
+  if (deviceId) { showCode(code); pollActivation(); return; }
   register();
 }
 
-async function register(){
-  document.getElementById('status').textContent='Registering device...';
-  try{
-    var r=await fetch(AB+'/api/devices/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_name:'MediAd View TV Player',device_model:navigator.userAgent.substring(0,50),os_version:navigator.platform,app_version:'1.0.0',resolution:screen.width+'x'+screen.height,platform:'smart_tv'})});
-    var d=await r.json();deviceId=d.device_id;code=d.activation_code;
-    localStorage.setItem('mv_did',deviceId);localStorage.setItem('mv_code',code);
-    showCode(code);pollActivation();
-  }catch(e){document.getElementById('status').textContent='Cannot connect. Retrying...';setTimeout(register,5000)}
-}
-
-function showCode(c){
-  document.getElementById('spinner').style.display='none';
-  document.getElementById('code-box').style.display='flex';
-  document.getElementById('code-box').innerHTML=c.split('').map(function(ch){return'<div class="code-char">'+ch+'</div>'}).join('');
-  document.getElementById('status').textContent='Enter this code in the Admin Panel';
-  document.getElementById('steps').style.display='block';
-}
-
-function pollActivation(){
-  polling=setInterval(async function(){
-    try{
-      var r=await fetch(AB+'/api/devices/'+deviceId+'/check');var d=await r.json();
-      if(d.status==='active'&&d.screen_id){
-        clearInterval(polling);screenId=d.screen_id;localStorage.setItem('mv_sid',screenId);
-        document.getElementById('status').textContent='Activated! Loading...';
-        document.getElementById('status').className='status ok';
-        setTimeout(checkAndPlay,2000);
-      }
-    }catch(e){}
-  },5000);
-}
-
-async function checkAndPlay(){
-  document.getElementById('activate-screen').style.display='none';
-  document.getElementById('player').style.display='block';
-  fetchPlaylist();setInterval(fetchPlaylist,60000);setInterval(sendHeartbeat,30000);
-    // Nightly reboot check every minute
-    setInterval(checkNightlyReboot,60000);
-    // Pre-download all content
-    preDownloadContent();
-}
-
-async function fetchPlaylist(){
-  try{
-    var r=await fetch(AB+'/api/devices/'+deviceId+'/playlist');var d=await r.json();var items=d.items||[];if(d.config&&d.config.reboot_time)rebootTime=d.config.reboot_time;
-    if(items.length>0){
-      var nw=items.map(function(i){return i.media_id}).join(',');
-      var ol=playlist.map(function(i){return i.media_id}).join(',');
-      if(nw!==ol){playlist=items;playIndex=0;playItem();preDownloadContent()}
-    }else{document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:18px;color:#22d3ee;letter-spacing:2px">DIGITAL SIGNAGE PLATFORM</p><p style="font-size:16px;color:#475569;margin-top:20px">No campaigns scheduled</p></div>'}
-  }catch(e){if(playlist.length===0){document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:16px;color:#475569">Offline - Retrying...</p></div>'}}
-}
-
-function playItem(){
-  if(playlist.length===0)return;if(playIndex>=playlist.length)playIndex=0;
-  var item=playlist[playIndex];var url=getCachedUrl(item);
-  var isImg=item.content_type&&item.content_type.indexOf('image')>=0;
-  clearTimeout(playTimer);
-  if(isImg){var rot=item.rotation||0;var anim=item.animation||'fade';var animClass=anim!=='none'?'anim-'+anim:'';var st='width:100%;height:100%;object-fit:contain;';if(rot===90||rot===270){st='width:100vh;height:100vw;object-fit:contain;transform:rotate('+rot+'deg);position:absolute;top:50%;left:50%;margin-top:-50vw;margin-left:-50vh;'}else if(rot===180){st='width:100%;height:100%;object-fit:contain;transform:rotate(180deg);'};document.getElementById('player').innerHTML='<div class="'+animClass+'" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="'+url+'" style="'+st+'"></div>'}
-  else{
-    document.getElementById('player').innerHTML='<canvas id="vc" style="width:100vw;height:100vh;background:#000"></canvas>';
-    var vid=document.createElement('video');vid.muted=true;vid.playsInline=true;vid.preload='auto';vid.src=url;
-    var cv=document.getElementById('vc');var ctx=cv.getContext('2d');var dr=false;
-    function df(){if(!dr)return;ctx.drawImage(vid,0,0,cv.width,cv.height);requestAnimationFrame(df)}
-    vid.onloadeddata=function(){cv.width=vid.videoWidth||1920;cv.height=vid.videoHeight||1080;dr=true;vid.play();df()};
-    vid.onended=function(){dr=false;nextItem()};
-    vid.onerror=function(){dr=false;nextItem()};
-    vid.load();
+// ===== REGISTER DEVICE =====
+async function register() {
+  document.getElementById('status').textContent = 'Registering device...';
+  try {
+    var r = await fetch(AB + '/api/devices/register', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ device_name: 'MediAd View TV Player', device_model: navigator.userAgent.substring(0, 50), os_version: navigator.platform, app_version: '1.1.0', resolution: screen.width + 'x' + screen.height, platform: 'smart_tv' })
+    });
+    var d = await r.json();
+    deviceId = d.device_id; code = d.activation_code;
+    localStorage.setItem('mv_did', deviceId);
+    localStorage.setItem('mv_code', code);
+    showCode(code); pollActivation();
+  } catch (e) {
+    document.getElementById('status').textContent = 'Cannot connect. Retrying...';
+    setTimeout(register, 5000);
   }
-  logPlay(item);playTimer=setTimeout(function(){nextItem()},(item.duration||15)*1000);
 }
 
-function nextItem(){playIndex++;if(playIndex>=playlist.length)playIndex=0;playItem()}
-
-async function sendHeartbeat(){
-  try{await fetch(AB+'/api/devices/'+deviceId+'/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'online',app_version:'1.0.0'})})}catch(e){}
+// ===== SHOW ACTIVATION CODE =====
+function showCode(c) {
+  document.getElementById('spinner').style.display = 'none';
+  document.getElementById('code-box').style.display = 'flex';
+  document.getElementById('code-box').innerHTML = c.split('').map(function(ch) { return '<div class="code-char">' + ch + '</div>'; }).join('');
+  document.getElementById('status').textContent = 'Enter this code in the Admin Panel';
+  document.getElementById('steps').style.display = 'block';
 }
 
+// ===== POLL FOR ACTIVATION =====
+function pollActivation() {
+  polling = setInterval(async function() {
+    try {
+      var r = await fetch(AB + '/api/devices/' + deviceId + '/check');
+      var d = await r.json();
+      if (d.status === 'active' && d.screen_id) {
+        clearInterval(polling);
+        screenId = d.screen_id;
+        localStorage.setItem('mv_sid', screenId);
+        document.getElementById('status').textContent = 'Activated! Loading...';
+        document.getElementById('status').className = 'status ok';
+        setTimeout(checkAndPlay, 2000);
+      }
+    } catch (e) {}
+  }, 5000);
+}
+
+// ===== START PLAYING =====
+async function checkAndPlay() {
+  document.getElementById('activate-screen').style.display = 'none';
+  document.getElementById('player').style.display = 'block';
+  fetchPlaylist();
+  setInterval(fetchPlaylist, 60000);
+  setInterval(sendHeartbeat, 30000);
+  setInterval(checkNightlyReboot, 60000);
+}
+
+// ===== FETCH PLAYLIST =====
+async function fetchPlaylist() {
+  try {
+    var r = await fetch(AB + '/api/devices/' + deviceId + '/playlist');
+    var d = await r.json();
+    var items = d.items || [];
+    if (d.config && d.config.reboot_time) rebootTime = d.config.reboot_time;
+
+    if (items.length > 0) {
+      var nw = items.map(function(i) { return i.media_id; }).join(',');
+      var ol = playlist.map(function(i) { return i.media_id; }).join(',');
+      if (nw !== ol) {
+        playlist = items;
+        playIndex = 0;
+        playItem();
+        preDownloadContent();
+      }
+    } else {
+      document.getElementById('player').innerHTML = '<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:18px;color:#22d3ee;letter-spacing:2px">DIGITAL SIGNAGE PLATFORM</p><p style="font-size:16px;color:#475569;margin-top:20px">No campaigns scheduled</p></div>';
+    }
+  } catch (e) {
+    if (playlist.length === 0) {
+      document.getElementById('player').innerHTML = '<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:16px;color:#475569">Offline - Retrying...</p></div>';
+    }
+  }
+}
+
+// ===== PLAY ITEM =====
+function playItem() {
+  if (playlist.length === 0) return;
+  if (playIndex >= playlist.length) playIndex = 0;
+  var item = playlist[playIndex];
+  var url = getCachedUrl(item);
+  var isImg = item.content_type && item.content_type.indexOf('image') >= 0;
+  clearTimeout(playTimer);
+
+  if (isImg) {
+    var anim = item.animation || 'fade';
+    var animClass = anim !== 'none' ? 'anim-' + anim : '';
+    document.getElementById('player').innerHTML = '<div class="' + animClass + '" style="width:100vw;height:100vh;background:#000"><img src="' + url + '" style="width:100%;height:100%;object-fit:contain"></div>';
+  } else {
+    // Video: use direct video element with muted+playsinline
+    document.getElementById('player').innerHTML = '<video id="vid" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="width:100vw;height:100vh;object-fit:contain;background:#000" src="' + url + '"></video>';
+    var v = document.getElementById('vid');
+    if (v) {
+      v.onended = function() { nextItem(); };
+      v.onerror = function() { nextItem(); };
+      v.play().catch(function() { v.muted = true; v.play().catch(function() { nextItem(); }); });
+    }
+  }
+
+  logPlay(item);
+  playTimer = setTimeout(nextItem, (item.duration || 15) * 1000);
+}
+
+function nextItem() { playIndex++; if (playIndex >= playlist.length) playIndex = 0; playItem(); }
+
+// ===== HEARTBEAT + REMOTE COMMANDS =====
+async function sendHeartbeat() {
+  try {
+    var r = await fetch(AB + '/api/devices/' + deviceId + '/heartbeat', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ status: 'online', app_version: '1.1.0', cached_media_count: Object.keys(mediaCache).length })
+    });
+    var d = await r.json();
+    if (d.action === 'wait') {
+      localStorage.removeItem('mv_sid'); screenId = null;
+      document.getElementById('player').style.display = 'none';
+      document.getElementById('activate-screen').style.display = 'flex';
+      showCode(code); pollActivation();
+    }
+    if (d.command) {
+      if (d.command === 'restart' || d.command === 'reload') { window.location.reload(true); }
+      if (d.command === 'clear_cache') { mediaCache = {}; localStorage.clear(); window.location.reload(true); }
+    }
+  } catch (e) {}
+}
+
+// ===== PROOF OF PLAY =====
+async function logPlay(item) {
+  try {
+    await fetch(AB + '/api/playlog?media_id=' + item.media_id + '&device_id=' + deviceId + '&screen_id=' + (screenId || '') + '&duration=' + (item.duration || 15), { method: 'POST' });
+  } catch (e) {}
+}
+
+// ===== NIGHTLY REBOOT =====
+function checkNightlyReboot() {
+  var now = new Date();
+  var h = String(now.getHours()).padStart(2, '0');
+  var m = String(now.getMinutes()).padStart(2, '0');
+  if (h + ':' + m === rebootTime) {
+    mediaCache = {};
+    window.location.reload(true);
+  }
+}
+
+// ===== CONTENT PRE-DOWNLOAD =====
+async function preDownloadContent() {
+  for (var i = 0; i < playlist.length; i++) {
+    var item = playlist[i];
+    if (mediaCache[item.media_id]) continue;
+    try {
+      var url = AB + item.download_url;
+      var response = await fetch(url);
+      var blob = await response.blob();
+      mediaCache[item.media_id] = URL.createObjectURL(blob);
+    } catch (e) {}
+  }
+}
+
+function getCachedUrl(item) {
+  return mediaCache[item.media_id] || (AB + item.download_url);
+}
+
+// ===== START =====
 start();
 </script>
 </body>
