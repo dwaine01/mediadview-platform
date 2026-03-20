@@ -55,6 +55,18 @@
     </div>
   </aside>
   <div class="main">
+    <!-- Preview Modal -->
+    <div id="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)">
+      <div style="width:90%;max-width:900px;max-height:90vh;background:#0f172a;border:1px solid #1e293b;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #1e293b">
+          <div><div id="modal-title" style="font-size:16px;font-weight:700"></div><div id="modal-sub" style="font-size:12px;color:#64748b"></div></div>
+          <button onclick="closeModal()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+        </div>
+        <div id="modal-media" style="flex:1;background:#000;display:flex;align-items:center;justify-content:center;min-height:300px;max-height:500px;overflow:hidden"></div>
+        <div id="modal-actions" style="padding:16px 20px;border-top:1px solid #1e293b"></div>
+      </div>
+    </div>
+
     <div id="pg-dashboard" class="pg on fade"></div>
     <div id="pg-screens" class="pg fade"></div>
     <div id="pg-campaigns" class="pg fade"></div>

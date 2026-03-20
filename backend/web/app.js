@@ -292,7 +292,7 @@ const loaders={
                     badge(c.status)+
                     (c.status==='pending'?'<button onclick="approveCamp(\''+c.id+'\',event)" class="btn-approve">Approve</button><button onclick="rejectCamp(\''+c.id+'\',event)" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:var(--red);font-size:11px;font-weight:700;border:none;cursor:pointer">Reject</button>':'')+
                   '</div>'+
-                  (hasMedia?'<div style="margin-top:10px;margin-left:18px;display:flex;gap:8px;flex-wrap:wrap">'+c.media_ids.map(function(mid){return '<div style="position:relative"><img src="/api/player/media/'+mid+'" style="height:80px;border-radius:8px;border:1px solid #1e293b;object-fit:cover;cursor:pointer" onclick="window.open(\'/api/player/media/'+mid+'\',\'_blank\')"><div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:4px;font-size:9px;color:#94a3b8">Preview</div></div>'}).join('')+'</div>':'')+
+                  (hasMedia?'<div style="margin-top:10px;margin-left:18px;display:flex;gap:8px;flex-wrap:wrap">'+c.media_ids.map(function(mid){return '<div style="position:relative"><img src="/api/player/media/'+mid+'" style="height:80px;border-radius:8px;border:1px solid #1e293b;object-fit:cover;cursor:pointer" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/\x27/g,'')+'\',\''+(c.user?.name||'').replace(/\x27/g,'')+'\',\''+c.status+'\')"><div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:4px;font-size:9px;color:#94a3b8">Preview</div></div>'}).join('')+'</div>':'')+
                 '</div>'}).join('')}
             </div>
           </div>
@@ -485,6 +485,27 @@ async function submitCampaign(){
     alert('Campaign submitted for review!');go('campaigns')
   }catch(e){alert('Error: '+e.message)}
 }
+function openReview(campId,mediaId,type,campName,userName,status){
+  var modal=document.getElementById('modal');
+  modal.style.display='flex';
+  document.getElementById('modal-title').textContent=campName;
+  document.getElementById('modal-sub').textContent='By: '+userName+' | Status: '+status;
+  var url='/api/player/media/'+mediaId;
+  document.getElementById('modal-media').innerHTML='<img src="'+url+'" style="max-width:100%;max-height:500px;object-fit:contain" onerror="this.outerHTML=\'<video src=\\\''+url+'\\\' controls autoplay muted style=\\\'max-width:100%;max-height:500px\\\' ></video>\'">';
+  var h='';
+  if(status==='pending'){
+    h='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px">REJECT REASON (optional)</div><input class="inp" id="modal-reason" placeholder="Tell the client why..."></div>';
+    h+='<div style="display:flex;gap:10px"><button onclick="modalApprove(\''+campId+'\');closeModal()" style="flex:1;padding:12px;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;font-size:14px;border:none;cursor:pointer">Approve</button>';
+    h+='<button onclick="modalReject(\''+campId+'\');closeModal()" style="flex:1;padding:12px;border-radius:10px;background:rgba(248,113,113,.15);color:#f87171;font-weight:700;font-size:14px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button></div>';
+  }else{
+    h='<div style="text-align:center;padding:8px;color:#64748b;font-size:13px">Status: <span style="color:#22d3ee;font-weight:700">'+status.toUpperCase()+'</span></div>';
+  }
+  document.getElementById('modal-actions').innerHTML=h;
+}
+function closeModal(){document.getElementById('modal').style.display='none';document.getElementById('modal-media').innerHTML=''}
+async function modalApprove(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+async function modalReject(id){var reason=document.getElementById('modal-reason')?.value||'';try{await api('/admin/campaigns/'+id+'/reject?notes='+encodeURIComponent(reason),{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+
 async function rejectCamp(id,e){if(e)e.stopPropagation();if(!confirm('Reject this campaign?'))return;try{await api('/admin/campaigns/'+id+'/reject',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function addScreen(){
