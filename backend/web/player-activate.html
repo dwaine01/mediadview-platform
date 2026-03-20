@@ -6,37 +6,36 @@
 <title>MediAd View Player</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{background:#030712;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
-.logo{margin-bottom:20px}
-h1{font-size:42px;font-weight:800;margin-bottom:4px}
-.sub{font-size:16px;color:#818cf8;margin-bottom:40px}
-.code-box{display:flex;gap:12px;margin-bottom:30px}
-.code-char{width:70px;height:90px;background:#1e1b4b;border:2px solid #4338ca;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:#a5b4fc}
-.status{font-size:16px;color:#64748b;margin-bottom:8px}
+body{background:#000;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.logo{margin-bottom:12px}
+.tagline{font-size:18px;color:#22d3ee;letter-spacing:3px;font-weight:600;margin-bottom:50px}
+.code-box{display:flex;gap:14px;margin-bottom:30px}
+.code-char{width:72px;height:92px;background:#0a0f1a;border:2px solid #22d3ee;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:800;color:#22d3ee}
+.status{font-size:16px;color:#64748b;margin-bottom:10px}
 .status.ok{color:#34d399}
-.steps{margin-top:30px;text-align:left;max-width:500px}
-.step{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:14px;color:#94a3b8}
-.step .num{width:26px;height:26px;border-radius:50%;background:#1e293b;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#818cf8;flex-shrink:0}
-.spinner{width:30px;height:30px;border:3px solid #1e293b;border-top-color:#6366f1;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+.steps{margin-top:30px;text-align:left;max-width:480px}
+.step{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:15px;color:#94a3b8}
+.step .num{width:28px;height:28px;border-radius:50%;background:#0a0f1a;border:1px solid #22d3ee;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#22d3ee;flex-shrink:0}
+.spinner{width:36px;height:36px;border:3px solid #1e293b;border-top-color:#22d3ee;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:20px}
 @keyframes spin{to{transform:rotate(360deg)}}
 #player{display:none;width:100%;height:100vh;background:#000;position:fixed;top:0;left:0}
 #player img,#player video{width:100%;height:100%;object-fit:contain}
+.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000}
 </style>
 </head>
 <body>
 
 <div id="activate-screen">
-  <img src="/api/web/logo.png" style="width:180px;margin-bottom:20px" alt="MediAd View">
-  <h1>MediAd View</h1>
-  <p class="sub">Advertising Solution</p>
+  <img src="/api/web/logo.png" class="logo" style="width:280px" alt="MediAd View">
+  <p class="tagline">DIGITAL SIGNAGE PLATFORM</p>
   <div class="spinner" id="spinner"></div>
   <p class="status" id="status">Registering device...</p>
   <div class="code-box" id="code-box" style="display:none"></div>
   <div class="steps" id="steps" style="display:none">
-    <div class="step"><div class="num">1</div>Open MediAd View Admin Panel on your computer</div>
+    <div class="step"><div class="num">1</div>Open MediAd View Admin Panel</div>
     <div class="step"><div class="num">2</div>Go to Devices tab</div>
-    <div class="step"><div class="num">3</div>Enter the code above and select a screen</div>
-    <div class="step"><div class="num">4</div>Content will start playing automatically</div>
+    <div class="step"><div class="num">3</div>Enter the code and select a screen</div>
+    <div class="step"><div class="num">4</div>Content plays automatically</div>
   </div>
 </div>
 
@@ -47,21 +46,11 @@ var AB=location.origin;
 var deviceId=localStorage.getItem('mv_did');
 var code=localStorage.getItem('mv_code');
 var screenId=localStorage.getItem('mv_sid');
-var polling=null;
-var playIndex=0;
-var playlist=[];
-var playTimer=null;
+var polling=null;var playIndex=0;var playlist=[];var playTimer=null;
 
 async function start(){
-  if(deviceId && screenId){
-    checkAndPlay();
-    return;
-  }
-  if(deviceId){
-    showCode(code);
-    pollActivation();
-    return;
-  }
+  if(deviceId&&screenId){checkAndPlay();return}
+  if(deviceId){showCode(code);pollActivation();return}
   register();
 }
 
@@ -69,17 +58,10 @@ async function register(){
   document.getElementById('status').textContent='Registering device...';
   try{
     var r=await fetch(AB+'/api/devices/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({device_name:'MediAd View TV Player',device_model:navigator.userAgent.substring(0,50),os_version:navigator.platform,app_version:'1.0.0',resolution:screen.width+'x'+screen.height,platform:'smart_tv'})});
-    var d=await r.json();
-    deviceId=d.device_id;
-    code=d.activation_code;
-    localStorage.setItem('mv_did',deviceId);
-    localStorage.setItem('mv_code',code);
-    showCode(code);
-    pollActivation();
-  }catch(e){
-    document.getElementById('status').textContent='Cannot connect to server. Retrying...';
-    setTimeout(register,5000);
-  }
+    var d=await r.json();deviceId=d.device_id;code=d.activation_code;
+    localStorage.setItem('mv_did',deviceId);localStorage.setItem('mv_code',code);
+    showCode(code);pollActivation();
+  }catch(e){document.getElementById('status').textContent='Cannot connect. Retrying...';setTimeout(register,5000)}
 }
 
 function showCode(c){
@@ -93,13 +75,10 @@ function showCode(c){
 function pollActivation(){
   polling=setInterval(async function(){
     try{
-      var r=await fetch(AB+'/api/devices/'+deviceId+'/check');
-      var d=await r.json();
+      var r=await fetch(AB+'/api/devices/'+deviceId+'/check');var d=await r.json();
       if(d.status==='active'&&d.screen_id){
-        clearInterval(polling);
-        screenId=d.screen_id;
-        localStorage.setItem('mv_sid',screenId);
-        document.getElementById('status').textContent='Activated! Loading content...';
+        clearInterval(polling);screenId=d.screen_id;localStorage.setItem('mv_sid',screenId);
+        document.getElementById('status').textContent='Activated! Loading...';
         document.getElementById('status').className='status ok';
         setTimeout(checkAndPlay,2000);
       }
@@ -110,61 +89,34 @@ function pollActivation(){
 async function checkAndPlay(){
   document.getElementById('activate-screen').style.display='none';
   document.getElementById('player').style.display='block';
-  fetchPlaylist();
-  setInterval(fetchPlaylist,60000);
-  setInterval(sendHeartbeat,30000);
+  fetchPlaylist();setInterval(fetchPlaylist,60000);setInterval(sendHeartbeat,30000);
 }
 
 async function fetchPlaylist(){
   try{
-    var r=await fetch(AB+'/api/devices/'+deviceId+'/playlist');
-    var d=await r.json();
-    var items=d.items||[];
+    var r=await fetch(AB+'/api/devices/'+deviceId+'/playlist');var d=await r.json();var items=d.items||[];
     if(items.length>0){
-      var newIds=items.map(function(i){return i.media_id}).join(',');
-      var oldIds=playlist.map(function(i){return i.media_id}).join(',');
-      if(newIds!==oldIds){
-        playlist=items;
-        playIndex=0;
-        playItem();
-      }
-    }else{
-      document.getElementById('player').innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#030712"><img src="/api/web/logo.png" style="width:150px;margin-bottom:16px"><p style="font-size:20px;color:#64748b">No campaigns scheduled</p></div>';
-    }
-  }catch(e){
-    if(playlist.length===0){
-      document.getElementById('player').innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#030712"><img src="/api/web/logo.png" style="width:150px;margin-bottom:16px"><p style="font-size:20px;color:#64748b">Offline - Retrying...</p></div>';
-    }
-  }
+      var nw=items.map(function(i){return i.media_id}).join(',');
+      var ol=playlist.map(function(i){return i.media_id}).join(',');
+      if(nw!==ol){playlist=items;playIndex=0;playItem()}
+    }else{document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:18px;color:#22d3ee;letter-spacing:2px">DIGITAL SIGNAGE PLATFORM</p><p style="font-size:16px;color:#475569;margin-top:20px">No campaigns scheduled</p></div>'}
+  }catch(e){if(playlist.length===0){document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:16px;color:#475569">Offline - Retrying...</p></div>'}}
 }
 
 function playItem(){
-  if(playlist.length===0)return;
-  if(playIndex>=playlist.length)playIndex=0;
-  var item=playlist[playIndex];
-  var url=AB+item.download_url;
+  if(playlist.length===0)return;if(playIndex>=playlist.length)playIndex=0;
+  var item=playlist[playIndex];var url=AB+item.download_url;
   var isImg=item.content_type&&item.content_type.indexOf('image')>=0;
   clearTimeout(playTimer);
-  if(isImg){
-    document.getElementById('player').innerHTML='<img src="'+url+'" style="width:100%;height:100%;object-fit:contain;background:#000">';
-  }else{
-    document.getElementById('player').innerHTML='<video src="'+url+'" autoplay style="width:100%;height:100%;object-fit:contain;background:#000"></video>';
-    var vid=document.querySelector('video');
-    if(vid)vid.onended=nextItem;
-  }
+  if(isImg){document.getElementById('player').innerHTML='<img src="'+url+'">'}
+  else{document.getElementById('player').innerHTML='<video src="'+url+'" autoplay></video>';var v=document.querySelector('video');if(v)v.onended=nextItem}
   playTimer=setTimeout(nextItem,(item.duration||15)*1000);
 }
 
-function nextItem(){
-  playIndex++;
-  if(playIndex>=playlist.length)playIndex=0;
-  playItem();
-}
+function nextItem(){playIndex++;if(playIndex>=playlist.length)playIndex=0;playItem()}
 
 async function sendHeartbeat(){
-  try{
-    await fetch(AB+'/api/devices/'+deviceId+'/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'online',app_version:'1.0.0'})});
-  }catch(e){}
+  try{await fetch(AB+'/api/devices/'+deviceId+'/heartbeat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:'online',app_version:'1.0.0'})})}catch(e){}
 }
 
 start();
