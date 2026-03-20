@@ -282,7 +282,18 @@ const loaders={
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Campaigns (${campaigns.length})</h2>
             <div class="card">
-              ${campaigns.slice(0,8).map(c=>`<div class="lr"><div class="dot" style="background:${dot(c.status)}"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${c.name}</div><div style="font-size:11px;color:var(--t-4)">${c.user?.name||''} · $${(c.pricing?.total||0).toLocaleString()}</div></div>${badge(c.status)}${c.status==='pending'?`<button onclick="approveCamp('${c.id}')" class="btn-approve">Approve</button>`:''}</div>`).join('')}
+              ${campaigns.slice(0,15).map(c=>{
+                var hasMedia=c.media_ids&&c.media_ids.length>0;
+                var mediaUrl=hasMedia?'/api/player/media/'+c.media_ids[0]:'';
+                return '<div style="padding:12px 16px;border-bottom:1px solid rgba(30,41,59,.2)">'+
+                  '<div style="display:flex;align-items:center;gap:12px">'+
+                    '<div class="dot" style="background:'+dot(c.status)+'"></div>'+
+                    '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+c.name+'</div><div style="font-size:11px;color:var(--t-4)">'+(c.user?.name||'')+' · $'+(c.pricing?.total||0).toLocaleString()+'</div></div>'+
+                    badge(c.status)+
+                    (c.status==='pending'?'<button onclick="approveCamp(\''+c.id+'\',event)" class="btn-approve">Approve</button><button onclick="rejectCamp(\''+c.id+'\',event)" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:var(--red);font-size:11px;font-weight:700;border:none;cursor:pointer">Reject</button>':'')+
+                  '</div>'+
+                  (hasMedia?'<div style="margin-top:10px;margin-left:18px;display:flex;gap:8px;flex-wrap:wrap">'+c.media_ids.map(function(mid){return '<div style="position:relative"><img src="/api/player/media/'+mid+'" style="height:80px;border-radius:8px;border:1px solid #1e293b;object-fit:cover;cursor:pointer" onclick="window.open(\'/api/player/media/'+mid+'\',\'_blank\')"><div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:4px;font-size:9px;color:#94a3b8">Preview</div></div>'}).join('')+'</div>':'')+
+                '</div>'}).join('')}
             </div>
           </div>
         </div>`;
@@ -474,6 +485,7 @@ async function submitCampaign(){
     alert('Campaign submitted for review!');go('campaigns')
   }catch(e){alert('Error: '+e.message)}
 }
+async function rejectCamp(id,e){if(e)e.stopPropagation();if(!confirm('Reject this campaign?'))return;try{await api('/admin/campaigns/'+id+'/reject',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function addScreen(){
   var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value;
