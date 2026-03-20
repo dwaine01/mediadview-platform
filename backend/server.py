@@ -530,14 +530,24 @@ async def delete_media(media_id: str, current_user: dict = Depends(get_current_u
 
 @api_router.put("/media/{media_id}/rotate")
 async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = Depends(get_current_user)):
-    """Set rotation angle. Player applies visually via CSS. No file modification."""
+    """Set rotation angle and force refresh on all devices showing this media."""
     if rotation not in [0, 90, 180, 270]:
         raise HTTPException(status_code=400, detail="Rotation must be 0, 90, 180 or 270")
     media = await db.media.find_one({"id": media_id})
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
     await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
-    return {"message": f"Rotation set to {rotation} degrees"}
+    
+    # Find all campaigns using this media and force restart their devices
+    campaigns = await db.campaigns.find({"media_ids": media_id}).to_list(100)
+    restarted = 0
+    for camp in campaigns:
+        devices = await db.devices.find({"screen_id": camp.get("screen_id"), "status": "active"}).to_list(10)
+        for dev in devices:
+            await db.devices.update_one({"id": dev["id"]}, {"$set": {"pending_command": "reload"}})
+            restarted += 1
+    
+    return {"message": f"Rotation set to {rotation}. {restarted} device(s) will refresh."}
 
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
