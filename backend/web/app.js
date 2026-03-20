@@ -511,15 +511,16 @@ async function loadPlaylists(screens){
         html+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
         items.forEach(function(item){
           var rot=item.rotation||0;
-          html+='<div style="width:160px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-1)">';
+          html+='<div style="width:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-1)">';
           html+='<div style="height:100px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
-          html+='<div style="padding:8px"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px">'+item.filename+'</div>';
-          html+='<div style="display:flex;gap:3px;align-items:center"><span style="font-size:9px;color:var(--t-4);margin-right:4px">Rotate:</span>';
+          html+='<div style="padding:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+item.filename+'</div><button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 8px;border-radius:4px;background:rgba(248,113,113,.15);color:var(--red);font-size:10px;font-weight:700;border:none;cursor:pointer;flex-shrink:0">✕</button></div>';
+          html+='<div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:4px">';
           ['none','fade','slide','zoom'].forEach(function(anim){
             var aActive=(item.animation||'fade')===anim;
             html+='<button onclick="setAnim(\''+item.media_id+'\',\''+anim+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(aActive?'var(--green)':'var(--border)')+';background:'+(aActive?'rgba(52,211,153,.15)':'none')+';color:'+(aActive?'var(--green)':'var(--t-4)')+';font-size:9px;font-weight:600;cursor:pointer">'+anim+'</button>';
           });
-          html+='<button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;margin-left:4px">✕</button>';
+          html+='</div>';
+          html+='<div style="display:flex;gap:2px;flex-wrap:wrap">';
           [0,90,180,270].forEach(function(deg){
             var active=rot===deg;
             html+='<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 7px;border-radius:4px;border:1px solid '+(active?'var(--cyan)':'var(--border)')+';background:'+(active?'rgba(34,211,238,.15)':'none')+';color:'+(active?'var(--cyan)':'var(--t-4)')+';font-size:10px;font-weight:600;cursor:pointer">'+deg+'°</button>';
