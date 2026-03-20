@@ -1270,6 +1270,23 @@ async def device_playlist(device_id: str):
     # Update last_sync
     await db.devices.update_one({"id": device_id}, {"$set": {"last_sync": datetime.utcnow()}})
 
+    # Add enabled widgets for this screen
+    widgets = await db.widgets.find({"screen_id": screen_id, "enabled": True}).to_list(50)
+    for w in widgets:
+        items.append({
+            "campaign_id": "widget",
+            "media_id": w["id"],
+            "filename": w.get("name", "Widget"),
+            "content_type": "widget",
+            "size": 0,
+            "duration": w.get("duration", 30),
+            "rotation": 0,
+            "animation": "fade",
+            "download_url": f"/api/widgets/{w['id']}/render",
+            "widget_type": w.get("widget_type"),
+            "checksum": w["id"],
+        })
+
     return {
         "device_id": device_id,
         "screen_id": screen_id,
