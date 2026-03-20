@@ -226,7 +226,7 @@ const loaders={
               <div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
                 <div><label class="inp-label">Screen Name</label><input class="inp" id="ns-name" placeholder="e.g. Downtown LED Display"></div>
-                <div><label class="inp-label">Location Code</label><input class="inp" id="ns-code" placeholder="e.g. NYC-DT-001"></div>
+                <div><label class="inp-label">Location Code</label><div style="padding:10px 12px;background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.15);border-radius:8px;font-size:12px;color:var(--green)">Auto-generated (MV-XXXX)</div></div>
               </div>
               <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
                 <div><label class="inp-label">Address</label><input class="inp" id="ns-addr" placeholder="e.g. 123 Main St"></div>
@@ -439,7 +439,7 @@ async function addScreen(){
   const msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',location_code:code||''})});
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',})});
     msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
@@ -449,7 +449,7 @@ async function editScreen(id){
   var orient=s.specs?.orientation||'landscape';
   el.innerHTML='<div style="max-width:700px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h1 style="font-size:24px;font-weight:800">Edit Screen</h1><button class="btn-s" onclick="loaders.admin()">Cancel</button></div>'+
   '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #1e293b;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
-  '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code</div><input class="inp" id="es-code" value="'+(s.location_code||'')+'"></div></div>'+
+  '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code <span style="color:var(--green);font-size:8px">(auto-generated, permanent)</span></div><div style="padding:10px 12px;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;font-size:16px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+(s.location_code||'—')+'</div></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">City</div><input class="inp" id="es-city" value="'+(s.location?.city||'')+'"></div><div><div class="lbl">Address</div><input class="inp" id="es-addr" value="'+(s.location?.address||'')+'"></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">State</div><input class="inp" id="es-state" value="'+(s.location?.state||'')+'"></div><div><div class="lbl">Price per Month ($)</div><input class="inp" id="es-pm" type="number" value="'+(s.pricing?.per_month||0)+'"></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Size</div><input class="inp" id="es-size" value="'+(s.specs?.size||'')+'"></div><div><div class="lbl">Resolution</div><input class="inp" id="es-res" value="'+(s.specs?.resolution||'')+'"></div></div>'+
@@ -488,8 +488,8 @@ function setOrientPreview(o){
 }
 
 async function saveScreen(id){
-  var nm=document.getElementById('es-name').value,code=document.getElementById('es-code').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape';
-  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location_code:code,location:{city:city,address:addr,state:state,country:'US'},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
+  var nm=document.getElementById('es-name').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape';
+  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location:{city:city,address:addr,state:state,country:'US'},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
 
 async function unlinkDev(id,e){if(e)e.stopPropagation();if(!confirm('Unlink this device?'))return;try{await api('/admin/devices/'+id+'/unlink',{method:'PUT'});loaders.devices()}catch(e){alert(e.message)}}
 async function removeDev(id,e){if(e)e.stopPropagation();if(!confirm('Remove device?'))return;try{await api('/admin/devices/'+id,{method:'DELETE'});loaders.devices()}catch(e){alert(e.message)}}

@@ -751,13 +751,29 @@ async def admin_reject(campaign_id: str, notes: Optional[str] = None, admin: dic
     )
     return {"message": "Campaign rejected"}
 
+def gen_location_code():
+    """Generate permanent location code: MV-XXXX (letters + numbers)"""
+    chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    return "MV-" + ''.join(random.choices(chars, k=4))
+
+async def get_unique_location_code():
+    """Generate a unique location code that doesn't exist yet"""
+    for _ in range(100):
+        code = gen_location_code()
+        exists = await db.screens.find_one({"location_code": code})
+        if not exists:
+            return code
+    return "MV-" + uuid.uuid4().hex[:4].upper()
+
 @api_router.post("/admin/screens")
 async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
+    # Auto-generate permanent location code
+    location_code = await get_unique_location_code()
     screen = {
         "id": gen_id(), "name": data.name, "description": data.description,
         "location": data.location.dict(), "pricing": data.pricing.dict(),
         "specs": data.specs.dict(), "preview_image": data.preview_image,
-        "status": data.status, "location_code": data.location_code, "active": True,
+        "status": data.status, "location_code": location_code, "active": True,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
@@ -769,6 +785,8 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
     update = {k: v for k, v in data.dict(exclude_none=True).items()}
+    # location_code is permanent - cannot be changed
+    update.pop("location_code", None)
     update["updated_at"] = datetime.utcnow()
     await db.screens.update_one({"id": screen_id}, {"$set": update})
     updated = await db.screens.find_one({"id": screen_id})
