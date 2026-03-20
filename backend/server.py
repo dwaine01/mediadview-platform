@@ -1535,15 +1535,23 @@ async def list_widgets(screen_id: Optional[str] = None, admin: dict = Depends(re
 
 @api_router.delete("/admin/widgets/{widget_id}")
 async def delete_widget(widget_id: str, admin: dict = Depends(require_admin)):
+    w = await db.widgets.find_one({"id": widget_id})
     await db.widgets.delete_one({"id": widget_id})
+    # Force reload on devices showing this widget
+    if w and w.get("screen_id"):
+        await db.devices.update_many({"screen_id": w["screen_id"], "status": "active"}, {"$set": {"pending_command": "reload"}})
     return {"message": "Widget deleted"}
 
 @api_router.put("/admin/widgets/{widget_id}/toggle")
 async def toggle_widget(widget_id: str, admin: dict = Depends(require_admin)):
     w = await db.widgets.find_one({"id": widget_id})
     if not w: raise HTTPException(status_code=404, detail="Widget not found")
-    await db.widgets.update_one({"id": widget_id}, {"$set": {"enabled": not w.get("enabled", True)}})
-    return {"message": "Widget toggled"}
+    new_state = not w.get("enabled", True)
+    await db.widgets.update_one({"id": widget_id}, {"$set": {"enabled": new_state}})
+    # Force reload on devices
+    if w.get("screen_id"):
+        await db.devices.update_many({"screen_id": w["screen_id"], "status": "active"}, {"$set": {"pending_command": "reload"}})
+    return {"message": f"Widget {'enabled' if new_state else 'disabled'}"}
 
 @api_router.get("/widgets/{widget_id}/render", response_class=HTMLResponse)
 async def render_widget(widget_id: str):
