@@ -8,128 +8,168 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:#030712;color:#e2e8f0;min-height:100vh}
-.hd{padding:16px 24px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(30,41,59,.5)}
-.hd img{height:32px}
-.hd span{font-size:9px;color:#22d3ee;letter-spacing:2px;font-weight:600}
-.ct{max-width:1200px;margin:0 auto;padding:20px 24px}
-h1{font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:4px}
-.sub{font-size:14px;color:#64748b;margin-bottom:20px}
-.search-bar{display:flex;gap:8px;margin-bottom:16px}
-.search-bar input{flex:1;padding:10px 14px;background:#111827;border:1.5px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit}
-.search-bar input:focus{border-color:#6366f1;outline:none}
-.search-bar input::placeholder{color:#475569}
-.toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px}
-.btn-sm{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
-.btn-sel{background:rgba(34,211,238,.1);color:#22d3ee;border:1px solid rgba(34,211,238,.2)}.btn-sel:hover{background:rgba(34,211,238,.2)}
-.btn-clr{background:#111827;color:#94a3b8;border:1px solid #1e293b}.btn-clr:hover{color:#f1f5f9}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px;margin-bottom:24px}
-.sc{background:#111827;border:2px solid transparent;border-radius:12px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
-.sc:hover{border-color:rgba(99,102,241,.3);transform:translateY(-1px)}
-.sc.on{border-color:#22d3ee;background:rgba(34,211,238,.03)}
-.sc .ck{position:absolute;top:8px;right:8px;width:22px;height:22px;border-radius:50%;border:2px solid rgba(255,255,255,.3);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:2}
-.sc.on .ck{background:#22d3ee;border-color:#22d3ee}
-.sc .im{height:70px;position:relative}
-.sc .ref{position:absolute;top:6px;left:6px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(0,0,0,.5);color:#fff}
-.sc .cty{position:absolute;bottom:6px;left:6px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(0,0,0,.4);color:#fff}
-.sc .bd{padding:10px 12px}
-.sc .nm{font-size:13px;font-weight:700;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc .lc{font-size:10px;color:#64748b;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sc .ft{display:flex;justify-content:space-between;align-items:center}
-.sc .sp{font-size:9px;color:#475569}
-.sc .pr{font-size:15px;font-weight:800;color:#22d3ee}
-.sc .pr span{font-size:9px;color:#475569;font-weight:400}
-.book{display:none;background:#111827;border:1px solid rgba(34,211,238,.2);border-radius:14px;padding:20px;margin-bottom:20px}
-.book.on{display:block}
-.book h2{font-size:17px;font-weight:700;margin-bottom:2px}
-.book .info{font-size:12px;color:#22d3ee;margin-bottom:14px}
-.label{display:block;font-size:9px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
-.inp{width:100%;padding:10px 12px;background:#0a0f1a;border:1.5px solid #1e293b;border-radius:8px;color:#f1f5f9;font-size:13px;font-family:inherit}
+.hd{padding:14px 24px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(30,41,59,.4)}
+.hd img{height:30px}.hd span{font-size:9px;color:#22d3ee;letter-spacing:2px;font-weight:600}
+.ct{max-width:1100px;margin:0 auto;padding:20px 24px}
+.lbl{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
+.inp{width:100%;padding:10px 12px;background:#0f172a;border:1px solid #1e293b;border-radius:8px;color:#f1f5f9;font-size:13px;font-family:inherit;transition:border .15s}
 .inp:focus{border-color:#6366f1;outline:none}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.pbox{background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.1);border-radius:10px;padding:14px;margin:12px 0}
-.prow{display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:3px}
-.ptotal{display:flex;justify-content:space-between;font-size:20px;font-weight:800;padding-top:8px;margin-top:8px;border-top:1px solid rgba(30,41,59,.5)}
-.ptotal .v{color:#22d3ee}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.btn-go{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.3);font-family:inherit;transition:all .15s}
+.btn-go:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(99,102,241,.4)}
+.btn-go:disabled{opacity:.5;cursor:not-allowed;transform:none}
+/* Marketplace */
+.search{display:flex;gap:8px;margin-bottom:14px}
+.search input{flex:1;padding:10px 14px;background:#111827;border:1px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit}
+.search input:focus{border-color:#6366f1;outline:none}
+.search input::placeholder{color:#475569}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+.sc{background:#111827;border:1px solid #1e293b;border-radius:12px;overflow:hidden;cursor:pointer;transition:all .2s}
+.sc:hover{border-color:rgba(99,102,241,.4);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.sc .im{height:68px;position:relative}.sc .ref{position:absolute;top:6px;left:6px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;background:rgba(0,0,0,.5);color:#fff}
+.sc .cty{position:absolute;bottom:6px;left:6px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:600;background:rgba(0,0,0,.4);color:#fff}
+.sc .bd{padding:10px 12px}.sc .nm{font-size:13px;font-weight:700;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sc .lc{font-size:10px;color:#64748b;margin-bottom:6px}.sc .ft{display:flex;justify-content:space-between;align-items:center}
+.sc .pr{font-size:15px;font-weight:800;color:#22d3ee}.sc .pr span{font-size:9px;color:#475569;font-weight:400}
+.sc .sp{font-size:9px;color:#475569}
+.btn-s{padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
 .upload{border:2px dashed #1e293b;border-radius:10px;padding:24px;text-align:center;cursor:pointer;transition:all .15s}
 .upload:hover{border-color:rgba(99,102,241,.4)}
-.prev{margin-top:8px;border-radius:8px;overflow:hidden;max-height:180px}
-.prev img{width:100%;object-fit:contain;max-height:180px}
-.btn-go{width:100%;padding:13px;border-radius:10px;font-size:14px;font-weight:700;border:none;cursor:pointer;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.3);font-family:inherit;transition:all .15s}
-.btn-go:hover{box-shadow:0 6px 22px rgba(99,102,241,.45);transform:translateY(-1px)}
-.btn-go:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.ok-box{text-align:center;padding:40px;background:#111827;border-radius:14px;border:1px solid rgba(52,211,153,.2);margin:40px 0}
-.ok-box h2{color:#34d399;font-size:22px;margin:10px 0 6px}
+.prev{margin-top:8px;border-radius:8px;overflow:hidden;max-height:160px}.prev img{width:100%;object-fit:contain;max-height:160px}
+.pbox{background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.1);border-radius:10px;padding:14px;margin:10px 0}
+.prow{display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:3px}
+.ptot{display:flex;justify-content:space-between;font-size:20px;font-weight:800;padding-top:8px;margin-top:8px;border-top:1px solid rgba(30,41,59,.4)}
+.ptot .v{color:#22d3ee}
 .msg{padding:8px;border-radius:6px;font-size:12px;margin-top:8px;text-align:center}
 .msg-e{background:rgba(239,68,68,.1);color:#f87171}
 .hidden{display:none}
+.ok-box{text-align:center;padding:36px;background:#111827;border-radius:14px;border:1px solid rgba(52,211,153,.2);margin:40px 0}
+.ok-box h2{color:#34d399;font-size:22px;margin:10px 0 6px}
 </style>
 </head>
 <body>
 <div class="hd"><img src="/api/web/logo.png" alt="MediAd View"><span>DIGITAL SIGNAGE PLATFORM</span></div>
-<div class="ct">
-<div id="main">
-<h1>Book Your Ad Space</h1>
-<p class="sub">Choose screens to display your advertisement</p>
-<div class="search-bar"><input id="q" placeholder="Search by city, address, zip code, or screen #..." oninput="fil()"></div>
-<div class="toolbar"><div style="display:flex;align-items:center;gap:8px"><button class="btn-sm btn-sel" onclick="selAll()">Select All</button><button class="btn-sm btn-clr" onclick="clrAll()">Clear</button><span style="font-size:12px;color:#64748b" id="sc-cnt">0 selected</span></div><span style="font-size:12px;color:#64748b" id="sc-tot"></span></div>
-<div class="book" id="bk"><h2>Book Your Ad</h2><div class="info" id="bk-info"></div>
-<div class="row" style="margin-bottom:8px"><div><label class="label">Start Date</label><input type="date" class="inp" id="b-s" onchange="calc()"></div><div><label class="label">End Date</label><input type="date" class="inp" id="b-e" onchange="calc()"></div></div>
-<div id="prc" class="pbox hidden"></div>
-<div style="margin:12px 0"><label class="label">Upload Your Ad</label><div class="upload" onclick="document.getElementById('b-f').click()"><svg width="28" height="28" fill="none" stroke="#475569" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><p style="color:#64748b;font-size:12px;margin-top:4px">Tap to upload image or video</p></div><input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)"><div id="b-pv" class="prev hidden"></div><div id="b-fn" style="font-size:11px;color:#22d3ee;margin-top:4px" class="hidden"></div></div>
-<div class="row" style="margin-bottom:12px"><div><label class="label">Your Name</label><input class="inp" id="b-n" placeholder="Full name"></div><div><label class="label">Email</label><input class="inp" id="b-m" placeholder="email@company.com" type="email"></div></div>
-<button class="btn-go" id="btn-go" onclick="book()">Submit & Pay</button>
-<div id="bmsg" class="hidden"></div>
-</div>
-<div class="grid" id="gr"></div>
-</div>
-<div id="ok" class="hidden"><div class="ok-box"><svg width="44" height="44" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><h2>Ad Submitted!</h2><p style="color:#94a3b8;font-size:13px" id="ok-d"></p><button class="btn-sm btn-sel" onclick="location.reload()" style="margin-top:14px;padding:8px 18px">Book Another</button></div></div>
-</div>
+<div class="ct" id="root"></div>
 <script>
-var S=[],sel=new Set(),fb=null,fn='',ft='';
-var G=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#7c3aed,#6d28d9)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#4338ca)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
-var did=new URLSearchParams(location.search).get('id');
-async function init(){var r=await fetch('/api/screens');S=await r.json();S.forEach(function(s,i){s.ref=String(1001+i)});
-if(did){showDetail(did);return}
-document.getElementById('sc-tot').textContent=S.length+' screens';ren(S);var t=new Date().toISOString().split('T')[0];document.getElementById('b-s').min=t;document.getElementById('b-e').min=t}
+var S=[],G=['linear-gradient(135deg,#1e40af,#3b82f6)','linear-gradient(135deg,#c2410c,#f97316)','linear-gradient(135deg,#0f766e,#14b8a6)','linear-gradient(135deg,#6d28d9,#a78bfa)','linear-gradient(135deg,#b45309,#f59e0b)','linear-gradient(135deg,#be185d,#f472b6)','linear-gradient(135deg,#047857,#34d399)','linear-gradient(135deg,#4338ca,#818cf8)','linear-gradient(135deg,#0e7490,#22d3ee)','linear-gradient(135deg,#be123c,#fb7185)'];
+var fb=null,fn='',ft='',did=new URLSearchParams(location.search).get('id');
 
-function showDetail(id){
-var s=S.find(function(x){return x.id===id});if(!s){document.getElementById('main').innerHTML='<p style="color:#f87171;padding:40px">Screen not found</p>';return}
-document.getElementById('main').innerHTML='<div style="margin-bottom:16px"><a onclick="window.location.href=\'/api/screen\'" style="font-size:13px;color:#6366f1;cursor:pointer;font-weight:600">← Back to all screens</a></div>'+
-'<div style="background:'+G[S.indexOf(s)%G.length]+';height:140px;border-radius:16px;display:flex;align-items:flex-end;padding:20px;margin-bottom:20px;position:relative"><span style="position:absolute;top:12px;left:12px;background:rgba(0,0,0,.5);color:#fff;padding:3px 10px;border-radius:6px;font-size:11px;font-weight:700">#'+s.ref+'</span><div><div style="font-size:24px;font-weight:800;color:#fff">'+s.name+'</div><div style="font-size:13px;color:rgba(255,255,255,.8)">'+s.location.address+', '+s.location.city+', '+s.location.state+'</div></div></div>'+
-'<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">'+
-'<div style="background:#111827;border:1px solid rgba(30,41,59,.5);border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">Screen Specifications</div><div style="font-size:12px;color:#94a3b8;line-height:2">Size: <span style="color:#f1f5f9">'+s.specs.size+'</span><br>Resolution: <span style="color:#f1f5f9">'+s.specs.resolution+'</span><br>Type: <span style="color:#f1f5f9">'+s.specs.type+'</span><br>Orientation: <span style="color:#f1f5f9">'+(s.specs.orientation||'Landscape')+'</span></div></div>'+
-'<div style="background:#111827;border:1px solid rgba(30,41,59,.5);border-radius:12px;padding:16px"><div style="font-size:13px;font-weight:700;margin-bottom:10px">Pricing</div><div style="font-size:36px;font-weight:800;color:#22d3ee">$'+s.pricing.per_day+'<span style="font-size:14px;color:#64748b;font-weight:400">/day</span></div><div style="font-size:12px;color:#94a3b8;margin-top:6px">$'+s.pricing.per_hour+'/hour · $'+s.pricing.per_slot+'/slot</div></div></div>'+
-'<div style="background:#111827;border:1px solid rgba(30,41,59,.5);border-radius:12px;padding:16px;margin-bottom:20px"><div style="font-size:13px;font-weight:700;margin-bottom:8px">About This Screen</div><div style="font-size:13px;color:#94a3b8;line-height:1.6">'+(s.description||'Premium LED display in a high-traffic location. Perfect for brand awareness, promotions, and event advertising. Your content will be displayed in rotation with other advertisers on a high-resolution LED screen visible to thousands of passersby daily.')+'</div></div>'+
-'<div style="background:rgba(251,191,36,.05);border:1px solid rgba(251,191,36,.15);border-radius:12px;padding:16px;margin-bottom:20px"><div style="font-size:13px;font-weight:700;color:#fbbf24;margin-bottom:8px">Terms & Conditions</div><div style="font-size:11px;color:#94a3b8;line-height:1.7">By submitting your advertisement, you agree to the following:<br>• All content must comply with local advertising laws and regulations<br>• MediAd View reserves the right to reject or remove any content without notice<br>• No offensive, misleading, or illegal content will be accepted<br>• Approved content will be displayed during the selected date range<br>• Refunds are subject to our cancellation policy<br>• MediAd View is not responsible for content accuracy<br>• Payment is required before content goes live<br>• Content must be provided in the correct format (JPG, PNG, or MP4)</div></div>'+
-'<div class="book on" id="bk" style="border-color:rgba(34,211,238,.2)"><h2 style="font-size:17px;font-weight:700;margin-bottom:2px">Book This Screen</h2><div class="info" style="font-size:12px;color:#22d3ee;margin-bottom:14px">'+s.name+' — '+s.location.city+'</div>'+
-'<div class="row" style="margin-bottom:8px"><div><label class="label">Start Date</label><input type="date" class="inp" id="b-s" onchange="calcSingle()"></div><div><label class="label">End Date</label><input type="date" class="inp" id="b-e" onchange="calcSingle()"></div></div>'+
-'<div id="prc" class="pbox hidden"></div>'+
-'<div style="margin:12px 0"><label class="label">Upload Your Ad</label><div class="upload" onclick="document.getElementById(\'b-f\').click()"><svg width="28" height="28" fill="none" stroke="#475569" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><p style="color:#64748b;font-size:12px;margin-top:4px">Tap to upload image or video</p></div><input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)"><div id="b-pv" class="prev hidden"></div><div id="b-fn" style="font-size:11px;color:#22d3ee;margin-top:4px" class="hidden"></div></div>'+
-'<div class="row" style="margin-bottom:8px"><div><label class="label">Your Name</label><input class="inp" id="b-n" placeholder="Full name"></div><div><label class="label">Email</label><input class="inp" id="b-m" placeholder="email@company.com" type="email"></div></div>'+
-'<div style="margin-bottom:12px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer"><input type="checkbox" id="b-terms" style="margin-top:3px;accent-color:#6366f1"><span style="font-size:11px;color:#94a3b8">I accept the Terms & Conditions and understand that MediAd View reserves the right to approve or reject any submitted content</span></label></div>'+
-'<button class="btn-go" id="btn-go" onclick="bookSingle(\''+id+'\')">Submit & Pay — $'+s.pricing.per_day+'/day</button><div id="bmsg" class="hidden"></div></div>';
-var t=new Date().toISOString().split('T')[0];document.getElementById('b-s').min=t;document.getElementById('b-e').min=t;
-window._detailScreen=s}
+async function init(){
+  var r=await fetch('/api/screens');S=await r.json();
+  S.forEach(function(s,i){s.ref=String(1001+i);s._g=G[i%G.length]});
+  did?showDetail():showMarketplace();
+}
 
-function calcSingle(){if(!window._detailScreen)return;var s=window._detailScreen;var sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;if(!sd||!ed)return;var d1=new Date(sd),d2=new Date(ed),days=Math.max(Math.ceil((d2-d1)/86400000)+1,1);var sub=s.pricing.per_day*days;var tax=Math.round(sub*.08*100)/100;var tot=sub+tax;
-document.getElementById('prc').innerHTML='<div class="prow"><span>$'+s.pricing.per_day+'/day × '+days+' days</span><span>$'+sub.toLocaleString()+'</span></div><div class="prow"><span>Tax (8%)</span><span>$'+tax.toLocaleString()+'</span></div><div class="ptotal"><span>Total</span><span class="v">$'+tot.toLocaleString()+'</span></div>';
-document.getElementById('prc').classList.remove('hidden');document.getElementById('btn-go').textContent='Submit & Pay — $'+tot.toLocaleString()}
+function showMarketplace(){
+  var el=document.getElementById('root');
+  el.innerHTML='<h1 style="font-size:26px;font-weight:800;margin-bottom:3px">Book Your Ad Space</h1><p style="font-size:13px;color:#64748b;margin-bottom:16px">Choose a screen to display your advertisement</p>'+
+  '<div class="search"><input id="q" placeholder="Search by city, address, or screen #..." oninput="fil()"></div>'+
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><span style="font-size:12px;color:#64748b" id="tot"></span></div>'+
+  '<div class="grid" id="gr"></div>';
+  fil();
+}
 
-async function bookSingle(id){
-if(!document.getElementById('b-terms').checked){var m=document.getElementById('bmsg');m.className='msg msg-e';m.textContent='Please accept the Terms & Conditions';m.classList.remove('hidden');return}
-sel.clear();sel.add(id);await book()}
-function ren(list){document.getElementById('gr').innerHTML=list.map(function(s,i){var on=sel.has(s.id);return'<div class="sc'+(on?' on':'')+'" data-id="'+s.id+'" onclick="tog(\''+s.id+'\')"><div class="ck">'+(on?'<svg width="12" height="12" fill="none" stroke="#000" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="im" style="background:'+G[i%G.length]+'"><span class="ref">#'+s.ref+'</span><span class="cty">'+s.location.city+', '+s.location.state+'</span></div><div class="bd"><div class="nm">'+s.name+'</div><div class="lc">'+s.location.address+'</div><div class="ft"><span class="sp">'+s.specs.size+'</span><span class="pr">$'+s.pricing.per_day+'<span>/day</span></span></div></div></div>'}).join('')}
-function tog(id){if(sel.has(id))sel.delete(id);else sel.add(id);upd()}
-function selAll(){gf().forEach(function(s){sel.add(s.id)});upd()}
-function clrAll(){sel.clear();upd()}
-function upd(){ren(gf());document.getElementById('sc-cnt').textContent=sel.size+' selected';var p=document.getElementById('bk');if(sel.size>0){p.classList.add('on');var n=S.filter(function(s){return sel.has(s.id)}).map(function(s){return s.name});document.getElementById('bk-info').textContent=sel.size+' screen'+(sel.size>1?'s':'')+': '+n.join(', ')}else{p.classList.remove('on')}calc()}
-function gf(){var q=document.getElementById('q').value.toLowerCase();if(!q)return S;return S.filter(function(s){return s.name.toLowerCase().indexOf(q)>=0||s.location.city.toLowerCase().indexOf(q)>=0||s.location.address.toLowerCase().indexOf(q)>=0||s.location.state.toLowerCase().indexOf(q)>=0||s.ref.indexOf(q)>=0})}
-function fil(){ren(gf())}
-function calc(){var s=document.getElementById('b-s').value,e=document.getElementById('b-e').value;if(!s||!e||sel.size===0){document.getElementById('prc').classList.add('hidden');return}var d1=new Date(s),d2=new Date(e),days=Math.max(Math.ceil((d2-d1)/86400000)+1,1);var ss=S.filter(function(x){return sel.has(x.id)});var h='';ss.forEach(function(x){var t=x.pricing.per_day*days;h+='<div class="prow"><span>'+x.name+'</span><span>$'+x.pricing.per_day+' × '+days+'d = $'+t.toLocaleString()+'</span></div>'});var sub=ss.reduce(function(a,x){return a+x.pricing.per_day*days},0);var tax=Math.round(sub*.08*100)/100;h+='<div class="prow"><span>Subtotal</span><span>$'+sub.toLocaleString()+'</span></div><div class="prow"><span>Tax (8%)</span><span>$'+tax.toLocaleString()+'</span></div><div class="ptotal"><span>Total</span><span class="v">$'+(sub+tax).toLocaleString()+'</span></div>';document.getElementById('prc').innerHTML=h;document.getElementById('prc').classList.remove('hidden')}
-function onF(i){var f=i.files[0];if(!f)return;fn=f.name;ft=f.type||'image/jpeg';document.getElementById('b-fn').textContent=f.name;document.getElementById('b-fn').classList.remove('hidden');var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];if(f.type.startsWith('image/')){document.getElementById('b-pv').innerHTML='<img src="'+r.result+'">';document.getElementById('b-pv').classList.remove('hidden')}};r.readAsDataURL(f)}
-async function book(){var nm=document.getElementById('b-n').value,em=document.getElementById('b-m').value,sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value,msg=document.getElementById('bmsg');msg.classList.add('hidden');if(!nm||!em||!sd||!ed||!fb||sel.size===0){msg.className='msg msg-e';msg.textContent='Fill all fields, select screens, upload media';msg.classList.remove('hidden');return}var b=document.getElementById('btn-go');b.disabled=true;b.textContent='Processing...';try{var au;try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:'cl_'+em})});if(!r.ok)throw 0;au=await r.json()}catch(e){au=await(await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm,email:em,password:'cl_'+em})})).json()}var h={'Content-Type':'application/json','Authorization':'Bearer '+au.access_token};var m=await(await fetch('/api/media/upload',{method:'POST',headers:h,body:JSON.stringify({filename:fn,content_type:ft,data:fb})})).json();var ss=S.filter(function(x){return sel.has(x.id)});for(var s of ss){var c=await(await fetch('/api/campaigns',{method:'POST',headers:h,body:JSON.stringify({name:nm+' - '+s.name,screen_id:s.id,schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5},media_ids:[m.id]})})).json();await fetch('/api/payments',{method:'POST',headers:h,body:JSON.stringify({campaign_id:c.id,method:'card',card_last4:'4242'})})}document.getElementById('main').classList.add('hidden');document.getElementById('ok').classList.remove('hidden');document.getElementById('ok-d').textContent='Submitted to '+ss.length+' screen'+(ss.length>1?'s':'')+'. Shows once admin approves.'}catch(e){msg.className='msg msg-e';msg.textContent=e.message;msg.classList.remove('hidden');b.disabled=false;b.textContent='Submit & Pay'}}
+function fil(){
+  var q=(document.getElementById('q')?.value||'').toLowerCase();
+  var list=q?S.filter(function(s){return s.name.toLowerCase().indexOf(q)>=0||s.location.city.toLowerCase().indexOf(q)>=0||s.location.address.toLowerCase().indexOf(q)>=0||s.location.state.toLowerCase().indexOf(q)>=0||s.ref.indexOf(q)>=0}):S;
+  document.getElementById('tot').textContent=list.length+' screens';
+  document.getElementById('gr').innerHTML=list.map(function(s){
+    return'<div class="sc" onclick="window.location.href=\'/api/screen?id='+s.id+'\'"><div class="im" style="background:'+s._g+'"><span class="ref">#'+s.ref+'</span><span class="cty">'+s.location.city+', '+s.location.state+'</span></div><div class="bd"><div class="nm">'+s.name+'</div><div class="lc">'+s.location.address+'</div><div class="ft"><span class="sp">'+s.specs.size+'</span><span class="pr">$'+s.pricing.per_day+'<span>/day</span></span></div></div></div>';
+  }).join('');
+}
 
-function goDetail(id){window.location.href='/api/screen?id='+id}
+function showDetail(){
+  var s=S.find(function(x){return x.id===did});
+  if(!s){document.getElementById('root').innerHTML='<p style="color:#f87171;padding:40px">Screen not found</p>';return}
+  var el=document.getElementById('root');
+  el.innerHTML=
+  '<a onclick="window.location.href=\'/api/screen\'" style="font-size:12px;color:#6366f1;cursor:pointer;font-weight:600;display:inline-flex;align-items:center;gap:4px;margin-bottom:14px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>All Screens</a>'+
+
+  // Hero
+  '<div style="background:'+s._g+';border-radius:16px;padding:24px 28px;margin-bottom:16px;position:relative;overflow:hidden">'+
+  '<div style="position:absolute;top:10px;right:14px;background:rgba(0,0,0,.4);padding:3px 10px;border-radius:6px;font-size:10px;font-weight:700;color:#fff;backdrop-filter:blur(4px)">#'+s.ref+'</div>'+
+  '<div style="font-size:28px;font-weight:800;color:#fff;margin-bottom:4px">'+s.name+'</div>'+
+  '<div style="font-size:14px;color:rgba(255,255,255,.8)">'+s.location.address+', '+s.location.city+', '+s.location.state+'</div></div>'+
+
+  // Info row: specs + pricing side by side, compact
+  '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">'+
+  '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Specs</div><div style="font-size:12px;color:#94a3b8;line-height:1.8">'+s.specs.size+'<br>'+s.specs.resolution+'<br>'+s.specs.type+' · '+(s.specs.orientation||'Landscape')+'</div></div>'+
+  '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px;display:flex;flex-direction:column;justify-content:center;align-items:center"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Price</div><div style="font-size:36px;font-weight:800;color:#22d3ee;line-height:1">$'+s.pricing.per_day+'</div><div style="font-size:11px;color:#64748b;margin-top:4px">per day</div></div>'+
+  '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px"><div style="font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Details</div><div style="font-size:12px;color:#94a3b8;line-height:1.8">$'+s.pricing.per_hour+'/hour<br>$'+s.pricing.per_slot+'/slot<br>24/7 display</div></div></div>'+
+
+  // Description
+  '<div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:12px;color:#94a3b8;line-height:1.7">'+(s.description||'Premium digital display in a high-traffic location. Maximum visibility for your brand, promotions, and events. Content displayed in rotation on high-resolution LED screen.')+'</div></div>'+
+
+  // Terms - compact, no yellow
+  '<div style="background:#0f172a;border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:14px;margin-bottom:16px">'+
+  '<div style="font-size:11px;font-weight:700;color:#818cf8;margin-bottom:8px">Terms & Conditions</div>'+
+  '<div style="font-size:10px;color:#64748b;line-height:1.8;columns:2;column-gap:20px">'+
+  '• Content must comply with advertising laws<br>'+
+  '• MediAd View may reject content without notice<br>'+
+  '• No offensive or illegal content accepted<br>'+
+  '• Payment required before content goes live<br>'+
+  '• Content displayed during selected dates<br>'+
+  '• Refunds subject to cancellation policy<br>'+
+  '• Format: JPG, PNG, or MP4 (1920×1080)<br>'+
+  '• MediAd View not liable for content accuracy</div></div>'+
+
+  // Booking form - compact card
+  '<div style="background:#111827;border:1px solid rgba(34,211,238,.15);border-radius:14px;padding:20px">'+
+  '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div><div style="font-size:17px;font-weight:700">Book This Screen</div><div style="font-size:11px;color:#22d3ee">'+s.name+'</div></div><div style="font-size:12px;color:#64748b">#'+s.ref+'</div></div>'+
+
+  '<div class="row2" style="margin-bottom:8px"><div><div class="lbl">Start Date</div><input type="date" class="inp" id="b-s" onchange="calcD()"></div><div><div class="lbl">End Date</div><input type="date" class="inp" id="b-e" onchange="calcD()"></div></div>'+
+  '<div id="prc" class="pbox hidden"></div>'+
+
+  '<div style="margin:10px 0"><div class="lbl">Upload Your Ad</div><div class="upload" onclick="document.getElementById(\'b-f\').click()"><svg width="24" height="24" fill="none" stroke="#475569" stroke-width="1.5" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg><div style="font-size:12px;color:#64748b;margin-top:4px">Tap to upload image or video</div></div><input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)"><div id="b-pv" class="prev hidden"></div><div id="b-fn" style="font-size:11px;color:#22d3ee;margin-top:4px" class="hidden"></div></div>'+
+
+  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Your Name</div><input class="inp" id="b-n" placeholder="Full name"></div><div><div class="lbl">Email</div><input class="inp" id="b-m" placeholder="you@company.com" type="email"></div></div>'+
+
+  '<label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;cursor:pointer"><input type="checkbox" id="b-t" style="margin-top:2px;accent-color:#6366f1"><span style="font-size:10px;color:#64748b">I accept the Terms & Conditions and agree that MediAd View reserves the right to approve or reject any content</span></label>'+
+
+  '<button class="btn-go" id="btn-go" onclick="book()">Submit & Pay</button>'+
+  '<div id="bmsg" class="hidden"></div></div>';
+
+  var t=new Date().toISOString().split('T')[0];
+  document.getElementById('b-s').min=t;document.getElementById('b-e').min=t;
+  window._s=s;
+}
+
+function calcD(){
+  var s=window._s;if(!s)return;
+  var sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
+  if(!sd||!ed){document.getElementById('prc').classList.add('hidden');return}
+  var days=Math.max(Math.ceil((new Date(ed)-new Date(sd))/86400000)+1,1);
+  var sub=s.pricing.per_day*days,tax=Math.round(sub*.08*100)/100,tot=sub+tax;
+  document.getElementById('prc').innerHTML=
+    '<div class="prow"><span>'+days+' day'+(days>1?'s':'')+' × $'+s.pricing.per_day+'/day</span><span>$'+sub.toLocaleString()+'</span></div>'+
+    '<div class="prow"><span>Tax (8%)</span><span>$'+tax.toLocaleString()+'</span></div>'+
+    '<div class="ptot"><span>Total</span><span class="v">$'+tot.toLocaleString()+'</span></div>';
+  document.getElementById('prc').classList.remove('hidden');
+  document.getElementById('btn-go').textContent='Submit & Pay — $'+tot.toLocaleString();
+}
+
+function onF(i){var f=i.files[0];if(!f)return;fn=f.name;ft=f.type||'image/jpeg';
+  document.getElementById('b-fn').textContent=f.name;document.getElementById('b-fn').classList.remove('hidden');
+  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];if(f.type.startsWith('image/')){document.getElementById('b-pv').innerHTML='<img src="'+r.result+'">';document.getElementById('b-pv').classList.remove('hidden')}};r.readAsDataURL(f)}
+
+async function book(){
+  if(!document.getElementById('b-t')?.checked){showMsg('Please accept Terms & Conditions');return}
+  var nm=document.getElementById('b-n').value,em=document.getElementById('b-m').value,sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
+  if(!nm||!em||!sd||!ed||!fb){showMsg('Please fill all fields and upload media');return}
+  var btn=document.getElementById('btn-go');btn.disabled=true;btn.textContent='Processing...';
+  try{
+    var au;try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:'cl_'+em})});if(!r.ok)throw 0;au=await r.json()}catch(e){au=await(await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm,email:em,password:'cl_'+em})})).json()}
+    var h={'Content-Type':'application/json','Authorization':'Bearer '+au.access_token};
+    var m=await(await fetch('/api/media/upload',{method:'POST',headers:h,body:JSON.stringify({filename:fn,content_type:ft,data:fb})})).json();
+    var s=window._s;
+    var c=await(await fetch('/api/campaigns',{method:'POST',headers:h,body:JSON.stringify({name:nm+' — '+s.name,screen_id:s.id,schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5},media_ids:[m.id]})})).json();
+    await fetch('/api/payments',{method:'POST',headers:h,body:JSON.stringify({campaign_id:c.id,method:'card',card_last4:'4242'})});
+    document.getElementById('root').innerHTML='<div class="ok-box"><svg width="44" height="44" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><h2>Ad Submitted!</h2><p style="color:#94a3b8;font-size:13px">Your ad for <strong>'+s.name+'</strong> is pending approval. It will appear on screen once approved.</p><button onclick="location.href=\'/api/screen\'" style="margin-top:16px;padding:8px 18px;border-radius:8px;background:rgba(99,102,241,.1);color:#818cf8;border:1px solid rgba(99,102,241,.2);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Book Another Screen</button></div>';
+  }catch(e){showMsg(e.message);btn.disabled=false;btn.textContent='Submit & Pay'}
+}
+
+function showMsg(t){var m=document.getElementById('bmsg');m.className='msg msg-e';m.textContent=t;m.classList.remove('hidden')}
+
 init();
 </script>
 </body>
