@@ -108,7 +108,7 @@ function playItem(){
   var item=playlist[playIndex];var url=AB+item.download_url;
   var isImg=item.content_type&&item.content_type.indexOf('image')>=0;
   clearTimeout(playTimer);
-  if(isImg){document.getElementById('player').innerHTML='<img src="'+url+'" style="transform:rotate('+(item.rotation||0)+'deg);width:100%;height:100%;object-fit:contain">'}
+  if(isImg){var rot=item.rotation||0;var st='width:100%;height:100%;object-fit:contain;';if(rot===90||rot===270){st='width:100vh;height:100vw;object-fit:contain;transform:rotate('+rot+'deg);position:absolute;top:50%;left:50%;margin-top:-50vw;margin-left:-50vh;'}else if(rot===180){st='width:100%;height:100%;object-fit:contain;transform:rotate(180deg);'};document.getElementById('player').innerHTML='<div style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="'+url+'" style="'+st+'"></div>'}
   else{document.getElementById('player').innerHTML='<video src="'+url+'" autoplay></video>';var v=document.querySelector('video');if(v)v.onended=nextItem}
   playTimer=setTimeout(nextItem,(item.duration||15)*1000);
 }
