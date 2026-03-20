@@ -501,7 +501,7 @@ async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',
 async function loadPlaylists(screens){
   var container=document.getElementById('admin-playlists');if(!container)return;
   var html='';
-  for(var s of screens.slice(0,6)){
+  for(var s of screens){
     try{
       var r=await api('/player/'+s.id+'/playlist');
       var items=r.items||[];

@@ -919,7 +919,7 @@ async def player_media(media_id: str):
     return Response(
         content=content,
         media_type=media.get("content_type", "application/octet-stream"),
-        headers={"Content-Disposition": f"attachment; filename={media.get('filename', 'media')}",
+        headers={"Content-Disposition": f"attachment; filename=media",
                  "Cache-Control": "public, max-age=86400"}
     )
 
