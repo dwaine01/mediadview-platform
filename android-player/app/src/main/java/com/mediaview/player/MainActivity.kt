@@ -193,27 +193,10 @@ class MainActivity : Activity() {
      * Show setup instructions when no screen is configured
      */
     private fun showSetupMode() {
-        val html = """
-            <html><body style="background:#09090F;color:#E2E8F0;font-family:sans-serif;
-            display:flex;flex-direction:column;align-items:center;justify-content:center;
-            height:100vh;margin:0">
-            <div style="background:#4F46E5;width:80px;height:80px;border-radius:20px;
-            display:flex;align-items:center;justify-content:center;margin-bottom:20px">
-            <span style="font-size:28px;font-weight:900;color:#fff">MV</span></div>
-            <h1 style="font-size:32px;margin:0">MediaView Player</h1>
-            <p style="color:#6366F1;margin:4px 0 24px">Setup Required</p>
-            <p style="color:#64748B;max-width:500px;text-align:center;line-height:1.6">
-            This device needs to be configured with a Screen ID.<br><br>
-            Use ADB to set the screen ID:<br>
-            <code style="background:#1E293B;padding:8px 16px;border-radius:8px;
-            display:inline-block;margin:8px 0;color:#A5B4FC">
-            adb shell am start -n com.mediaview.player/.MainActivity 
-            --es screen_id "YOUR_SCREEN_ID" 
-            --es server_url "https://your-server.com"
-            </code></p>
-            </body></html>
-        """.trimIndent()
-        webView.loadData(html, "text/html", "UTF-8")
+        // Load the web-based activation page - no ADB required
+        val activateUrl = "$serverUrl/api/player-activate"
+        Log.i(PlayerApp.TAG, "Loading activation page: $activateUrl")
+        webView.loadUrl(activateUrl)
     }
 
     /**
