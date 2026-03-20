@@ -319,28 +319,6 @@ function goBack(){
   document.getElementById('v-market').classList.remove('off');
   document.getElementById('v-checkout').classList.remove('on');
   upd();window.scrollTo(0,0);
-  // Set orientation info based on selected screens
-  var orientations=ss.map(function(s){return s.specs?.orientation||'landscape'});
-  var hasPortrait=orientations.includes('portrait');
-  var hasLandscape=orientations.includes('landscape');
-  var mixed=hasPortrait&&hasLandscape;
-  var orient=mixed?'mixed':hasPortrait?'portrait':'landscape';
-  window._orient=orient;
-  var oi=document.getElementById('orient-info');
-  var icon=document.getElementById('orient-icon');
-  var label=document.getElementById('orient-label');
-  var desc=document.getElementById('orient-desc');
-  var hint=document.getElementById('upload-hint');
-  if(orient==='portrait'){
-    icon.style.width='40px';icon.style.height='60px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">9:16</span>';
-    label.textContent='Portrait Screen';desc.textContent='Upload a vertical image (1080×1920)';hint.textContent='JPG, PNG, MP4 — 1080×1920 recommended';
-  }else if(orient==='mixed'){
-    icon.style.width='50px';icon.style.height='50px';icon.innerHTML='<span style="font-size:9px;color:#fbbf24;font-weight:700">Mixed</span>';
-    icon.style.borderColor='#fbbf24';label.textContent='Mixed Orientations';label.style.color='#fbbf24';desc.textContent='Selected screens have both landscape and portrait. Upload landscape (1920×1080) for best compatibility.';
-  }else{
-    icon.style.width='60px';icon.style.height='40px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span>';
-    label.textContent='Landscape Screen';desc.textContent='Upload a horizontal image (1920×1080)';hint.textContent='JPG, PNG, MP4 — 1920×1080 recommended';
-  }
 }
 
 function calc(){
