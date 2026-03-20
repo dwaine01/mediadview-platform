@@ -209,7 +209,7 @@ const loaders={
   // Admin Panel
   async admin(){
     const el=document.getElementById('pg-admin');
-    if(user?.role!=='admin'){el.innerHTML='<p style="color:var(--red)">Admin access required</p>';return}
+    if(user?.role!=='admin'&&user?.role!=='superadmin'){el.innerHTML='<p style="color:var(--red)">Admin access required</p>';return}
     try{
       const [users,campaigns,analyticsData,screens]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/admin/analytics'),api('/screens')]);
       el.innerHTML=`
