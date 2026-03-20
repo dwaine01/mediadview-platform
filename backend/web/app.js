@@ -393,7 +393,7 @@ const loaders={
                   <span class="${isOnline?'tag-on':'tag-off'}" style="margin-left:4px">${isOnline?'Online':'Offline'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--t-3);margin-bottom:8px">${d.device_info?.model||'Unknown'} · ${d.tier==='player_dedicated'?'Dedicated':'TV Direct'} · Code: <span style="color:var(--brand-l);font-weight:600">${d.activation_code}</span></div>
-                <div style="display:flex;gap:20px;flex-wrap:wrap">
+                <div style="display:flex;gap:8px;margin-bottom:8px">${d.screen_id?'<button onclick="unlinkDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(251,191,36,.1);color:var(--amber);font-size:10px;font-weight:600;border:none;cursor:pointer">Unlink</button>':''}<button onclick="removeDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button></div><div style="display:flex;gap:20px;flex-wrap:wrap">
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Screen:</span> ${d.screen_name||screenMap[d.screen_id]||'Not assigned'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">IP:</span> ${d.diagnostics?.ip_address||'—'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Uptime:</span> ${upD>0?upD+'d ':''}${upH%24}h</div>
@@ -444,12 +444,19 @@ async function addScreen(){
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
 async function editScreen(id){
-  var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error loading screen');return}
-  var name=prompt('Screen Name:',s.name);if(!name)return;
-  var code=prompt('Location Code:',s.location_code||'');
-  var pm=prompt('Price per Month ($):',s.pricing?.per_month||5000);
-  var orient=prompt('Orientation (landscape or portrait):',s.specs?.orientation||'landscape');
-  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:name,location_code:code,pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:s.specs?.size,type:s.specs?.type,resolution:s.specs?.resolution,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
+  var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error');return}
+  var el=document.getElementById('pg-admin');
+  var orient=s.specs?.orientation||'landscape';
+  el.innerHTML='<div style="max-width:700px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h1 style="font-size:24px;font-weight:800">Edit Screen</h1><button class="btn-s" onclick="loaders.admin()">Cancel</button></div>'+
+  '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #1e293b;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
+  '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code</div><input class="inp" id="es-code" value="'+(s.location_code||'')+'"></div></div>'+
+  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">City</div><input class="inp" id="es-city" value="'+(s.location?.city||'')+'"></div><div><div class="lbl">Address</div><input class="inp" id="es-addr" value="'+(s.location?.address||'')+'"></div></div>'+
+  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">State</div><input class="inp" id="es-state" value="'+(s.location?.state||'')+'"></div><div><div class="lbl">Price per Month ($)</div><input class="inp" id="es-pm" type="number" value="'+(s.pricing?.per_month||0)+'"></div></div>'+
+  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Size</div><input class="inp" id="es-size" value="'+(s.specs?.size||'')+'"></div><div><div class="lbl">Resolution</div><input class="inp" id="es-res" value="'+(s.specs?.resolution||'')+'"></div></div>'+
+  '<div style="margin-bottom:16px"><div class="lbl">Orientation</div><div style="display:flex;gap:8px"><button onclick="setOrientPreview(\'landscape\')" id="es-oland" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='landscape'?'var(--cyan)':'var(--border)')+';background:'+(orient==='landscape'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='landscape'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↔ Landscape</button><button onclick="setOrientPreview(\'portrait\')" id="es-oport" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='portrait'?'var(--cyan)':'var(--border)')+';background:'+(orient==='portrait'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='portrait'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↕ Portrait</button></div></div>'+
+  '</div></div>'+
+  '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
+  window._editOrient=orient}
 async function removeScreen(id){if(!confirm('Remove this screen?'))return;try{await api('/admin/screens/'+id,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
 async function linkDevice(){
   const code=document.getElementById('dev-code')?.value,screenId=document.getElementById('dev-screen')?.value;
@@ -468,6 +475,27 @@ async function createAdmin(){
     document.getElementById('sa-name').value='';document.getElementById('sa-email').value='';document.getElementById('sa-pwd').value='';document.getElementById('sa-company').value='';
     setTimeout(()=>loaders.superadmin(),1000);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+function setOrientPreview(o){
+  window._editOrient=o;
+  var pv=document.getElementById('es-preview');
+  pv.style.height=o==='portrait'?'300px':'130px';pv.querySelector('span').textContent=o.toUpperCase();
+  document.getElementById('es-oland').style.borderColor=o==='landscape'?'var(--cyan)':'var(--border)';
+  document.getElementById('es-oland').style.background=o==='landscape'?'rgba(34,211,238,.08)':'var(--bg-1)';
+  document.getElementById('es-oland').style.color=o==='landscape'?'var(--cyan)':'var(--t-4)';
+  document.getElementById('es-oport').style.borderColor=o==='portrait'?'var(--cyan)':'var(--border)';
+  document.getElementById('es-oport').style.background=o==='portrait'?'rgba(34,211,238,.08)':'var(--bg-1)';
+  document.getElementById('es-oport').style.color=o==='portrait'?'var(--cyan)':'var(--t-4)';
+}
+
+async function saveScreen(id){
+  var nm=document.getElementById('es-name').value,code=document.getElementById('es-code').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape';
+  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location_code:code,location:{city:city,address:addr,state:state,country:'US'},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
+
+async function unlinkDev(id,e){if(e)e.stopPropagation();if(!confirm('Unlink this device?'))return;try{await api('/admin/devices/'+id+'/unlink',{method:'PUT'});loaders.devices()}catch(e){alert(e.message)}}
+async function removeDev(id,e){if(e)e.stopPropagation();if(!confirm('Remove device?'))return;try{await api('/admin/devices/'+id,{method:'DELETE'});loaders.devices()}catch(e){alert(e.message)}}
+async function setAnim(mediaId,anim,e){if(e)e.stopPropagation();try{await api('/media/'+mediaId+'/animation?animation='+anim,{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+async function delMedia(campId,mediaId,e){if(e)e.stopPropagation();if(!confirm('Remove from playlist?'))return;try{await api('/admin/campaigns/'+campId+'/media/'+mediaId,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
+
 async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',{method:'PUT'});loaders.superadmin()}catch(e){alert(e.message)}}
 
 async function loadPlaylists(screens){
@@ -487,6 +515,11 @@ async function loadPlaylists(screens){
           html+='<div style="height:100px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
           html+='<div style="padding:8px"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px">'+item.filename+'</div>';
           html+='<div style="display:flex;gap:3px;align-items:center"><span style="font-size:9px;color:var(--t-4);margin-right:4px">Rotate:</span>';
+          ['none','fade','slide','zoom'].forEach(function(anim){
+            var aActive=(item.animation||'fade')===anim;
+            html+='<button onclick="setAnim(\''+item.media_id+'\',\''+anim+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(aActive?'var(--green)':'var(--border)')+';background:'+(aActive?'rgba(52,211,153,.15)':'none')+';color:'+(aActive?'var(--green)':'var(--t-4)')+';font-size:9px;font-weight:600;cursor:pointer">'+anim+'</button>';
+          });
+          html+='<button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid rgba(248,113,113,.2);background:rgba(248,113,113,.08);color:var(--red);font-size:9px;font-weight:600;cursor:pointer;margin-left:4px">✕</button>';
           [0,90,180,270].forEach(function(deg){
             var active=rot===deg;
             html+='<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 7px;border-radius:4px;border:1px solid '+(active?'var(--cyan)':'var(--border)')+';background:'+(active?'rgba(34,211,238,.15)':'none')+';color:'+(active?'var(--cyan)':'var(--t-4)')+';font-size:10px;font-weight:600;cursor:pointer">'+deg+'°</button>';

@@ -855,6 +855,7 @@ async def get_playlist(screen_id: str):
                         "content_type": media.get("content_type"),
                         "duration": s.get("slot_duration", 15),
                         "rotation": media.get("rotation", 0),
+                        "animation": media.get("animation", "fade"),
                         "media_url": f"/api/player/media/{media['id']}"
                     })
     return {"screen_id": screen_id, "screen_name": screen.get("name"),
@@ -1386,6 +1387,38 @@ async def admin_reassign_device(device_id: str, screen_id: str, admin: dict = De
         {"$set": {"screen_id": screen_id, "status": "active"}}
     )
     return {"message": f"Device reassigned to {screen.get('name')}"}
+
+@api_router.put("/admin/devices/{device_id}/unlink")
+async def admin_unlink_device(device_id: str, admin: dict = Depends(require_admin)):
+    """Unlink a device from its screen (keep device registered)."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    await db.devices.update_one(
+        {"id": device_id},
+        {"$set": {"screen_id": None, "status": "pending"}}
+    )
+    return {"message": "Device unlinked from screen"}
+
+@api_router.delete("/admin/campaigns/{campaign_id}/media/{media_id}")
+async def admin_remove_media_from_campaign(campaign_id: str, media_id: str, admin: dict = Depends(require_admin)):
+    """Remove a specific media from a campaign's playlist."""
+    campaign = await db.campaigns.find_one({"id": campaign_id})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    media_ids = campaign.get("media_ids", [])
+    if media_id in media_ids:
+        media_ids.remove(media_id)
+        await db.campaigns.update_one({"id": campaign_id}, {"$set": {"media_ids": media_ids}})
+    return {"message": "Media removed from campaign"}
+
+@api_router.put("/media/{media_id}/animation")
+async def set_media_animation(media_id: str, animation: str = "fade", current_user: dict = Depends(get_current_user)):
+    """Set animation type: fade, slide, zoom, none."""
+    if animation not in ["fade", "slide", "zoom", "none"]:
+        raise HTTPException(status_code=400, detail="Animation must be fade, slide, zoom, or none")
+    await db.media.update_one({"id": media_id}, {"$set": {"animation": animation}})
+    return {"message": f"Animation set to {animation}"}
 
 # ============ ROUTES: USER ANALYTICS ============
 
