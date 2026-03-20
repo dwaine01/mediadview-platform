@@ -78,7 +78,7 @@ class OverlayService : Service() {
         return builder
             .setContentTitle("MediAd View")
             .setContentText("Digital signage player running")
-            .setSmallIcon(android.R.drawable.ic_menu_display)
+            .setSmallIcon(android.R.drawable.ic_media_play)
             .build()
     }
 }
