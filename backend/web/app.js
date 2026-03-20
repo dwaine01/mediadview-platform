@@ -236,7 +236,7 @@ const loaders={
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
                 <div><label class="inp-label">Price per Hour ($)</label><input class="inp" id="ns-phr" type="number" placeholder="250"></div>
                 <div><label class="inp-label">Price per Day ($)</label><input class="inp" id="ns-pday" type="number" placeholder="2000"></div>
-                <div><label class="inp-label">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div>
+                <div><label class="inp-label">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"><div><label class="inp-label">Orientation</label><select class="inp" id="ns-orient"><option value="landscape">Landscape (Horizontal)</option><option value="portrait">Portrait (Vertical)</option></select></div>
               </div>
               <div style="display:flex;gap:8px">
                 <button class="btn-p" onclick="addScreen()" style="font-size:12px;padding:8px 20px">Create Screen</button>
@@ -251,7 +251,7 @@ const loaders={
               <div><span style="font-size:13px;font-weight:600">${s.name}</span><div style="font-size:10px;color:var(--t-4)">${s.specs?.size||''} · ${s.specs?.resolution||''}</div></div>
               <span style="font-size:12px;color:var(--t-3)">${s.location?.city}, ${s.location?.state}</span>
               <span style="font-size:14px;font-weight:700;color:var(--cyan)">$${s.pricing?.per_hour}</span>
-              <span class="tag-on">${s.status}</span>
+              <span style="font-size:11px;color:${s.specs?.orientation==='portrait'?'#f472b6':'#22d3ee'}">${s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape'}</span>
               <button onclick="removeScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button>
             </div>`).join('')}
           </div>
@@ -437,7 +437,7 @@ async function addScreen(){
   const msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!phr){msg.textContent='Name, city and price/hr are required';msg.style.color='var(--red)';msg.style.display='block';return}
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_hour:parseFloat(phr),per_day:parseFloat(pday)||parseFloat(phr)*8,per_slot:parseFloat(phr)/10,currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:'landscape'},status:'active'})});
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_hour:parseFloat(phr),per_day:parseFloat(pday)||parseFloat(phr)*8,per_slot:parseFloat(phr)/10,currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active'})});
     msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}

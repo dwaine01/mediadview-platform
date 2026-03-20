@@ -173,13 +173,30 @@ body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:
     <!-- Upload -->
     <div class="ch-section">
       <h3><span class="num">3</span> Your Advertisement</h3>
+      <div id="orient-info" style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.12);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
+        <div id="orient-icon" style="width:60px;height:40px;border:2px solid #22d3ee;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span></div>
+        <div><div style="font-size:13px;font-weight:700;color:#22d3ee" id="orient-label">Landscape Screen</div><div style="font-size:11px;color:#64748b" id="orient-desc">Upload a horizontal image (1920×1080)</div></div>
+      </div>
       <div class="upload" onclick="document.getElementById('b-f').click()">
         <svg width="32" height="32" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         <p style="color:#475569;font-size:13px;margin-top:8px">Click to upload image or video</p>
-        <small style="color:#334155;font-size:11px">JPG, PNG, MP4 — 1920×1080 recommended</small>
+        <small style="color:#334155;font-size:11px" id="upload-hint">JPG, PNG, MP4 — 1920×1080 recommended</small>
       </div>
       <input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
-      <div id="b-pv" class="prev hidden"></div>
+      <div id="preview-frame" class="hidden" style="margin-top:16px">
+        <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:8px">PREVIEW — How your ad will look on screen:</div>
+        <div id="preview-screen" style="background:#000;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:2px solid #1e293b;position:relative">
+          <img id="preview-img" style="object-fit:contain">
+        </div>
+        <div id="orient-warn" class="hidden" style="margin-top:8px;padding:10px;border-radius:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.15);font-size:12px;color:#fbbf24;display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <span>Image orientation doesn't match this screen. Please upload a <span id="orient-need"></span> image for best results.</span>
+        </div>
+        <div id="orient-ok" class="hidden" style="margin-top:8px;padding:10px;border-radius:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.15);font-size:12px;color:#34d399;display:flex;align-items:center;gap:8px">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>Image matches the screen orientation perfectly!</span>
+        </div>
+      </div>
       <div id="b-fn" style="font-size:12px;color:#22d3ee;margin-top:6px" class="hidden"></div>
     </div>
 
@@ -250,7 +267,7 @@ function fil(){
   document.getElementById('tot').textContent=list.length+' screens available';
   document.getElementById('gr').innerHTML=list.map(function(s){
     var on=sel.has(s.id);
-    return'<div class="card'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="check">'+(on?'<svg width="14" height="14" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="banner" style="background:'+s._g+'"><span class="ref">#'+s.ref+'</span><span class="loc">'+s.location.city+', '+s.location.state+'</span></div><div class="info"><div class="name">'+s.name+'</div><div class="addr">'+s.location.address+'</div><div class="bottom"><span class="specs">'+s.specs.size+' · '+s.specs.type+'</span><span class="price">$'+s.pricing.per_day+'<small>/day</small></span></div></div></div>';
+    return'<div class="card'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="check">'+(on?'<svg width="14" height="14" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="banner" style="background:'+s._g+'"><span class="ref">#'+s.ref+'</span><span class="loc">'+s.location.city+', '+s.location.state+'</span></div><div class="info"><div class="name">'+s.name+'</div><div class="addr">'+s.location.address+'</div><div class="bottom"><span class="specs">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</span><span class="price">$'+s.pricing.per_day+'<small>/day</small></span></div></div></div>';
   }).join('');
 }
 
@@ -274,12 +291,56 @@ function goCheckout(){
     return'<div class="item"><div class="thumb" style="background:'+s._g+';border-radius:6px"></div><div style="flex:1"><div class="iname">'+s.name+'</div><div class="icity">'+s.location.city+', '+s.location.state+' · #'+s.ref+'</div></div><div class="iprice">$'+s.pricing.per_day+'/day</div></div>';
   }).join('');
   window.scrollTo(0,0);
+  // Set orientation info based on selected screens
+  var orientations=ss.map(function(s){return s.specs?.orientation||'landscape'});
+  var hasPortrait=orientations.includes('portrait');
+  var hasLandscape=orientations.includes('landscape');
+  var mixed=hasPortrait&&hasLandscape;
+  var orient=mixed?'mixed':hasPortrait?'portrait':'landscape';
+  window._orient=orient;
+  var oi=document.getElementById('orient-info');
+  var icon=document.getElementById('orient-icon');
+  var label=document.getElementById('orient-label');
+  var desc=document.getElementById('orient-desc');
+  var hint=document.getElementById('upload-hint');
+  if(orient==='portrait'){
+    icon.style.width='40px';icon.style.height='60px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">9:16</span>';
+    label.textContent='Portrait Screen';desc.textContent='Upload a vertical image (1080×1920)';hint.textContent='JPG, PNG, MP4 — 1080×1920 recommended';
+  }else if(orient==='mixed'){
+    icon.style.width='50px';icon.style.height='50px';icon.innerHTML='<span style="font-size:9px;color:#fbbf24;font-weight:700">Mixed</span>';
+    icon.style.borderColor='#fbbf24';label.textContent='Mixed Orientations';label.style.color='#fbbf24';desc.textContent='Selected screens have both landscape and portrait. Upload landscape (1920×1080) for best compatibility.';
+  }else{
+    icon.style.width='60px';icon.style.height='40px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span>';
+    label.textContent='Landscape Screen';desc.textContent='Upload a horizontal image (1920×1080)';hint.textContent='JPG, PNG, MP4 — 1920×1080 recommended';
+  }
 }
 
 function goBack(){
   document.getElementById('v-market').classList.remove('off');
   document.getElementById('v-checkout').classList.remove('on');
   upd();window.scrollTo(0,0);
+  // Set orientation info based on selected screens
+  var orientations=ss.map(function(s){return s.specs?.orientation||'landscape'});
+  var hasPortrait=orientations.includes('portrait');
+  var hasLandscape=orientations.includes('landscape');
+  var mixed=hasPortrait&&hasLandscape;
+  var orient=mixed?'mixed':hasPortrait?'portrait':'landscape';
+  window._orient=orient;
+  var oi=document.getElementById('orient-info');
+  var icon=document.getElementById('orient-icon');
+  var label=document.getElementById('orient-label');
+  var desc=document.getElementById('orient-desc');
+  var hint=document.getElementById('upload-hint');
+  if(orient==='portrait'){
+    icon.style.width='40px';icon.style.height='60px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">9:16</span>';
+    label.textContent='Portrait Screen';desc.textContent='Upload a vertical image (1080×1920)';hint.textContent='JPG, PNG, MP4 — 1080×1920 recommended';
+  }else if(orient==='mixed'){
+    icon.style.width='50px';icon.style.height='50px';icon.innerHTML='<span style="font-size:9px;color:#fbbf24;font-weight:700">Mixed</span>';
+    icon.style.borderColor='#fbbf24';label.textContent='Mixed Orientations';label.style.color='#fbbf24';desc.textContent='Selected screens have both landscape and portrait. Upload landscape (1920×1080) for best compatibility.';
+  }else{
+    icon.style.width='60px';icon.style.height='40px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span>';
+    label.textContent='Landscape Screen';desc.textContent='Upload a horizontal image (1920×1080)';hint.textContent='JPG, PNG, MP4 — 1920×1080 recommended';
+  }
 }
 
 function calc(){
@@ -300,7 +361,27 @@ function calc(){
 
 function onF(i){var f=i.files[0];if(!f)return;fn=f.name;ft=f.type||'image/jpeg';
   document.getElementById('b-fn').textContent=f.name+' ('+((f.size/1024/1024).toFixed(1))+' MB)';document.getElementById('b-fn').classList.remove('hidden');
-  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];if(f.type.startsWith('image/')){document.getElementById('b-pv').innerHTML='<img src="'+r.result+'">';document.getElementById('b-pv').classList.remove('hidden')}};r.readAsDataURL(f)}
+  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];
+    if(f.type.startsWith('image/')){
+      var img=new Image();img.onload=function(){
+        var orient=window._orient||'landscape';
+        var isLand=img.width>img.height;
+        var needLand=orient==='landscape';
+        var frame=document.getElementById('preview-frame');frame.classList.remove('hidden');
+        var screen=document.getElementById('preview-screen');
+        if(orient==='portrait'){screen.style.width='240px';screen.style.height='427px';screen.style.margin='0 auto'}
+        else{screen.style.width='100%';screen.style.height='300px'}
+        var pimg=document.getElementById('preview-img');pimg.src=img.src;pimg.style.width='100%';pimg.style.height='100%';pimg.style.objectFit='contain';
+        var warn=document.getElementById('orient-warn');var ok=document.getElementById('orient-ok');
+        if(orient!=='mixed'&&isLand!==needLand){
+          warn.classList.remove('hidden');ok.classList.add('hidden');
+          document.getElementById('orient-need').textContent=needLand?'horizontal (landscape)':'vertical (portrait)';
+        }else{
+          ok.classList.remove('hidden');warn.classList.add('hidden');
+        }
+      };img.src=r.result;
+    }
+  };r.readAsDataURL(f)}
 
 async function book(){
   var msg=document.getElementById('bmsg');msg.classList.add('hidden');
