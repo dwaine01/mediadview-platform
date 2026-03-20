@@ -216,103 +216,46 @@ const loaders={
   async admin(){
     const el=document.getElementById('pg-admin');
     if(user?.role!=='admin'&&user?.role!=='superadmin'){el.innerHTML='<p style="color:var(--red)">Admin access required</p>';return}
+    // Default: show admin home with tabs
+    if(!window._adminView)window._adminView='screens';
     try{
-      const [users,campaigns,analyticsData,screens]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/admin/analytics'),api('/screens')]);
-      el.innerHTML=`
-        <h1 style="font-size:28px;font-weight:800;margin-bottom:24px">Admin Panel</h1>
+      const [users,campaigns,screens]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/screens')]);
+      
+      // Tab navigation
+      var tabs=[{id:'screens',name:'Screens',count:screens.length},{id:'campaigns',name:'Campaigns',count:campaigns.filter(c=>c.status==='pending').length+' pending'},{id:'users',name:'Users',count:users.length}];
+      var tabHtml='<div style="display:flex;gap:4px;margin-bottom:20px">'+tabs.map(t=>'<button onclick="window._adminView=\''+t.id+'\';loaders.admin()" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;'+(window._adminView===t.id?'background:rgba(99,102,241,.15);color:#818cf8':'background:#0f172a;color:#64748b;border:1px solid #1e293b')+'">'+t.name+' <span style="font-size:10px;opacity:.7">('+t.count+')</span></button>').join('')+'</div>';
 
-        <!-- Screen Management -->
-        <div style="margin-bottom:28px">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <h2 style="font-size:16px;font-weight:700">Screens (${screens.length})</h2>
-            <button class="btn-p" onclick="document.getElementById('add-screen-form').style.display=document.getElementById('add-screen-form').style.display==='none'?'block':'none'" style="font-size:11px;padding:6px 14px">+ Add Screen</button>
-          </div>
-          <div id="add-screen-form" style="display:none;margin-bottom:16px">
-            <div class="card" style="padding:20px">
-              <div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div>
-              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-                <div><label class="inp-label">Screen Name</label><input class="inp" id="ns-name" placeholder="e.g. Downtown LED Display"></div>
-                <div><label class="inp-label">Location Code</label><div style="padding:10px 12px;background:rgba(52,211,153,.05);border:1px solid rgba(52,211,153,.15);border-radius:8px;font-size:12px;color:var(--green)">Auto-generated (MV-XXXX)</div></div>
-              </div>
-              <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
-                <div><label class="inp-label">Address</label><input class="inp" id="ns-addr" placeholder="e.g. 123 Main St"></div>
-                <div><label class="inp-label">State</label><input class="inp" id="ns-state" placeholder="e.g. NY"></div>
-                <div><label class="inp-label">Size</label><input class="inp" id="ns-size" placeholder="e.g. 20ft x 10ft"></div>
-              </div>
-              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
-                <div><label class="inp-label">Price per Month ($)</label><input class="inp" id="ns-pm" type="number" placeholder="5000"></div>
-                <div><label class="inp-label">City</label><input class="inp" id="ns-city" placeholder="e.g. New York"></div>
-                <div><label class="inp-label">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"><div><label class="inp-label">Orientation</label><select class="inp" id="ns-orient"><option value="landscape">Landscape (Horizontal)</option><option value="portrait">Portrait (Vertical)</option></select></div>
-              </div>
-              <div style="display:flex;gap:8px">
-                <button class="btn-p" onclick="addScreen()" style="font-size:12px;padding:8px 20px">Create Screen</button>
-                <button class="btn-s" onclick="document.getElementById('add-screen-form').style.display='none'">Cancel</button>
-              </div>
-              <p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p>
-            </div>
-          </div>
-          <div class="card">
-            <div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto"><span>Screen</span><span>Code</span><span>Location</span><span>$/Month</span><span>Orient.</span><span></span><span></span></div>
-            ${screens.map(s=>`<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto">
-              <div><span style="font-size:13px;font-weight:600">${s.name}</span><div style="font-size:10px;color:var(--t-4)">${s.specs?.size||''}</div></div>
-              <span style="font-size:12px;font-weight:600;color:var(--brand-l)">${s.location_code||'—'}</span>
-              <span style="font-size:11px;color:var(--t-3)">${s.location?.city}, ${s.location?.state}</span>
-              <span style="font-size:14px;font-weight:700;color:var(--cyan)">$${(s.pricing?.per_month||0).toLocaleString()}</span>
-              <span style="font-size:11px;color:${s.specs?.orientation==='portrait'?'#f472b6':'#22d3ee'}">${s.specs?.orientation==='portrait'?'↕ Port':'↔ Land'}</span>
-              <button onclick="editScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(99,102,241,.1);color:var(--brand-l);font-size:10px;font-weight:600;border:none;cursor:pointer">Edit</button>
-              <button onclick="removeScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button>
-            </div>`).join('')}
-          </div>
-        </div>
+      if(window._adminView==='screens'){
+        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Manage screens, campaigns and users</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
+        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="lbl">Screen Name</label><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><label class="lbl">City</label><input class="inp" id="ns-city" placeholder="New York"></div></div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="lbl">Address</label><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><label class="lbl">State</label><input class="inp" id="ns-state" placeholder="NY"></div><div><label class="lbl">Size</label><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><label class="lbl">Price/Month ($)</label><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><label class="lbl">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div><div><label class="lbl">Orientation</label><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div><div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()" style="font-size:12px;padding:8px 20px">Create Screen</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>'<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')"><div style="width:48px;height:32px;border-radius:6px;background:'+s._g+';flex-shrink:0"></div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+', '+s.location?.state+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div><div style="display:flex;gap:6px"><button onclick="editScreen(\''+s.id+'\');event.stopPropagation()" style="padding:4px 12px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button><button onclick="removeScreen(\''+s.id+'\');event.stopPropagation()" style="padding:4px 12px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button></div><svg width="16" height="16" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>').join('')+'</div>';
 
-        <!-- Playlist Viewer -->
-        <div style="margin-bottom:28px">
-          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Now Playing (Playlists)</h2>
-          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:12px" id="admin-playlists"></div>
-        </div>
+      }else if(window._adminView==='campaigns'){
+        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Review and manage campaigns</p></div></div>'+tabHtml+
+        '<div style="display:flex;flex-direction:column;gap:10px">'+
+        (campaigns.length===0?'<div class="card" style="padding:32px;text-align:center;color:#475569">No campaigns</div>':
+        campaigns.slice(0,20).map(c=>{
+          var hasMedia=c.media_ids&&c.media_ids.length>0;
+          var mid=hasMedia?c.media_ids[0]:'';
+          return '<div class="card" style="padding:16px"><div style="display:flex;gap:16px">'+
+            (hasMedia?'<div style="width:160px;height:100px;border-radius:10px;overflow:hidden;background:#020617;flex-shrink:0;cursor:pointer;border:1px solid #1e293b;position:relative" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">Review</div></div></div>':'<div style="width:160px;height:100px;border-radius:10px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid #1e293b"><span style="font-size:11px;color:#334155">No media</span></div>')+
+            '<div style="flex:1"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:15px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div><div style="font-size:12px;color:#64748b;margin-bottom:4px">'+(c.user?.name||'Unknown')+' · '+(c.screen?.name||'Screen')+'</div><div style="font-size:12px;color:#475569;margin-bottom:8px">'+(c.schedule?.start_date||'')+' → '+(c.schedule?.end_date||'')+' · $'+(c.pricing?.total||0).toLocaleString()+'</div><div style="display:flex;gap:8px">'+
+            (hasMedia?'<button onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')" style="padding:6px 16px;border-radius:8px;background:rgba(99,102,241,.1);color:#818cf8;font-size:12px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer">Review Content</button>':'')+
+            (c.status==='pending'?'<button onclick="modalApprove(\''+c.id+'\',event)" style="padding:6px 16px;border-radius:8px;background:rgba(52,211,153,.1);color:#34d399;font-size:12px;font-weight:600;border:1px solid rgba(52,211,153,.2);cursor:pointer">Approve</button><button onclick="rejectCamp(\''+c.id+'\',event)" style="padding:6px 16px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px;font-weight:600;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>':'')+
+            '</div></div></div></div>'
+        }).join(''))+'</div>';
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
-          <div>
-            <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Users (${users.length})</h2>
-            <div class="card">
-              <div class="tbl-h" style="grid-template-columns:1fr 1fr auto"><span>Name</span><span>Email</span><span>Status</span></div>
-              ${users.map(u=>`<div class="tbl-r" style="grid-template-columns:1fr 1fr auto"><span style="font-size:13px;font-weight:600">${u.name}</span><span style="font-size:12px;color:var(--t-3)">${u.email}</span><span class="${u.active!==false?'tag-on':'tag-off'}">${u.active!==false?'Active':'Disabled'}</span></div>`).join('')}
-            </div>
-          </div>
-          <div>
-            <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Campaigns (${campaigns.length})</h2>
-            <div style="display:flex;flex-direction:column;gap:10px">
-              ${campaigns.slice(0,20).map(c=>{
-                var hasMedia=c.media_ids&&c.media_ids.length>0;
-                var mid=hasMedia?c.media_ids[0]:'';
-                var isVid=c.name&&c.name.toLowerCase().includes('video');
-                return `<div class="card" style="padding:16px">
-                  <div style="display:flex;gap:16px">
-                    ${hasMedia?`<div style="width:160px;height:100px;border-radius:10px;overflow:hidden;background:#020617;flex-shrink:0;cursor:pointer;border:1px solid #1e293b;position:relative" onclick="openReview('${c.id}','${mid}','m','${c.name.replace(/'/g,'')}','${(c.user?.name||'').replace(/'/g,'')}','${c.status}')">
-                      <img src="/api/player/media/${mid}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:#475569;font-size:11px\'>Video</div>'">
-                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">Review</div></div>
-                    </div>`:'<div style="width:160px;height:100px;border-radius:10px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid #1e293b"><span style="font-size:11px;color:#334155">No media</span></div>'}
-                    <div style="flex:1;min-width:0">
-                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                        <span style="font-size:15px;font-weight:700">${c.name}</span>
-                        ${badge(c.status)}
-                      </div>
-                      <div style="font-size:12px;color:#64748b;margin-bottom:6px">${c.user?.name||'Unknown'} · ${c.screen?.name||'Screen'}</div>
-                      <div style="font-size:12px;color:#475569;margin-bottom:8px">${c.schedule?.start_date||''} → ${c.schedule?.end_date||''} · $${(c.pricing?.total||0).toLocaleString()}</div>
-                      <div style="display:flex;gap:8px">
-                        ${hasMedia?`<button onclick="openReview('${c.id}','${mid}','m','${c.name.replace(/'/g,'')}','${(c.user?.name||'').replace(/'/g,'')}','${c.status}')" style="padding:6px 16px;border-radius:8px;background:rgba(99,102,241,.1);color:#818cf8;font-size:12px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer">Review Content</button>`:''}
-                        ${c.status==='pending'?`<button onclick="modalApprove('${c.id}')" style="padding:6px 16px;border-radius:8px;background:rgba(52,211,153,.1);color:#34d399;font-size:12px;font-weight:600;border:1px solid rgba(52,211,153,.2);cursor:pointer">Approve</button><button onclick="rejectCamp('${c.id}')" style="padding:6px 16px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px;font-weight:600;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>`:''}
-                      </div>
-                    </div>
-                  </div>
-                </div>`}).join('')}
-            </div>`;
-      // Load playlists for screens
-      loadPlaylists(screens);
-    }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
+      }else if(window._adminView==='users'){
+        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Manage user accounts</p></div></div>'+tabHtml+
+        '<div class="card"><div class="tbl-h" style="grid-template-columns:1fr 1fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
+        users.map(u=>'<div class="tbl-r" style="grid-template-columns:1fr 1fr 1fr auto"><span style="font-size:13px;font-weight:600">'+u.name+'</span><span style="font-size:12px;color:#64748b">'+u.email+'</span><span style="font-size:12px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
+      }
+    }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },
 
-  // Super Admin Panel
+  // Screen Playlist View
+  screenPlaylist: null,
+
   async superadmin(){
     const el=document.getElementById('pg-superadmin');
     if(user?.role!=='superadmin'){el.innerHTML='<p style="color:var(--red);padding:40px">Super Admin access required</p>';return}
@@ -633,6 +576,41 @@ async function toggleWid(id,e){if(e)e.stopPropagation();try{await api('/admin/wi
 async function sendCmd(id,cmd,e){if(e)e.stopPropagation();try{await api('/admin/devices/'+id+'/command?command='+cmd,{method:'PUT'});alert('Command "'+cmd+'" sent!')}catch(e){alert(e.message)}}
 
 async function toggleAdmin(id){try{await api('/superadmin/admins/'+id+'/toggle',{method:'PUT'});loaders.superadmin()}catch(e){alert(e.message)}}
+
+async function showScreenPlaylist(screenId){
+  var el=document.getElementById('pg-admin');
+  try{
+    var screen=await api('/screens/'+screenId);
+    var playlist=await api('/player/'+screenId+'/playlist');
+    var widgets=[];try{widgets=await api('/admin/widgets?screen_id='+screenId)}catch(e){}
+    var items=playlist.items||[];
+    el.innerHTML='<div style="margin-bottom:20px"><button onclick="window._adminView=\'screens\';loaders.admin()" style="font-size:13px;color:#6366f1;cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>Back to Screens</button></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+(screen.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
+    '<h2 style="font-size:16px;font-weight:700;margin-bottom:14px">Playlist ('+items.length+' items'+(widgets.length>0?' + '+widgets.length+' widgets':'')+')</h2>'+
+    (items.length===0&&widgets.length===0?'<div class="card" style="padding:32px;text-align:center;color:#475569">No content on this screen</div>':
+    '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">'+
+    items.map(function(item){
+      var rot=item.rotation||0;
+      var anim=item.animation||'fade';
+      return '<div class="card" style="padding:0;overflow:hidden">'+
+        '<div style="height:140px;background:#020617;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openReview(\'\',\''+item.media_id+'\',\'m\',\''+item.filename.replace(/'/g,'')+'\',\'\',\'active\')">'+
+          '<img src="/api/player/media/'+item.media_id+'" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML=\'<div style=\\\'color:#334155;font-size:12px\\\'>Video</div>\'">'+
+          '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">View</div></div>'+
+        '</div>'+
+        '<div style="padding:10px">'+
+          '<div style="font-size:12px;font-weight:600;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.filename+'</div>'+
+          '<div style="font-size:10px;color:#475569;margin-bottom:8px">'+item.duration+'s · '+anim+' · '+rot+'°</div>'+
+          '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">'+
+            ['none','fade','slide','zoom'].map(function(a){return '<button onclick="setAnim(\''+item.media_id+'\',\''+a+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(anim===a?'var(--green)':'#1e293b')+';background:'+(anim===a?'rgba(52,211,153,.12)':'none')+';color:'+(anim===a?'#34d399':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+a+'</button>'}).join('')+
+          '</div>'+
+          '<div style="display:flex;gap:3px;flex-wrap:wrap">'+
+            [0,90,180,270].map(function(deg){return '<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 6px;border-radius:4px;border:1px solid '+(rot===deg?'#22d3ee':'#1e293b')+';background:'+(rot===deg?'rgba(34,211,238,.12)':'none')+';color:'+(rot===deg?'#22d3ee':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+deg+'°</button>'}).join('')+
+            '<button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 6px;border-radius:4px;background:rgba(248,113,113,.1);color:#f87171;font-size:9px;font-weight:700;border:none;cursor:pointer;margin-left:auto">✕</button>'+
+          '</div>'+
+        '</div></div>'
+    }).join('')+'</div>');
+  }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
+}
 
 async function loadPlaylists(screens){
   var container=document.getElementById('admin-playlists');if(!container)return;
