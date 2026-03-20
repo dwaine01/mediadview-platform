@@ -140,13 +140,18 @@ class MainActivity : Activity() {
                 }
             }
 
-            // Console logging
+            // Console logging + disable default video poster (removes play button)
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
                     message?.let {
                         Log.d(PlayerApp.TAG, "[WebView] ${it.message()} (${it.lineNumber()})")
                     }
                     return true
+                }
+
+                // THIS removes the play button icon that Android WebView shows before videos
+                override fun getDefaultVideoPoster(): android.graphics.Bitmap {
+                    return android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
                 }
             }
         }
