@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediAd View — Advertise Here</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#030712;color:#e2e8f0;min-height:100vh}
+.header{padding:20px 24px;display:flex;align-items:center;gap:12px;border-bottom:1px solid rgba(30,41,59,.5)}
+.header img{height:40px}
+.header span{font-size:10px;color:#22d3ee;letter-spacing:2px;font-weight:600}
+.container{max-width:600px;margin:0 auto;padding:24px}
+h1{font-size:24px;font-weight:800;margin-bottom:4px}
+.screen-info{background:#111827;border:1px solid rgba(30,41,59,.5);border-radius:14px;padding:20px;margin:20px 0}
+.screen-name{font-size:20px;font-weight:700;color:#fff}
+.screen-loc{font-size:13px;color:#64748b;margin-top:4px}
+.screen-specs{display:flex;gap:16px;margin-top:12px;font-size:12px;color:#94a3b8}
+.price-tag{display:inline-flex;align-items:center;gap:6px;background:rgba(34,211,238,.1);border:1px solid rgba(34,211,238,.2);padding:8px 16px;border-radius:10px;margin-top:12px}
+.price-tag .amount{font-size:24px;font-weight:800;color:#22d3ee}
+.price-tag .unit{font-size:12px;color:#64748b}
+.section{margin:24px 0}
+.section h2{font-size:16px;font-weight:700;margin-bottom:12px}
+.label{display:block;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.inp{width:100%;padding:12px 14px;background:#0a0f1a;border:1.5px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;transition:all .2s;font-family:inherit}
+.inp:focus{border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.12);outline:none}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.price-calc{background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.15);border-radius:12px;padding:16px;margin:16px 0}
+.price-row{display:flex;justify-content:space-between;font-size:14px;color:#94a3b8;margin-bottom:6px}
+.price-total{display:flex;justify-content:space-between;font-size:20px;font-weight:800;padding-top:10px;margin-top:10px;border-top:1px solid rgba(30,41,59,.5)}
+.price-total .val{color:#22d3ee}
+.upload-area{border:2px dashed #1e293b;border-radius:14px;padding:32px;text-align:center;cursor:pointer;transition:all .2s}
+.upload-area:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.02)}
+.upload-area p{color:#64748b;font-size:14px;margin-top:8px}
+.upload-area small{color:#475569;font-size:11px}
+.preview{margin-top:12px;border-radius:10px;overflow:hidden;max-height:300px}
+.preview img{width:100%;object-fit:contain;max-height:300px}
+.btn{width:100%;padding:14px;border-radius:12px;font-size:15px;font-weight:700;border:none;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 14px rgba(99,102,241,.3)}
+.btn-primary:hover{box-shadow:0 6px 22px rgba(99,102,241,.45);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-success{background:linear-gradient(135deg,#10b981,#059669);color:#fff;box-shadow:0 4px 14px rgba(16,185,129,.3)}
+.step{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:13px;color:#64748b}
+.step .num{width:24px;height:24px;border-radius:50%;background:#111827;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#22d3ee;flex-shrink:0}
+.success-box{text-align:center;padding:40px;background:#111827;border-radius:14px;border:1px solid rgba(52,211,153,.2)}
+.success-box h2{color:#34d399;font-size:24px;margin-bottom:8px}
+.hidden{display:none}
+.msg{padding:10px;border-radius:8px;font-size:13px;margin-top:10px;text-align:center}
+.msg-err{background:rgba(239,68,68,.1);color:#f87171}
+.msg-ok{background:rgba(52,211,153,.1);color:#34d399}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img src="/api/web/logo.png" alt="MediAd View" style="height:36px">
+  <span>DIGITAL SIGNAGE PLATFORM</span>
+</div>
+
+<div class="container">
+  <!-- Loading -->
+  <div id="loading" style="text-align:center;padding:60px">
+    <p style="color:#64748b">Loading screen information...</p>
+  </div>
+
+  <!-- Screen Info -->
+  <div id="screen-section" class="hidden">
+    <h1>Advertise on This Screen</h1>
+    <div class="screen-info">
+      <div class="screen-name" id="s-name"></div>
+      <div class="screen-loc" id="s-loc"></div>
+      <div class="screen-specs">
+        <span id="s-size"></span>
+        <span id="s-res"></span>
+        <span id="s-type"></span>
+      </div>
+      <div class="price-tag">
+        <span class="amount" id="s-price"></span>
+        <span class="unit">per day</span>
+      </div>
+    </div>
+
+    <!-- Step 1: Select Dates -->
+    <div class="section" id="step-dates">
+      <h2>1. Choose Your Dates</h2>
+      <div class="row">
+        <div><label class="label">Start Date</label><input type="date" class="inp" id="f-start"></div>
+        <div><label class="label">End Date</label><input type="date" class="inp" id="f-end"></div>
+      </div>
+      <div id="price-preview" class="price-calc hidden">
+        <div class="price-row"><span>Daily rate</span><span id="pp-rate"></span></div>
+        <div class="price-row"><span>Days</span><span id="pp-days"></span></div>
+        <div class="price-row"><span>Subtotal</span><span id="pp-sub"></span></div>
+        <div class="price-row"><span>Tax (8%)</span><span id="pp-tax"></span></div>
+        <div class="price-total"><span>Total</span><span class="val" id="pp-total"></span></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Upload Media -->
+    <div class="section" id="step-upload">
+      <h2>2. Upload Your Ad</h2>
+      <div class="upload-area" onclick="document.getElementById('f-file').click()">
+        <svg width="40" height="40" fill="none" stroke="#475569" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <p>Tap to upload image or video</p>
+        <small>JPG, PNG, MP4 — Recommended 1920×1080</small>
+      </div>
+      <input type="file" id="f-file" accept="image/*,video/mp4" style="display:none" onchange="onFileSelect(this)">
+      <div id="file-preview" class="preview hidden"></div>
+      <div id="file-name" style="font-size:12px;color:#22d3ee;margin-top:8px" class="hidden"></div>
+    </div>
+
+    <!-- Step 3: Contact Info -->
+    <div class="section">
+      <h2>3. Your Information</h2>
+      <div class="row" style="margin-bottom:10px">
+        <div><label class="label">Name</label><input class="inp" id="f-name" placeholder="Your name"></div>
+        <div><label class="label">Email</label><input class="inp" id="f-email" placeholder="email@company.com" type="email"></div>
+      </div>
+      <div><label class="label">Phone (optional)</label><input class="inp" id="f-phone" placeholder="+1 (555) 000-0000"></div>
+    </div>
+
+    <!-- Submit -->
+    <div class="section">
+      <button class="btn btn-primary" id="btn-submit" onclick="submitAd()">Submit & Pay</button>
+      <div id="submit-msg" class="hidden"></div>
+      <div style="margin-top:16px">
+        <div class="step"><div class="num">1</div>Submit your ad for review</div>
+        <div class="step"><div class="num">2</div>Payment processed (simulated)</div>
+        <div class="step"><div class="num">3</div>Admin approves within minutes</div>
+        <div class="step"><div class="num">4</div>Your ad appears on screen!</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success -->
+  <div id="success-section" class="hidden">
+    <div class="success-box">
+      <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <h2>Ad Submitted!</h2>
+      <p style="color:#94a3b8;font-size:14px">Your ad has been submitted for review. You'll see it on screen once approved.</p>
+      <p style="color:#64748b;font-size:12px;margin-top:12px">Campaign: <span id="success-name" style="color:#22d3ee"></span></p>
+    </div>
+  </div>
+</div>
+
+<script>
+var screenId = new URLSearchParams(window.location.search).get('id');
+var screenData = null;
+var uploadedMediaId = null;
+var fileBase64 = null;
+
+async function loadScreen() {
+  if (!screenId) {
+    document.getElementById('loading').innerHTML = '<p style="color:#f87171">No screen specified. Scan the QR code on the screen.</p>';
+    return;
+  }
+  try {
+    var r = await fetch('/api/screens/' + screenId);
+    screenData = await r.json();
+    document.getElementById('s-name').textContent = screenData.name;
+    document.getElementById('s-loc').textContent = screenData.location.address + ', ' + screenData.location.city + ', ' + screenData.location.state;
+    document.getElementById('s-size').textContent = screenData.specs.size;
+    document.getElementById('s-res').textContent = screenData.specs.resolution;
+    document.getElementById('s-type').textContent = screenData.specs.type;
+    document.getElementById('s-price').textContent = '$' + screenData.pricing.per_day;
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('screen-section').classList.remove('hidden');
+    
+    // Set min date to today
+    var today = new Date().toISOString().split('T')[0];
+    document.getElementById('f-start').min = today;
+    document.getElementById('f-end').min = today;
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '<p style="color:#f87171">Screen not found.</p>';
+  }
+}
+
+// Calculate price when dates change
+document.getElementById('f-start')?.addEventListener('change', calcPrice);
+document.getElementById('f-end')?.addEventListener('change', calcPrice);
+
+function calcPrice() {
+  var start = document.getElementById('f-start').value;
+  var end = document.getElementById('f-end').value;
+  if (!start || !end || !screenData) return;
+  
+  var d1 = new Date(start), d2 = new Date(end);
+  var days = Math.max(Math.ceil((d2 - d1) / 86400000) + 1, 1);
+  var rate = screenData.pricing.per_day;
+  var subtotal = days * rate;
+  var tax = Math.round(subtotal * 0.08 * 100) / 100;
+  var total = subtotal + tax;
+  
+  document.getElementById('pp-rate').textContent = '$' + rate + '/day';
+  document.getElementById('pp-days').textContent = days + ' days';
+  document.getElementById('pp-sub').textContent = '$' + subtotal.toLocaleString();
+  document.getElementById('pp-tax').textContent = '$' + tax.toLocaleString();
+  document.getElementById('pp-total').textContent = '$' + total.toLocaleString();
+  document.getElementById('price-preview').classList.remove('hidden');
+}
+
+function onFileSelect(input) {
+  var file = input.files[0];
+  if (!file) return;
+  
+  document.getElementById('file-name').textContent = file.name + ' (' + (file.size/1024/1024).toFixed(1) + ' MB)';
+  document.getElementById('file-name').classList.remove('hidden');
+  
+  if (file.type.startsWith('image/')) {
+    var reader = new FileReader();
+    reader.onload = function() {
+      document.getElementById('file-preview').innerHTML = '<img src="' + reader.result + '">';
+      document.getElementById('file-preview').classList.remove('hidden');
+      fileBase64 = reader.result.split(',')[1];
+    };
+    reader.readAsDataURL(file);
+  } else {
+    document.getElementById('file-preview').innerHTML = '<div style="padding:20px;background:#111827;border-radius:10px;text-align:center"><p style="color:#94a3b8">Video: ' + file.name + '</p></div>';
+    document.getElementById('file-preview').classList.remove('hidden');
+    var reader = new FileReader();
+    reader.onload = function() { fileBase64 = reader.result.split(',')[1]; };
+    reader.readAsDataURL(file);
+  }
+}
+
+async function submitAd() {
+  var name = document.getElementById('f-name').value;
+  var email = document.getElementById('f-email').value;
+  var start = document.getElementById('f-start').value;
+  var end = document.getElementById('f-end').value;
+  var file = document.getElementById('f-file').files[0];
+  var msg = document.getElementById('submit-msg');
+  
+  if (!name || !email || !start || !end || !fileBase64) {
+    msg.className = 'msg msg-err'; msg.textContent = 'Please fill all fields and upload an image'; msg.classList.remove('hidden');
+    return;
+  }
+  
+  var btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = 'Submitting...';
+  msg.classList.add('hidden');
+  
+  try {
+    // Register user or login
+    var userRes;
+    try {
+      userRes = await fetch('/api/auth/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({email: email, password: 'client_' + email}) });
+      if (!userRes.ok) throw new Error();
+      userRes = await userRes.json();
+    } catch(e) {
+      userRes = await fetch('/api/auth/register', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({name: name, email: email, password: 'client_' + email}) });
+      userRes = await userRes.json();
+    }
+    var token = userRes.access_token;
+    var headers = {'Content-Type':'application/json', 'Authorization': 'Bearer ' + token};
+    
+    // Upload media
+    var mediaRes = await fetch('/api/media/upload', { method: 'POST', headers: headers, body: JSON.stringify({filename: file.name, content_type: file.type || 'image/jpeg', data: fileBase64}) });
+    var media = await mediaRes.json();
+    
+    // Create campaign
+    var campRes = await fetch('/api/campaigns', { method: 'POST', headers: headers, body: JSON.stringify({name: name + ' - ' + screenData.name, screen_id: screenId, schedule: {start_date: start, end_date: end, start_time: '00:00', end_time: '23:59', slot_duration: 15, frequency: 5}, media_ids: [media.id]}) });
+    var camp = await campRes.json();
+    
+    // Create payment
+    await fetch('/api/payments', { method: 'POST', headers: headers, body: JSON.stringify({campaign_id: camp.id, method: 'card', card_last4: '4242'}) });
+    
+    // Show success
+    document.getElementById('screen-section').classList.add('hidden');
+    document.getElementById('success-section').classList.remove('hidden');
+    document.getElementById('success-name').textContent = camp.name;
+    
+  } catch(e) {
+    msg.className = 'msg msg-err'; msg.textContent = 'Error: ' + e.message; msg.classList.remove('hidden');
+    btn.disabled = false; btn.textContent = 'Submit & Pay';
+  }
+}
+
+loadScreen();
+</script>
+</body>
+</html>

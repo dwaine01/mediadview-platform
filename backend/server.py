@@ -1820,6 +1820,10 @@ async def serve_download():
 async def serve_player_activate():
     return FileResponse(os.path.join(WEB_DIR, 'player-activate.html'), media_type='text/html')
 
+@api_router.get("/screen")
+async def serve_screen_public():
+    return FileResponse(os.path.join(WEB_DIR, 'screen-public.html'), media_type='text/html')
+
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
