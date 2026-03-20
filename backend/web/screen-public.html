@@ -326,7 +326,7 @@ function calc(){
   if(!sd||!ed||sel.size===0){document.getElementById('prc').classList.add('hidden');return}
   var dayCount=Math.max(Math.ceil((new Date(ed)-new Date(sd))/86400000)+1,1);var months=Math.max(Math.ceil(dayCount/30),1);
   var ss=S.filter(function(s){return sel.has(s.id)});
-  var h='';ss.forEach(function(s){var t=(s.pricing.per_month||s.pricing.per_day*30);h+='<div class="trow"><span>'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo+'</span></div>'});
+  var h='';ss.forEach(function(s){var t=(s.pricing.per_month||s.pricing.per_day*30);h+='<div class="trow"><span>'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'});
   var sub=ss.reduce(function(a,s){return a+(s.pricing.per_month||0)*months},0);
   var tax=Math.round(sub*.08*100)/100;var tot=sub+tax;
   h+='<div style="height:1px;background:rgba(30,41,59,.3);margin:8px 0"></div>';
