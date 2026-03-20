@@ -271,7 +271,7 @@ def calculate_campaign_price(screen_pricing: dict, schedule: dict) -> dict:
         total_hours = hours_per_day * num_days
         per_hour = screen_pricing.get("per_hour", 50.0)
         subtotal = round(total_hours * per_hour, 2)
-        tax = round(subtotal * 0.08, 2)
+        tax = round(subtotal * 0.075, 2)
         total = round(subtotal + tax, 2)
         return {
             "num_days": num_days, "hours_per_day": hours_per_day,

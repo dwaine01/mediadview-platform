@@ -345,10 +345,10 @@ function calc(){
   if(months>1)html+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:#94a3b8"><span>Duration</span><span>'+months+' months</span></div>';
   html+='<div style="height:1px;background:#1e293b;margin:10px 0"></div>';
   html+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:#94a3b8">Subtotal</span><span style="font-weight:600">$'+sub.toLocaleString()+'</span></div>';
-  var tax=Math.round(sub*.08*100)/100;var tot=sub+tax;
+  var tax=Math.round(sub*.075*100)/100;var tot=sub+tax;
   h+='<div style="height:1px;background:rgba(30,41,59,.3);margin:8px 0"></div>';
   h+='<div class="trow"><span>Subtotal</span><span style="color:#e2e8f0;font-weight:600">$'+sub.toLocaleString()+'</span></div>';
-  h+='<div class="trow"><span>Tax (8%)</span><span>$'+tax.toLocaleString()+'</span></div>';
+  h+='<div class="trow"><span>Tax (7.5%)</span><span>$'+tax.toLocaleString()+'</span></div>';
   h+='<div class="ttotal"><span>Total</span><span class="v">$'+tot.toLocaleString()+'</span></div>';
   document.getElementById('prc').innerHTML=h;document.getElementById('prc').classList.remove('hidden');
   document.getElementById('btn-go').textContent='Submit & Pay — $'+tot.toLocaleString();
