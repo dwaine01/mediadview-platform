@@ -216,45 +216,83 @@ const loaders={
   async admin(){
     const el=document.getElementById('pg-admin');
     if(user?.role!=='admin'&&user?.role!=='superadmin'){el.innerHTML='<p style="color:var(--red)">Admin access required</p>';return}
-    // Default: show admin home with tabs
-    if(!window._adminView)window._adminView='screens';
+    if(!window._adminTab)window._adminTab='screens';
     try{
-      const [users,campaigns,screens]=await Promise.all([api('/admin/users'),api('/admin/campaigns'),api('/screens')]);
-      
-      // Tab navigation
-      var tabs=[{id:'screens',name:'Screens',count:screens.length},{id:'campaigns',name:'Campaigns',count:campaigns.filter(c=>c.status==='pending').length+' pending'},{id:'users',name:'Users',count:users.length}];
-      var tabHtml='<div style="display:flex;gap:4px;margin-bottom:20px">'+tabs.map(t=>'<button onclick="window._adminView=\''+t.id+'\';loaders.admin()" style="padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;'+(window._adminView===t.id?'background:rgba(99,102,241,.15);color:#818cf8':'background:#0f172a;color:#64748b;border:1px solid #1e293b')+'">'+t.name+' <span style="font-size:10px;opacity:.7">('+t.count+')</span></button>').join('')+'</div>';
+      const screens=await api('/screens');
 
-      if(window._adminView==='screens'){
-        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Manage screens, campaigns and users</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
-        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="lbl">Screen Name</label><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><label class="lbl">City</label><input class="inp" id="ns-city" placeholder="New York"></div></div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><label class="lbl">Address</label><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><label class="lbl">State</label><input class="inp" id="ns-state" placeholder="NY"></div><div><label class="lbl">Size</label><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><label class="lbl">Price/Month ($)</label><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><label class="lbl">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div><div><label class="lbl">Orientation</label><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div><div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()" style="font-size:12px;padding:8px 20px">Create Screen</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
-        '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>'<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')"><div style="width:48px;height:32px;border-radius:6px;background:'+s._g+';flex-shrink:0"></div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+', '+s.location?.state+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div><div style="display:flex;gap:6px"><button onclick="editScreen(\''+s.id+'\');event.stopPropagation()" style="padding:4px 12px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button><button onclick="removeScreen(\''+s.id+'\');event.stopPropagation()" style="padding:4px 12px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button></div><svg width="16" height="16" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>').join('')+'</div>';
+      // Tabs
+      var tabs=[
+        {id:'screens',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',name:'Screens'},
+        {id:'pending',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',name:'Pending'},
+        {id:'users',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',name:'Users'}
+      ];
 
-      }else if(window._adminView==='campaigns'){
-        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Review and manage campaigns</p></div></div>'+tabHtml+
-        '<div style="display:flex;flex-direction:column;gap:10px">'+
-        (campaigns.length===0?'<div class="card" style="padding:32px;text-align:center;color:#475569">No campaigns</div>':
-        campaigns.slice(0,20).map(c=>{
+      var tabHtml='<div style="display:flex;gap:6px;margin-bottom:24px">'+tabs.map(t=>
+        '<button onclick="window._adminTab=\''+t.id+'\';loaders.admin()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;'+(window._adminTab===t.id?'background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.2)':'background:#0f172a;color:#64748b;border:1px solid #1e293b')+'">'+t.icon+t.name+'</button>').join('')+'</div>';
+
+      // ===== SCREENS TAB =====
+      if(window._adminTab==='screens'){
+        el.innerHTML='<div class="ph"><div><h1>Screens</h1><p>Manage your screens and playlists</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
+        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div><div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
+        '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>
+          '<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')">'+
+            '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div>'+
+            '<div style="flex:1">'+
+              '<div style="font-size:15px;font-weight:700">'+s.name+'</div>'+
+              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div>'+
+            '</div>'+
+            '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
+              '<button onclick="editScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
+              '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
+            '</div>'+
+            '<svg width="18" height="18" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
+          '</div>').join('')+'</div>';
+
+      // ===== PENDING TAB =====
+      }else if(window._adminTab==='pending'){
+        var campaigns=await api('/admin/campaigns');
+        var pending=campaigns.filter(c=>c.status==='pending');
+        var others=campaigns.filter(c=>c.status!=='pending');
+        
+        el.innerHTML='<div class="ph"><div><h1>Pending Approvals</h1><p>'+pending.length+' campaigns waiting for review</p></div></div>'+tabHtml+
+        (pending.length===0?'<div class="card" style="padding:48px;text-align:center"><svg width="40" height="40" fill="none" stroke="#22d3ee" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-size:16px;font-weight:700;color:#22d3ee">All Clear!</div><div style="font-size:13px;color:#475569;margin-top:4px">No pending campaigns to review</div></div>':
+        '<div style="display:flex;flex-direction:column;gap:12px">'+pending.map(c=>{
           var hasMedia=c.media_ids&&c.media_ids.length>0;
           var mid=hasMedia?c.media_ids[0]:'';
-          return '<div class="card" style="padding:16px"><div style="display:flex;gap:16px">'+
-            (hasMedia?'<div style="width:160px;height:100px;border-radius:10px;overflow:hidden;background:#020617;flex-shrink:0;cursor:pointer;border:1px solid #1e293b;position:relative" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">Review</div></div></div>':'<div style="width:160px;height:100px;border-radius:10px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid #1e293b"><span style="font-size:11px;color:#334155">No media</span></div>')+
-            '<div style="flex:1"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px"><span style="font-size:15px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div><div style="font-size:12px;color:#64748b;margin-bottom:4px">'+(c.user?.name||'Unknown')+' · '+(c.screen?.name||'Screen')+'</div><div style="font-size:12px;color:#475569;margin-bottom:8px">'+(c.schedule?.start_date||'')+' → '+(c.schedule?.end_date||'')+' · $'+(c.pricing?.total||0).toLocaleString()+'</div><div style="display:flex;gap:8px">'+
-            (hasMedia?'<button onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')" style="padding:6px 16px;border-radius:8px;background:rgba(99,102,241,.1);color:#818cf8;font-size:12px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer">Review Content</button>':'')+
-            (c.status==='pending'?'<button onclick="modalApprove(\''+c.id+'\',event)" style="padding:6px 16px;border-radius:8px;background:rgba(52,211,153,.1);color:#34d399;font-size:12px;font-weight:600;border:1px solid rgba(52,211,153,.2);cursor:pointer">Approve</button><button onclick="rejectCamp(\''+c.id+'\',event)" style="padding:6px 16px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px;font-weight:600;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>':'')+
-            '</div></div></div></div>'
-        }).join(''))+'</div>';
+          return '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex">'+
+            (hasMedia?'<div style="width:240px;min-height:180px;background:#020617;flex-shrink:0;cursor:pointer;position:relative" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
+            '<div style="width:240px;min-height:180px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#334155">No media</span></div>')+
+            '<div style="flex:1;padding:20px;display:flex;flex-direction:column">'+
+              '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div>'+
+              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Client: <span style="color:#e2e8f0;font-weight:600">'+(c.user?.name||'Unknown')+'</span></div>'+
+              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Screen: <span style="color:#e2e8f0">'+(c.screen?.name||'Unknown')+'</span></div>'+
+              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Dates: '+(c.schedule?.start_date||'')+' → '+(c.schedule?.end_date||'')+'</div>'+
+              '<div style="font-size:18px;font-weight:800;color:#22d3ee;margin-bottom:12px">$'+(c.pricing?.total||0).toLocaleString()+'</div>'+
+              '<div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">'+
+                '<div><div style="font-size:10px;font-weight:600;color:#475569;margin-bottom:4px">REJECT REASON (optional)</div><input class="inp" id="reject-'+c.id+'" placeholder="Tell the client why..." style="font-size:12px;padding:8px 12px"></div>'+
+                '<div style="display:flex;gap:8px">'+
+                  '<button onclick="modalApprove(\''+c.id+'\')" style="flex:1;padding:10px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;font-size:13px;border:none;cursor:pointer">Approve</button>'+
+                  '<button onclick="rejectWithNote(\''+c.id+'\')" style="flex:1;padding:10px;border-radius:8px;background:rgba(248,113,113,.12);color:#f87171;font-weight:700;font-size:13px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>'+
+                '</div>'+
+              '</div>'+
+            '</div></div></div>'
+        }).join('')+'</div>')+
+        (others.length>0?'<h2 style="font-size:15px;font-weight:700;margin:24px 0 12px;color:#64748b">Recent Campaigns ('+others.length+')</h2><div style="display:flex;flex-direction:column;gap:6px">'+others.slice(0,10).map(c=>
+          '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f172a;border-radius:8px;border:1px solid #1e293b"><div class="dot" style="background:'+dot(c.status)+'"></div><div style="flex:1;font-size:13px;font-weight:600">'+c.name+'</div><span style="font-size:11px;color:#475569">'+(c.user?.name||'')+'</span>'+badge(c.status)+'<span style="font-size:13px;font-weight:700;color:#22d3ee">$'+(c.pricing?.total||0).toLocaleString()+'</span></div>'
+        ).join('')+'</div>':'');
 
-      }else if(window._adminView==='users'){
-        el.innerHTML='<div class="ph"><div><h1>Admin Panel</h1><p>Manage user accounts</p></div></div>'+tabHtml+
-        '<div class="card"><div class="tbl-h" style="grid-template-columns:1fr 1fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
-        users.map(u=>'<div class="tbl-r" style="grid-template-columns:1fr 1fr 1fr auto"><span style="font-size:13px;font-weight:600">'+u.name+'</span><span style="font-size:12px;color:#64748b">'+u.email+'</span><span style="font-size:12px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
+      // ===== USERS TAB =====
+      }else if(window._adminTab==='users'){
+        var users2=await api('/admin/users');
+        el.innerHTML='<div class="ph"><div><h1>Users</h1><p>'+users2.length+' registered accounts</p></div></div>'+tabHtml+
+        '<div class="card"><div class="tbl-h" style="grid-template-columns:2fr 2fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
+        users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+u.role+'</div></div><span style="font-size:13px;color:#94a3b8">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
       }
     }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },
 
-  // Screen Playlist View
   screenPlaylist: null,
+
 
   async superadmin(){
     const el=document.getElementById('pg-superadmin');
@@ -459,6 +497,7 @@ function closeModal(){document.getElementById('modal').style.display='none';docu
 async function modalApprove(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function modalReject(id){var reason=document.getElementById('modal-reason')?.value||'';try{await api('/admin/campaigns/'+id+'/reject?notes='+encodeURIComponent(reason),{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 
+async function rejectWithNote(id){var reason=document.getElementById('reject-'+id)?.value||'';try{await api('/admin/campaigns/'+id+'/reject?notes='+encodeURIComponent(reason),{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function rejectCamp(id,e){if(e)e.stopPropagation();if(!confirm('Reject this campaign?'))return;try{await api('/admin/campaigns/'+id+'/reject',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function addScreen(){
