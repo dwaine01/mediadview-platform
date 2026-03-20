@@ -337,26 +337,32 @@ const loaders={
     try{
       const screens=await api('/screens');
       const widgets=user?.role==='admin'||user?.role==='superadmin'?await api('/admin/widgets'):[];
+      const screenOpts=screens.map(s=>'<option value="'+s.id+'">'+s.name+' ('+s.location_code+')</option>').join('');
       const types=[
-        {id:'weather',name:'Weather',icon:'🌤️',desc:'Live temperature & forecast'},
-        {id:'clock',name:'Clock/Date',icon:'🕐',desc:'Real-time clock and date'},
-        {id:'ticker',name:'News Ticker',icon:'📰',desc:'Scrolling text marquee'},
-        {id:'qrcode',name:'QR Code',icon:'📱',desc:'Dynamic QR for scanning'},
-        {id:'countdown',name:'Countdown',icon:'⏳',desc:'Timer to event date'},
-        {id:'slides',name:'Google Slides',icon:'📊',desc:'Embed presentations'},
-        {id:'youtube',name:'YouTube',icon:'▶️',desc:'Play YouTube videos'},
-        {id:'webpage',name:'Web Page',icon:'🌐',desc:'Show any website'},
-        {id:'menu',name:'Restaurant Menu',icon:'🍔',desc:'Menu with prices'},
-        {id:'calendar',name:'Calendar',icon:'📅',desc:'Monthly calendar view'},
+        {id:'weather',name:'Weather',icon:'🌤️',desc:'Live temperature',fields:'<div class="lbl">City</div><input class="inp" id="wf-v1" placeholder="New York" value="New York">'},
+        {id:'clock',name:'Clock/Date',icon:'🕐',desc:'Real-time clock',fields:'<div class="lbl">Format</div><select class="inp" id="wf-v1"><option value="12h">12 Hour</option><option value="24h">24 Hour</option></select>'},
+        {id:'ticker',name:'News Ticker',icon:'📰',desc:'Scrolling text',fields:'<div class="lbl">Ticker Text</div><input class="inp" id="wf-v1" placeholder="Welcome to our store!">'},
+        {id:'qrcode',name:'QR Code',icon:'📱',desc:'QR for scanning',fields:'<div class="lbl">URL</div><input class="inp" id="wf-v1" placeholder="https://mediadview.com"><div class="lbl" style="margin-top:8px">Label</div><input class="inp" id="wf-v2" placeholder="Scan Me">'},
+        {id:'countdown',name:'Countdown',icon:'⏳',desc:'Event timer',fields:'<div class="lbl">Target Date</div><input class="inp" type="date" id="wf-v1"><div class="lbl" style="margin-top:8px">Title</div><input class="inp" id="wf-v2" placeholder="Coming Soon">'},
+        {id:'slides',name:'Google Slides',icon:'📊',desc:'Presentations',fields:'<div class="lbl">Embed URL</div><input class="inp" id="wf-v1" placeholder="https://docs.google.com/presentation/d/.../embed">'},
+        {id:'youtube',name:'YouTube',icon:'▶️',desc:'YouTube videos',fields:'<div class="lbl">Video ID</div><input class="inp" id="wf-v1" placeholder="dQw4w9WgXcQ"><div style="font-size:10px;color:var(--t-4);margin-top:4px">youtube.com/watch?v=<b>THIS_PART</b></div>'},
+        {id:'webpage',name:'Web Page',icon:'🌐',desc:'Any website',fields:'<div class="lbl">Website URL</div><input class="inp" id="wf-v1" placeholder="https://google.com">'},
+        {id:'menu',name:'Menu',icon:'🍔',desc:'Menu with prices',fields:'<div class="lbl">Menu Title</div><input class="inp" id="wf-v1" placeholder="Today Menu"><div class="lbl" style="margin-top:8px">Items (name:price per line)</div><textarea class="inp" id="wf-v2" rows="4" placeholder="Burger:$12\nPizza:$15" style="resize:vertical"></textarea>'},
+        {id:'calendar',name:'Calendar',icon:'📅',desc:'Monthly calendar',fields:''},
       ];
-      el.innerHTML='<div class="ph"><div><h1>Widgets & Integrations</h1><p>Add dynamic content to your screens</p></div></div>'+
-        '<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px">'+types.map(t=>
-          '<div class="card card-i" style="padding:14px;text-align:center" onclick="addWidget(\''+t.id+'\')"><div style="font-size:28px;margin-bottom:6px">'+t.icon+'</div><div style="font-size:13px;font-weight:700">'+t.name+'</div><div style="font-size:10px;color:var(--t-4)">'+t.desc+'</div></div>').join('')+'</div>'+
-        '<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Active Widgets ('+widgets.length+')</h2>'+
-        (widgets.length===0?'<div class="card" style="padding:32px;text-align:center;color:var(--t-4)">No widgets added yet. Click a widget above to add one.</div>':
-        '<div style="display:flex;flex-direction:column;gap:8px">'+widgets.map(w=>{
-          var screen=screens.find(s=>s.id===w.screen_id);
-          return'<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px"><div style="font-size:24px">'+types.find(t=>t.id===w.widget_type)?.icon||'📦'+'</div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+w.name+'</div><div style="font-size:11px;color:var(--t-4)">'+w.widget_type+' · '+(screen?.name||'Unknown screen')+'</div></div><a href="/api/widgets/'+w.id+'/render" target="_blank" style="padding:4px 10px;border-radius:5px;background:rgba(34,211,238,.1);color:var(--cyan);font-size:10px;font-weight:600;text-decoration:none">Preview</a><button onclick="toggleWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:'+(w.enabled?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';color:'+(w.enabled?'var(--green)':'var(--red)')+';font-size:10px;font-weight:600;border:none;cursor:pointer">'+(w.enabled?'ON':'OFF')+'</button><button onclick="delWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Delete</button></div>'}).join('')+'</div>');
+      window._wtypes=types;
+      el.innerHTML=`<div class="ph"><div><h1>Widgets & Integrations</h1><p>Add dynamic content to your screens</p></div></div>
+        <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:20px">${types.map(t=>'<div class="card card-i" style="padding:14px;text-align:center" onclick="showWF(\''+t.id+'\')"><div style="font-size:28px;margin-bottom:6px">'+t.icon+'</div><div style="font-size:13px;font-weight:700">'+t.name+'</div><div style="font-size:10px;color:var(--t-4)">'+t.desc+'</div></div>').join('')}</div>
+        <div id="wf-box" style="display:none;margin-bottom:20px"><div class="card" style="padding:20px;border-color:rgba(34,211,238,.2)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px"><div style="display:flex;align-items:center;gap:10px"><span id="wf-icon" style="font-size:24px"></span><span id="wf-tname" style="font-size:16px;font-weight:700"></span></div><button onclick="document.getElementById('wf-box').style.display='none'" style="background:none;border:none;color:var(--t-4);font-size:16px;cursor:pointer">✕</button></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen</div><select class="inp" id="wf-screen">${screenOpts}</select></div><div><div class="lbl">Widget Name</div><input class="inp" id="wf-name" placeholder="My Widget"></div></div>
+          <div id="wf-fields" style="margin-bottom:12px"></div>
+          <button class="btn-p" onclick="submitWF()" style="width:100%;justify-content:center">Add Widget</button>
+          <p id="wf-msg" style="font-size:12px;text-align:center;margin-top:8px;display:none"></p>
+        </div></div>
+        <h2 style="font-size:16px;font-weight:700;margin-bottom:10px">Active Widgets (${widgets.length})</h2>
+        ${widgets.length===0?'<div class="card" style="padding:28px;text-align:center;color:var(--t-4)">No widgets yet. Click a widget type above to add one.</div>':
+        '<div style="display:flex;flex-direction:column;gap:8px">'+widgets.map(w=>{var screen=screens.find(s=>s.id===w.screen_id);var ti=types.find(t=>t.id===w.widget_type);return'<div class="card" style="display:flex;align-items:center;gap:12px;padding:14px"><div style="font-size:24px">'+(ti?ti.icon:'📦')+'</div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+w.name+'</div><div style="font-size:11px;color:var(--t-4)">'+w.widget_type+' · '+(screen?.name||'Unknown')+'</div></div><a href="/api/widgets/'+w.id+'/render" target="_blank" style="padding:4px 10px;border-radius:5px;background:rgba(34,211,238,.1);color:var(--cyan);font-size:10px;font-weight:600;text-decoration:none">Preview</a><button onclick="toggleWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:'+(w.enabled?'rgba(52,211,153,.1)':'rgba(248,113,113,.1)')+';color:'+(w.enabled?'var(--green)':'var(--red)')+';font-size:10px;font-weight:600;border:none;cursor:pointer">'+(w.enabled?'ON':'OFF')+'</button><button onclick="delWid(\''+w.id+'\',event)" style="padding:4px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Delete</button></div>'}).join('')+'</div>'}`;
     }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },
 
@@ -547,24 +553,37 @@ async function loadProofOfPlay(){
   }catch(e){var el=document.getElementById('proof-of-play');if(el)el.innerHTML='<p style="color:var(--t-4)">Login as admin to view play logs</p>'}
 }
 
-async function addWidget(type){
-  var screens=await api('/screens');
-  var screenHtml=screens.map(s=>s.name+' ('+s.location_code+')').join('\n');
-  var screenIdx=prompt('Select screen number (1-'+screens.length+'):\n'+screens.map((s,i)=>(i+1)+'. '+s.name).join('\n'));
-  if(!screenIdx)return;
-  var screen=screens[parseInt(screenIdx)-1];if(!screen){alert('Invalid selection');return}
-  var name=prompt('Widget name:',type.charAt(0).toUpperCase()+type.slice(1)+' Widget');if(!name)return;
-  var config={};
-  if(type==='weather')config.city=prompt('City name:','New York')||'New York';
-  if(type==='ticker')config.text=prompt('Ticker text:','Welcome to our store! Special offers today.')||'';
-  if(type==='qrcode'){config.url=prompt('QR URL:','https://mediadview.com')||'';config.label=prompt('Label:','Scan Me')||''}
-  if(type==='countdown'){config.target_date=prompt('Target date (YYYY-MM-DD):','2026-12-31')||'';config.title=prompt('Title:','Coming Soon')||''}
-  if(type==='youtube')config.video_id=prompt('YouTube Video ID:','')||'';
-  if(type==='slides')config.url=prompt('Google Slides embed URL:','')||'';
-  if(type==='webpage')config.url=prompt('Website URL:','https://google.com')||'';
-  if(type==='menu'){var items=prompt('Menu items (name:price, separated by commas):','Burger:$12,Pizza:$15,Salad:$10');config.items=(items||'').split(',').map(i=>{var p=i.split(':');return{name:p[0]?.trim(),price:p[1]?.trim()}})}
-  try{await api('/admin/widgets',{method:'POST',body:JSON.stringify({screen_id:screen.id,widget_type:type,name:name,config:config,duration:30,enabled:true})});loaders.widgets()}catch(e){alert(e.message)}
+function showWF(type){
+  var t=window._wtypes.find(x=>x.id===type);if(!t)return;
+  document.getElementById('wf-box').style.display='block';
+  document.getElementById('wf-icon').textContent=t.icon;
+  document.getElementById('wf-tname').textContent=t.name;
+  document.getElementById('wf-name').value=t.name+' Widget';
+  document.getElementById('wf-fields').innerHTML=t.fields;
+  document.getElementById('wf-msg').style.display='none';
+  window._wtype=type;
+  document.getElementById('wf-box').scrollIntoView({behavior:'smooth'});
 }
+async function submitWF(){
+  var type=window._wtype,screenId=document.getElementById('wf-screen')?.value,name=document.getElementById('wf-name')?.value;
+  var msg=document.getElementById('wf-msg');msg.style.display='none';
+  if(!screenId||!name){msg.textContent='Select a screen and enter a name';msg.style.color='var(--red)';msg.style.display='block';return}
+  var config={};var v1=document.getElementById('wf-v1')?.value||'';var v2=document.getElementById('wf-v2')?.value||'';
+  if(type==='weather')config.city=v1||'New York';
+  if(type==='clock')config.format=v1||'12h';
+  if(type==='ticker')config.text=v1||'Welcome';
+  if(type==='qrcode'){config.url=v1||'https://mediadview.com';config.label=v2||'Scan Me'}
+  if(type==='countdown'){config.target_date=v1||'2026-12-31';config.title=v2||'Coming Soon'}
+  if(type==='slides')config.url=v1;
+  if(type==='youtube')config.video_id=v1;
+  if(type==='webpage')config.url=v1||'https://google.com';
+  if(type==='menu'){config.title=v1||'Menu';config.items=(v2||'Burger:$12').split('\n').map(i=>{var p=i.split(':');return{name:(p[0]||'').trim(),price:(p[1]||'').trim()}})}
+  try{await api('/admin/widgets',{method:'POST',body:JSON.stringify({screen_id:screenId,widget_type:type,name:name,config:config,duration:30,enabled:true})});
+    msg.textContent='Widget added!';msg.style.color='var(--green)';msg.style.display='block';
+    setTimeout(()=>loaders.widgets(),800);
+  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}
+}
+
 async function delWid(id,e){if(e)e.stopPropagation();if(!confirm('Delete widget?'))return;try{await api('/admin/widgets/'+id,{method:'DELETE'});loaders.widgets()}catch(e){alert(e.message)}}
 async function toggleWid(id,e){if(e)e.stopPropagation();try{await api('/admin/widgets/'+id+'/toggle',{method:'PUT'});loaders.widgets()}catch(e){alert(e.message)}}
 
