@@ -435,11 +435,11 @@ async function submitCampaign(){
 }
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function addScreen(){
-  const name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,phr=document.getElementById('ns-phr')?.value,pday=document.getElementById('ns-pday')?.value,res=document.getElementById('ns-res')?.value;
-  const msg=document.getElementById('ns-msg');msg.style.display='none';
+  var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value;
+  var msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',})});
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active'})});
     msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
