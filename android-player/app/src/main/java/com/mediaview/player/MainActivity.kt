@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private var screenId = ""
     private var isConnected = false
     private var reconnectAttempts = 0
+    private var wakeLock: android.os.PowerManager.WakeLock? = null
     private val MAX_RECONNECT_DELAY = 60000L // 60 seconds max
 
     // =================================================================
@@ -67,12 +68,16 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate")
 
-        // ===== FULL SCREEN + ALWAYS ON =====
+        // ===== FULL SCREEN + ALWAYS ON (like OptiSigns/Yodeck) =====
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
-            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON
+            WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON or
+            WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
+
+        // ===== PREVENT SCREEN SLEEP (critical for 24/7 signage) =====
+        preventScreenSleep()
         hideSystemUI()
 
         // ===== LOAD CONFIG =====
@@ -316,6 +321,99 @@ class MainActivity : Activity() {
 
     override fun onDestroy() {
         webView.destroy()
+        releaseWakeLock()
         super.onDestroy()
+    }
+
+    /**
+     * Prevent screen from sleeping - uses ALL methods that pro signage apps use:
+     * 1. WakeLock (keeps CPU + screen on)
+     * 2. Disable system screen timeout
+     * 3. Disable screensaver
+     * 4. Stay on while plugged in
+     * 5. Watchdog timer that re-acquires wake lock periodically
+     */
+    @SuppressLint("WakelockTimeout")
+    private fun preventScreenSleep() {
+        try {
+            // 1. Acquire WakeLock
+            val pm = getSystemService(Context.POWER_SERVICE) as android.os.PowerManager
+            wakeLock = pm.newWakeLock(
+                android.os.PowerManager.SCREEN_BRIGHT_WAKE_LOCK or android.os.PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                "MediAdView::ScreenOn"
+            )
+            wakeLock?.acquire()
+            Log.i(PlayerApp.TAG, "WakeLock acquired")
+
+            // 2. Disable screen timeout (set to max)
+            try {
+                android.provider.Settings.System.putInt(
+                    contentResolver,
+                    android.provider.Settings.System.SCREEN_OFF_TIMEOUT,
+                    Int.MAX_VALUE
+                )
+                Log.i(PlayerApp.TAG, "Screen timeout disabled")
+            } catch (e: Exception) {
+                Log.w(PlayerApp.TAG, "Cannot set screen timeout: ${e.message}")
+            }
+
+            // 3. Disable screensaver
+            try {
+                android.provider.Settings.Secure.putInt(
+                    contentResolver,
+                    "screensaver_enabled",
+                    0
+                )
+                Log.i(PlayerApp.TAG, "Screensaver disabled")
+            } catch (e: Exception) {
+                Log.w(PlayerApp.TAG, "Cannot disable screensaver: ${e.message}")
+            }
+
+            // 4. Stay on while plugged in (USB + AC)
+            try {
+                android.provider.Settings.Global.putInt(
+                    contentResolver,
+                    android.provider.Settings.Global.STAY_ON_WHILE_PLUGGED_IN,
+                    android.os.BatteryManager.BATTERY_PLUGGED_AC or
+                    android.os.BatteryManager.BATTERY_PLUGGED_USB
+                )
+                Log.i(PlayerApp.TAG, "Stay on while plugged in enabled")
+            } catch (e: Exception) {
+                Log.w(PlayerApp.TAG, "Cannot set stay on: ${e.message}")
+            }
+
+            // 5. Watchdog - re-acquire wake lock every 5 minutes
+            handler.postDelayed(object : Runnable {
+                override fun run() {
+                    try {
+                        if (wakeLock?.isHeld == false) {
+                            wakeLock?.acquire()
+                            Log.i(PlayerApp.TAG, "WakeLock re-acquired by watchdog")
+                        }
+                        // Keep screen on flag
+                        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    } catch (e: Exception) {
+                        Log.w(PlayerApp.TAG, "Watchdog error: ${e.message}")
+                    }
+                    handler.postDelayed(this, 300000) // Every 5 minutes
+                }
+            }, 300000)
+
+        } catch (e: Exception) {
+            Log.e(PlayerApp.TAG, "preventScreenSleep error: ${e.message}")
+        }
+    }
+
+    private fun releaseWakeLock() {
+        try {
+            wakeLock?.let {
+                if (it.isHeld) {
+                    it.release()
+                    Log.i(PlayerApp.TAG, "WakeLock released")
+                }
+            }
+        } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "WakeLock release error: ${e.message}")
+        }
     }
 }
