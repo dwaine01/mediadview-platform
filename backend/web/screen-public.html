@@ -351,11 +351,12 @@ function onF(i){var f=i.files[0];if(!f)return;fn=f.name;ft=f.type||'image/jpeg';
         else{screen.style.width='100%';screen.style.height='300px'}
         var pimg=document.getElementById('preview-img');pimg.src=img.src;pimg.style.width='100%';pimg.style.height='100%';pimg.style.objectFit='contain';
         var warn=document.getElementById('orient-warn');var ok=document.getElementById('orient-ok');
+        warn.style.display='none';ok.style.display='none';
         if(orient!=='mixed'&&isLand!==needLand){
-          warn.classList.remove('hidden');ok.classList.add('hidden');
+          warn.style.display='flex';
           document.getElementById('orient-need').textContent=needLand?'horizontal (landscape)':'vertical (portrait)';
         }else{
-          ok.classList.remove('hidden');warn.classList.add('hidden');
+          ok.style.display='flex';
         }
       };img.src=r.result;
     }
