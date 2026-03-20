@@ -1262,6 +1262,7 @@ async def device_playlist(device_id: str):
                         "size": media.get("size", 0),
                         "duration": s.get("slot_duration", 15),
                         "rotation": media.get("rotation", 0),
+                        "animation": media.get("animation", "fade"),
                         "download_url": f"/api/player/media/{media['id']}",
                         "checksum": media.get("id"),
                     })
