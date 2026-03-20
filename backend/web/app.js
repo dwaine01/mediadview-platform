@@ -468,11 +468,27 @@ async function loadPlaylists(screens){
     try{
       var r=await api('/player/'+s.id+'/playlist');
       var items=r.items||[];
-      html+='<div class="card" style="padding:14px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="font-size:14px;font-weight:700">'+s.name+'</div><span style="font-size:11px;color:var(--cyan)">'+items.length+' items</span></div>';
-      if(items.length===0){html+='<div style="font-size:12px;color:var(--t-4);padding:8px 0">No content scheduled</div>'}
-      else{items.forEach(function(item){html+='<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-top:1px solid rgba(30,41,59,.2)"><div class="dot" style="background:var(--green)"></div><div style="flex:1;font-size:12px">'+item.filename+'</div><div style="display:flex;gap:4px"><button onclick="rotateMedia(\''+item.media_id+'\',0)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===0||!item.rotation?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===0||!item.rotation?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">0°</button><button onclick="rotateMedia(\''+item.media_id+'\',90)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===90?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===90?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">90°</button><button onclick="rotateMedia(\''+item.media_id+'\',180)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===180?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===180?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">180°</button><button onclick="rotateMedia(\''+item.media_id+'\',270)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(item.rotation===270?'var(--cyan)':'var(--border)')+';background:none;color:'+(item.rotation===270?'var(--cyan)':'var(--t-4)')+';font-size:10px;cursor:pointer">270°</button></div><span style="font-size:11px;color:var(--t-4)">'+item.duration+'s</span></div>'})}
+      html+='<div class="card" style="padding:16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><div style="font-size:15px;font-weight:700">'+s.name+'</div><span style="font-size:12px;color:var(--cyan);font-weight:600">'+items.length+' items</span></div>';
+      if(items.length===0){html+='<div style="font-size:12px;color:var(--t-4);padding:12px 0;text-align:center">No content scheduled</div>'}
+      else{
+        html+='<div style="display:flex;gap:10px;flex-wrap:wrap">';
+        items.forEach(function(item){
+          var rot=item.rotation||0;
+          html+='<div style="width:160px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-1)">';
+          html+='<div style="height:100px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
+          html+='<div style="padding:8px"><div style="font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:6px">'+item.filename+'</div>';
+          html+='<div style="display:flex;gap:3px;align-items:center"><span style="font-size:9px;color:var(--t-4);margin-right:4px">Rotate:</span>';
+          [0,90,180,270].forEach(function(deg){
+            var active=rot===deg;
+            html+='<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 7px;border-radius:4px;border:1px solid '+(active?'var(--cyan)':'var(--border)')+';background:'+(active?'rgba(34,211,238,.15)':'none')+';color:'+(active?'var(--cyan)':'var(--t-4)')+';font-size:10px;font-weight:600;cursor:pointer">'+deg+'°</button>';
+          });
+          html+='<span style="font-size:10px;color:var(--t-4);margin-left:auto">'+item.duration+'s</span>';
+          html+='</div></div></div>';
+        });
+        html+='</div>';
+      }
       html+='</div>';
-    }catch(e){html+='<div class="card" style="padding:14px"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:12px;color:var(--t-4)">Error loading</div></div>'}
+    }catch(e){html+='<div class="card" style="padding:16px"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:12px;color:var(--t-4)">Error</div></div>'}
   }
   container.innerHTML=html;
 }
