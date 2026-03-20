@@ -978,14 +978,14 @@ function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>
 async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
-if(pl.length>0&&!ip){sf(false);pn()}else if(pl.length===0){sf(true,'No campaigns scheduled','Waiting for active campaigns...')}
+if(pl.length>0&&!ip){sf(false);pn();pdc()}else if(pl.length===0){sf(true,'No campaigns scheduled','Waiting for active campaigns...')}
 }catch(e){io=true;rc++;le=e.message;log('warn','Fetch failed: '+e.message+' (#'+rc+')');
 if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);sf(false);pn()}}}catch(x){}}
 if(pl.length===0){sf(true,io?'Offline - Reconnecting...':'No content','Auto-retry active')}}}
 function pm(i){if(mc[i.media_id])return;var u=AB+i.media_url;if(i.content_type&&i.content_type.startsWith('image/')){var img=new Image();img.src=u;mc[i.media_id]={t:'image',u:u}}else{mc[i.media_id]={t:'video',u:u}}}
 function pn(){if(pl.length===0)return;ci=(ci+1)%pl.length;var it=pl[ci],u=AB+it.media_url,ii=it.content_type&&it.content_type.startsWith('image/');ip=true;tp++;clearTimeout(pt);
 var c=document.getElementById('ml');c.innerHTML='';
-if(ii){var img=document.createElement('img');img.src=u;var ac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';img.className=ac;img.onerror=function(){log('error','Img fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(img);pt=setTimeout(pn,(it.duration||15)*1e3)}
+if(ii){var img=document.createElement('img');img.src=gcu(it);var ac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';img.className=ac;img.onerror=function(){log('error','Img fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(img);pt=setTimeout(pn,(it.duration||15)*1e3)}
 else{var vid=document.createElement('video');vid.src=u;vid.autoplay=true;vid.muted=true;vid.playsInline=true;vid.setAttribute('playsinline','');vid.setAttribute('webkit-playsinline','');vid.preload='auto';vid.poster='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';var vac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';vid.className=vac;vid.onended=pn;vid.onerror=function(){log('error','Vid fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(vid);vid.play().catch(function(){vid.muted=true;vid.play()});pt=setTimeout(pn,Math.max((it.duration||15)*1e3,6e4))}
 usb();log('info','Play: '+it.filename+' ('+(ci+1)+'/'+pl.length+')')}
 function sf(s,m,su){var el=document.getElementById('fb');el.style.display=s?'flex':'none';if(m)document.getElementById('fbs').textContent=m;if(su)document.getElementById('fbu').textContent=su;if(s)ip=false}
@@ -1007,7 +1007,14 @@ document.getElementById('hud').addEventListener('click',function(){if(hv)th()});
 setInterval(function(){document.getElementById('sbt').textContent=new Date().toLocaleTimeString();if(hv)rh()},1e3);
 document.addEventListener('visibilitychange',function(){if(!document.hidden){log('info','Resumed');fp()}});
 window.onerror=function(m,u,l){log('error','JS: '+m);setTimeout(pn,3e3);return true};
-log('info','MediaView Player v'+V+' started: '+SN);
+log('info','MediAd View Player v'+V+' started: '+SN);
+// Nightly reboot
+var rbt='03:00';
+setInterval(function(){var n=new Date(),h=String(n.getHours()).padStart(2,'0'),m=String(n.getMinutes()).padStart(2,'0');if(h+':'+m===rbt){log('info','Nightly reboot');window.location.reload(true)}},60000);
+// Content pre-download cache
+var mdc={};
+async function pdc(){for(var i of pl){if(mdc[i.media_id])continue;try{var r=await fetch(AB+i.media_url);var b=await r.blob();mdc[i.media_id]=URL.createObjectURL(b);log('info','Cached: '+i.filename)}catch(e){}}}
+function gcu(it){return mdc[it.media_id]||(AB+it.media_url)};
 fp();setInterval(fp,PI);setInterval(hb,HI);
 })();
 </script></body></html>"""

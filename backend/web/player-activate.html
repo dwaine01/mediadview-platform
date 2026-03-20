@@ -96,22 +96,26 @@ async function checkAndPlay(){
   document.getElementById('activate-screen').style.display='none';
   document.getElementById('player').style.display='block';
   fetchPlaylist();setInterval(fetchPlaylist,60000);setInterval(sendHeartbeat,30000);
+    // Nightly reboot check every minute
+    setInterval(checkNightlyReboot,60000);
+    // Pre-download all content
+    preDownloadContent();
 }
 
 async function fetchPlaylist(){
   try{
-    var r=await fetch(AB+'/api/devices/'+deviceId+'/playlist');var d=await r.json();var items=d.items||[];
+    var r=await fetch(AB+'/api/devices/'+deviceId+'/playlist');var d=await r.json();var items=d.items||[];if(d.config&&d.config.reboot_time)rebootTime=d.config.reboot_time;
     if(items.length>0){
       var nw=items.map(function(i){return i.media_id}).join(',');
       var ol=playlist.map(function(i){return i.media_id}).join(',');
-      if(nw!==ol){playlist=items;playIndex=0;playItem()}
+      if(nw!==ol){playlist=items;playIndex=0;playItem();preDownloadContent()}
     }else{document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:18px;color:#22d3ee;letter-spacing:2px">DIGITAL SIGNAGE PLATFORM</p><p style="font-size:16px;color:#475569;margin-top:20px">No campaigns scheduled</p></div>'}
   }catch(e){if(playlist.length===0){document.getElementById('player').innerHTML='<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:16px;color:#475569">Offline - Retrying...</p></div>'}}
 }
 
 function playItem(){
   if(playlist.length===0)return;if(playIndex>=playlist.length)playIndex=0;
-  var item=playlist[playIndex];var url=AB+item.download_url;
+  var item=playlist[playIndex];var url=getCachedUrl(item);
   var isImg=item.content_type&&item.content_type.indexOf('image')>=0;
   clearTimeout(playTimer);
   if(isImg){var rot=item.rotation||0;var anim=item.animation||'fade';var animClass=anim!=='none'?'anim-'+anim:'';var st='width:100%;height:100%;object-fit:contain;';if(rot===90||rot===270){st='width:100vh;height:100vw;object-fit:contain;transform:rotate('+rot+'deg);position:absolute;top:50%;left:50%;margin-top:-50vw;margin-left:-50vh;'}else if(rot===180){st='width:100%;height:100%;object-fit:contain;transform:rotate(180deg);'};document.getElementById('player').innerHTML='<div class="'+animClass+'" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="'+url+'" style="'+st+'"></div>'}

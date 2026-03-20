@@ -179,6 +179,9 @@ class MainActivity : Activity() {
         // Start overlay service for auto-boot
         startOverlayService()
 
+        // Schedule nightly app restart for stability (like OptiSigns)
+        scheduleNightlyRestart()
+
         // ===== KIOSK MODE =====
         startLockTask()
     }
@@ -415,5 +418,34 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             Log.w(PlayerApp.TAG, "WakeLock release error: ${e.message}")
         }
+    }
+
+    /**
+     * Schedule nightly app restart for stability (like OptiSigns midnight reboot).
+     * Reloads the WebView at 3 AM to clear memory leaks and refresh content.
+     */
+    private fun scheduleNightlyRestart() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                val cal = java.util.Calendar.getInstance()
+                val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+                val minute = cal.get(java.util.Calendar.MINUTE)
+
+                // Reboot at 3:00 AM
+                if (hour == 3 && minute == 0) {
+                    Log.i(PlayerApp.TAG, "Nightly restart triggered")
+                    // Clear WebView cache
+                    webView.clearCache(true)
+                    webView.clearHistory()
+                    // Reload the player
+                    if (screenId.isNotEmpty()) {
+                        loadPlayer()
+                    } else {
+                        showSetupMode()
+                    }
+                }
+                handler.postDelayed(this, 60000) // Check every minute
+            }
+        }, 60000)
     }
 }
