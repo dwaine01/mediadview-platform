@@ -62,20 +62,18 @@
             android:name=".BootReceiver"
             android:enabled="true"
             android:exported="true">
-            <intent-filter>
+            <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
-                <!-- Amazon Fire TV -->
                 <action android:name="android.intent.action.REBOOT" />
             </intent-filter>
         </receiver>
 
-        <!-- Overlay Service: keeps app running and launches on boot -->
+        <!-- Overlay Service -->
         <service
             android:name=".OverlayService"
             android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback" />
+            android:exported="false" />
 
     </application>
 </manifest>
