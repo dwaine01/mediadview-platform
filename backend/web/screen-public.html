@@ -263,11 +263,11 @@ async function init(){
 
 function fil(){
   var q=(document.getElementById('q')?.value||'').toLowerCase();
-  var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||s.location.state.toLowerCase().includes(q)||s.ref.includes(q)}):S;
+  var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||s.location.state.toLowerCase().includes(q)||s.ref.includes(q)||(s.location_code||'').toLowerCase().includes(q)}):S;
   document.getElementById('tot').textContent=list.length+' screens available';
   document.getElementById('gr').innerHTML=list.map(function(s){
     var on=sel.has(s.id);
-    return'<div class="card'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="check">'+(on?'<svg width="14" height="14" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="banner" style="background:'+s._g+'"><span class="ref">#'+s.ref+'</span><span class="loc">'+s.location.city+', '+s.location.state+'</span></div><div class="info"><div class="name">'+s.name+'</div><div class="addr">'+s.location.address+'</div><div class="bottom"><span class="specs">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</span><span class="price">$'+s.pricing.per_day+'<small>/day</small></span></div></div></div>';
+    return'<div class="card'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="check">'+(on?'<svg width="14" height="14" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="banner" style="background:'+s._g+'"><span class="ref">'+(s.location_code||'#'+s.ref)+'</span><span class="loc">'+s.location.city+', '+s.location.state+'</span></div><div class="info"><div class="name">'+s.name+'</div><div class="addr">'+s.location.address+'</div><div class="bottom"><span class="specs">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</span><span class="price">$'+(s.pricing.per_month||s.pricing.per_day*30).toLocaleString()+'<small>/mo</small></span></div></div></div>';
   }).join('');
 }
 
@@ -288,7 +288,7 @@ function goCheckout(){
   var ss=S.filter(function(s){return sel.has(s.id)});
   document.getElementById('ch-sub').textContent=ss.length+' screen'+(ss.length>1?'s':'')+' selected';
   document.getElementById('ch-list').innerHTML=ss.map(function(s){
-    return'<div class="item"><div class="thumb" style="background:'+s._g+';border-radius:6px"></div><div style="flex:1"><div class="iname">'+s.name+'</div><div class="icity">'+s.location.city+', '+s.location.state+' · #'+s.ref+'</div></div><div class="iprice">$'+s.pricing.per_day+'/day</div></div>';
+    return'<div class="item"><div class="thumb" style="background:'+s._g+';border-radius:6px"></div><div style="flex:1"><div class="iname">'+s.name+'</div><div class="icity">'+s.location.city+', '+s.location.state+' · '+(s.location_code||'#'+s.ref)+'</div></div><div class="iprice">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</div></div>';
   }).join('');
   window.scrollTo(0,0);
   // Set orientation info based on selected screens
@@ -346,10 +346,10 @@ function goBack(){
 function calc(){
   var sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
   if(!sd||!ed||sel.size===0){document.getElementById('prc').classList.add('hidden');return}
-  var days=Math.max(Math.ceil((new Date(ed)-new Date(sd))/86400000)+1,1);
+  var dayCount=Math.max(Math.ceil((new Date(ed)-new Date(sd))/86400000)+1,1);var months=Math.max(Math.ceil(dayCount/30),1);
   var ss=S.filter(function(s){return sel.has(s.id)});
-  var h='';ss.forEach(function(s){var t=s.pricing.per_day*days;h+='<div class="trow"><span>'+s.name+'</span><span>$'+s.pricing.per_day+' × '+days+'d = $'+t.toLocaleString()+'</span></div>'});
-  var sub=ss.reduce(function(a,s){return a+s.pricing.per_day*days},0);
+  var h='';ss.forEach(function(s){var t=(s.pricing.per_month||s.pricing.per_day*30);h+='<div class="trow"><span>'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo+'</span></div>'});
+  var sub=ss.reduce(function(a,s){return a+(s.pricing.per_month||0)*months},0);
   var tax=Math.round(sub*.08*100)/100;var tot=sub+tax;
   h+='<div style="height:1px;background:rgba(30,41,59,.3);margin:8px 0"></div>';
   h+='<div class="trow"><span>Subtotal</span><span style="color:#e2e8f0;font-weight:600">$'+sub.toLocaleString()+'</span></div>';

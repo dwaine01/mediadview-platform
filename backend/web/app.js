@@ -226,7 +226,7 @@ const loaders={
               <div style="font-size:14px;font-weight:700;margin-bottom:14px">Add New Screen</div>
               <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
                 <div><label class="inp-label">Screen Name</label><input class="inp" id="ns-name" placeholder="e.g. Downtown LED Display"></div>
-                <div><label class="inp-label">City</label><input class="inp" id="ns-city" placeholder="e.g. New York"></div>
+                <div><label class="inp-label">Location Code</label><input class="inp" id="ns-code" placeholder="e.g. NYC-DT-001"></div>
               </div>
               <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px">
                 <div><label class="inp-label">Address</label><input class="inp" id="ns-addr" placeholder="e.g. 123 Main St"></div>
@@ -234,8 +234,8 @@ const loaders={
                 <div><label class="inp-label">Size</label><input class="inp" id="ns-size" placeholder="e.g. 20ft x 10ft"></div>
               </div>
               <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
-                <div><label class="inp-label">Price per Hour ($)</label><input class="inp" id="ns-phr" type="number" placeholder="250"></div>
-                <div><label class="inp-label">Price per Day ($)</label><input class="inp" id="ns-pday" type="number" placeholder="2000"></div>
+                <div><label class="inp-label">Price per Month ($)</label><input class="inp" id="ns-pm" type="number" placeholder="5000"></div>
+                <div><label class="inp-label">City</label><input class="inp" id="ns-city" placeholder="e.g. New York"></div>
                 <div><label class="inp-label">Resolution</label><input class="inp" id="ns-res" value="1920x1080"></div></div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"><div><label class="inp-label">Orientation</label><select class="inp" id="ns-orient"><option value="landscape">Landscape (Horizontal)</option><option value="portrait">Portrait (Vertical)</option></select></div>
               </div>
               <div style="display:flex;gap:8px">
@@ -246,12 +246,14 @@ const loaders={
             </div>
           </div>
           <div class="card">
-            <div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr auto"><span>Screen</span><span>Location</span><span>Price/hr</span><span>Status</span><span></span></div>
-            ${screens.map(s=>`<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr auto">
-              <div><span style="font-size:13px;font-weight:600">${s.name}</span><div style="font-size:10px;color:var(--t-4)">${s.specs?.size||''} · ${s.specs?.resolution||''}</div></div>
-              <span style="font-size:12px;color:var(--t-3)">${s.location?.city}, ${s.location?.state}</span>
-              <span style="font-size:14px;font-weight:700;color:var(--cyan)">$${s.pricing?.per_hour}</span>
-              <span style="font-size:11px;color:${s.specs?.orientation==='portrait'?'#f472b6':'#22d3ee'}">${s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape'}</span>
+            <div class="tbl-h" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto"><span>Screen</span><span>Code</span><span>Location</span><span>$/Month</span><span>Orient.</span><span></span><span></span></div>
+            ${screens.map(s=>`<div class="tbl-r" style="grid-template-columns:2fr 1fr 1fr 1fr 1fr auto auto">
+              <div><span style="font-size:13px;font-weight:600">${s.name}</span><div style="font-size:10px;color:var(--t-4)">${s.specs?.size||''}</div></div>
+              <span style="font-size:12px;font-weight:600;color:var(--brand-l)">${s.location_code||'—'}</span>
+              <span style="font-size:11px;color:var(--t-3)">${s.location?.city}, ${s.location?.state}</span>
+              <span style="font-size:14px;font-weight:700;color:var(--cyan)">$${(s.pricing?.per_month||0).toLocaleString()}</span>
+              <span style="font-size:11px;color:${s.specs?.orientation==='portrait'?'#f472b6':'#22d3ee'}">${s.specs?.orientation==='portrait'?'↕ Port':'↔ Land'}</span>
+              <button onclick="editScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(99,102,241,.1);color:var(--brand-l);font-size:10px;font-weight:600;border:none;cursor:pointer">Edit</button>
               <button onclick="removeScreen('${s.id}')" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button>
             </div>`).join('')}
           </div>
@@ -435,12 +437,19 @@ async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{
 async function addScreen(){
   const name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,phr=document.getElementById('ns-phr')?.value,pday=document.getElementById('ns-pday')?.value,res=document.getElementById('ns-res')?.value;
   const msg=document.getElementById('ns-msg');msg.style.display='none';
-  if(!name||!city||!phr){msg.textContent='Name, city and price/hr are required';msg.style.color='var(--red)';msg.style.display='block';return}
+  if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_hour:parseFloat(phr),per_day:parseFloat(pday)||parseFloat(phr)*8,per_slot:parseFloat(phr)/10,currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active'})});
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name,description:name+' in '+city,location:{city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',location_code:code||''})});
     msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+async function editScreen(id){
+  var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error loading screen');return}
+  var name=prompt('Screen Name:',s.name);if(!name)return;
+  var code=prompt('Location Code:',s.location_code||'');
+  var pm=prompt('Price per Month ($):',s.pricing?.per_month||5000);
+  var orient=prompt('Orientation (landscape or portrait):',s.specs?.orientation||'landscape');
+  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:name,location_code:code,pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:s.specs?.size,type:s.specs?.type,resolution:s.specs?.resolution,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
 async function removeScreen(id){if(!confirm('Remove this screen?'))return;try{await api('/admin/screens/'+id,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
 async function linkDevice(){
   const code=document.getElementById('dev-code')?.value,screenId=document.getElementById('dev-screen')?.value;

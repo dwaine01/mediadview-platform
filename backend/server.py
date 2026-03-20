@@ -123,6 +123,7 @@ class ScreenCreate(BaseModel):
     specs: ScreenSpecs = ScreenSpecs()
     preview_image: Optional[str] = None
     status: str = "active"
+    location_code: Optional[str] = None
 
 class ScreenUpdate(BaseModel):
     name: Optional[str] = None
@@ -132,6 +133,7 @@ class ScreenUpdate(BaseModel):
     specs: Optional[dict] = None
     preview_image: Optional[str] = None
     status: Optional[str] = None
+    location_code: Optional[str] = None
 
 class CampaignSchedule(BaseModel):
     start_date: str
@@ -755,7 +757,7 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
         "id": gen_id(), "name": data.name, "description": data.description,
         "location": data.location.dict(), "pricing": data.pricing.dict(),
         "specs": data.specs.dict(), "preview_image": data.preview_image,
-        "status": data.status, "active": True,
+        "status": data.status, "location_code": data.location_code, "active": True,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
