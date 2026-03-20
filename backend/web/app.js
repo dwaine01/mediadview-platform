@@ -281,22 +281,32 @@ const loaders={
           </div>
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Campaigns (${campaigns.length})</h2>
-            <div class="card">
-              ${campaigns.slice(0,15).map(c=>{
+            <div style="display:flex;flex-direction:column;gap:10px">
+              ${campaigns.slice(0,20).map(c=>{
                 var hasMedia=c.media_ids&&c.media_ids.length>0;
-                var mediaUrl=hasMedia?'/api/player/media/'+c.media_ids[0]:'';
-                return '<div style="padding:12px 16px;border-bottom:1px solid rgba(30,41,59,.2)">'+
-                  '<div style="display:flex;align-items:center;gap:12px">'+
-                    '<div class="dot" style="background:'+dot(c.status)+'"></div>'+
-                    '<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">'+c.name+'</div><div style="font-size:11px;color:var(--t-4)">'+(c.user?.name||'')+' · $'+(c.pricing?.total||0).toLocaleString()+'</div></div>'+
-                    badge(c.status)+
-                    (c.status==='pending'?'<button onclick="approveCamp(\''+c.id+'\',event)" class="btn-approve">Approve</button><button onclick="rejectCamp(\''+c.id+'\',event)" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:var(--red);font-size:11px;font-weight:700;border:none;cursor:pointer">Reject</button>':'')+
-                  '</div>'+
-                  (hasMedia?'<div style="margin-top:10px;margin-left:18px;display:flex;gap:8px;flex-wrap:wrap">'+c.media_ids.map(function(mid){return '<div style="position:relative"><img src="/api/player/media/'+mid+'" style="height:80px;border-radius:8px;border:1px solid #1e293b;object-fit:cover;cursor:pointer" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/\x27/g,'')+'\',\''+(c.user?.name||'').replace(/\x27/g,'')+'\',\''+c.status+'\')"><div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,.7);padding:1px 6px;border-radius:4px;font-size:9px;color:#94a3b8">Preview</div></div>'}).join('')+'</div>':'')+
-                '</div>'}).join('')}
-            </div>
-          </div>
-        </div>`;
+                var mid=hasMedia?c.media_ids[0]:'';
+                var isVid=c.name&&c.name.toLowerCase().includes('video');
+                return `<div class="card" style="padding:16px">
+                  <div style="display:flex;gap:16px">
+                    ${hasMedia?`<div style="width:160px;height:100px;border-radius:10px;overflow:hidden;background:#020617;flex-shrink:0;cursor:pointer;border:1px solid #1e293b;position:relative" onclick="openReview('${c.id}','${mid}','m','${c.name.replace(/'/g,'')}','${(c.user?.name||'').replace(/'/g,'')}','${c.status}')">
+                      <img src="/api/player/media/${mid}" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display='none';this.parentElement.innerHTML='<div style=\'display:flex;align-items:center;justify-content:center;height:100%;color:#475569;font-size:11px\'>Video</div>'">
+                      <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">Review</div></div>
+                    </div>`:'<div style="width:160px;height:100px;border-radius:10px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center;border:1px solid #1e293b"><span style="font-size:11px;color:#334155">No media</span></div>'}
+                    <div style="flex:1;min-width:0">
+                      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                        <span style="font-size:15px;font-weight:700">${c.name}</span>
+                        ${badge(c.status)}
+                      </div>
+                      <div style="font-size:12px;color:#64748b;margin-bottom:6px">${c.user?.name||'Unknown'} · ${c.screen?.name||'Screen'}</div>
+                      <div style="font-size:12px;color:#475569;margin-bottom:8px">${c.schedule?.start_date||''} → ${c.schedule?.end_date||''} · $${(c.pricing?.total||0).toLocaleString()}</div>
+                      <div style="display:flex;gap:8px">
+                        ${hasMedia?`<button onclick="openReview('${c.id}','${mid}','m','${c.name.replace(/'/g,'')}','${(c.user?.name||'').replace(/'/g,'')}','${c.status}')" style="padding:6px 16px;border-radius:8px;background:rgba(99,102,241,.1);color:#818cf8;font-size:12px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer">Review Content</button>`:''}
+                        ${c.status==='pending'?`<button onclick="modalApprove('${c.id}')" style="padding:6px 16px;border-radius:8px;background:rgba(52,211,153,.1);color:#34d399;font-size:12px;font-weight:600;border:1px solid rgba(52,211,153,.2);cursor:pointer">Approve</button><button onclick="rejectCamp('${c.id}')" style="padding:6px 16px;border-radius:8px;background:rgba(248,113,113,.1);color:#f87171;font-size:12px;font-weight:600;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>`:''}
+                      </div>
+                    </div>
+                  </div>
+                </div>`}).join('')}
+            </div>`;
       // Load playlists for screens
       loadPlaylists(screens);
     }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
