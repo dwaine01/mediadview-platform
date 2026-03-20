@@ -159,15 +159,50 @@ class MainActivity : Activity() {
         setContentView(root)
 
         // ===== START =====
+        checkOverlayPermission()
         if (screenId.isNotEmpty()) {
             loadPlayer()
         } else {
-            // No screen configured - show setup instructions
             showSetupMode()
         }
 
+        // Start overlay service for auto-boot
+        startOverlayService()
+
         // ===== KIOSK MODE =====
         startLockTask()
+    }
+
+    /**
+     * Check and request "Display over other apps" permission.
+     * This is what allows the app to auto-start on boot (like OptiSigns).
+     */
+    private fun checkOverlayPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!android.provider.Settings.canDrawOverlays(this)) {
+                val intent = Intent(
+                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    android.net.Uri.parse("package:$packageName")
+                )
+                startActivity(intent)
+            }
+        }
+    }
+
+    /**
+     * Start the overlay service for auto-boot capability
+     */
+    private fun startOverlayService() {
+        try {
+            val serviceIntent = Intent(this, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent)
+            } else {
+                startService(serviceIntent)
+            }
+        } catch (e: Exception) {
+            Log.e(PlayerApp.TAG, "Failed to start overlay service: ${e.message}")
+        }
     }
 
     /**

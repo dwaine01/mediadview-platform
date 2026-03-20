@@ -3,10 +3,11 @@ package com.mediaview.player
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.util.Log
 
 /**
- * Boot Receiver: Automatically starts MediaView Player when the device boots.
+ * Boot Receiver: Starts OverlayService which launches MediAd View on boot.
  * Works on Android TV, Fire TV, and standard Android devices.
  */
 class BootReceiver : BroadcastReceiver() {
@@ -19,17 +20,24 @@ class BootReceiver : BroadcastReceiver() {
             action == "android.intent.action.QUICKBOOT_POWERON" ||
             action == "android.intent.action.REBOOT") {
 
-            Log.i(PlayerApp.TAG, "Device booted - launching MediaView Player")
+            Log.i(PlayerApp.TAG, "Device booted - launching MediAd View")
 
-            val launchIntent = Intent(context, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            // Start overlay service which launches the app
+            val serviceIntent = Intent(context, OverlayService::class.java)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
             }
 
-            // Small delay to ensure system is ready
+            // Also launch the activity directly as backup
             android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                val launchIntent = Intent(context, MainActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                }
                 context.startActivity(launchIntent)
-            }, 3000) // 3 second delay after boot
+            }, 2000)
         }
     }
 }
