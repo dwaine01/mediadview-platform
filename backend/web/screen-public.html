@@ -141,94 +141,95 @@ body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:
   <!-- CHECKOUT -->
   <div class="checkout" id="v-checkout">
     <div class="steps">
-      <div class="step-dot done">✓</div><span class="step-label on">Screens Selected</span>
+      <div class="step-dot done">✓</div><span class="step-label on">Screens</span>
       <div class="step-line done"></div>
       <div class="step-dot on">2</div><span class="step-label on">Book & Pay</span>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px">
-      <div>
-        <h1 style="font-size:28px;font-weight:900;letter-spacing:-.5px">Complete Your Booking</h1>
-        <p style="font-size:14px;color:#64748b;margin-top:2px" id="ch-sub"></p>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
+      <div><h1 style="font-size:28px;font-weight:900;letter-spacing:-.5px">Complete Your Booking</h1><p style="font-size:14px;color:#64748b;margin-top:2px" id="ch-sub"></p></div>
       <button class="pill pill-ghost" onclick="goBack()">← Change Screens</button>
     </div>
 
-    <!-- Selected screens -->
-    <div class="ch-section">
-      <h3><span class="num">1</span> Selected Screens</h3>
-      <div class="ch-list" id="ch-list"></div>
-    </div>
-
-    <!-- Schedule -->
-    <div class="ch-section">
-      <h3><span class="num">2</span> Schedule</h3>
-      <div class="row2">
-        <div><div class="lbl">Start Date</div><input type="date" class="inp" id="b-s" onchange="calc()"></div>
-        <div><div class="lbl">End Date</div><input type="date" class="inp" id="b-e" onchange="calc()"></div>
-      </div>
-      <div id="prc" class="total-box hidden"></div>
-    </div>
-
-    <!-- Upload -->
-    <div class="ch-section">
-      <h3><span class="num">3</span> Your Advertisement</h3>
-      <div id="orient-info" style="background:rgba(34,211,238,.06);border:1px solid rgba(34,211,238,.12);border-radius:10px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:14px">
-        <div id="orient-icon" style="width:60px;height:40px;border:2px solid #22d3ee;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span></div>
-        <div><div style="font-size:13px;font-weight:700;color:#22d3ee" id="orient-label">Landscape Screen</div><div style="font-size:11px;color:#64748b" id="orient-desc">Upload a horizontal image (1920×1080)</div></div>
-      </div>
-      <div class="upload" onclick="document.getElementById('b-f').click()">
-        <svg width="32" height="32" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-        <p style="color:#475569;font-size:13px;margin-top:8px">Click to upload image or video</p>
-        <small style="color:#334155;font-size:11px" id="upload-hint">JPG, PNG, MP4 — 1920×1080 recommended</small>
-      </div>
-      <input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
-      <div id="preview-frame" class="hidden" style="margin-top:16px">
-        <div style="font-size:11px;font-weight:600;color:#94a3b8;margin-bottom:8px">PREVIEW — How your ad will look on screen:</div>
-        <div id="preview-screen" style="background:#000;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center;border:2px solid #1e293b;position:relative">
-          <img id="preview-img" style="object-fit:contain">
+    <div style="display:grid;grid-template-columns:5fr 3fr;gap:20px">
+      <!-- Left column: Form -->
+      <div>
+        <!-- Selected screens compact -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">1</span> Selected Screens</div>
+          <div id="ch-list" style="display:flex;flex-direction:column;gap:6px"></div>
         </div>
-        <div id="orient-warn" class="hidden" style="margin-top:8px;padding:10px;border-radius:8px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.15);font-size:12px;color:#fbbf24;display:flex;align-items:center;gap:8px">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          <span>Image orientation doesn't match this screen. Please upload a <span id="orient-need"></span> image for best results.</span>
-        </div>
-        <div id="orient-ok" class="hidden" style="margin-top:8px;padding:10px;border-radius:8px;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.15);font-size:12px;color:#34d399;display:flex;align-items:center;gap:8px">
-          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-          <span>Image matches the screen orientation perfectly!</span>
-        </div>
-      </div>
-      <div id="b-fn" style="font-size:12px;color:#22d3ee;margin-top:6px" class="hidden"></div>
-    </div>
 
-    <!-- Contact -->
-    <div class="ch-section">
-      <h3><span class="num">4</span> Your Information</h3>
-      <div class="row2" style="margin-bottom:10px">
-        <div><div class="lbl">Full Name</div><input class="inp" id="b-n" placeholder="John Smith"></div>
-        <div><div class="lbl">Email Address</div><input class="inp" id="b-m" placeholder="you@company.com" type="email"></div>
-      </div>
-      <div><div class="lbl">Phone (optional)</div><input class="inp" id="b-p" placeholder="+1 (555) 000-0000"></div>
-    </div>
+        <!-- Schedule -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">2</span> Campaign Duration</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
+            <div onclick="setQuick(1)" class="qbtn" id="q1" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">1</div><div style="font-size:10px;color:#64748b">Month</div></div>
+            <div onclick="setQuick(3)" class="qbtn" id="q3" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">3</div><div style="font-size:10px;color:#64748b">Months</div></div>
+            <div onclick="setQuick(6)" class="qbtn" id="q6" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">6</div><div style="font-size:10px;color:#64748b">Months</div></div>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:11px;color:#475569">Or select custom dates:</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div><div class="lbl">Start Date</div><input type="date" class="inp" id="b-s" onchange="calc()" style="color-scheme:dark"></div>
+            <div><div class="lbl">End Date</div><input type="date" class="inp" id="b-e" onchange="calc()" style="color-scheme:dark"></div>
+          </div>
+        </div>
 
-    <!-- Terms + Submit -->
-    <div class="ch-section" style="border-color:rgba(99,102,241,.15)">
-      <h3 style="color:#818cf8">Terms & Conditions</h3>
-      <div class="terms">
-        • All content must comply with local advertising laws and regulations<br>
-        • MediAd View reserves the right to reject or remove any content without prior notice<br>
-        • No offensive, misleading, or illegal content will be accepted<br>
-        • Approved content will be displayed during selected dates only<br>
-        • Payment is required before content goes live on any screen<br>
-        • Refunds are subject to our cancellation policy<br>
-        • Content must be in correct format: JPG, PNG, or MP4 (1920×1080)<br>
-        • MediAd View is not responsible for content accuracy or claims
+        <!-- Upload -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">3</span> Your Advertisement</div>
+          <div id="orient-box" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.1);margin-bottom:12px">
+            <div id="orient-icon" style="width:40px;height:28px;border:2px solid #22d3ee;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;color:#22d3ee;font-weight:700">16:9</span></div>
+            <div><span style="font-size:12px;font-weight:600;color:#22d3ee" id="orient-label">Landscape</span><span style="font-size:11px;color:#475569" id="orient-desc"> — Upload horizontal image (1920×1080)</span></div>
+          </div>
+          <div class="upload" onclick="document.getElementById('b-f').click()" style="padding:28px">
+            <svg width="28" height="28" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p style="color:#475569;font-size:13px;margin-top:6px">Click to upload image or video</p>
+            <small style="color:#334155;font-size:11px">JPG, PNG, MP4</small>
+          </div>
+          <input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
+          <div id="b-pv" class="prev hidden"></div>
+          <div id="b-fn" style="font-size:12px;color:#22d3ee;margin-top:6px" class="hidden"></div>
+        </div>
+
+        <!-- Contact -->
+        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
+          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">4</span> Your Information</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
+            <div><div class="lbl">Full Name</div><input class="inp" id="b-n" placeholder="John Smith"></div>
+            <div><div class="lbl">Email</div><input class="inp" id="b-m" placeholder="you@company.com" type="email"></div>
+          </div>
+          <div><div class="lbl">Phone (optional)</div><input class="inp" id="b-p" placeholder="+1 (555) 000-0000"></div>
+        </div>
       </div>
-      <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin:16px 0">
-        <input type="checkbox" id="b-t" style="margin-top:2px;accent-color:#6366f1;width:16px;height:16px">
-        <span style="font-size:12px;color:#94a3b8">I accept the Terms & Conditions and agree that MediAd View reserves the right to approve or reject any submitted content</span>
-      </label>
-      <button class="pill pill-primary" style="width:100%;padding:16px;font-size:16px;border-radius:12px" id="btn-go" onclick="book()">Submit & Pay</button>
-      <div id="bmsg" class="hidden"></div>
+
+      <!-- Right column: Summary -->
+      <div>
+        <div style="background:#0f172a;border:1px solid rgba(34,211,238,.15);border-radius:14px;padding:20px;position:sticky;top:80px">
+          <div style="font-size:15px;font-weight:700;margin-bottom:16px">Order Summary</div>
+          <div id="prc" style="margin-bottom:16px"><p style="color:#475569;font-size:13px">Select dates to see pricing</p></div>
+
+          <!-- Terms -->
+          <div style="max-height:120px;overflow-y:auto;margin-bottom:14px;padding:10px;background:#020617;border-radius:8px;border:1px solid #1e293b">
+            <div style="font-size:10px;color:#475569;line-height:1.7">
+              By submitting, you agree that: All content must comply with advertising laws. MediAd View may reject content without notice. No offensive or illegal content. Payment required before going live. Content shown during selected dates only. MediAd View not liable for content accuracy.
+            </div>
+          </div>
+
+          <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;cursor:pointer">
+            <input type="checkbox" id="b-t" style="margin-top:2px;accent-color:#6366f1;width:16px;height:16px;flex-shrink:0">
+            <span style="font-size:11px;color:#64748b">I accept the Terms & Conditions</span>
+          </label>
+
+          <button class="pill pill-primary" style="width:100%;padding:16px;font-size:15px;border-radius:12px" id="btn-go" onclick="book()">Submit & Pay</button>
+          <div id="bmsg" class="hidden"></div>
+
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px">
+            <svg width="14" height="14" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            <span style="font-size:10px;color:#334155">Secure payment processing</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -288,7 +289,7 @@ function goCheckout(){
   var ss=S.filter(function(s){return sel.has(s.id)});
   document.getElementById('ch-sub').textContent=ss.length+' screen'+(ss.length>1?'s':'')+' selected';
   document.getElementById('ch-list').innerHTML=ss.map(function(s){
-    return'<div class="item"><div class="thumb" style="background:'+s._g+';border-radius:6px"></div><div style="flex:1"><div class="iname">'+s.name+'</div><div class="icity">'+s.location.city+', '+s.location.state+' · '+(s.location_code||'#'+s.ref)+'</div></div><div class="iprice">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</div></div>';
+    return'<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#020617;border-radius:8px"><div style="width:36px;height:24px;border-radius:4px;background:'+s._g+';flex-shrink:0"></div><div style="flex:1;font-size:12px"><span style="font-weight:600">'+s.name+'</span><span style="color:#475569"> · '+(s.location_code||'')+'</span></div><span style="font-size:13px;font-weight:700;color:#22d3ee">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>';
   }).join('');
   window.scrollTo(0,0);
   // Set orientation info based on selected screens
@@ -315,6 +316,15 @@ function goCheckout(){
   }
 }
 
+function setQuick(months){
+  var today=new Date();
+  var end=new Date(today);end.setMonth(end.getMonth()+months);
+  document.getElementById('b-s').value=today.toISOString().split('T')[0];
+  document.getElementById('b-e').value=end.toISOString().split('T')[0];
+  document.querySelectorAll('.qbtn').forEach(function(b){b.style.borderColor='#1e293b';b.style.background='transparent';b.style.color='#e2e8f0'});
+  var btn=document.getElementById('q'+months);if(btn){btn.style.borderColor='#22d3ee';btn.style.background='rgba(34,211,238,.08)';btn.style.color='#22d3ee'}
+  calc();
+}
 function goBack(){
   document.getElementById('v-market').classList.remove('off');
   document.getElementById('v-checkout').classList.remove('on');
