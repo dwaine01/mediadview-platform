@@ -3,260 +3,206 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MediAd View — Book Ad Space</title>
+<title>MediAd View — Advertise Your Business</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:100vh}
-
-/* Header */
-.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 32px;border-bottom:1px solid rgba(30,41,59,.3);background:rgba(2,6,23,.8);backdrop-filter:blur(12px);position:sticky;top:0;z-index:50}
-.topbar .brand{display:flex;align-items:center;gap:10px}
-.topbar img{height:28px}
-.topbar .tag{font-size:8px;color:#22d3ee;letter-spacing:2.5px;font-weight:700;text-transform:uppercase}
-
-.wrap{max-width:1280px;margin:0 auto;padding:32px}
-
-/* Step indicator */
-.steps{display:flex;align-items:center;gap:12px;margin-bottom:32px}
-.step-dot{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700}
-.step-dot.on{background:#6366f1;color:#fff}
-.step-dot.off{background:#1e293b;color:#475569}
-.step-dot.done{background:#10b981;color:#fff}
-.step-line{width:40px;height:2px;background:#1e293b}
-.step-line.done{background:#10b981}
-.step-label{font-size:12px;font-weight:600;margin-left:6px}
-.step-label.on{color:#e2e8f0}
-.step-label.off{color:#475569}
-
-/* Search */
-.searchbox{position:relative;margin-bottom:24px}
-.searchbox input{width:100%;padding:14px 20px 14px 48px;background:#0f172a;border:1px solid #1e293b;border-radius:12px;color:#f1f5f9;font-size:15px;font-family:inherit;transition:border .2s}
-.searchbox input:focus{border-color:#6366f1;outline:none}
-.searchbox input::placeholder{color:#334155}
-.searchbox svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:#475569}
-
-/* Toolbar */
-.bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
-.bar .left{display:flex;align-items:center;gap:10px}
-.pill{padding:8px 18px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
-.pill-cyan{background:rgba(34,211,238,.1);color:#22d3ee;border:1px solid rgba(34,211,238,.15)}.pill-cyan:hover{background:rgba(34,211,238,.18)}
-.pill-ghost{background:transparent;color:#64748b;border:1px solid #1e293b}.pill-ghost:hover{color:#e2e8f0;border-color:#334155}
-.pill-primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.25);border:none;padding:10px 28px;font-size:14px}.pill-primary:hover{box-shadow:0 6px 22px rgba(99,102,241,.35);transform:translateY(-1px)}
-.pill-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
-.counter{font-size:13px;color:#64748b}
-
-/* Grid */
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
-.card{background:#0f172a;border:2px solid transparent;border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
-.card:hover{border-color:rgba(99,102,241,.25);box-shadow:0 4px 20px rgba(0,0,0,.3)}
-.card.on{border-color:#22d3ee;box-shadow:0 0 0 1px #22d3ee}
-.card .check{position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);backdrop-filter:blur(4px);z-index:2;transition:all .15s}
-.card.on .check{background:#22d3ee;border-color:#22d3ee}
-.card .banner{height:90px;position:relative;display:flex;align-items:flex-end;padding:12px}
-.card .ref{position:absolute;top:8px;left:10px;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;background:rgba(0,0,0,.5);color:#fff;backdrop-filter:blur(4px)}
-.card .loc{padding:3px 8px;border-radius:5px;font-size:10px;font-weight:600;background:rgba(0,0,0,.35);color:rgba(255,255,255,.9);backdrop-filter:blur(4px)}
-.card .info{padding:14px 16px}
-.card .name{font-size:15px;font-weight:700;margin-bottom:3px}
-.card .addr{font-size:11px;color:#64748b;margin-bottom:10px}
-.card .bottom{display:flex;justify-content:space-between;align-items:center}
-.card .specs{font-size:10px;color:#475569}
-.card .price{font-size:18px;font-weight:800;color:#22d3ee}
-.card .price small{font-size:10px;color:#475569;font-weight:400}
-
-/* Next bar */
-.nextbar{position:fixed;bottom:0;left:0;right:0;background:rgba(2,6,23,.9);backdrop-filter:blur(16px);border-top:1px solid rgba(30,41,59,.4);padding:14px 32px;display:flex;align-items:center;justify-content:space-between;z-index:50;transform:translateY(100%);transition:transform .3s ease}
-.nextbar.show{transform:translateY(0)}
-.nextbar .summary{font-size:14px;font-weight:600}
-.nextbar .summary span{color:#22d3ee}
-
-/* Checkout page */
-.checkout{display:none}
-.checkout.on{display:block}
-.marketplace{display:block}
-.marketplace.off{display:none}
-.ch-section{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:24px;margin-bottom:16px}
-.ch-section h3{font-size:14px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px}
-.ch-section h3 .num{width:24px;height:24px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px}
-.ch-list .item{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid rgba(30,41,59,.3)}
-.ch-list .item:last-child{border:none}
-.ch-list .thumb{width:48px;height:32px;border-radius:6px;flex-shrink:0}
-.ch-list .iname{font-size:13px;font-weight:600;flex:1}
-.ch-list .icity{font-size:11px;color:#64748b}
-.ch-list .iprice{font-size:14px;font-weight:700;color:#22d3ee}
-.inp{width:100%;padding:12px 14px;background:#020617;border:1px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit;transition:border .15s}
+.top{padding:14px 28px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(30,41,59,.3);background:rgba(2,6,23,.9);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px)}
+.top img{height:28px}.top span{font-size:9px;color:#22d3ee;letter-spacing:2.5px;font-weight:700}
+.wrap{max-width:1200px;margin:0 auto;padding:28px}
+h1{font-size:30px;font-weight:900;letter-spacing:-.5px;margin-bottom:4px}
+.sub{font-size:14px;color:#64748b}
+.steps{display:flex;align-items:center;gap:8px;margin:24px 0}
+.sdot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
+.sdot.on{background:#6366f1;color:#fff}.sdot.off{background:#1e293b;color:#475569}.sdot.ok{background:#10b981;color:#fff}
+.sline{width:32px;height:2px;background:#1e293b}.sline.ok{background:#10b981}
+.slbl{font-size:12px;font-weight:600;margin-left:4px}.slbl.on{color:#e2e8f0}.slbl.off{color:#475569}
+.lbl{display:block;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
+.inp{width:100%;padding:11px 14px;background:#0f172a;border:1.5px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit;transition:border .2s;color-scheme:dark}
 .inp:focus{border-color:#6366f1;outline:none}
-.lbl{display:block;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.upload{border:2px dashed #1e293b;border-radius:12px;padding:32px;text-align:center;cursor:pointer;transition:all .15s}
-.upload:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.02)}
-.prev{margin-top:10px;border-radius:10px;overflow:hidden;max-height:200px}
-.prev img{width:100%;object-fit:contain;max-height:200px}
-.total-box{background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.12);border-radius:12px;padding:20px;margin:16px 0}
-.trow{display:flex;justify-content:space-between;font-size:13px;color:#94a3b8;margin-bottom:4px}
-.ttotal{display:flex;justify-content:space-between;font-size:24px;font-weight:800;padding-top:12px;margin-top:12px;border-top:1px solid rgba(30,41,59,.4)}
-.ttotal .v{color:#22d3ee}
-.terms{font-size:10px;color:#475569;line-height:1.8;columns:2;column-gap:24px;margin:12px 0}
-.msg{padding:10px;border-radius:8px;font-size:13px;text-align:center;margin-top:10px;background:rgba(239,68,68,.1);color:#f87171}
-.ok-box{text-align:center;padding:48px;background:#0f172a;border-radius:16px;border:1px solid rgba(52,211,153,.2);margin:40px auto;max-width:500px}
-.ok-box h2{color:#34d399;font-size:24px;margin:12px 0 8px}
+.inp::placeholder{color:#334155}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;overflow:hidden}
+.btn-main{width:100%;padding:15px;border-radius:12px;font-size:15px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.3);transition:all .2s}
+.btn-main:hover{box-shadow:0 6px 22px rgba(99,102,241,.4);transform:translateY(-1px)}
+.btn-main:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.btn-back{background:none;border:1px solid #1e293b;color:#64748b;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+
+/* Grid card */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.scard{background:#0f172a;border:2px solid transparent;border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s}
+.scard:hover{border-color:rgba(99,102,241,.3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.scard.on{border-color:#22d3ee}
+.scard .ban{height:80px;position:relative;display:flex;align-items:flex-end;padding:10px}
+.scard .tag{padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;background:rgba(0,0,0,.5);color:#fff}
+.scard .bd{padding:12px 14px}
+.scard .nm{font-size:14px;font-weight:700;margin-bottom:2px}
+.scard .lc{font-size:10px;color:#475569;margin-bottom:8px}
+.scard .ft{display:flex;justify-content:space-between;align-items:center}
+.scard .pr{font-size:17px;font-weight:800;color:#22d3ee}
+.scard .pr span{font-size:9px;color:#475569;font-weight:400}
+.scard .ck{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);z-index:2}
+.scard.on .ck{background:#22d3ee;border-color:#22d3ee}
+
+/* Month buttons */
+.mbtn{padding:14px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s;background:transparent}
+.mbtn:hover{border-color:rgba(34,211,238,.3)}
+.mbtn.on{border-color:#22d3ee;background:rgba(34,211,238,.06)}
+.mbtn .mv{font-size:22px;font-weight:800}.mbtn.on .mv{color:#22d3ee}
+.mbtn .ml{font-size:10px;color:#475569}.mbtn.on .ml{color:#22d3ee}
+
+/* Upload */
+.upl{border:2px dashed #1e293b;border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .15s}
+.upl:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.02)}
+
+/* Floating bar */
+.fbar{position:fixed;bottom:0;left:0;right:0;background:rgba(2,6,23,.9);backdrop-filter:blur(12px);border-top:1px solid rgba(30,41,59,.4);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;z-index:50;transform:translateY(100%);transition:transform .3s}
+.fbar.show{transform:translateY(0)}
+
+.ok-box{text-align:center;padding:48px;max-width:480px;margin:60px auto}
+.ok-box h2{font-size:26px;font-weight:800;color:#34d399;margin:16px 0 8px}
 .hidden{display:none}
 </style>
 </head>
 <body>
-
-<div class="topbar">
-  <div class="brand"><img src="/api/web/logo.png" alt="MediAd View"><span class="tag">Digital Signage Platform</span></div>
-</div>
+<div class="top"><img src="/api/web/logo.png" alt="MediAd View"><span>DIGITAL SIGNAGE PLATFORM</span></div>
 
 <div class="wrap">
-  <!-- MARKETPLACE -->
-  <div class="marketplace" id="v-market">
+  <!-- VIEW 1: MARKETPLACE -->
+  <div id="v1">
     <div class="steps">
-      <div class="step-dot on">1</div><span class="step-label on">Select Screens</span>
-      <div class="step-line"></div>
-      <div class="step-dot off">2</div><span class="step-label off">Book & Pay</span>
+      <div class="sdot on">1</div><span class="slbl on">Choose Screens</span>
+      <div class="sline"></div>
+      <div class="sdot off">2</div><span class="slbl off">Book & Pay</span>
     </div>
-
-    <h1 style="font-size:32px;font-weight:900;margin-bottom:6px;letter-spacing:-.5px">Choose Your Screens</h1>
-    <p style="font-size:15px;color:#64748b;margin-bottom:24px">Select one or more screens to advertise on</p>
-
-    <div class="searchbox">
-      <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input id="q" placeholder="Search by city, address, zip code, or screen number..." oninput="fil()">
+    <h1>Advertise Your Business</h1>
+    <p class="sub" style="margin-bottom:20px">Select screens to display your ad</p>
+    <div style="position:relative;margin-bottom:16px">
+      <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%)" width="16" height="16" fill="none" stroke="#475569" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="inp" id="q" placeholder="Search by city, address, or screen code..." oninput="fil()" style="padding-left:40px">
     </div>
-
-    <div class="bar">
-      <div class="left">
-        <button class="pill pill-cyan" onclick="selAll()">Select All</button>
-        <button class="pill pill-ghost" onclick="clr()">Clear</button>
-        <span class="counter" id="cnt">0 screens selected</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="display:flex;gap:8px;align-items:center">
+        <button onclick="selAll()" style="padding:6px 14px;border-radius:8px;background:rgba(34,211,238,.08);color:#22d3ee;border:1px solid rgba(34,211,238,.15);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Select All</button>
+        <button onclick="clr()" style="padding:6px 14px;border-radius:8px;background:#0f172a;color:#64748b;border:1px solid #1e293b;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Clear</button>
+        <span id="cnt" style="font-size:12px;color:#475569">0 selected</span>
       </div>
-      <span class="counter" id="tot"></span>
+      <span id="tot" style="font-size:12px;color:#475569"></span>
     </div>
-
-    <div class="grid" id="gr"></div>
+    <div class="sgrid" id="gr"></div>
   </div>
 
-  <!-- CHECKOUT -->
-  <div class="checkout" id="v-checkout">
+  <!-- VIEW 2: CHECKOUT -->
+  <div id="v2" class="hidden">
     <div class="steps">
-      <div class="step-dot done">✓</div><span class="step-label on">Screens</span>
-      <div class="step-line done"></div>
-      <div class="step-dot on">2</div><span class="step-label on">Book & Pay</span>
+      <div class="sdot ok">✓</div><span class="slbl on">Screens</span>
+      <div class="sline ok"></div>
+      <div class="sdot on">2</div><span class="slbl on">Book & Pay</span>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
+      <div><h1>Complete Your Booking</h1><p class="sub" id="ch-sub"></p></div>
+      <button class="btn-back" onclick="back()">← Change Screens</button>
     </div>
 
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:28px">
-      <div><h1 style="font-size:28px;font-weight:900;letter-spacing:-.5px">Complete Your Booking</h1><p style="font-size:14px;color:#64748b;margin-top:2px" id="ch-sub"></p></div>
-      <button class="pill pill-ghost" onclick="goBack()">← Change Screens</button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:5fr 3fr;gap:20px">
-      <!-- Left column: Form -->
+    <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px">
+      <!-- Left: Form -->
       <div>
-        <!-- Selected screens compact -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:12px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">1</span> Selected Screens</div>
-          <div id="ch-list" style="display:flex;flex-direction:column;gap:6px"></div>
+        <!-- Selected screens -->
+        <div class="card" style="padding:16px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px">SELECTED SCREENS</div>
+          <div id="ch-list"></div>
         </div>
 
-        <!-- Schedule -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">2</span> Campaign Duration</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">
-            <div onclick="setQuick(1)" class="qbtn" id="q1" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">1</div><div style="font-size:10px;color:#64748b">Month</div></div>
-            <div onclick="setQuick(3)" class="qbtn" id="q3" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">3</div><div style="font-size:10px;color:#64748b">Months</div></div>
-            <div onclick="setQuick(6)" class="qbtn" id="q6" style="padding:12px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s"><div style="font-size:18px;font-weight:800">6</div><div style="font-size:10px;color:#64748b">Months</div></div>
+        <!-- Duration -->
+        <div class="card" style="padding:16px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px">CAMPAIGN DURATION</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
+            <div class="mbtn" onclick="setM(1)" id="m1"><div class="mv">1</div><div class="ml">Month</div></div>
+            <div class="mbtn" onclick="setM(3)" id="m3"><div class="mv">3</div><div class="ml">Months</div></div>
+            <div class="mbtn" onclick="setM(6)" id="m6"><div class="mv">6</div><div class="ml">Months</div></div>
+            <div class="mbtn" onclick="setM(12)" id="m12"><div class="mv">12</div><div class="ml">Months</div></div>
           </div>
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:11px;color:#475569">Or select custom dates:</span></div>
+          <div style="font-size:10px;color:#334155;margin-bottom:8px">Or choose custom dates:</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><div class="lbl">Start Date</div><input type="date" class="inp" id="b-s" onchange="calc()" style="color-scheme:dark"></div>
-            <div><div class="lbl">End Date</div><input type="date" class="inp" id="b-e" onchange="calc()" style="color-scheme:dark"></div>
+            <div><div class="lbl">Start</div><input type="date" class="inp" id="b-s" onchange="calc()"></div>
+            <div><div class="lbl">End</div><input type="date" class="inp" id="b-e" onchange="calc()"></div>
           </div>
         </div>
 
         <!-- Upload -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:6px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">3</span> Your Advertisement</div>
-          <div id="orient-box" style="display:flex;align-items:center;gap:10px;padding:10px;border-radius:8px;background:rgba(34,211,238,.05);border:1px solid rgba(34,211,238,.1);margin-bottom:12px">
-            <div id="orient-icon" style="width:40px;height:28px;border:2px solid #22d3ee;border-radius:4px;display:flex;align-items:center;justify-content:center;flex-shrink:0"><span style="font-size:8px;color:#22d3ee;font-weight:700">16:9</span></div>
-            <div><span style="font-size:12px;font-weight:600;color:#22d3ee" id="orient-label">Landscape</span><span style="font-size:11px;color:#475569" id="orient-desc"> — Upload horizontal image (1920×1080)</span></div>
+        <div class="card" style="padding:16px;margin-bottom:14px">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">YOUR ADVERTISEMENT</div>
+          <div id="ori" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.08);margin-bottom:10px;font-size:11px;color:#22d3ee">
+            <span id="ori-i" style="display:inline-block;width:28px;height:18px;border:2px solid #22d3ee;border-radius:3px"></span>
+            <span id="ori-t">Landscape — Upload horizontal image (1920×1080)</span>
           </div>
-          <div class="upload" onclick="document.getElementById('b-f').click()" style="padding:28px">
-            <svg width="28" height="28" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <p style="color:#475569;font-size:13px;margin-top:6px">Click to upload image or video</p>
-            <small style="color:#334155;font-size:11px">JPG, PNG, MP4</small>
+          <div class="upl" onclick="document.getElementById('bf').click()">
+            <svg width="24" height="24" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <div style="font-size:12px;color:#475569;margin-top:6px">Click to upload image or video</div>
+            <div style="font-size:10px;color:#1e293b">JPG, PNG, MP4</div>
           </div>
-          <input type="file" id="b-f" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
-          <div id="b-pv" class="prev hidden"></div>
-          <div id="b-fn" style="font-size:12px;color:#22d3ee;margin-top:6px" class="hidden"></div>
+          <input type="file" id="bf" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
+          <div id="pv" class="hidden" style="margin-top:10px;border-radius:10px;overflow:hidden;max-height:180px"><img id="pvimg" style="width:100%;object-fit:contain;max-height:180px"></div>
+          <div id="fn" style="font-size:11px;color:#22d3ee;margin-top:6px" class="hidden"></div>
         </div>
 
         <!-- Contact -->
-        <div style="background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:18px;margin-bottom:16px">
-          <div style="font-size:13px;font-weight:700;margin-bottom:14px;display:flex;align-items:center;gap:8px"><span style="width:22px;height:22px;border-radius:50%;background:#6366f1;color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px">4</span> Your Information</div>
+        <div class="card" style="padding:16px">
+          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px">YOUR INFORMATION</div>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div><div class="lbl">Full Name</div><input class="inp" id="b-n" placeholder="John Smith"></div>
-            <div><div class="lbl">Email</div><input class="inp" id="b-m" placeholder="you@company.com" type="email"></div>
+            <div><div class="lbl">Full Name</div><input class="inp" id="bn" placeholder="John Smith"></div>
+            <div><div class="lbl">Email</div><input class="inp" id="bm" type="email" placeholder="you@company.com"></div>
           </div>
-          <div><div class="lbl">Phone (optional)</div><input class="inp" id="b-p" placeholder="+1 (555) 000-0000"></div>
+          <div><div class="lbl">Phone (optional)</div><input class="inp" id="bp" placeholder="+1 (555) 000-0000"></div>
         </div>
       </div>
 
-      <!-- Right column: Summary -->
+      <!-- Right: Summary (sticky) -->
       <div>
-        <div style="background:#0f172a;border:1px solid rgba(34,211,238,.15);border-radius:14px;padding:20px;position:sticky;top:80px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:16px">Order Summary</div>
-          <div id="prc" style="margin-bottom:16px"><p style="color:#475569;font-size:13px">Select dates to see pricing</p></div>
-
-          <!-- Terms -->
-          <div style="max-height:120px;overflow-y:auto;margin-bottom:14px;padding:10px;background:#020617;border-radius:8px;border:1px solid #1e293b">
-            <div style="font-size:10px;color:#475569;line-height:1.7">
-              By submitting, you agree that: All content must comply with advertising laws. MediAd View may reject content without notice. No offensive or illegal content. Payment required before going live. Content shown during selected dates only. MediAd View not liable for content accuracy.
-            </div>
-          </div>
-
-          <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:16px;cursor:pointer">
-            <input type="checkbox" id="b-t" style="margin-top:2px;accent-color:#6366f1;width:16px;height:16px;flex-shrink:0">
-            <span style="font-size:11px;color:#64748b">I accept the Terms & Conditions</span>
-          </label>
-
-          <button class="pill pill-primary" style="width:100%;padding:16px;font-size:15px;border-radius:12px" id="btn-go" onclick="book()">Submit & Pay</button>
-          <div id="bmsg" class="hidden"></div>
-
-          <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:12px">
-            <svg width="14" height="14" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-            <span style="font-size:10px;color:#334155">Secure payment processing</span>
+        <div style="position:sticky;top:70px">
+          <div class="card" style="padding:18px;border-color:rgba(34,211,238,.12)">
+            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Order Summary</div>
+            <div id="prc"><div style="color:#334155;font-size:12px">Select duration to see pricing</div></div>
+            <div style="height:1px;background:#1e293b;margin:14px 0"></div>
+            <div style="max-height:80px;overflow-y:auto;margin-bottom:12px;font-size:10px;color:#334155;line-height:1.7">By submitting, you agree: All content must comply with advertising laws. MediAd View may reject content without notice. No offensive or illegal content. Payment required before going live.</div>
+            <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;cursor:pointer">
+              <input type="checkbox" id="bt" style="margin-top:2px;accent-color:#6366f1;width:15px;height:15px;flex-shrink:0">
+              <span style="font-size:11px;color:#475569">I accept the Terms & Conditions</span>
+            </label>
+            <button class="btn-main" id="bbtn" onclick="book()">Submit & Pay</button>
+            <div id="bmsg" class="hidden" style="padding:8px;border-radius:6px;font-size:12px;text-align:center;margin-top:8px;background:rgba(239,68,68,.1);color:#f87171"></div>
+            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px"><svg width="12" height="12" fill="none" stroke="#1e293b" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span style="font-size:9px;color:#1e293b">Secure payment</span></div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- SUCCESS -->
-  <div id="v-ok" class="hidden">
+  <!-- VIEW 3: SUCCESS -->
+  <div id="v3" class="hidden">
     <div class="ok-box">
-      <svg width="48" height="48" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <h2>Ad Submitted Successfully!</h2>
-      <p style="color:#94a3b8;font-size:14px" id="ok-d"></p>
-      <button class="pill pill-cyan" onclick="location.reload()" style="margin-top:20px;padding:10px 24px">Book More Screens</button>
+      <svg width="56" height="56" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+      <h2>Ad Submitted!</h2>
+      <p style="color:#64748b;font-size:14px" id="okd"></p>
+      <button onclick="location.reload()" style="margin-top:20px;padding:10px 24px;border-radius:10px;background:rgba(34,211,238,.08);color:#22d3ee;border:1px solid rgba(34,211,238,.15);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Book More Screens</button>
     </div>
   </div>
 </div>
 
-<!-- Floating Next Bar -->
-<div class="nextbar" id="nextbar">
-  <div class="summary"><span id="nb-cnt">0</span> screens selected</div>
-  <button class="pill pill-primary" id="nb-btn" onclick="goCheckout()">Next: Book & Pay →</button>
+<!-- Floating next bar -->
+<div class="fbar" id="fbar">
+  <div style="font-size:14px;font-weight:600"><span id="fc" style="color:#22d3ee">0</span> screens selected</div>
+  <button onclick="goCheckout()" style="padding:10px 28px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 15px rgba(99,102,241,.3)">Next: Book & Pay →</button>
 </div>
 
 <script>
-var S=[],sel=new Set(),fb=null,fn='',ft='';
+var S=[],sel=new Set(),fb=null,fn2='',ft='',months=0;
 var G=['linear-gradient(135deg,#1e40af,#60a5fa)','linear-gradient(135deg,#c2410c,#fb923c)','linear-gradient(135deg,#0f766e,#5eead4)','linear-gradient(135deg,#6d28d9,#c4b5fd)','linear-gradient(135deg,#b45309,#fbbf24)','linear-gradient(135deg,#be185d,#f9a8d4)','linear-gradient(135deg,#047857,#6ee7b7)','linear-gradient(135deg,#4338ca,#a5b4fc)','linear-gradient(135deg,#0e7490,#67e8f9)','linear-gradient(135deg,#be123c,#fda4af)'];
 
 async function init(){
   var r=await fetch('/api/screens');S=await r.json();
   S.forEach(function(s,i){s.ref=String(1001+i);s._g=G[i%G.length]});
+  document.getElementById('tot').textContent=S.length+' screens available';
   fil();
   var t=new Date().toISOString().split('T')[0];
   document.getElementById('b-s').min=t;document.getElementById('b-e').min=t;
@@ -264,136 +210,76 @@ async function init(){
 
 function fil(){
   var q=(document.getElementById('q')?.value||'').toLowerCase();
-  var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||s.location.state.toLowerCase().includes(q)||s.ref.includes(q)||(s.location_code||'').toLowerCase().includes(q)}):S;
-  document.getElementById('tot').textContent=list.length+' screens available';
+  var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||(s.location_code||'').toLowerCase().includes(q)||s.ref.includes(q)}):S;
   document.getElementById('gr').innerHTML=list.map(function(s){
     var on=sel.has(s.id);
-    return'<div class="card'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="check">'+(on?'<svg width="14" height="14" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="banner" style="background:'+s._g+'"><span class="ref">'+(s.location_code||'#'+s.ref)+'</span><span class="loc">'+s.location.city+', '+s.location.state+'</span></div><div class="info"><div class="name">'+s.name+'</div><div class="addr">'+s.location.address+'</div><div class="bottom"><span class="specs">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</span><span class="price">$'+(s.pricing.per_month||s.pricing.per_day*30).toLocaleString()+'<small>/mo</small></span></div></div></div>';
+    return '<div class="scard'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="ck">'+(on?'<svg width="12" height="12" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="ban" style="background:'+s._g+'"><span class="tag">'+(s.location_code||'#'+s.ref)+'</span></div><div class="bd"><div class="nm">'+s.name+'</div><div class="lc">'+s.location.address+', '+s.location.city+'</div><div class="ft"><span style="font-size:10px;color:#475569">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕':'↔')+'</span><span class="pr">$'+(s.pricing.per_month||0).toLocaleString()+'<span>/mo</span></span></div></div></div>';
   }).join('');
 }
 
 function tog(id){if(sel.has(id))sel.delete(id);else sel.add(id);upd()}
-function selAll(){var q=(document.getElementById('q')?.value||'').toLowerCase();var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||s.ref.includes(q)}):S;list.forEach(function(s){sel.add(s.id)});upd()}
+function selAll(){var q=(document.getElementById('q')?.value||'').toLowerCase();var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||(s.location_code||'').toLowerCase().includes(q)}):S;list.forEach(function(s){sel.add(s.id)});upd()}
 function clr(){sel.clear();upd()}
-function upd(){
-  fil();
-  document.getElementById('cnt').textContent=sel.size+' screens selected';
-  document.getElementById('nb-cnt').textContent=sel.size;
-  document.getElementById('nextbar').classList.toggle('show',sel.size>0);
-}
+function upd(){fil();document.getElementById('cnt').textContent=sel.size+' selected';document.getElementById('fc').textContent=sel.size;document.getElementById('fbar').classList.toggle('show',sel.size>0)}
 
 function goCheckout(){
-  document.getElementById('v-market').classList.add('off');
-  document.getElementById('v-checkout').classList.add('on');
-  document.getElementById('nextbar').classList.remove('show');
+  document.getElementById('v1').classList.add('hidden');document.getElementById('v2').classList.remove('hidden');
   var ss=S.filter(function(s){return sel.has(s.id)});
   document.getElementById('ch-sub').textContent=ss.length+' screen'+(ss.length>1?'s':'')+' selected';
-  document.getElementById('ch-list').innerHTML=ss.map(function(s){
-    return'<div style="display:flex;align-items:center;gap:10px;padding:8px;background:#020617;border-radius:8px"><div style="width:36px;height:24px;border-radius:4px;background:'+s._g+';flex-shrink:0"></div><div style="flex:1;font-size:12px"><span style="font-weight:600">'+s.name+'</span><span style="color:#475569"> · '+(s.location_code||'')+'</span></div><span style="font-size:13px;font-weight:700;color:#22d3ee">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>';
-  }).join('');
+  document.getElementById('ch-list').innerHTML=ss.map(function(s){return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1e293b"><div style="width:32px;height:20px;border-radius:4px;background:'+s._g+';flex-shrink:0"></div><span style="flex:1;font-size:12px;font-weight:600">'+s.name+'</span><span style="font-size:12px;font-weight:700;color:#22d3ee">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'}).join('');
+  document.getElementById('fbar').classList.remove('show');
   window.scrollTo(0,0);
-  // Set orientation info based on selected screens
-  var orientations=ss.map(function(s){return s.specs?.orientation||'landscape'});
-  var hasPortrait=orientations.includes('portrait');
-  var hasLandscape=orientations.includes('landscape');
-  var mixed=hasPortrait&&hasLandscape;
-  var orient=mixed?'mixed':hasPortrait?'portrait':'landscape';
-  window._orient=orient;
-  var oi=document.getElementById('orient-info');
-  var icon=document.getElementById('orient-icon');
-  var label=document.getElementById('orient-label');
-  var desc=document.getElementById('orient-desc');
-  var hint=document.getElementById('upload-hint');
-  if(orient==='portrait'){
-    icon.style.width='40px';icon.style.height='60px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">9:16</span>';
-    label.textContent='Portrait Screen';desc.textContent='Upload a vertical image (1080×1920)';hint.textContent='JPG, PNG, MP4 — 1080×1920 recommended';
-  }else if(orient==='mixed'){
-    icon.style.width='50px';icon.style.height='50px';icon.innerHTML='<span style="font-size:9px;color:#fbbf24;font-weight:700">Mixed</span>';
-    icon.style.borderColor='#fbbf24';label.textContent='Mixed Orientations';label.style.color='#fbbf24';desc.textContent='Selected screens have both landscape and portrait. Upload landscape (1920×1080) for best compatibility.';
-  }else{
-    icon.style.width='60px';icon.style.height='40px';icon.innerHTML='<span style="font-size:10px;color:#22d3ee;font-weight:700">16:9</span>';
-    label.textContent='Landscape Screen';desc.textContent='Upload a horizontal image (1920×1080)';hint.textContent='JPG, PNG, MP4 — 1920×1080 recommended';
-  }
 }
 
-function setQuick(months){
-  var today=new Date();
-  var end=new Date(today);end.setMonth(end.getMonth()+months);
+function back(){document.getElementById('v2').classList.add('hidden');document.getElementById('v1').classList.remove('hidden');upd();window.scrollTo(0,0)}
+
+function setM(m){
+  months=m;
+  document.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});
+  document.getElementById('m'+m)?.classList.add('on');
+  var today=new Date();var end=new Date(today);end.setMonth(end.getMonth()+m);
   document.getElementById('b-s').value=today.toISOString().split('T')[0];
   document.getElementById('b-e').value=end.toISOString().split('T')[0];
-  document.querySelectorAll('.qbtn').forEach(function(b){b.style.borderColor='#1e293b';b.style.background='transparent';b.style.color='#e2e8f0'});
-  var btn=document.getElementById('q'+months);if(btn){btn.style.borderColor='#22d3ee';btn.style.background='rgba(34,211,238,.08)';btn.style.color='#22d3ee'}
   calc();
-}
-function goBack(){
-  document.getElementById('v-market').classList.remove('off');
-  document.getElementById('v-checkout').classList.remove('on');
-  upd();window.scrollTo(0,0);
 }
 
 function calc(){
   var sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
-  if(!sd||!ed||sel.size===0){document.getElementById('prc').innerHTML='<p style="color:#475569;font-size:13px">Select dates to see pricing</p>';return}
-  var d1=new Date(sd),d2=new Date(ed);
-  var months=Math.max(Math.round((d2-d1)/(30*86400000)),1);
+  if(!sd||!ed||sel.size===0){document.getElementById('prc').innerHTML='<div style="color:#334155;font-size:12px">Select duration to see pricing</div>';return}
+  var ms=months||Math.max(Math.round((new Date(ed)-new Date(sd))/(30*86400000)),1);
   var ss=S.filter(function(s){return sel.has(s.id)});
-  var h='';ss.forEach(function(s){var t=(s.pricing.per_month||s.pricing.per_day*30);h+='<div class="trow"><span>'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'});
-  var sub=ss.reduce(function(a,s){return a+(s.pricing.per_month||0)*months},0);
-  document.getElementById('prc').innerHTML='';
-  var html='';
-  ss.forEach(function(s){html+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:#94a3b8">'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'});
-  if(months>1)html+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:#94a3b8"><span>Duration</span><span>'+months+' months</span></div>';
-  html+='<div style="height:1px;background:#1e293b;margin:10px 0"></div>';
-  html+='<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span style="color:#94a3b8">Subtotal</span><span style="font-weight:600">$'+sub.toLocaleString()+'</span></div>';
-  var tax=Math.round(sub*.075*100)/100;var tot=sub+tax;
-  h+='<div style="height:1px;background:rgba(30,41,59,.3);margin:8px 0"></div>';
-  h+='<div class="trow"><span>Subtotal</span><span style="color:#e2e8f0;font-weight:600">$'+sub.toLocaleString()+'</span></div>';
-  h+='<div class="trow"><span>Tax (7.5%)</span><span>$'+tax.toLocaleString()+'</span></div>';
-  h+='<div class="ttotal"><span>Total</span><span class="v">$'+tot.toLocaleString()+'</span></div>';
-  document.getElementById('prc').innerHTML=h;document.getElementById('prc').classList.remove('hidden');
-  document.getElementById('btn-go').textContent='Submit & Pay — $'+tot.toLocaleString();
+  var h='';
+  ss.forEach(function(s){h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#94a3b8">'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'});
+  if(ms>1)h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#475569"><span>× '+ms+' months</span></div>';
+  var sub=ss.reduce(function(a,s){return a+(s.pricing.per_month||0)*ms},0);
+  var tax=Math.round(sub*0.075*100)/100;var tot=sub+tax;
+  h+='<div style="height:1px;background:#1e293b;margin:8px 0"></div>';
+  h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#94a3b8">Subtotal</span><span style="font-weight:600">$'+sub.toLocaleString()+'</span></div>';
+  h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#94a3b8">Tax (7.5%)</span><span>$'+tax.toLocaleString()+'</span></div>';
+  h+='<div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;margin-top:8px"><span>Total</span><span style="color:#22d3ee">$'+tot.toLocaleString()+'</span></div>';
+  document.getElementById('prc').innerHTML=h;
+  document.getElementById('bbtn').textContent='Submit & Pay — $'+tot.toLocaleString();
 }
 
-function onF(i){var f=i.files[0];if(!f)return;fn=f.name;ft=f.type||'image/jpeg';
-  document.getElementById('b-fn').textContent=f.name+' ('+((f.size/1024/1024).toFixed(1))+' MB)';document.getElementById('b-fn').classList.remove('hidden');
-  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];
-    if(f.type.startsWith('image/')){
-      var img=new Image();img.onload=function(){
-        var orient=window._orient||'landscape';
-        var isLand=img.width>img.height;
-        var needLand=orient==='landscape';
-        var frame=document.getElementById('preview-frame');frame.classList.remove('hidden');
-        var screen=document.getElementById('preview-screen');
-        if(orient==='portrait'){screen.style.width='240px';screen.style.height='427px';screen.style.margin='0 auto'}
-        else{screen.style.width='100%';screen.style.height='300px'}
-        var pimg=document.getElementById('preview-img');pimg.src=img.src;pimg.style.width='100%';pimg.style.height='100%';pimg.style.objectFit='contain';
-        var warn=document.getElementById('orient-warn');var ok=document.getElementById('orient-ok');
-        warn.style.display='none';ok.style.display='none';
-        if(orient!=='mixed'&&isLand!==needLand){
-          warn.style.display='flex';
-          document.getElementById('orient-need').textContent=needLand?'horizontal (landscape)':'vertical (portrait)';
-        }else{
-          ok.style.display='flex';
-        }
-      };img.src=r.result;
-    }
-  };r.readAsDataURL(f)}
+function onF(i){var f=i.files[0];if(!f)return;fn2=f.name;ft=f.type||'image/jpeg';
+  document.getElementById('fn').textContent=f.name+' ('+((f.size/1024/1024).toFixed(1))+' MB)';document.getElementById('fn').classList.remove('hidden');
+  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];if(f.type.startsWith('image/')){document.getElementById('pvimg').src=r.result;document.getElementById('pv').classList.remove('hidden')}};r.readAsDataURL(f)}
 
 async function book(){
   var msg=document.getElementById('bmsg');msg.classList.add('hidden');
-  if(!document.getElementById('b-t')?.checked){msg.className='msg';msg.textContent='Please accept the Terms & Conditions';msg.classList.remove('hidden');return}
-  var nm=document.getElementById('b-n').value,em=document.getElementById('b-m').value,sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
-  if(!nm||!em||!sd||!ed||!fb||sel.size===0){msg.className='msg';msg.textContent='Please complete all fields and upload your ad';msg.classList.remove('hidden');return}
-  var btn=document.getElementById('btn-go');btn.disabled=true;btn.textContent='Processing...';
+  if(!document.getElementById('bt')?.checked){msg.textContent='Please accept the Terms';msg.classList.remove('hidden');return}
+  var nm=document.getElementById('bn').value,em=document.getElementById('bm').value,sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
+  if(!nm||!em||!sd||!ed||!fb||sel.size===0){msg.textContent='Please complete all fields and upload media';msg.classList.remove('hidden');return}
+  var btn=document.getElementById('bbtn');btn.disabled=true;btn.textContent='Processing...';
   try{
     var au;try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:'cl_'+em})});if(!r.ok)throw 0;au=await r.json()}catch(e){au=await(await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm,email:em,password:'cl_'+em})})).json()}
     var h={'Content-Type':'application/json','Authorization':'Bearer '+au.access_token};
-    var m=await(await fetch('/api/media/upload',{method:'POST',headers:h,body:JSON.stringify({filename:fn,content_type:ft,data:fb})})).json();
+    var m=await(await fetch('/api/media/upload',{method:'POST',headers:h,body:JSON.stringify({filename:fn2,content_type:ft,data:fb})})).json();
     var ss=S.filter(function(s){return sel.has(s.id)});
     for(var s of ss){var c=await(await fetch('/api/campaigns',{method:'POST',headers:h,body:JSON.stringify({name:nm+' — '+s.name,screen_id:s.id,schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5},media_ids:[m.id]})})).json();await fetch('/api/payments',{method:'POST',headers:h,body:JSON.stringify({campaign_id:c.id,method:'card',card_last4:'4242'})})}
-    document.getElementById('v-checkout').classList.remove('on');document.getElementById('v-ok').classList.remove('hidden');
-    document.getElementById('ok-d').textContent='Your ad was submitted to '+ss.length+' screen'+(ss.length>1?'s':'')+'. It will go live once approved by our team.';
-  }catch(e){msg.className='msg';msg.textContent='Error: '+e.message;msg.classList.remove('hidden');btn.disabled=false;btn.textContent='Submit & Pay'}
+    document.getElementById('v2').classList.add('hidden');document.getElementById('v3').classList.remove('hidden');
+    document.getElementById('okd').textContent='Your ad was submitted to '+ss.length+' screen'+(ss.length>1?'s':'')+'. It will go live once approved by our team.';
+  }catch(e){msg.textContent='Error: '+e.message;msg.classList.remove('hidden');btn.disabled=false;btn.textContent='Submit & Pay'}
 }
 
 init();
