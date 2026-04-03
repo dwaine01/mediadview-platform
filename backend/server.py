@@ -2639,7 +2639,7 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
 @api_router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
 async def render_menu(menu_id: str):
     """Render a menu as a full-screen HTML page optimized for landscape LED displays.
-    Features: 3-column max per slide, auto-slideshow for extra categories, item images."""
+    Features: 3-column max per slide, auto-slideshow, always-visible food images."""
     menu = await db.menus.find_one({"id": menu_id})
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
@@ -2650,15 +2650,68 @@ async def render_menu(menu_id: str):
     currency_sym = menu.get("currency_symbol", "$")
     categories = menu.get("categories", [])
     
+    # Food emoji placeholders by keyword
+    food_emojis = {
+        "soup": "🍲", "salad": "🥗", "tuna": "🐟", "shrimp": "🦐", "bruschetta": "🍞", "bread": "🍞",
+        "steak": "🥩", "filet": "🥩", "beef": "🥩", "carne": "🥩", "res": "🥩",
+        "salmon": "🐟", "fish": "🐟", "lobster": "🦞", "lamb": "🍖", "rack": "🍖",
+        "chicken": "🍗", "pollo": "🍗", "wing": "🍗", "tender": "🍗",
+        "risotto": "🍚", "rice": "🍚", "arroz": "🍚",
+        "creme": "🍮", "flan": "🍮", "custard": "🍮", "pudding": "🍮",
+        "chocolate": "🍫", "cake": "🎂", "pastel": "🎂", "cheesecake": "🍰",
+        "tiramisu": "🍰", "dessert": "🍰", "postre": "🍰", "churro": "🍩", "donut": "🍩",
+        "wine": "🍷", "cocktail": "🍸", "margarita": "🍹", "beer": "🍺", "cerveza": "🍺",
+        "coffee": "☕", "espresso": "☕", "latte": "☕", "cappuccino": "☕", "cafe": "☕",
+        "tea": "🍵", "matcha": "🍵",
+        "juice": "🧃", "smoothie": "🥤", "lemonade": "🍋", "soda": "🥤", "water": "💧",
+        "shake": "🥛", "milk": "🥛", "horchata": "🥛",
+        "burger": "🍔", "hamburger": "🍔",
+        "pizza": "🍕", "margherita": "🍕",
+        "pasta": "🍝", "spaghetti": "🍝", "fettuccine": "🍝", "penne": "🍝", "lasagna": "🍝",
+        "taco": "🌮", "burrito": "🌯", "enchilada": "🌯", "quesadilla": "🌯",
+        "nacho": "🧀", "queso": "🧀", "cheese": "🧀",
+        "guacamole": "🥑", "avocado": "🥑", "aguacate": "🥑",
+        "fries": "🍟", "french": "🍟", "onion ring": "🧅",
+        "sushi": "🍣", "roll": "🍣", "sashimi": "🍣", "nigiri": "🍣",
+        "gyoza": "🥟", "dumpling": "🥟",
+        "ramen": "🍜", "noodle": "🍜", "pho": "🍜",
+        "egg": "🥚", "pancake": "🥞", "waffle": "🧇", "toast": "🍞",
+        "croissant": "🥐", "muffin": "🧁", "cinnamon": "🧁", "pastry": "🧁",
+        "sandwich": "🥪", "panini": "🥪", "wrap": "🌯", "bagel": "🥯",
+        "ice cream": "🍦", "gelato": "🍦", "panna": "🍦",
+        "elote": "🌽", "corn": "🌽", "maiz": "🌽",
+        "ceviche": "🐟", "mole": "🫕", "chile": "🌶️", "jalapeno": "🌶️",
+        "jamaica": "🌺", "michelada": "🍺",
+        "edamame": "🫛", "miso": "🍲", "tempura": "🍤",
+        "sake": "🍶", "ramune": "🍾",
+        "arancini": "🧆", "garlic": "🧄", "knot": "🥨",
+        "caprese": "🍅", "tomato": "🍅",
+        "combo": "🍱", "family": "👨‍👩‍👧‍👦", "special": "⭐",
+        "bowl": "🥣", "acai": "🫐", "poke": "🍣", "buddha": "🥗",
+        "falafel": "🧆", "hummus": "🫘",
+        "kale": "🥬", "spinach": "🥬", "lettuce": "🥬",
+        "prosciutto": "🥓", "bacon": "🥓", "ham": "🥓",
+        "truffle": "🍄", "mushroom": "🍄",
+        "nachos": "🧀", "mozzarella": "🧀",
+        "default": "🍽️"
+    }
+    
+    def get_food_emoji(name):
+        name_lower = name.lower()
+        for keyword, emoji in food_emojis.items():
+            if keyword in name_lower:
+                return emoji
+        return food_emojis["default"]
+    
     templates = {
-        "classic": {"bg": "#1a1a2e", "bg2": "#16213e", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#d4af37", "accent2": "#b8941f", "cat_bg": "rgba(212,175,55,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "48px", "featured_bg": "rgba(212,175,55,.06)"},
-        "modern": {"bg": "#f1f5f9", "bg2": "#e2e8f0", "text": "#1e293b", "text2": "#64748b", "accent": "#2563eb", "accent2": "#1d4ed8", "cat_bg": "rgba(37,99,235,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(37,99,235,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(37,99,235,.05)"},
-        "fastfood": {"bg": "#fffbeb", "bg2": "#fef3c7", "text": "#1c1917", "text2": "#78716c", "accent": "#dc2626", "accent2": "#b91c1c", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.7)", "item_border": "rgba(220,38,38,.1)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)"},
-        "mexican": {"bg": "#451a03", "bg2": "#3b1503", "text": "#fef3c7", "text2": "#d4a574", "accent": "#f59e0b", "accent2": "#d97706", "cat_bg": "rgba(245,158,11,.1)", "item_bg": "rgba(255,255,255,.04)", "item_border": "rgba(245,158,11,.12)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(245,158,11,.08)"},
-        "sushi": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f43f5e", "accent2": "#e11d48", "cat_bg": "rgba(244,63,94,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(244,63,94,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(244,63,94,.05)"},
-        "pizza": {"bg": "#1c1917", "bg2": "#292524", "text": "#fef2f2", "text2": "#a8a29e", "accent": "#dc2626", "accent2": "#b91c1c", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(220,38,38,.08)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)"},
-        "bar": {"bg": "#09090b", "bg2": "#18181b", "text": "#e2e8f0", "text2": "#71717a", "accent": "#a855f7", "accent2": "#9333ea", "cat_bg": "rgba(168,85,247,.07)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(168,85,247,.1)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(168,85,247,.06)"},
-        "healthy": {"bg": "#f0fdf4", "bg2": "#dcfce7", "text": "#14532d", "text2": "#4ade80", "accent": "#16a34a", "accent2": "#15803d", "cat_bg": "rgba(22,163,74,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(22,163,74,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(22,163,74,.05)"}
+        "classic": {"bg": "#1a1a2e", "bg2": "#16213e", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "48px", "featured_bg": "rgba(212,175,55,.06)", "img_bg": "rgba(212,175,55,.08)"},
+        "modern": {"bg": "#f1f5f9", "bg2": "#e2e8f0", "text": "#1e293b", "text2": "#64748b", "accent": "#2563eb", "cat_bg": "rgba(37,99,235,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(37,99,235,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(37,99,235,.05)", "img_bg": "rgba(37,99,235,.06)"},
+        "fastfood": {"bg": "#fffbeb", "bg2": "#fef3c7", "text": "#1c1917", "text2": "#78716c", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.7)", "item_border": "rgba(220,38,38,.1)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)", "img_bg": "rgba(220,38,38,.06)"},
+        "mexican": {"bg": "#451a03", "bg2": "#3b1503", "text": "#fef3c7", "text2": "#d4a574", "accent": "#f59e0b", "cat_bg": "rgba(245,158,11,.1)", "item_bg": "rgba(255,255,255,.04)", "item_border": "rgba(245,158,11,.12)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(245,158,11,.08)", "img_bg": "rgba(245,158,11,.1)"},
+        "sushi": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f43f5e", "cat_bg": "rgba(244,63,94,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(244,63,94,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(244,63,94,.05)", "img_bg": "rgba(244,63,94,.06)"},
+        "pizza": {"bg": "#1c1917", "bg2": "#292524", "text": "#fef2f2", "text2": "#a8a29e", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(220,38,38,.08)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)", "img_bg": "rgba(220,38,38,.06)"},
+        "bar": {"bg": "#09090b", "bg2": "#18181b", "text": "#e2e8f0", "text2": "#71717a", "accent": "#a855f7", "cat_bg": "rgba(168,85,247,.07)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(168,85,247,.1)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(168,85,247,.06)", "img_bg": "rgba(168,85,247,.08)"},
+        "healthy": {"bg": "#f0fdf4", "bg2": "#dcfce7", "text": "#14532d", "text2": "#4ade80", "accent": "#16a34a", "cat_bg": "rgba(22,163,74,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(22,163,74,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(22,163,74,.05)", "img_bg": "rgba(22,163,74,.06)"}
     }
     
     t = templates.get(template_id, templates["classic"])
@@ -2671,7 +2724,7 @@ async def render_menu(menu_id: str):
         slides = [[]]
     
     num_slides = len(slides)
-    slide_duration = 12  # seconds per slide
+    slide_duration = 12
     
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
@@ -2682,33 +2735,35 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 
 .menu-container{{width:100%;height:100%;display:flex;flex-direction:column}}
 
-.header{{text-align:center;padding:24px 40px 16px;flex-shrink:0;background:{t['bg']};border-bottom:2px solid {t['accent']}25}}
+.header{{text-align:center;padding:20px 40px 12px;flex-shrink:0;border-bottom:2px solid {t['accent']}25}}
 .restaurant-name{{font-size:{t['name_size']};font-weight:900;color:{t['accent']};letter-spacing:3px;text-transform:uppercase}}
-.subtitle{{font-size:16px;color:{t['text2']};margin-top:4px;letter-spacing:1px}}
+.subtitle{{font-size:15px;color:{t['text2']};margin-top:2px;letter-spacing:1px}}
 
 .slides-wrapper{{flex:1;position:relative;overflow:hidden}}
-.slide{{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;gap:24px;padding:20px 32px;opacity:0;transition:opacity 0.8s ease}}
+.slide{{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;gap:20px;padding:16px 28px;opacity:0;transition:opacity 0.8s ease}}
 .slide.active{{opacity:1}}
 
-.category{{flex:1;display:flex;flex-direction:column;min-width:0;background:{t['bg2']};border-radius:16px;border:1px solid {t['accent']}12;overflow:hidden}}
-.cat-header{{padding:14px 20px;background:{t['cat_bg']};border-bottom:1px solid {t['accent']}15;flex-shrink:0}}
-.cat-title{{font-size:20px;font-weight:800;color:{t['accent']};text-transform:uppercase;letter-spacing:3px;text-align:center}}
-.cat-desc{{font-size:11px;color:{t['text2']};text-align:center;margin-top:3px}}
-.cat-items{{flex:1;overflow-y:auto;padding:8px 12px;scrollbar-width:none}}
+.category{{flex:1;display:flex;flex-direction:column;min-width:0;background:{t['bg2']};border-radius:14px;border:1px solid {t['accent']}12;overflow:hidden}}
+.cat-header{{padding:12px 16px;background:{t['cat_bg']};border-bottom:1px solid {t['accent']}15;flex-shrink:0}}
+.cat-title{{font-size:18px;font-weight:800;color:{t['accent']};text-transform:uppercase;letter-spacing:3px;text-align:center}}
+.cat-desc{{font-size:10px;color:{t['text2']};text-align:center;margin-top:2px}}
+.cat-items{{flex:1;overflow-y:auto;padding:6px 8px;scrollbar-width:none}}
 .cat-items::-webkit-scrollbar{{display:none}}
 
-.item{{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;border:1px solid {t['item_border']};background:{t['item_bg']};transition:background .2s}}
+.item{{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;margin-bottom:5px;border:1px solid {t['item_border']};background:{t['item_bg']}}}
 .item.featured{{background:{t['featured_bg']};border-color:{t['accent']}30}}
-.item-img{{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid {t['accent']}20}}
-.item-img-placeholder{{width:52px;height:52px;border-radius:8px;background:{t['cat_bg']};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px}}
+
+.item-img{{width:50px;height:50px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid {t['accent']}20}}
+.item-emoji{{width:50px;height:50px;border-radius:10px;background:{t['img_bg']};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid {t['accent']}15}}
+
 .item-info{{flex:1;min-width:0}}
-.item-name{{font-size:14px;font-weight:700;line-height:1.2}}
-.item-desc{{font-size:10px;color:{t['text2']};margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
-.item-price{{font-size:18px;font-weight:900;color:{t['accent']};white-space:nowrap;flex-shrink:0}}
-.star{{color:{t['accent']};font-size:9px;margin-left:4px;font-weight:400}}
+.item-name{{font-size:13px;font-weight:700;line-height:1.2}}
+.item-desc{{font-size:9px;color:{t['text2']};margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.item-price{{font-size:17px;font-weight:900;color:{t['accent']};white-space:nowrap;flex-shrink:0}}
+.star{{color:{t['accent']};font-size:8px;margin-left:3px;font-weight:400}}
 .unavailable{{opacity:.35}}
 
-.footer{{padding:8px 40px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid {t['accent']}10}}
+.footer{{padding:6px 40px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid {t['accent']}10}}
 .footer-text{{font-size:10px;color:{t['text2']}}}
 .dots{{display:flex;gap:6px}}
 .dot{{width:8px;height:8px;border-radius:50%;background:{t['text2']}40;transition:all .3s}}
@@ -2723,7 +2778,6 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     
     html += '</div><div class="slides-wrapper">'
     
-    # Render each slide
     for si, slide_cats in enumerate(slides):
         active = ' active' if si == 0 else ''
         html += f'<div class="slide{active}" data-slide="{si}">'
@@ -2742,8 +2796,14 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                 if not it.get("available", True): cls += " unavailable"
                 
                 html += f'<div class="{cls}">'
+                
+                # Always show image - either uploaded photo or food emoji
                 if it.get("image"):
                     html += f'<img class="item-img" src="{it["image"]}" alt="" loading="lazy">'
+                else:
+                    emoji = get_food_emoji(it.get("name", ""))
+                    html += f'<div class="item-emoji">{emoji}</div>'
+                
                 html += '<div class="item-info">'
                 html += f'<div class="item-name">{it["name"]}'
                 if it.get("featured"):
@@ -2759,7 +2819,7 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     
     html += '</div>'
     
-    # Footer with slide indicators
+    # Footer
     html += '<div class="footer">'
     html += f'<div class="footer-text">{restaurant}</div>'
     if num_slides > 1:
@@ -2771,7 +2831,7 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     html += f'<div class="footer-text">MediAd View</div>'
     html += '</div></div>'
     
-    # Slideshow JavaScript
+    # Slideshow JS
     html += f"""<script>
 var current=0,total={num_slides},duration={slide_duration}000;
 function showSlide(n){{
