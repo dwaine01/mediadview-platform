@@ -1,176 +1,240 @@
-<analysis>
-**original_problem_statement:**
-The user wants to build a comprehensive mobile application for their Auto Repair Shop Management System, named Ohio Airbag Light Reset.
+<analysis>original_problem_statement:
+The user wants to create a full-stack SaaS web application for a digital signage advertising platform named MediaView. The platform should allow users to upload ads, choose screen locations, schedule display times, pay, and have their content automatically published to LED screens.
 
-**PRODUCT REQUIREMENTS (Based on initial request and subsequent user feedback):**
-- **Roles:** Admin and Technician, with distinct permissions. Admins have full access to financial data and user management. Technicians have limited access, focusing on work orders without seeing financial totals on reports.
-- **Core Workflow:**
-    1.  **Order Creation:** Admins can create orders by assigning a client, services, and a technician, but without a VIN.
-    2.  **Order Details:** Technicians view assigned orders, which include a clickable client address (opens Google Maps) and phone number.
-    3.  **VIN Scanning:** The technician must scan the vehicle's VIN on-site to start the work. The app must handle scanning errors gracefully.
-    4.  **Work Execution:** Update order status (Assigned, Initiated, Pending, Completed).
-    5.  **Completion & Notification:** When an order is marked Terminado (Completed), a WhatsApp message is automatically sent via Twilio to a predefined list of numbers (owner, admin, techs). The message includes vehicle details (make, partial VIN) and the assigned technician.
-- **Admin Features:**
-    - **Web-based Office Panel:** A professional, responsive dashboard for desktop/laptop use, allowing admins/secretaries to manage the business, run reports, and view financial status.
-    - **PDF Reports:**
-        - **Daily Financial Report:** A printable PDF summarizing daily revenue, broken down by payment method (Zelle, cash, check), and outstanding debt.
-        - **Credit Account Report:** A printable PDF showing outstanding balances grouped by client.
-    - **Client/User Management:** Manage clients, users, and workshop settings (like the workshop name).
-- **General Features:**
-    - **PDF Invoices:** Generate a professional PDF invoice for any work order, which can be shared.
-    - **Credit Accounts:** Ability to mark clients as having a credit account, which alters the payment workflow for technicians.
+The project involves several core features:
+- A robust user system (registration, login, dashboard, profile management).
+- A screen marketplace listing available screens with details and pricing.
+- A campaign creation wizard.
+- Media management for images and videos.
+- An automated scheduling system.
+- Payment integration (initially mocked, with Stripe planned).
+- A comprehensive Admin Panel to manage users, campaigns, and screens.
+- A Player/Screen Delivery System with API endpoints for players to fetch content.
+- Basic analytics.
 
-**User's preferred language**: Spanish. The next agent MUST respond in Spanish.
+A critical recent requirement is the creation of a professional player app for Android TV / Google TV / Fire TV devices named MediAd View Player. This app must be highly stable for 24/7 operation, support auto-start on device boot, handle offline caching, and be linkable to the platform via an activation code. The user is very focused on achieving a professional, reliable auto-start experience identical to competitor apps like OptiSigns.
+
+**User's preferred language**: Spanish. The user primarily communicates in Spanish. The next agent MUST respond in Spanish.
 
 **what currently exists?**
-A full-stack application using Expo (React Native) for the frontend and FastAPI/MongoDB for the backend. Most user requirements have been implemented, including: role-based access, two distinct order creation flows (one starting with VIN scan, one assigned by admin without VIN), PDF generation for invoices and reports, and automated WhatsApp notifications via Twilio integration. A new, rudimentary web panel for office use has been created but requires a major redesign.
+A comprehensive full-stack application has been developed.
+-   **Backend**: A monolithic FastAPI application () using MongoDB. It serves a REST API with over 50 endpoints and also serves the entire web frontend.
+-   **Frontend**: A pure HTML/CSS/JS single-page application located in . It functions as a professional SaaS dashboard with separate views for Customers, Admins, and a Super Admin. It includes a screen marketplace, campaign creation wizard, an admin panel with user/screen/campaign management, a playlist viewer with media controls (rotation, animation), and a page for managing 10 different types of widgets (Weather, Clock, News, etc.).
+-   **Player System**:
+    -   An Android TV Player App project (Kotlin) located in . This APK is designed for 24/7 operation and includes advanced features to ensure it stays on, auto-starts, and recovers from crashes, mimicking professional signage apps.
+    -   A Web Player () that can run in any browser.
+    -   A public-facing page () for customers to browse screens and submit ad campaigns directly.
+-   **Features**: The platform has 28+ features, including a 3-tier role system, Proof of Play logging, remote commands for devices, and content pre-caching for offline playback, achieving near-100% feature parity with competitor apps like OptiSigns.
 
 **Last working item**:
-- **Last item agent was working**: Redesigning the Office Web Panel for a more professional, desktop-friendly look. The user was unhappy with the initial version, stating it looked too big. The agent has overwritten the file  with a new structure and styling.
-- **Status**: IN PROGRESS
-- **Agent Testing Done**: N
-- **Which testing method agent to use?**: Frontend. The agent should first restart the expo server (expo: ERROR (not running)
-expo: ERROR (abnormal termination)). Then, take a screenshot of the web preview URL at the  path to see if the new design is an improvement. After verification, present it to the user for feedback.
-- **User Testing Done**: N
+-   Last item agent was working: The agent was guiding the user on how to correctly transfer the complete project to a new, more advanced agent (E2) to resolve the final blocking issue. The core technical problem being addressed is the failure of the Android TV APK to auto-start on the user's specific TCL Google TV, despite the APK code being correct. The user was being guided on using GitHub and chat forking functionalities.
+-   Status: BLOCKED
+-   Agent Testing Done: Y
+-   Which testing method agent to use? The user needs to compile the final APK and test on their physical TCL TV. The next agent's primary task is to guide the user through the TV's device-specific settings (e.g., TCL's Safe Guard) which are blocking the auto-start feature.
+-   User Testing Done: Y (The user's last test failed because they were using an old APK. They have since compiled the correct one but are still facing issues, likely due to TV settings.)
 
 **All Pending/In progress Issue list**:
-- **Issue 1: (P0) Verify and Finalize the Professional Office Web Panel.**
-  - **Description:** The agent has rewritten  to create a more professional dashboard. This new implementation has not been tested, and the user has not seen it.
-  - **Next debug checklist:**
-    1.  Restart the Expo server.
-    2.  Open the web preview and navigate to the  page.
-    3.  Assess the new layout. Does it look like a professional desktop dashboard?
-    4.  Present it to the user for feedback and be prepared to iterate on the design.
-  - **Why fix this issue and what will be achieved with the fix?**: This is the user's latest and most active request. Fulfilling it will provide a key feature for business management.
-  - **Status:** IN PROGRESS
-  - **Should Test frontend/backend/both after fix?**: Frontend
+-   Issue 1: Android TV APK does not auto-start on the user's TCL Google TV after a cold boot (P0, HIGHEST PRIORITY).
 
-- **Issue 2: (P1) Recurring VIN Scanner Bug (Multiple Screens).**
-  - **Description:** The user has repeatedly reported that when scanning a VIN, multiple error pop-ups or screens appear, forcing them to press OK or Back many times. The agent has attempted several fixes on  by adding state flags, using , and debouncing, but the user's last report indicated the problem persists. While many  errors were caused by an empty database (see Issue 3), the underlying multiple scan events issue may still exist.
-  - **Attempted fixes:**
-    1.  Using a  state flag.
-    2.  Rewriting the component to use a  flag to prevent re-entry.
-    3.  Rewriting the component again with a more aggressive debounce-like approach.
-  - **Next debug checklist:**
-    1.  Ensure the database is populated with a user, workshop, client, and an assigned (but not started) work order.
-    2.  Log in as a technician and attempt to scan a VIN for the assigned order.
-    3.  Observe console logs and app behavior for multiple  events firing.
-    4.  If it persists, investigate alternative event handling libraries or a different camera component that offers better control over the scan event.
-  - **Why fix this issue and what will be achieved with the fix?**: The VIN scan is a critical, mandatory step in the technician's workflow. The bug makes the app frustrating and difficult to use.
-  - **Status:** NOT STARTED (in this fork, but has a long history)
-  - **Is recurring issue?**: Y
-  - **Should Test frontend/backend/both after fix?**: Frontend
-
-- **Issue 3: (P2) Forked Environment Starts with an Empty Database.**
-  - **Description:** The agent discovered that the database (users, workshops, clients, orders) is completely empty. This is the root cause of numerous Not Found (404) errors and makes the app unusable until data is created. The user must be guided to register a new account and create initial data.
-  - **Next debug checklist:**
-    1.  Immediately inform the user that the environment is new and they need to create an account.
-    2.  Guide them through the registration process.
-    3.  Guide them to create a client and an assigned work order to test other functionalities.
-  - **Why fix this issue and what will be achieved with the fix?**: This is a prerequisite for any other development or testing. The application cannot function without user and workshop data.
-  - **Status:** NOT STARTED (It's an environmental state, not a code bug to be fixed).
-  - **Is recurring issue?**: Y (Likely to happen on every fork).
+  -   **Issues Detail**:
+      -   **Issue 1**: The user's TCL Google TV is preventing the sideloaded MediAd View APK from launching automatically after a long power-off period (cold boot). This is a critical failure for a digital signage application.
+          -   **Attempted fixes**:
+              1.  Implemented a simple . Failed.
+              2.  Added an  with . Failed.
+              3.  Researched competitor APKs (OptiSigns, MIDIAD) and discovered they use more robust methods.
+              4.  Implemented a multi-layered solution mimicking OptiSigns, using , multiple s, and the  permission.
+              5.  Diagnosed that the user was compiling an old version of the APK. After guiding them through a Clean and Rebuild, the agent verified the user's latest APK now correctly contains all the necessary components (, , etc.).
+              6.  The failure persists, strongly indicating a device-specific restriction from TCL.
+          -   **Next debug checklist**:
+              1.  Guide the user to find and configure the **Safe Guard** application on their TCL TV. This is a manufacturer-specific security app that is known to block auto-start.
+              2.  Path: **Settings → Apps → Safe Guard → Automatic start setting → Automatic management OFF → MediAd View ON**.
+              3.  Also, verify **Settings → Apps → Special app access → Display over other apps → MediAd View → ON**.
+              4.  And **Settings → Apps → MediAd View → Battery → Unrestricted**.
+              5.  Explain to the user that this is a known limitation of TCL/Google TV for sideloaded apps and that even competitors require these manual settings or for the app to be installed from the Play Store.
+          -   **Why fix this issue and what will be achieved with the fix?**: This is the final blocker for the project. Fixing it will make the player app professional, reliable, and ready for production use, fulfilling a core requirement of the user.
+          -   **Status**: BLOCKED
+          -   **Is recurring issue?** Y
+          -   **Should Test frontend/backend/both after fix?** The user must test the fix on their physical TV.
 
 **In progress Task List**:
-- **Task 1: (P0) Finalize the Professional Office Web Panel.**
-  - **Where to resume:** Test the new implementation in .
-  - **What will be achieved with this?**: Deliver the user's requested desktop dashboard for office administration.
-  - **Status:** IN PROGRESS
-  - **Should Test frontend/backend/both after fix?**: Frontend
+-   Task 1: Project transition to a new agent.
+    -   **Where to resume**: The user is in a new chat with an E2 agent and needs to get the project code into that chat. The simplest way is to guide the user to use the Fork feature from the old chat () to the new one ().
+    -   **What will be achieved with this?**: The user can continue development with a more powerful agent to solve the final critical issue.
+    -   **Status**: IN PROGRESS
 
 **Upcoming and Future Tasks**
-- **Future Tasks:**
-    - **(P1) Photo Attachments:** The initial PRD mentioned adding before/after photos to work orders. This has not been started.
-    - **(P2) PDF/CSV Report Export:** While PDF generation was added for specific reports, a more generic feature to export various data sets (like all orders in a date range) to CSV could be implemented.
+-   **Upcoming Tasks**:
+    -   (P0) Finalize the Android TV APK auto-start on the user's TCL TV.
+    -   (P1) Deploy the entire application to a production environment and connect the custom domain .
+-   **Future Tasks**:
+    -   (P2) Integrate a real Stripe account for payments.
+    -   (P2) Create a professional landing page for .
+    -   (P3) Publish the final Android TV APK to the Google Play Store to bypass sideloading restrictions permanently.
+    -   (P3) Implement the final 2 advanced widget types: Screen Zones and Social Media integrations.
 
 **Completed work in this session**
-- **PDF Generation:** Implemented for Invoices (), Daily Financial Reports (), and Credit Account statements ().
-- **Twilio WhatsApp Integration:**
-    - Backend endpoint created to send messages via Twilio ( in ).
-    - Frontend logic added to automatically call this endpoint when an order status changes to Terminado ().
-    - WhatsApp message content was enhanced to include vehicle make, partial VIN, and technician name.
-- **New Order Workflow:**
-    - Admins can now create an order by selecting a client and assigning a technician, without needing a VIN upfront ().
-    - Technicians see these assigned orders and are prompted to scan the VIN on-site using a new screen ().
-    - Backend  model updated to allow  to be optional.
-- **UI/UX Enhancements:**
-    - **Editable Workshop Name:** Admins can edit the workshop name from the Settings screen ().
-    - **Clickable Contact Info:** On the order detail screen, the client's address now opens Google Maps and the phone number initiates a call.
-    - **App Name Change:** The application name in  was updated to Ohio Airbag Light Reset.
-    - **UI Justification:** Fixed text alignment on the New Order service checklist ().
-- **Web Panel Creation:** Initiated the creation of a web-based Office Panel ().
-
-**Earlier issues found/mentioned but not fixed**
-- The core issue of the VIN scanner firing multiple events remains a high-priority, recurring problem that needs a definitive solution. All previous attempts have been insufficient.
+-   Full-stack SaaS platform built from the ground up (FastAPI + MongoDB backend).
+-   Complete frontend rewrite from React Native to a pure HTML/CSS/JS Web Dashboard for a premium SaaS feel.
+-   Implementation of a 3-tier role system: Super Admin, Admin, and Customer.
+-   Full CRUD management for Screens, Campaigns, Users, and Devices in the Admin Panel.
+-   Public-facing marketplace for customers to browse all available screens and book ad campaigns.
+-   Advanced Android TV Player APK (Kotlin) created with features for 24/7 operation (WakeLock, auto-recovery, offline caching).
+-   Multiple iterations to solve the APK's auto-start issue, culminating in a solution that mirrors professional apps like OptiSigns (using WorkManager and multiple BroadcastReceivers).
+-   Web Player for cross-device compatibility.
+-   Roku Channel app created (BrightScript).
+-   10 widget integrations (Weather, Clock, News, QR Code, etc.) manageable from the admin panel.
+-   Proof of Play logging and Remote Commands (restart, reload) for devices.
+-   UI/UX of the Admin Panel and client-facing pages refined multiple times based on user feedback (e.g., visual playlist, modal for content review, tab-based organization).
 
 **Known issue recurrence from previous fork**
-- **Issue recurrence in previous fork:** The VIN scanner bug was mentioned in the initial summary and has persisted throughout this session.
-- **Recurrence count:** High (at least 3-4 major attempts to fix it).
-- **Status:** NOT STARTED (for this fork).
+-   The Android TV APK auto-start feature has been a persistent and recurring issue throughout the session, requiring multiple different approaches and deep debugging.
 
 **Code Architecture**
 
 
 **Key Technical Concepts**
-- **Frontend:** React Native, Expo, Expo Router, TypeScript
-- **Backend:** Python, FastAPI
-- **Database:** MongoDB
-- **Key Integrations:** Twilio (for automated WhatsApp messages), NHTSA vPIC API (for VIN decoding).
-- **Architecture:** Monorepo with a mobile-first app that also needs to serve a responsive web/desktop view for the office panel.
+-   **Backend**: FastAPI, MongoDB (Motor), JWT Authentication, Background Tasks.
+-   **Frontend**: Pure HTML5/CSS3/JavaScript Single Page Application (SPA) served directly from the FastAPI backend. No frontend framework is used.
+-   **Android Player**: Native Kotlin, Android SDK,  for boot events,  for reliable background tasks,  to prevent sleep,  for auto-start overlay.
+-   **Deployment**: The user has been guided on how to use Emergent's built-in Deploy feature to move to production.
 
 **key DB schema**
-- **work_orders:** { ... vehicle_id: Optional[str], vehicle: Optional[dict] } - The  is now optional to support the new assignment workflow. The raw vehicle data can be stored directly on the order if no  is present initially.
+-   : {id, name, email, password_hash, role:['superadmin'|'admin'|'customer']}
+-   : {id, name, location, pricing: {per_month}, specs, orientation:['landscape'|'portrait'], location_code}
+-   : {id, user_id, screen_ids, media_ids, schedule, status:['pending'|'approved'|'active'|...]}
+-   : {id, user_id, filename, stored_filename, rotation:[0|90|180|270], animation:['none'|'fade'|...]}
+-   : {id, activation_code, status:['pending'|'active'], screen_id, last_heartbeat, pending_command}
+-   : {id, screen_id, type:['weather'|'clock'|...], config, enabled}
+-   : {id, device_id, screen_id, media_id, played_at}
+
+**changes in tech stack**
+-   The frontend was completely pivoted from **React Native (Expo) Web** to a **pure HTML/CSS/JavaScript SPA** served from the FastAPI backend. This was a user-driven decision to achieve a more premium and visually flexible UI, as they felt the previous design was too generic and flat.
 
 **All files of reference**
-- **Most Recently Edited**:  (overwritten for redesign).
-- **Core to a Recurring Bug**:  (multiple screen issue).
-- **Heavily Modified**: , .
-- **Newly Created**: , .
-- **Configuration**: ,  (Twilio credentials added).
+-   : The core of the entire application.
+-   : The main web dashboard file.
+-   : The JavaScript logic for the web dashboard.
+-   : The CSS for the web dashboard.
+-   : The public-facing customer booking page.
+-   : The entire directory contains the source for the critical Android TV app.
+
+**key api endpoints**
+-   : Serves the main web dashboard HTML.
+-   : Serves the public customer-facing marketplace page.
+-   : User authentication.
+-   : Endpoints for admin functionalities (user/screen/campaign management).
+-   : Endpoints for super admin functionalities (admin management).
+-   : Endpoint for devices to fetch their content playlist.
+-   : Endpoint for devices to report their status and receive commands.
 
 **Critical Info for New Agent**
-1.  **DATABASE IS EMPTY:** Your first action must be to address the empty database. Inform the user they need to register a new account and create sample data (client, order) before any feature can be tested. This is the cause of the recent  errors.
-2.  **WHATSAPP (TWILIO) SANDBOX:** The automated WhatsApp feature uses Twilio. For it to work, each recipient's phone number must first send a join code to the Twilio Sandbox number. You will need to guide the user through this activation process again if they want to test notifications.
-3.  **VIN SCANNER BUG:** Be prepared to tackle the recurring bug where the VIN scanner opens multiple screens. The issue is likely related to the  event firing multiple times in quick succession. Do not assume previous fixes worked.
-4.  **FOCUS ON WEB PANEL:** The user's latest request is for a professional, desktop-first Office Panel. This should be your primary development task after resolving the empty database issue.
+-   The user is highly focused on UI/UX and wants a premium and professional look and feel. They will reject designs that look generic or flat.
+-   The main blocking issue is the Android TV APK's auto-start failure on the user's **TCL Google TV**. This is likely due to TCL's Safe Guard feature, a manufacturer-specific restriction. You must guide the user to configure this on their TV.
+-   The user is running low on credits and is frustrated with the iterative process. Be direct, efficient, and explain the technical reasons for any issues clearly.
+-   The user has been advised to switch to a more powerful agent (E2) and this handover is part of that transition.
+-   The project has two distinct frontends: the pure HTML/CSS/JS dashboard () and the old, obsolete React Native app (). Make sure to only work on the new web dashboard.
 
-**documents created in this job**
-- None.
+**documents and test reports created in this job**
+-   : Guide for compiling and installing the Android APK.
 
 **Last 10 User Messages and any pending HUMAN messages**
-1.  **si, pero no me gusta se ve todo muy grande...**: User is unhappy with the web panel's design, wants a professional dashboard. (In Progress)
-2.  **no entiendo pense que tendria una direccion web...**: User was confused about how to access the web panel. (Resolved)
-3.  **puedo crear una panel que se habra desde la laptop...**: User requested the creation of a web/laptop panel for the office. (In Progress)
-4.  **estoy felis encontre todo el proyecto**: User is happy they found the whole project. The context is unclear but the sentiment is positive.
-5.  **aqui esta**: User response, likely related to the agent's instructions about the empty database.
-6.  **el problema continua pego que precionar muchas veces...**: User confirms the VIN scanner bug (multiple pop-ups) is still happening. (Pending)
-7.  **sigue el problama dice no se pudo actualizar la orde...**: User describes the VIN scanner bug in more detail. (Pending)
-8.  **cuando el tecnico trata de escaner el vin da error**: User reports an error when the technician tries to scan the VIN in the new workflow. (Pending)
-9.  **el administrador asigna una orden de trabajo...**: User requests the new workflow where the admin creates an order without a VIN. (Completed)
-10. **en cuenta de credito general reporte por cliente en pdf**: User requested PDF export for the credit report screen. (Completed)
+1.  **User**: Confirms they want to fix the ugly popup-based widget configuration.
+2.  **User**: Reports that widgets are not appearing on the screen after being created.
+3.  **User**: Reports widget not found error on the screen after deleting a widget. Also complains that widgets don't appear in the admin playlist for control.
+4.  **User**: Reports that the x to delete content and rotation controls are not visible in the admin playlist.
+5.  **User**: Reports that after deleting a video, it still appears on the screen.
+6.  **User**: Reports that videos cannot be rotated.
+7.  **User**: Reports that a gray play button appears before a video starts.
+8.  **User**: Reports the gray play button is still appearing after a fix.
+9.  **User**: Reports the gray play button *still* appears.
+10. **User**: Reports that the TV does not auto-start the app after being off for 4-5 minutes, expressing frustration with the project's progress and cost.
 
 **Project Health Check:**
-- **Broken**:
-    - The entire application is non-functional on startup due to an **empty database**. This is the highest priority to address with the user.
-    - The VIN scanning flow () is likely still bugged with a multiple screens issue.
-- **In Progress**:
-    - The Office Web Panel () has been rewritten but is untested and unverified by the user.
+-   **Broken**: The Android TV app's auto-start functionality on the user's specific TCL Google TV is not working reliably due to device-specific security restrictions. This is the main point of failure.
+-   **Mocked**: The payment system uses a mock Stripe integration. It's ready for real API keys.
 
 **3rd Party Integrations**
-- **Twilio**: For sending automated WhatsApp messages. Requires user's Account SID, Auth Token, and for recipients to join the Twilio Sandbox. Uses User API Key.
-- **NHTSA vPIC DecodeVinValues API**: Public API for decoding VINs, no key required.
+-   **FFmpeg**: Installed via apt 2.6.1 (arm64)
+Usage: apt-get [options] command
+       apt-get [options] install|remove pkg1 [pkg2 ...]
+       apt-get [options] source pkg1 [pkg2 ...]
+
+apt-get is a command line interface for retrieval of packages
+and information about them from authenticated sources and
+for installation, upgrade and removal of packages together
+with their dependencies.
+
+Most used commands:
+  update - Retrieve new lists of packages
+  upgrade - Perform an upgrade
+  install - Install new packages (pkg is libc6 not libc6.deb)
+  reinstall - Reinstall packages (pkg is libc6 not libc6.deb)
+  remove - Remove packages
+  purge - Remove packages and config files
+  autoremove - Remove automatically all unused packages
+  dist-upgrade - Distribution upgrade, see apt-get(8)
+  dselect-upgrade - Follow dselect selections
+  build-dep - Configure build-dependencies for source packages
+  satisfy - Satisfy dependency strings
+  clean - Erase downloaded archive files
+  autoclean - Erase old downloaded archive files
+  check - Verify that there are no broken dependencies
+  source - Download source archives
+  download - Download the binary package into the current directory
+  changelog - Download and display the changelog for the given package
+
+See apt-get(8) for more information about the available commands.
+Configuration options and syntax is detailed in apt.conf(5).
+Information about how to configure sources can be found in sources.list(5).
+Package and version choices can be expressed via apt_preferences(5).
+Security details are available in apt-secure(8).
+                                        This APT has Super Cow Powers. for server-side video rotation. Note: This may not persist across all environment restarts and might need re-installation.
 
 **Testing status**
-- **Testing agent used after significant changes**: NO
-- **Troubleshoot agent used after agent stuck in loop**: NO
-- **Test files created**: None.
-- **Known regressions**: The VIN scanner bug has been a persistent issue across multiple fix attempts.
+-   Testing agent used after significant changes: NO
+-   Troubleshoot agent used after agent stuck in loop: NO
+-   Test files created: None.
 
 **Credentials to test flow:**
-The database is empty. The next agent must guide the user to **register a new Admin account** through the app's sign-up screen.
+-   **Super Admin**:  / 
+-   **Admin**:  / 
+-   **Customer (example)**:  / 
 
 **What agent forgot to execute**
-- The agent did not use the  or  to systematically test changes, especially for the recurring VIN scanner bug.
-- A definitive root cause for the multiple scan events was never fully isolated and fixed; the focus shifted to the  errors caused by the empty DB. The original bug may still be present.
+-   The agent initially forgot that apt 2.6.1 (arm64)
+Usage: apt-get [options] command
+       apt-get [options] install|remove pkg1 [pkg2 ...]
+       apt-get [options] source pkg1 [pkg2 ...]
 
-</analysis>
+apt-get is a command line interface for retrieval of packages
+and information about them from authenticated sources and
+for installation, upgrade and removal of packages together
+with their dependencies.
+
+Most used commands:
+  update - Retrieve new lists of packages
+  upgrade - Perform an upgrade
+  install - Install new packages (pkg is libc6 not libc6.deb)
+  reinstall - Reinstall packages (pkg is libc6 not libc6.deb)
+  remove - Remove packages
+  purge - Remove packages and config files
+  autoremove - Remove automatically all unused packages
+  dist-upgrade - Distribution upgrade, see apt-get(8)
+  dselect-upgrade - Follow dselect selections
+  build-dep - Configure build-dependencies for source packages
+  satisfy - Satisfy dependency strings
+  clean - Erase downloaded archive files
+  autoclean - Erase old downloaded archive files
+  check - Verify that there are no broken dependencies
+  source - Download source archives
+  download - Download the binary package into the current directory
+  changelog - Download and display the changelog for the given package
+
+See apt-get(8) for more information about the available commands.
+Configuration options and syntax is detailed in apt.conf(5).
+Information about how to configure sources can be found in sources.list(5).
+Package and version choices can be expressed via apt_preferences(5).
+Security details are available in apt-secure(8).
+                                        This APT has Super Cow Powers. installed packages like FFmpeg might not persist across server restarts, leading to the rotation feature breaking and needing re-installation.
+-   The agent went through several incorrect attempts to fix the video play button overlay before realizing it was a native WebView behavior that had to be addressed in the Android APK's Kotlin code, not the web content.
+-   The agent also initially struggled to debug the broken marketplace page, which was caused by corrupted JavaScript from multiple  and python script edits. It required a full file rewrite to fix.</analysis>

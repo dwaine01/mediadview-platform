@@ -15,17 +15,28 @@ android {
         applicationId = "com.mediaview.player"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "2.0.0"
 
-        // MediaView server URL - change this for production
-        buildConfigField("String", "SERVER_URL", "\"https://screensync-ads.preview.emergentagent.com\"")
+        // =============================================================
+        // CONFIGURACION DE PRODUCCION
+        // Cambia esta URL a tu servidor real de MediAd View
+        // Ejemplo: "https://app.mediadview.com"
+        // =============================================================
+        buildConfigField("String", "SERVER_URL", "\"https://mediaview-ads.preview.emergentagent.com\"")
     }
 
     buildTypes {
         release {
             isMinifyEnabled = true
-            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+        debug {
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
         }
     }
 

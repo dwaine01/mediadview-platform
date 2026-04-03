@@ -4,24 +4,32 @@ import android.app.Application
 import android.util.Log
 
 /**
- * MediaView Player Application class.
- * Handles global crash recovery.
+ * MediAd View Player Application class.
+ * Handles global crash recovery and app initialization.
+ * v2.0 - Optimized for Colorlight A40 + Android TV
  */
 class PlayerApp : Application() {
 
     companion object {
-        const val TAG = "MediaViewPlayer"
+        const val TAG = "MediAdView"
     }
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "MediaView Player v${BuildConfig.VERSION_NAME} starting...")
+        Log.i(TAG, "========================================")
+        Log.i(TAG, "MediAd View Player v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
+        Log.i(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
+        Log.i(TAG, "Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
+        Log.i(TAG, "========================================")
         setupCrashRecovery()
     }
 
     /**
      * Global crash handler: restarts the app automatically on unhandled exceptions.
      * Critical for 24/7 digital signage operation.
+     * Uses multiple recovery strategies:
+     * 1. Restart main activity
+     * 2. Kill and restart process
      */
     private fun setupCrashRecovery() {
         val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
@@ -30,7 +38,7 @@ class PlayerApp : Application() {
             Log.e(TAG, "CRASH DETECTED: ${throwable.message}", throwable)
 
             try {
-                // Restart the main activity
+                // Strategy 1: Restart the main activity
                 val intent = packageManager.getLaunchIntentForPackage(packageName)
                 intent?.addFlags(
                     android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
@@ -38,7 +46,8 @@ class PlayerApp : Application() {
                 )
                 startActivity(intent)
 
-                // Kill current process
+                // Kill current process after a short delay
+                Thread.sleep(500)
                 android.os.Process.killProcess(android.os.Process.myPid())
             } catch (e: Exception) {
                 Log.e(TAG, "Failed to restart after crash", e)

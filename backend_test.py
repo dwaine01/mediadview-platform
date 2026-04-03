@@ -10,7 +10,7 @@ import sys
 import base64
 
 # Configuration from frontend .env
-BASE_URL = "https://screensync-ads.preview.emergentagent.com"
+BASE_URL = "https://mediaview-ads.preview.emergentagent.com"
 API_URL = f"{BASE_URL}/api"
 
 # Test data

@@ -3,6 +3,7 @@ package com.mediaview.player
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.app.ActivityManager
+import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -13,7 +14,9 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.util.Log
+import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
@@ -22,19 +25,31 @@ import android.webkit.WebChromeClient
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 
 /**
- * MediaView Player - Main Activity
+ * MediAd View Player v2.0 - Main Activity
  *
- * Production-grade digital signage player for Android TV / Fire TV.
- * Loads the Web Player Engine in a WebView with:
- * - Full screen immersive mode
- * - Screen always on (FLAG_KEEP_SCREEN_ON)
- * - Kiosk mode (Lock Task)
- * - Network monitoring & auto-reconnect
- * - Crash recovery
+ * Production-grade digital signage player optimized for:
+ * - Colorlight A40 LED Media Player
+ * - Android TV / Google TV
+ * - Fire TV / Fire TV Stick
+ *
+ * Features:
+ * - Full screen immersive kiosk mode
+ * - Screen always on (FLAG_KEEP_SCREEN_ON + WakeLock)
+ * - Network monitoring & auto-reconnect with exponential backoff
+ * - Crash recovery (auto-restart on unhandled exceptions)
+ * - Nightly auto-restart for memory management
+ * - Device activation via 6-digit code
+ * - Remote control / D-pad friendly navigation
+ * - Hidden settings menu (press Menu key 5x or hold DPAD_CENTER 5s)
+ * - Configurable server URL and orientation
+ * - Offline content caching
+ * - Proof of Play logging
  */
 class MainActivity : Activity() {
 
@@ -46,31 +61,36 @@ class MainActivity : Activity() {
     private var isConnected = false
     private var reconnectAttempts = 0
     private var wakeLock: android.os.PowerManager.WakeLock? = null
-    private val MAX_RECONNECT_DELAY = 60000L // 60 seconds max
+    private val MAX_RECONNECT_DELAY = 60000L
 
-    // =================================================================
-    // CONFIGURATION - Change these for your deployment
-    // =================================================================
+    // Hidden settings menu tracking
+    private var menuKeyCount = 0
+    private var lastMenuKeyTime = 0L
+    private val MENU_KEY_TIMEOUT = 3000L // 3 seconds to press 5 times
+    private val MENU_KEY_COUNT_REQUIRED = 5
+
+    // Long press tracking for DPAD_CENTER
+    private var dpadCenterDownTime = 0L
+    private val LONG_PRESS_DURATION = 5000L // 5 seconds
+
     companion object {
-        // Your MediaView server URL
-        // For production, change this to your actual server
-        const val DEFAULT_SERVER = "https://screensync-ads.preview.emergentagent.com"
+        // Default server URL - uses BuildConfig value set in build.gradle.kts
+        // For production, change the URL in build.gradle.kts
+        val DEFAULT_SERVER = BuildConfig.SERVER_URL
 
-        // Screen ID - can be configured via:
-        // 1. SharedPreferences (set via activation flow)
-        // 2. Hardcoded for dedicated devices
-        // 3. Intent extra when launched
         const val PREF_NAME = "mediaview_player"
         const val PREF_SERVER_URL = "server_url"
         const val PREF_SCREEN_ID = "screen_id"
+        const val PREF_ORIENTATION = "orientation" // "landscape", "portrait", "auto"
+        const val PREF_DEVICE_NAME = "device_name"
     }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Log.i(PlayerApp.TAG, "MainActivity onCreate")
+        Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
-        // ===== FULL SCREEN + ALWAYS ON (like OptiSigns/Yodeck) =====
+        // ===== FULL SCREEN + ALWAYS ON =====
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
             WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED or
@@ -78,7 +98,7 @@ class MainActivity : Activity() {
             WindowManager.LayoutParams.FLAG_DISMISS_KEYGUARD
         )
 
-        // ===== PREVENT SCREEN SLEEP (critical for 24/7 signage) =====
+        // ===== PREVENT SCREEN SLEEP =====
         preventScreenSleep()
         hideSystemUI()
 
@@ -87,9 +107,15 @@ class MainActivity : Activity() {
         serverUrl = prefs.getString(PREF_SERVER_URL, DEFAULT_SERVER) ?: DEFAULT_SERVER
         screenId = prefs.getString(PREF_SCREEN_ID, "") ?: ""
 
-        // Check intent extras (for initial setup)
-        intent?.getStringExtra("server_url")?.let { serverUrl = it }
-        intent?.getStringExtra("screen_id")?.let { screenId = it }
+        // Check intent extras (for initial setup via ADB)
+        intent?.getStringExtra("server_url")?.let {
+            serverUrl = it
+            prefs.edit().putString(PREF_SERVER_URL, it).apply()
+        }
+        intent?.getStringExtra("screen_id")?.let {
+            screenId = it
+            prefs.edit().putString(PREF_SCREEN_ID, it).apply()
+        }
 
         // ===== BUILD UI =====
         val root = FrameLayout(this).apply {
@@ -100,7 +126,7 @@ class MainActivity : Activity() {
         statusView = TextView(this).apply {
             setTextColor(Color.parseColor("#64748B"))
             textSize = 14f
-            text = "MediaView Player - Initializing..."
+            text = "MediAd View Player v${BuildConfig.VERSION_NAME} - Initializing..."
             setPadding(32, 32, 32, 32)
             visibility = View.GONE
         }
@@ -111,9 +137,9 @@ class MainActivity : Activity() {
 
             settings.apply {
                 javaScriptEnabled = true
-                domStorageEnabled = true                    // localStorage for offline cache
+                domStorageEnabled = true
                 databaseEnabled = true
-                mediaPlaybackRequiresUserGesture = false    // Auto-play video
+                mediaPlaybackRequiresUserGesture = false
                 allowFileAccess = true
                 cacheMode = WebSettings.LOAD_DEFAULT
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
@@ -121,11 +147,15 @@ class MainActivity : Activity() {
                 loadWithOverviewMode = true
                 setSupportZoom(false)
 
-                // Performance optimizations for 24/7
+                // Performance optimizations for 24/7 operation
+                @Suppress("DEPRECATION")
                 setRenderPriority(WebSettings.RenderPriority.HIGH)
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                     safeBrowsingEnabled = false
                 }
+
+                // Ensure hardware acceleration for smooth video playback
+                setLayerType(View.LAYER_TYPE_HARDWARE, null)
             }
 
             // Handle page events
@@ -147,7 +177,7 @@ class MainActivity : Activity() {
                 }
             }
 
-            // Console logging + disable default video poster (removes play button)
+            // Console logging + disable default video poster
             webChromeClient = object : WebChromeClient() {
                 override fun onConsoleMessage(message: ConsoleMessage?): Boolean {
                     message?.let {
@@ -156,7 +186,7 @@ class MainActivity : Activity() {
                     return true
                 }
 
-                // THIS removes the play button icon that Android WebView shows before videos
+                // Remove the play button icon that Android WebView shows before videos
                 override fun getDefaultVideoPoster(): android.graphics.Bitmap {
                     return android.graphics.Bitmap.createBitmap(1, 1, android.graphics.Bitmap.Config.ARGB_8888)
                 }
@@ -181,25 +211,32 @@ class MainActivity : Activity() {
         // Start overlay service for auto-boot
         startOverlayService()
 
-        // Schedule nightly app restart for stability (like OptiSigns)
+        // Schedule nightly restart for stability
         scheduleNightlyRestart()
 
         // ===== KIOSK MODE =====
-        startLockTask()
+        try {
+            startLockTask()
+        } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "Lock task not available: ${e.message}")
+        }
     }
 
     /**
      * Check and request "Display over other apps" permission.
-     * This is what allows the app to auto-start on boot (like OptiSigns).
      */
     private fun checkOverlayPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             if (!android.provider.Settings.canDrawOverlays(this)) {
-                val intent = Intent(
-                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                    android.net.Uri.parse("package:$packageName")
-                )
-                startActivity(intent)
+                try {
+                    val intent = Intent(
+                        android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Log.w(PlayerApp.TAG, "Cannot request overlay permission: ${e.message}")
+                }
             }
         }
     }
@@ -226,27 +263,34 @@ class MainActivity : Activity() {
     private fun loadPlayer() {
         val playerUrl = "$serverUrl/api/player/$screenId/web"
         Log.i(PlayerApp.TAG, "Loading player: $playerUrl")
-        statusView.text = "Loading MediaView Player..."
+        statusView.text = "Loading MediAd View Player..."
         statusView.visibility = View.VISIBLE
 
         if (isNetworkAvailable()) {
             webView.loadUrl(playerUrl)
         } else {
             Log.w(PlayerApp.TAG, "No network - will retry")
-            statusView.text = "No network connection. Retrying..."
+            statusView.text = "Sin conexion de red. Reintentando..."
             statusView.visibility = View.VISIBLE
             scheduleReconnect()
         }
     }
 
     /**
-     * Show setup instructions when no screen is configured
+     * Show setup/activation page when no screen is configured
      */
     private fun showSetupMode() {
-        // Load the web-based activation page - no ADB required
         val activateUrl = "$serverUrl/api/player-activate"
         Log.i(PlayerApp.TAG, "Loading activation page: $activateUrl")
-        webView.loadUrl(activateUrl)
+
+        if (isNetworkAvailable()) {
+            webView.loadUrl(activateUrl)
+        } else {
+            // Show offline message with server URL info
+            statusView.text = "Sin conexion de red.\nServidor: $serverUrl\nReintentando..."
+            statusView.visibility = View.VISIBLE
+            scheduleReconnect()
+        }
     }
 
     /**
@@ -259,12 +303,14 @@ class MainActivity : Activity() {
             MAX_RECONNECT_DELAY
         )
         Log.i(PlayerApp.TAG, "Reconnecting in ${delay/1000}s (attempt #$reconnectAttempts)")
-        statusView.text = "Reconnecting in ${delay/1000}s... (attempt #$reconnectAttempts)"
+        statusView.text = "Reconectando en ${delay/1000}s... (intento #$reconnectAttempts)"
         statusView.visibility = View.VISIBLE
 
         handler.postDelayed({
             if (screenId.isNotEmpty()) {
                 loadPlayer()
+            } else {
+                showSetupMode()
             }
         }, delay)
     }
@@ -298,19 +344,191 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Handle key events - pass 'i' to WebView for diagnostics HUD
+     * Handle key events:
+     * - 'i' key: diagnostics HUD in web player
+     * - Menu key x5: hidden settings menu
+     * - Back: blocked in kiosk mode
+     * - DPAD_CENTER long press (5s): hidden settings menu
      */
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        // Allow 'i' key for diagnostics
+        // Diagnostics HUD
         if (keyCode == KeyEvent.KEYCODE_I) {
             webView.evaluateJavascript("document.dispatchEvent(new KeyboardEvent('keydown',{key:'i'}))", null)
             return true
         }
+
+        // Hidden settings menu via MENU key x5
+        if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_F1) {
+            val now = System.currentTimeMillis()
+            if (now - lastMenuKeyTime > MENU_KEY_TIMEOUT) {
+                menuKeyCount = 0
+            }
+            menuKeyCount++
+            lastMenuKeyTime = now
+            if (menuKeyCount >= MENU_KEY_COUNT_REQUIRED) {
+                menuKeyCount = 0
+                showSettingsDialog()
+            }
+            return true
+        }
+
+        // DPAD_CENTER long press tracking
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            if (event?.repeatCount == 0) {
+                dpadCenterDownTime = System.currentTimeMillis()
+            }
+            // Check if held for 5 seconds
+            if (System.currentTimeMillis() - dpadCenterDownTime >= LONG_PRESS_DURATION) {
+                dpadCenterDownTime = Long.MAX_VALUE // Prevent re-trigger
+                showSettingsDialog()
+                return true
+            }
+        }
+
         // Block back button in kiosk mode
         if (keyCode == KeyEvent.KEYCODE_BACK) {
             return true
         }
+
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
+            dpadCenterDownTime = 0L
+        }
+        return super.onKeyUp(keyCode, event)
+    }
+
+    /**
+     * Hidden settings dialog - accessible via Menu x5 or DPAD_CENTER long press
+     * Allows configuring server URL, screen ID, and resetting the device
+     */
+    private fun showSettingsDialog() {
+        try {
+            // Temporarily stop lock task for dialog
+            try { stopLockTask() } catch (e: Exception) { }
+
+            val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+
+            val layout = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(48, 32, 48, 16)
+            }
+
+            // Title
+            val title = TextView(this).apply {
+                text = "MediAd View Player v${BuildConfig.VERSION_NAME}"
+                textSize = 18f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER
+                setPadding(0, 0, 0, 24)
+            }
+            layout.addView(title)
+
+            // Device info
+            val infoText = TextView(this).apply {
+                text = "Modelo: ${Build.MODEL}\n" +
+                       "Android: ${Build.VERSION.RELEASE}\n" +
+                       "Pantalla: ${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}\n" +
+                       "Screen ID: ${screenId.ifEmpty { "(no configurado)" }}"
+                textSize = 13f
+                setTextColor(Color.parseColor("#94A3B8"))
+                setPadding(0, 0, 0, 24)
+            }
+            layout.addView(infoText)
+
+            // Server URL input
+            val serverLabel = TextView(this).apply {
+                text = "URL del Servidor:"
+                textSize = 14f
+                setTextColor(Color.parseColor("#E2E8F0"))
+            }
+            layout.addView(serverLabel)
+
+            val serverInput = EditText(this).apply {
+                setText(serverUrl)
+                inputType = InputType.TYPE_TEXT_VARIATION_URI
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#1E293B"))
+                setPadding(16, 12, 16, 12)
+                isFocusable = true
+                isFocusableInTouchMode = true
+            }
+            layout.addView(serverInput)
+
+            // Screen ID input
+            val screenLabel = TextView(this).apply {
+                text = "\nScreen ID (dejar vacio para activacion):"
+                textSize = 14f
+                setTextColor(Color.parseColor("#E2E8F0"))
+            }
+            layout.addView(screenLabel)
+
+            val screenInput = EditText(this).apply {
+                setText(screenId)
+                textSize = 14f
+                setTextColor(Color.WHITE)
+                setBackgroundColor(Color.parseColor("#1E293B"))
+                setPadding(16, 12, 16, 12)
+                isFocusable = true
+                isFocusableInTouchMode = true
+            }
+            layout.addView(screenInput)
+
+            val dialog = AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setView(layout)
+                .setPositiveButton("Guardar") { _, _ ->
+                    val newServer = serverInput.text.toString().trim()
+                    val newScreen = screenInput.text.toString().trim()
+
+                    if (newServer.isNotEmpty()) {
+                        serverUrl = newServer
+                        prefs.edit().putString(PREF_SERVER_URL, newServer).apply()
+                    }
+
+                    screenId = newScreen
+                    prefs.edit().putString(PREF_SCREEN_ID, newScreen).apply()
+
+                    // Reload
+                    if (screenId.isNotEmpty()) {
+                        loadPlayer()
+                    } else {
+                        showSetupMode()
+                    }
+
+                    try { startLockTask() } catch (e: Exception) { }
+                }
+                .setNegativeButton("Cancelar") { _, _ ->
+                    try { startLockTask() } catch (e: Exception) { }
+                }
+                .setNeutralButton("Reset") { _, _ ->
+                    // Clear all settings and restart activation
+                    prefs.edit().clear().apply()
+                    serverUrl = DEFAULT_SERVER
+                    screenId = ""
+                    webView.clearCache(true)
+                    webView.clearHistory()
+
+                    // Clear WebView local storage
+                    webView.evaluateJavascript(
+                        "localStorage.clear(); sessionStorage.clear();", null
+                    )
+
+                    showSetupMode()
+                    try { startLockTask() } catch (e: Exception) { }
+                }
+                .setCancelable(false)
+                .create()
+
+            dialog.window?.setBackgroundDrawableResource(android.R.color.background_dark)
+            dialog.show()
+
+        } catch (e: Exception) {
+            Log.e(PlayerApp.TAG, "Settings dialog error: ${e.message}")
+            try { startLockTask() } catch (e2: Exception) { }
+        }
     }
 
     override fun onResume() {
@@ -350,7 +568,7 @@ class MainActivity : Activity() {
             wakeLock?.acquire()
             Log.i(PlayerApp.TAG, "WakeLock acquired")
 
-            // 2. Disable screen timeout (set to max)
+            // 2. Disable screen timeout
             try {
                 android.provider.Settings.System.putInt(
                     contentResolver,
@@ -395,8 +613,8 @@ class MainActivity : Activity() {
                             wakeLock?.acquire()
                             Log.i(PlayerApp.TAG, "WakeLock re-acquired by watchdog")
                         }
-                        // Keep screen on flag
                         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        hideSystemUI()
                     } catch (e: Exception) {
                         Log.w(PlayerApp.TAG, "Watchdog error: ${e.message}")
                     }
@@ -423,7 +641,7 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Schedule nightly app restart for stability (like OptiSigns midnight reboot).
+     * Schedule nightly app restart for stability.
      * Reloads the WebView at 3 AM to clear memory leaks and refresh content.
      */
     private fun scheduleNightlyRestart() {
@@ -436,10 +654,8 @@ class MainActivity : Activity() {
                 // Reboot at 3:00 AM
                 if (hour == 3 && minute == 0) {
                     Log.i(PlayerApp.TAG, "Nightly restart triggered")
-                    // Clear WebView cache
                     webView.clearCache(true)
                     webView.clearHistory()
-                    // Reload the player
                     if (screenId.isNotEmpty()) {
                         loadPlayer()
                     } else {

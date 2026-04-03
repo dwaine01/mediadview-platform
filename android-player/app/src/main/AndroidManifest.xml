@@ -5,6 +5,7 @@
     <!-- Permissions -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -12,6 +13,7 @@
     <uses-permission android:name="android.permission.REORDER_TASKS" />
     <uses-permission android:name="android.permission.WRITE_SETTINGS" tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <!-- Declare TV feature (not required, allows non-TV too) -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
@@ -25,17 +27,19 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:theme="@style/Theme.MediaViewPlayer"
+        android:hardwareAccelerated="true"
         tools:targetApi="34">
 
-        <!-- Main Activity -->
+        <!-- Main Activity - Supports landscape by default, configurable -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden|navigation"
+            android:screenOrientation="sensorLandscape"
             android:keepScreenOn="true"
             android:launchMode="singleTask"
-            android:lockTaskMode="if_whitelisted">
+            android:lockTaskMode="if_whitelisted"
+            android:excludeFromRecents="false">
 
             <!-- Standard launcher -->
             <intent-filter>
@@ -49,8 +53,8 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
 
-            <!-- HOME LAUNCHER: This is the KEY for guaranteed auto-start.
-                 When set as default home app, the OS launches it on every boot. -->
+            <!-- HOME LAUNCHER: Critical for auto-start when set as default home.
+                 Colorlight A40 firmware will set this app as default launcher. -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -58,34 +62,38 @@
             </intent-filter>
         </activity>
 
-        <!-- Boot Receiver 1: Main boot receiver -->
+        <!-- Boot Receiver 1: Main boot receiver with high priority -->
         <receiver
             android:name=".BootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="android.intent.action.REBOOT" />
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
             </intent-filter>
         </receiver>
 
-        <!-- Boot Receiver 2: Network + boot (like OptiSigns) -->
+        <!-- Boot Receiver 2: Network + boot (additional trigger points) -->
         <receiver
             android:name=".NetworkBootReceiver"
             android:enabled="true"
-            android:exported="true">
+            android:exported="true"
+            android:directBootAware="true">
             <intent-filter>
                 <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.TIME_SET" />
                 <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.USER_PRESENT" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </receiver>
 
-        <!-- Overlay Service -->
+        <!-- Overlay Service for persistent operation -->
         <service
             android:name=".OverlayService"
             android:enabled="true"
