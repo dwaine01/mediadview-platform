@@ -693,4 +693,393 @@ async function rotateMedia(mediaId,degrees){
   try{await api('/media/'+mediaId+'/rotate?rotation='+degrees,{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}
 }
 
+// ============ DIGITAL MENU SYSTEM ============
+var currentMenu = null;
+
+loaders.menus = async function(){
+  var el=document.getElementById('pg-menus');
+  try{
+    var menus=await api('/menus');
+    var templates=await api('/menu-templates');
+    var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">';
+    html+='<div><h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Digital Menus</h1>';
+    html+='<p style="color:var(--t-3);font-size:14px">Create and manage restaurant menus for your screens</p></div>';
+    html+='<button class="btn-p" onclick="showCreateMenu()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m7-7H5"/></svg>Create Menu</button>';
+    html+='</div>';
+    
+    if(menus.length===0){
+      html+='<div class="card" style="padding:60px;text-align:center">';
+      html+='<svg width="48" height="48" fill="none" stroke="var(--t-4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 16px"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>';
+      html+='<h3 style="font-size:18px;font-weight:700;margin-bottom:8px">No menus yet</h3>';
+      html+='<p style="color:var(--t-4);margin-bottom:20px">Create your first digital menu for your restaurant</p>';
+      html+='<button class="btn-p" onclick="showCreateMenu()">+ Create Your First Menu</button>';
+      html+='</div>';
+    } else {
+      html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">';
+      menus.forEach(function(m){
+        var tpl=templates.find(function(t){return t.id===m.template_id})||{name:'Classic',accent_color:'#d4af37',preview_color:'#1a1a2e'};
+        var catCount=m.categories?m.categories.length:0;
+        var itemCount=0;
+        (m.categories||[]).forEach(function(c){itemCount+=(c.items||[]).length});
+        html+='<div class="card card-i" style="overflow:hidden;cursor:pointer" onclick="editMenu(\''+m.id+'\')">';
+        html+='<div style="height:80px;background:'+tpl.preview_color+';display:flex;align-items:center;justify-content:center;position:relative">';
+        html+='<span style="font-size:20px;font-weight:900;color:'+tpl.accent_color+';letter-spacing:2px">'+(m.restaurant_name||m.name)+'</span>';
+        html+='<span class="bdg bdg-'+(m.status==='published'?'active':'pending')+'" style="position:absolute;top:8px;right:8px;font-size:9px">'+m.status+'</span>';
+        html+='</div>';
+        html+='<div style="padding:16px">';
+        html+='<div style="font-size:15px;font-weight:700;margin-bottom:4px">'+m.name+'</div>';
+        html+='<div style="font-size:12px;color:var(--t-4);margin-bottom:12px">Template: '+tpl.name+'</div>';
+        html+='<div style="display:flex;gap:16px">';
+        html+='<div style="font-size:11px;color:var(--t-3)"><strong style="color:var(--cyan)">'+catCount+'</strong> categories</div>';
+        html+='<div style="font-size:11px;color:var(--t-3)"><strong style="color:var(--cyan)">'+itemCount+'</strong> items</div>';
+        html+='</div>';
+        html+='<div style="display:flex;gap:8px;margin-top:12px">';
+        html+='<button class="btn-s" style="flex:1;font-size:11px" onclick="event.stopPropagation();editMenu(\''+m.id+'\')">Edit</button>';
+        html+='<button class="btn-s" style="font-size:11px" onclick="event.stopPropagation();previewMenu(\''+m.id+'\')">Preview</button>';
+        html+='<button style="background:none;border:1px solid var(--red);color:var(--red);padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer" onclick="event.stopPropagation();deleteMenu(\''+m.id+'\')">Delete</button>';
+        html+='</div></div></div>';
+      });
+      html+='</div>';
+    }
+    el.innerHTML=html;
+  }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
+};
+
+function showCreateMenu(){
+  var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="menu-modal">';
+  html+='<div style="width:600px;max-height:90vh;overflow-y:auto;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:32px">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:800">Create New Menu</h2>';
+  html+='<button onclick="document.getElementById(\'menu-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
+  
+  html+='<label class="inp-label">Menu Name</label>';
+  html+='<input id="new-menu-name" class="inp" placeholder="e.g. Lunch Menu, Drinks Menu" style="margin-bottom:14px">';
+  
+  html+='<label class="inp-label">Restaurant Name</label>';
+  html+='<input id="new-menu-restaurant" class="inp" placeholder="e.g. Casa Bella, Taco House" style="margin-bottom:14px">';
+  
+  html+='<label class="inp-label">Subtitle (optional)</label>';
+  html+='<input id="new-menu-subtitle" class="inp" placeholder="e.g. Fresh ingredients daily" style="margin-bottom:14px">';
+  
+  html+='<label class="inp-label">Currency Symbol</label>';
+  html+='<input id="new-menu-currency" class="inp" value="$" style="margin-bottom:20px;width:80px">';
+  
+  html+='<label class="inp-label" style="margin-bottom:12px">Select Template</label>';
+  html+='<div id="template-grid" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:24px"></div>';
+  
+  html+='<button class="btn-p" style="width:100%;justify-content:center;padding:14px" onclick="createMenu()">Create Menu</button>';
+  html+='</div></div>';
+  
+  document.body.insertAdjacentHTML('beforeend',html);
+  
+  // Load templates
+  api('/menu-templates').then(function(templates){
+    var grid=document.getElementById('template-grid');
+    var thtml='';
+    templates.forEach(function(t,i){
+      thtml+='<div class="card card-i" style="padding:12px;cursor:pointer;border:2px solid '+(i===0?'var(--cyan)':'transparent')+'" onclick="selectTemplate(this,\''+t.id+'\')" data-tid="'+t.id+'">';
+      thtml+='<div style="height:40px;background:'+t.preview_color+';border-radius:6px;margin-bottom:8px;display:flex;align-items:center;justify-content:center">';
+      thtml+='<span style="font-size:11px;font-weight:800;color:'+t.accent_color+'">'+t.name+'</span></div>';
+      thtml+='<div style="font-size:12px;font-weight:600">'+t.name+'</div>';
+      thtml+='<div style="font-size:10px;color:var(--t-4)">'+t.category+'</div>';
+      thtml+='</div>';
+    });
+    grid.innerHTML=thtml;
+  });
+}
+
+var selectedTemplate='classic';
+function selectTemplate(el,tid){
+  selectedTemplate=tid;
+  document.querySelectorAll('#template-grid .card').forEach(function(c){c.style.borderColor='transparent'});
+  el.style.borderColor='var(--cyan)';
+}
+
+async function createMenu(){
+  var name=document.getElementById('new-menu-name').value;
+  var restaurant=document.getElementById('new-menu-restaurant').value;
+  var subtitle=document.getElementById('new-menu-subtitle').value;
+  var currency=document.getElementById('new-menu-currency').value;
+  if(!name){alert('Enter a menu name');return}
+  try{
+    var m=await api('/menus',{method:'POST',body:JSON.stringify({name:name,restaurant_name:restaurant,subtitle:subtitle,currency_symbol:currency||'$',template_id:selectedTemplate})});
+    document.getElementById('menu-modal').remove();
+    editMenu(m.id);
+  }catch(e){alert(e.message)}
+}
+
+async function deleteMenu(id){
+  if(!confirm('Delete this menu?'))return;
+  try{await api('/menus/'+id,{method:'DELETE'});loaders.menus()}catch(e){alert(e.message)}
+}
+
+function previewMenu(id){
+  window.open(API+'/menus/'+id+'/render','_blank');
+}
+
+// ============ MENU EDITOR ============
+
+async function editMenu(menuId){
+  document.querySelectorAll('.pg').forEach(function(x){x.classList.remove('on')});
+  document.getElementById('pg-menu-edit').classList.add('on');
+  document.querySelectorAll('.ni').forEach(function(n){n.classList.remove('on')});
+  document.querySelector('[data-p="menus"]')?.classList.add('on');
+  
+  try{
+    var menu=await api('/menus/'+menuId);
+    currentMenu=menu;
+    renderMenuEditor(menu);
+  }catch(e){
+    document.getElementById('pg-menu-edit').innerHTML='<p style="color:var(--red)">'+e.message+'</p>';
+  }
+}
+
+function renderMenuEditor(menu){
+  var el=document.getElementById('pg-menu-edit');
+  var html='';
+  
+  // Header
+  html+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">';
+  html+='<div><button style="background:none;border:none;color:var(--cyan);font-size:13px;cursor:pointer;padding:0;margin-bottom:8px" onclick="go(\'menus\')">← Back to Menus</button>';
+  html+='<h1 style="font-size:28px;font-weight:800;margin-bottom:4px">'+menu.name+'</h1>';
+  html+='<p style="color:var(--t-3);font-size:14px">'+menu.restaurant_name+'</p></div>';
+  html+='<div style="display:flex;gap:8px">';
+  html+='<button class="btn-s" onclick="previewMenu(\''+menu.id+'\')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>Preview</button>';
+  html+='<button class="btn-p" onclick="publishMenu(\''+menu.id+'\')">Publish</button>';
+  html+='</div></div>';
+  
+  // Two column layout
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">';
+  
+  // Left: Categories & Items
+  html+='<div>';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">';
+  html+='<h2 style="font-size:16px;font-weight:700">Categories & Items</h2>';
+  html+='<button class="btn-s" onclick="addCategory(\''+menu.id+'\')"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m7-7H5"/></svg>Add Category</button>';
+  html+='</div>';
+  
+  if(!menu.categories||menu.categories.length===0){
+    html+='<div class="card" style="padding:40px;text-align:center;color:var(--t-4)">';
+    html+='<p>No categories yet. Add your first category!</p>';
+    html+='<button class="btn-p" style="margin-top:12px" onclick="addCategory(\''+menu.id+'\')">+ Add Category</button>';
+    html+='</div>';
+  } else {
+    menu.categories.forEach(function(cat){
+      html+='<div class="card" style="margin-bottom:12px;overflow:hidden">';
+      // Category header
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--brand-l)10;border-bottom:1px solid #1e293b">';
+      html+='<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--cyan)">'+cat.name+'</div>';
+      if(cat.description)html+='<div style="font-size:11px;color:var(--t-4)">'+cat.description+'</div>';
+      html+='</div>';
+      html+='<button class="btn-s" style="font-size:10px;padding:4px 10px" onclick="addItem(\''+menu.id+'\',\''+cat.id+'\')">+ Item</button>';
+      html+='<button style="background:none;border:none;color:var(--t-4);cursor:pointer;font-size:12px" onclick="editCategory(\''+menu.id+'\',\''+cat.id+'\',\''+cat.name.replace(/'/g,"\\'")+'\')" title="Edit">✏️</button>';
+      html+='<button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" onclick="deleteCategory(\''+menu.id+'\',\''+cat.id+'\')" title="Delete">🗑️</button>';
+      html+='</div>';
+      
+      // Items
+      if(!cat.items||cat.items.length===0){
+        html+='<div style="padding:20px;text-align:center;color:var(--t-4);font-size:12px">No items in this category</div>';
+      } else {
+        cat.items.forEach(function(item){
+          html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #1e293b08'+(item.featured?';background:rgba(34,211,238,.03)':'')+'">';
+          if(item.image){
+            html+='<img src="'+item.image+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0">';
+          } else {
+            html+='<div style="width:40px;height:40px;border-radius:8px;background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg></div>';
+          }
+          html+='<div style="flex:1;min-width:0">';
+          html+='<div style="font-size:13px;font-weight:600">'+item.name+(item.featured?' <span style="color:var(--cyan);font-size:9px">★ FEATURED</span>':'')+'</div>';
+          if(item.description)html+='<div style="font-size:10px;color:var(--t-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.description+'</div>';
+          html+='</div>';
+          html+='<div style="font-size:15px;font-weight:800;color:var(--cyan)">'+(menu.currency_symbol||'$')+parseFloat(item.price||0).toFixed(2)+'</div>';
+          html+='<button style="background:none;border:none;color:var(--t-4);cursor:pointer;font-size:12px" onclick="editItem(\''+menu.id+'\',\''+cat.id+'\',\''+item.id+'\')" title="Edit">✏️</button>';
+          html+='<button style="background:none;border:none;color:var(--red);cursor:pointer;font-size:12px" onclick="deleteItem(\''+menu.id+'\',\''+cat.id+'\',\''+item.id+'\')" title="Delete">🗑️</button>';
+          html+='</div>';
+        });
+      }
+      html+='</div>';
+    });
+  }
+  html+='</div>';
+  
+  // Right: Menu Settings & Preview
+  html+='<div>';
+  html+='<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Menu Settings</h2>';
+  html+='<div class="card" style="padding:16px;margin-bottom:16px">';
+  html+='<label class="inp-label">Menu Name</label>';
+  html+='<input class="inp" value="'+menu.name+'" onchange="updateMenuField(\''+menu.id+'\',\'name\',this.value)" style="margin-bottom:10px">';
+  html+='<label class="inp-label">Restaurant Name</label>';
+  html+='<input class="inp" value="'+(menu.restaurant_name||'')+'" onchange="updateMenuField(\''+menu.id+'\',\'restaurant_name\',this.value)" style="margin-bottom:10px">';
+  html+='<label class="inp-label">Subtitle</label>';
+  html+='<input class="inp" value="'+(menu.subtitle||'')+'" onchange="updateMenuField(\''+menu.id+'\',\'subtitle\',this.value)" style="margin-bottom:10px">';
+  html+='<label class="inp-label">Currency Symbol</label>';
+  html+='<input class="inp" value="'+(menu.currency_symbol||'$')+'" onchange="updateMenuField(\''+menu.id+'\',\'currency_symbol\',this.value)" style="width:80px">';
+  html+='</div>';
+  
+  html+='<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Live Preview</h2>';
+  html+='<div style="border-radius:12px;overflow:hidden;border:1px solid #1e293b;height:400px">';
+  html+='<iframe src="'+API+'/menus/'+menu.id+'/render" style="width:100%;height:100%;border:none;transform:scale(0.5);transform-origin:top left;width:200%;height:200%"></iframe>';
+  html+='</div>';
+  
+  html+='<div style="margin-top:12px;text-align:center">';
+  html+='<a href="'+API+'/menus/'+menu.id+'/render" target="_blank" style="font-size:12px;color:var(--cyan);cursor:pointer">Open full preview →</a>';
+  html+='</div>';
+  
+  html+='</div></div>';
+  
+  el.innerHTML=html;
+}
+
+async function updateMenuField(menuId,field,value){
+  try{
+    var body={};body[field]=value;
+    await api('/menus/'+menuId,{method:'PUT',body:JSON.stringify(body)});
+  }catch(e){alert(e.message)}
+}
+
+async function publishMenu(menuId){
+  try{
+    await api('/menus/'+menuId,{method:'PUT',body:JSON.stringify({status:'published'})});
+    alert('Menu published! URL: '+location.origin+API+'/menus/'+menuId+'/render');
+    editMenu(menuId);
+  }catch(e){alert(e.message)}
+}
+
+function addCategory(menuId){
+  var name=prompt('Category name (e.g. Appetizers, Main Course, Drinks):');
+  if(!name)return;
+  var desc=prompt('Category description (optional):');
+  api('/menus/'+menuId+'/categories',{method:'POST',body:JSON.stringify({name:name,description:desc||''})}).then(function(){editMenu(menuId)}).catch(function(e){alert(e.message)});
+}
+
+function editCategory(menuId,catId,currentName){
+  var name=prompt('Category name:',currentName);
+  if(!name)return;
+  api('/menus/'+menuId+'/categories/'+catId,{method:'PUT',body:JSON.stringify({name:name})}).then(function(){editMenu(menuId)}).catch(function(e){alert(e.message)});
+}
+
+function deleteCategory(menuId,catId){
+  if(!confirm('Delete this category and all its items?'))return;
+  api('/menus/'+menuId+'/categories/'+catId,{method:'DELETE'}).then(function(){editMenu(menuId)}).catch(function(e){alert(e.message)});
+}
+
+function addItem(menuId,catId){
+  var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="item-modal">';
+  html+='<div style="width:500px;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:28px">';
+  html+='<div style="display:flex;justify-content:space-between;margin-bottom:20px"><h2 style="font-size:18px;font-weight:800">Add Menu Item</h2>';
+  html+='<button onclick="document.getElementById(\'item-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
+  
+  html+='<label class="inp-label">Item Name *</label>';
+  html+='<input id="item-name" class="inp" placeholder="e.g. Caesar Salad" style="margin-bottom:10px">';
+  
+  html+='<label class="inp-label">Description</label>';
+  html+='<input id="item-desc" class="inp" placeholder="e.g. Fresh romaine, parmesan, croutons" style="margin-bottom:10px">';
+  
+  html+='<label class="inp-label">Price *</label>';
+  html+='<input id="item-price" class="inp" type="number" step="0.01" placeholder="12.99" style="margin-bottom:10px;width:150px">';
+  
+  html+='<label class="inp-label">Image (optional)</label>';
+  html+='<input id="item-image-file" type="file" accept="image/*" onchange="previewItemImage(this)" style="margin-bottom:6px;font-size:12px;color:var(--t-3)">';
+  html+='<div id="item-image-preview" style="margin-bottom:10px"></div>';
+  html+='<input id="item-image-data" type="hidden">';
+  
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">';
+  html+='<input type="checkbox" id="item-featured" style="width:16px;height:16px">';
+  html+='<label for="item-featured" style="font-size:13px;color:var(--t-2)">Featured / Special</label></div>';
+  
+  html+='<button class="btn-p" style="width:100%;justify-content:center;padding:12px" onclick="saveItem(\''+menuId+'\',\''+catId+'\')">Add Item</button>';
+  html+='</div></div>';
+  
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+function previewItemImage(input){
+  var preview=document.getElementById('item-image-preview');
+  if(input.files&&input.files[0]){
+    var reader=new FileReader();
+    reader.onload=function(e){
+      document.getElementById('item-image-data').value=e.target.result;
+      preview.innerHTML='<img src="'+e.target.result+'" style="width:80px;height:80px;border-radius:8px;object-fit:cover">';
+    };
+    reader.readAsDataURL(input.files[0]);
+  }
+}
+
+async function saveItem(menuId,catId){
+  var name=document.getElementById('item-name').value;
+  var desc=document.getElementById('item-desc').value;
+  var price=parseFloat(document.getElementById('item-price').value)||0;
+  var image=document.getElementById('item-image-data').value||'';
+  var featured=document.getElementById('item-featured').checked;
+  if(!name){alert('Enter item name');return}
+  if(price<=0){alert('Enter a valid price');return}
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items',{method:'POST',body:JSON.stringify({name:name,description:desc,price:price,image:image,featured:featured})});
+    document.getElementById('item-modal').remove();
+    editMenu(menuId);
+  }catch(e){alert(e.message)}
+}
+
+function editItem(menuId,catId,itemId){
+  // Find the item data
+  var item=null;
+  if(currentMenu&&currentMenu.categories){
+    currentMenu.categories.forEach(function(c){
+      if(c.id===catId)(c.items||[]).forEach(function(it){if(it.id===itemId)item=it});
+    });
+  }
+  if(!item){alert('Item not found');return}
+  
+  var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="item-modal">';
+  html+='<div style="width:500px;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:28px">';
+  html+='<div style="display:flex;justify-content:space-between;margin-bottom:20px"><h2 style="font-size:18px;font-weight:800">Edit Menu Item</h2>';
+  html+='<button onclick="document.getElementById(\'item-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
+  
+  html+='<label class="inp-label">Item Name *</label>';
+  html+='<input id="item-name" class="inp" value="'+item.name+'" style="margin-bottom:10px">';
+  
+  html+='<label class="inp-label">Description</label>';
+  html+='<input id="item-desc" class="inp" value="'+(item.description||'')+'" style="margin-bottom:10px">';
+  
+  html+='<label class="inp-label">Price *</label>';
+  html+='<input id="item-price" class="inp" type="number" step="0.01" value="'+item.price+'" style="margin-bottom:10px;width:150px">';
+  
+  html+='<label class="inp-label">Image</label>';
+  html+='<input id="item-image-file" type="file" accept="image/*" onchange="previewItemImage(this)" style="margin-bottom:6px;font-size:12px;color:var(--t-3)">';
+  html+='<div id="item-image-preview" style="margin-bottom:10px">';
+  if(item.image)html+='<img src="'+item.image+'" style="width:80px;height:80px;border-radius:8px;object-fit:cover">';
+  html+='</div>';
+  html+='<input id="item-image-data" type="hidden" value="'+(item.image||'')+'">';
+  
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">';
+  html+='<input type="checkbox" id="item-featured" style="width:16px;height:16px"'+(item.featured?' checked':'')+'>';
+  html+='<label for="item-featured" style="font-size:13px;color:var(--t-2)">Featured / Special</label></div>';
+  
+  html+='<button class="btn-p" style="width:100%;justify-content:center;padding:12px" onclick="updateItem(\''+menuId+'\',\''+catId+'\',\''+itemId+'\')">Save Changes</button>';
+  html+='</div></div>';
+  
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function updateItem(menuId,catId,itemId){
+  var name=document.getElementById('item-name').value;
+  var desc=document.getElementById('item-desc').value;
+  var price=parseFloat(document.getElementById('item-price').value)||0;
+  var image=document.getElementById('item-image-data').value||'';
+  var featured=document.getElementById('item-featured').checked;
+  if(!name||price<=0){alert('Enter name and valid price');return}
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'PUT',body:JSON.stringify({name:name,description:desc,price:price,image:image,featured:featured})});
+    document.getElementById('item-modal').remove();
+    editMenu(menuId);
+  }catch(e){alert(e.message)}
+}
+
+async function deleteItem(menuId,catId,itemId){
+  if(!confirm('Delete this item?'))return;
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'DELETE'});
+    editMenu(menuId);
+  }catch(e){alert(e.message)}
+}
+
 if(token&&user){enterApp()}

@@ -2089,6 +2089,379 @@ async def get_certified_devices():
         "devices": CERTIFIED_DEVICES,
     }
 
+# ============ DIGITAL MENU SYSTEM ============
+# Allows restaurant customers to create and manage digital menus
+
+MENU_TEMPLATES = [
+    {
+        "id": "classic",
+        "name": "Clasico Elegante",
+        "description": "Menu clasico con fondo oscuro y texto dorado. Ideal para restaurantes finos.",
+        "category": "Fine Dining",
+        "preview_color": "#1a1a2e",
+        "accent_color": "#d4af37"
+    },
+    {
+        "id": "modern",
+        "name": "Moderno Minimalista",
+        "description": "Diseno limpio y moderno con fondo blanco. Perfecto para cafes y bistros.",
+        "category": "Cafe & Bistro",
+        "preview_color": "#ffffff",
+        "accent_color": "#2563eb"
+    },
+    {
+        "id": "fastfood",
+        "name": "Comida Rapida",
+        "description": "Colores vibrantes y texto grande. Ideal para fast food y food trucks.",
+        "category": "Fast Food",
+        "preview_color": "#dc2626",
+        "accent_color": "#fbbf24"
+    },
+    {
+        "id": "mexican",
+        "name": "Mexicano Festivo",
+        "description": "Colores calidos y festivos. Perfecto para restaurantes mexicanos y latinos.",
+        "category": "Mexican & Latin",
+        "preview_color": "#92400e",
+        "accent_color": "#f59e0b"
+    },
+    {
+        "id": "sushi",
+        "name": "Sushi & Asian",
+        "description": "Estilo zen minimalista. Ideal para restaurantes japoneses y asiaticos.",
+        "category": "Asian",
+        "preview_color": "#0f172a",
+        "accent_color": "#f43f5e"
+    },
+    {
+        "id": "pizza",
+        "name": "Pizzeria Italiana",
+        "description": "Estilo italiano clasico. Perfecto para pizzerias y restaurantes italianos.",
+        "category": "Italian",
+        "preview_color": "#1c1917",
+        "accent_color": "#dc2626"
+    },
+    {
+        "id": "bar",
+        "name": "Bar & Lounge",
+        "description": "Tema oscuro con acentos neon. Ideal para bares, lounges y clubes.",
+        "category": "Bar & Nightlife",
+        "preview_color": "#0a0a0a",
+        "accent_color": "#a855f7"
+    },
+    {
+        "id": "healthy",
+        "name": "Saludable & Organico",
+        "description": "Tonos verdes naturales. Perfecto para juguerias, ensaladas y comida saludable.",
+        "category": "Healthy & Organic",
+        "preview_color": "#f0fdf4",
+        "accent_color": "#16a34a"
+    }
+]
+
+@api_router.get("/menu-templates")
+async def get_menu_templates():
+    """Get all available menu design templates."""
+    return MENU_TEMPLATES
+
+# --- Menu CRUD (Customer-facing) ---
+
+@api_router.post("/menus")
+async def create_menu(data: dict, current_user: dict = Depends(get_current_user)):
+    """Create a new digital menu."""
+    menu = {
+        "id": gen_id(),
+        "user_id": current_user["id"],
+        "name": data.get("name", "My Menu"),
+        "template_id": data.get("template_id", "classic"),
+        "restaurant_name": data.get("restaurant_name", ""),
+        "restaurant_logo": data.get("restaurant_logo", ""),
+        "subtitle": data.get("subtitle", ""),
+        "currency": data.get("currency", "USD"),
+        "currency_symbol": data.get("currency_symbol", "$"),
+        "categories": [],
+        "status": "draft",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    }
+    await db.menus.insert_one(menu)
+    return serialize_doc(menu)
+
+@api_router.get("/menus")
+async def get_menus(current_user: dict = Depends(get_current_user)):
+    """Get all menus for the current user."""
+    if current_user.get("role") in ("admin", "superadmin"):
+        menus = await db.menus.find().sort("created_at", -1).to_list(200)
+    else:
+        menus = await db.menus.find({"user_id": current_user["id"]}).sort("created_at", -1).to_list(200)
+    return serialize_doc(menus)
+
+@api_router.get("/menus/{menu_id}")
+async def get_menu(menu_id: str, current_user: dict = Depends(get_current_user)):
+    """Get a specific menu with all its data."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    return serialize_doc(menu)
+
+@api_router.put("/menus/{menu_id}")
+async def update_menu(menu_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Update menu settings."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    update = {"updated_at": datetime.utcnow()}
+    for field in ["name", "template_id", "restaurant_name", "restaurant_logo", "subtitle", "currency", "currency_symbol", "status", "categories"]:
+        if field in data:
+            update[field] = data[field]
+    
+    await db.menus.update_one({"id": menu_id}, {"$set": update})
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.delete("/menus/{menu_id}")
+async def delete_menu(menu_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    await db.menus.delete_one({"id": menu_id})
+    return {"message": "Menu deleted"}
+
+# --- Menu Category Management ---
+
+@api_router.post("/menus/{menu_id}/categories")
+async def add_menu_category(menu_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Add a category to a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    category = {
+        "id": gen_id(),
+        "name": data.get("name", "Category"),
+        "description": data.get("description", ""),
+        "items": [],
+        "order": len(menu.get("categories", []))
+    }
+    
+    await db.menus.update_one({"id": menu_id}, {"$push": {"categories": category}, "$set": {"updated_at": datetime.utcnow()}})
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.put("/menus/{menu_id}/categories/{category_id}")
+async def update_menu_category(menu_id: str, category_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Update a category in a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    categories = menu.get("categories", [])
+    for cat in categories:
+        if cat["id"] == category_id:
+            if "name" in data: cat["name"] = data["name"]
+            if "description" in data: cat["description"] = data["description"]
+            break
+    
+    await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.delete("/menus/{menu_id}/categories/{category_id}")
+async def delete_menu_category(menu_id: str, category_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a category from a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    categories = [c for c in menu.get("categories", []) if c["id"] != category_id]
+    await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    return {"message": "Category deleted"}
+
+# --- Menu Item Management ---
+
+@api_router.post("/menus/{menu_id}/categories/{category_id}/items")
+async def add_menu_item(menu_id: str, category_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Add an item to a category in a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    item = {
+        "id": gen_id(),
+        "name": data.get("name", "Item"),
+        "description": data.get("description", ""),
+        "price": data.get("price", 0),
+        "image": data.get("image", ""),
+        "featured": data.get("featured", False),
+        "available": data.get("available", True),
+        "order": 0
+    }
+    
+    categories = menu.get("categories", [])
+    for cat in categories:
+        if cat["id"] == category_id:
+            item["order"] = len(cat.get("items", []))
+            cat.setdefault("items", []).append(item)
+            break
+    
+    await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.put("/menus/{menu_id}/categories/{category_id}/items/{item_id}")
+async def update_menu_item(menu_id: str, category_id: str, item_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Update a menu item."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    categories = menu.get("categories", [])
+    for cat in categories:
+        if cat["id"] == category_id:
+            for it in cat.get("items", []):
+                if it["id"] == item_id:
+                    for field in ["name", "description", "price", "image", "featured", "available"]:
+                        if field in data: it[field] = data[field]
+                    break
+            break
+    
+    await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.delete("/menus/{menu_id}/categories/{category_id}/items/{item_id}")
+async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current_user: dict = Depends(get_current_user)):
+    """Delete a menu item."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    categories = menu.get("categories", [])
+    for cat in categories:
+        if cat["id"] == category_id:
+            cat["items"] = [it for it in cat.get("items", []) if it["id"] != item_id]
+            break
+    
+    await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    return {"message": "Item deleted"}
+
+# --- Menu Render (for player/screen display) ---
+
+@api_router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
+async def render_menu(menu_id: str):
+    """Render a menu as a full HTML page for display on screens/players."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    
+    template_id = menu.get("template_id", "classic")
+    restaurant = menu.get("restaurant_name", "Restaurant")
+    subtitle = menu.get("subtitle", "")
+    currency_sym = menu.get("currency_symbol", "$")
+    categories = menu.get("categories", [])
+    
+    # Template styles
+    templates = {
+        "classic": {"bg": "#1a1a2e", "text": "#e2e8f0", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.1)", "item_bg": "rgba(255,255,255,.03)", "font": "'Playfair Display',Georgia,serif", "name_size": "52px"},
+        "modern": {"bg": "#f8fafc", "text": "#1e293b", "accent": "#2563eb", "cat_bg": "rgba(37,99,235,.08)", "item_bg": "#ffffff", "font": "'Inter',sans-serif", "name_size": "42px"},
+        "fastfood": {"bg": "#fef3c7", "text": "#1c1917", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.1)", "item_bg": "rgba(255,255,255,.6)", "font": "'Inter',sans-serif", "name_size": "48px"},
+        "mexican": {"bg": "#451a03", "text": "#fef3c7", "accent": "#f59e0b", "cat_bg": "rgba(245,158,11,.12)", "item_bg": "rgba(255,255,255,.05)", "font": "'Inter',sans-serif", "name_size": "48px"},
+        "sushi": {"bg": "#0f172a", "text": "#e2e8f0", "accent": "#f43f5e", "cat_bg": "rgba(244,63,94,.08)", "item_bg": "rgba(255,255,255,.03)", "font": "'Inter',sans-serif", "name_size": "44px"},
+        "pizza": {"bg": "#1c1917", "text": "#fef2f2", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.1)", "item_bg": "rgba(255,255,255,.04)", "font": "'Inter',sans-serif", "name_size": "48px"},
+        "bar": {"bg": "#0a0a0a", "text": "#e2e8f0", "accent": "#a855f7", "cat_bg": "rgba(168,85,247,.1)", "item_bg": "rgba(255,255,255,.03)", "font": "'Inter',sans-serif", "name_size": "44px"},
+        "healthy": {"bg": "#f0fdf4", "text": "#14532d", "accent": "#16a34a", "cat_bg": "rgba(22,163,74,.08)", "item_bg": "#ffffff", "font": "'Inter',sans-serif", "name_size": "42px"}
+    }
+    
+    t = templates.get(template_id, templates["classic"])
+    
+    # Build HTML
+    html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{background:{t['bg']};color:{t['text']};font-family:{t['font']};min-height:100vh;padding:40px 60px}}
+.header{{text-align:center;margin-bottom:40px;padding-bottom:24px;border-bottom:2px solid {t['accent']}30}}
+.restaurant-name{{font-size:{t['name_size']};font-weight:900;color:{t['accent']};letter-spacing:2px}}
+.subtitle{{font-size:18px;color:{t['text']}80;margin-top:8px;letter-spacing:1px}}
+.categories{{display:flex;flex-wrap:wrap;gap:32px;justify-content:center}}
+.category{{flex:1;min-width:320px;max-width:520px}}
+.cat-title{{font-size:24px;font-weight:800;color:{t['accent']};padding:12px 20px;background:{t['cat_bg']};border-radius:12px;margin-bottom:16px;text-align:center;text-transform:uppercase;letter-spacing:3px}}
+.cat-desc{{font-size:13px;color:{t['text']}60;text-align:center;margin:-8px 0 16px}}
+.item{{display:flex;align-items:center;gap:14px;padding:14px 16px;background:{t['item_bg']};border-radius:10px;margin-bottom:8px;border:1px solid {t['accent']}10}}
+.item-img{{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:2px solid {t['accent']}20}}
+.item-info{{flex:1;min-width:0}}
+.item-name{{font-size:17px;font-weight:700}}
+.item-desc{{font-size:12px;color:{t['text']}70;margin-top:3px}}
+.item-price{{font-size:22px;font-weight:900;color:{t['accent']};white-space:nowrap}}
+.featured{{border:2px solid {t['accent']}40;background:{t['cat_bg']}}}
+.unavailable{{opacity:.4}}
+.star{{color:{t['accent']};font-size:11px;margin-left:6px}}
+</style></head><body>
+<div class="header">
+<div class="restaurant-name">{restaurant}</div>"""
+    
+    if subtitle:
+        html += f'<div class="subtitle">{subtitle}</div>'
+    
+    html += '</div><div class="categories">'
+    
+    for cat in categories:
+        items = [it for it in cat.get("items", []) if it.get("available", True) or True]
+        if not items and not cat.get("name"):
+            continue
+        
+        html += f'<div class="category"><div class="cat-title">{cat["name"]}</div>'
+        if cat.get("description"):
+            html += f'<div class="cat-desc">{cat["description"]}</div>'
+        
+        for it in items:
+            cls = "item"
+            if it.get("featured"): cls += " featured"
+            if not it.get("available", True): cls += " unavailable"
+            
+            html += f'<div class="{cls}">'
+            if it.get("image"):
+                html += f'<img class="item-img" src="{it["image"]}" alt="">'
+            html += f'<div class="item-info"><div class="item-name">{it["name"]}'
+            if it.get("featured"):
+                html += '<span class="star">★ ESPECIAL</span>'
+            html += '</div>'
+            if it.get("description"):
+                html += f'<div class="item-desc">{it["description"]}</div>'
+            html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
+        
+        html += '</div>'
+    
+    html += '</div>'
+    
+    # Auto-refresh every 5 minutes
+    html += '<script>setTimeout(function(){location.reload()},300000)</script>'
+    html += '</body></html>'
+    
+    return HTMLResponse(content=html)
+
+
+
 # ============ APP CONFIGURATION ============
 
 # Serve web dashboard
