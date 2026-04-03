@@ -924,6 +924,29 @@ function renderMenuEditor(menu){
   html+='<a href="'+API+'/menus/'+menu.id+'/render" target="_blank" style="font-size:12px;color:var(--cyan);cursor:pointer">Open full preview →</a>';
   html+='</div>';
   
+  // Promo Media Section
+  html+='<h2 style="font-size:16px;font-weight:700;margin-top:20px;margin-bottom:12px">Promotional Media</h2>';
+  html+='<div class="card" style="padding:16px">';
+  html+='<p style="font-size:11px;color:var(--t-4);margin-bottom:12px">Add videos or images that scroll at the bottom of your menu display (e.g. food preparation, promotions)</p>';
+  html+='<input id="promo-file" type="file" accept="image/*,video/*" onchange="uploadPromoMedia(\''+menu.id+'\',this)" style="font-size:11px;color:var(--t-3);margin-bottom:12px">';
+  
+  var promos = menu.promo_media || [];
+  if(promos.length > 0){
+    html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
+    promos.forEach(function(pm){
+      html+='<div style="position:relative;width:100px;height:70px;border-radius:8px;overflow:hidden;border:1px solid #1e293b">';
+      if(pm.type==='video'){
+        html+='<video src="'+(pm.data||pm.url)+'" style="width:100%;height:100%;object-fit:cover" muted></video>';
+      } else {
+        html+='<img src="'+(pm.data||pm.url)+'" style="width:100%;height:100%;object-fit:cover">';
+      }
+      html+='<button onclick="deletePromoMedia(\''+menu.id+'\',\''+pm.id+'\')" style="position:absolute;top:2px;right:2px;background:rgba(0,0,0,.7);color:var(--red);border:none;border-radius:50%;width:18px;height:18px;font-size:10px;cursor:pointer;display:flex;align-items:center;justify-content:center">✕</button>';
+      html+='</div>';
+    });
+    html+='</div>';
+  }
+  html+='</div>';
+  
   html+='</div></div>';
   
   el.innerHTML=html;
@@ -1078,6 +1101,29 @@ async function deleteItem(menuId,catId,itemId){
   if(!confirm('Delete this item?'))return;
   try{
     await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'DELETE'});
+    editMenu(menuId);
+  }catch(e){alert(e.message)}
+}
+
+// Promo media functions
+function uploadPromoMedia(menuId,input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  var type=file.type.startsWith('video')?'video':'image';
+  var reader=new FileReader();
+  reader.onload=async function(e){
+    try{
+      await api('/menus/'+menuId+'/promo-media',{method:'POST',body:JSON.stringify({type:type,data:e.target.result,title:file.name})});
+      editMenu(menuId);
+    }catch(err){alert(err.message)}
+  };
+  reader.readAsDataURL(file);
+}
+
+async function deletePromoMedia(menuId,mediaId){
+  if(!confirm('Delete this media?'))return;
+  try{
+    await api('/menus/'+menuId+'/promo-media/'+mediaId,{method:'DELETE'});
     editMenu(menuId);
   }catch(e){alert(e.message)}
 }

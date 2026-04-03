@@ -2636,6 +2636,50 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
 
 # --- Menu Render (for player/screen display) ---
 
+# --- Promo Media Management ---
+
+@api_router.post("/menus/{menu_id}/promo-media")
+async def add_promo_media(menu_id: str, data: dict, current_user: dict = Depends(get_current_user)):
+    """Add promotional video/image to a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    media_item = {
+        "id": gen_id(),
+        "type": data.get("type", "image"),  # "image" or "video"
+        "url": data.get("url", ""),
+        "data": data.get("data", ""),  # base64 for uploads
+        "title": data.get("title", ""),
+        "order": len(menu.get("promo_media", []))
+    }
+    
+    await db.menus.update_one({"id": menu_id}, {
+        "$push": {"promo_media": media_item},
+        "$set": {"updated_at": datetime.utcnow()}
+    })
+    updated = await db.menus.find_one({"id": menu_id})
+    return serialize_doc(updated)
+
+@api_router.delete("/menus/{menu_id}/promo-media/{media_id}")
+async def delete_promo_media(menu_id: str, media_id: str, current_user: dict = Depends(get_current_user)):
+    """Remove promotional media from a menu."""
+    menu = await db.menus.find_one({"id": menu_id})
+    if not menu:
+        raise HTTPException(status_code=404, detail="Menu not found")
+    if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    promo_media = [m for m in menu.get("promo_media", []) if m["id"] != media_id]
+    await db.menus.update_one({"id": menu_id}, {
+        "$set": {"promo_media": promo_media, "updated_at": datetime.utcnow()}
+    })
+    return {"message": "Promo media deleted"}
+
+
+
 @api_router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
 async def render_menu(menu_id: str):
     """Render a menu as a full-screen HTML page optimized for landscape LED displays.
@@ -2649,6 +2693,7 @@ async def render_menu(menu_id: str):
     subtitle = menu.get("subtitle", "")
     currency_sym = menu.get("currency_symbol", "$")
     categories = menu.get("categories", [])
+    promo_media = menu.get("promo_media", [])
     
     # Food emoji placeholders by keyword
     food_emojis = {
@@ -2726,6 +2771,10 @@ async def render_menu(menu_id: str):
     num_slides = len(slides)
     slide_duration = 12
     
+    has_promo = len(promo_media) > 0
+    menu_height = "75%" if has_promo else "calc(100% - 80px)"
+    promo_height = "25%" if has_promo else "0"
+    
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
@@ -2762,6 +2811,13 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 .item-price{{font-size:17px;font-weight:900;color:{t['accent']};white-space:nowrap;flex-shrink:0}}
 .star{{color:{t['accent']};font-size:8px;margin-left:3px;font-weight:400}}
 .unavailable{{opacity:.35}}
+
+.promo-strip{{height:160px;flex-shrink:0;display:flex;gap:12px;padding:10px 28px;overflow:hidden;border-top:2px solid {t['accent']}15;background:{t['bg2']}}}
+.promo-item{{flex-shrink:0;height:140px;border-radius:12px;overflow:hidden;border:1px solid {t['accent']}15;position:relative}}
+.promo-item img{{height:100%;width:auto;max-width:250px;object-fit:cover;display:block}}
+.promo-item video{{height:100%;width:auto;max-width:250px;object-fit:cover;display:block}}
+.promo-scroll{{display:flex;gap:12px;animation:promoScroll linear infinite}}
+@keyframes promoScroll{{0%{{transform:translateX(0)}}100%{{transform:translateX(-50%)}}}}
 
 .footer{{padding:6px 40px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid {t['accent']}10}}
 .footer-text{{font-size:10px;color:{t['text2']}}}
@@ -2819,6 +2875,23 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     
     html += '</div>'
     
+    # Promo media strip
+    if promo_media:
+        html += '<div class="promo-strip"><div class="promo-scroll" id="promo-scroll">'
+        # Duplicate items for infinite scroll effect
+        for _ in range(2):
+            for pm in promo_media:
+                src = pm.get("data") or pm.get("url", "")
+                if not src:
+                    continue
+                html += '<div class="promo-item">'
+                if pm.get("type") == "video":
+                    html += f'<video src="{src}" muted autoplay loop playsinline></video>'
+                else:
+                    html += f'<img src="{src}" alt="">'
+                html += '</div>'
+        html += '</div></div>'
+    
     # Footer
     html += '<div class="footer">'
     html += f'<div class="footer-text">{restaurant}</div>'
@@ -2831,7 +2904,10 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     html += f'<div class="footer-text">MediAd View</div>'
     html += '</div></div>'
     
-    # Slideshow JS
+    # Slideshow JS + Promo scroll
+    promo_count = len(promo_media)
+    scroll_speed = max(promo_count * 8, 20)  # seconds for full scroll
+    
     html += f"""<script>
 var current=0,total={num_slides},duration={slide_duration}000;
 function showSlide(n){{
@@ -2843,6 +2919,9 @@ function showSlide(n){{
   if(dot)dot.classList.add('active');
 }}
 if(total>1){{setInterval(function(){{current=(current+1)%total;showSlide(current)}},duration)}}
+// Promo scroll animation
+var ps=document.getElementById('promo-scroll');
+if(ps){{ps.style.animationDuration='{scroll_speed}s'}}
 setTimeout(function(){{location.reload()}},300000);
 </script>"""
     
