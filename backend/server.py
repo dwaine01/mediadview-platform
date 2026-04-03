@@ -2638,7 +2638,8 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
 
 @api_router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
 async def render_menu(menu_id: str):
-    """Render a menu as a full HTML page for display on screens/players."""
+    """Render a menu as a full-screen HTML page optimized for landscape LED displays.
+    Features: 3-column max per slide, auto-slideshow for extra categories, item images."""
     menu = await db.menus.find_one({"id": menu_id})
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
@@ -2649,84 +2650,143 @@ async def render_menu(menu_id: str):
     currency_sym = menu.get("currency_symbol", "$")
     categories = menu.get("categories", [])
     
-    # Template styles
     templates = {
-        "classic": {"bg": "#1a1a2e", "text": "#e2e8f0", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.1)", "item_bg": "rgba(255,255,255,.03)", "font": "'Playfair Display',Georgia,serif", "name_size": "52px"},
-        "modern": {"bg": "#f8fafc", "text": "#1e293b", "accent": "#2563eb", "cat_bg": "rgba(37,99,235,.08)", "item_bg": "#ffffff", "font": "'Inter',sans-serif", "name_size": "42px"},
-        "fastfood": {"bg": "#fef3c7", "text": "#1c1917", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.1)", "item_bg": "rgba(255,255,255,.6)", "font": "'Inter',sans-serif", "name_size": "48px"},
-        "mexican": {"bg": "#451a03", "text": "#fef3c7", "accent": "#f59e0b", "cat_bg": "rgba(245,158,11,.12)", "item_bg": "rgba(255,255,255,.05)", "font": "'Inter',sans-serif", "name_size": "48px"},
-        "sushi": {"bg": "#0f172a", "text": "#e2e8f0", "accent": "#f43f5e", "cat_bg": "rgba(244,63,94,.08)", "item_bg": "rgba(255,255,255,.03)", "font": "'Inter',sans-serif", "name_size": "44px"},
-        "pizza": {"bg": "#1c1917", "text": "#fef2f2", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.1)", "item_bg": "rgba(255,255,255,.04)", "font": "'Inter',sans-serif", "name_size": "48px"},
-        "bar": {"bg": "#0a0a0a", "text": "#e2e8f0", "accent": "#a855f7", "cat_bg": "rgba(168,85,247,.1)", "item_bg": "rgba(255,255,255,.03)", "font": "'Inter',sans-serif", "name_size": "44px"},
-        "healthy": {"bg": "#f0fdf4", "text": "#14532d", "accent": "#16a34a", "cat_bg": "rgba(22,163,74,.08)", "item_bg": "#ffffff", "font": "'Inter',sans-serif", "name_size": "42px"}
+        "classic": {"bg": "#1a1a2e", "bg2": "#16213e", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#d4af37", "accent2": "#b8941f", "cat_bg": "rgba(212,175,55,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "48px", "featured_bg": "rgba(212,175,55,.06)"},
+        "modern": {"bg": "#f1f5f9", "bg2": "#e2e8f0", "text": "#1e293b", "text2": "#64748b", "accent": "#2563eb", "accent2": "#1d4ed8", "cat_bg": "rgba(37,99,235,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(37,99,235,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(37,99,235,.05)"},
+        "fastfood": {"bg": "#fffbeb", "bg2": "#fef3c7", "text": "#1c1917", "text2": "#78716c", "accent": "#dc2626", "accent2": "#b91c1c", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.7)", "item_border": "rgba(220,38,38,.1)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)"},
+        "mexican": {"bg": "#451a03", "bg2": "#3b1503", "text": "#fef3c7", "text2": "#d4a574", "accent": "#f59e0b", "accent2": "#d97706", "cat_bg": "rgba(245,158,11,.1)", "item_bg": "rgba(255,255,255,.04)", "item_border": "rgba(245,158,11,.12)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(245,158,11,.08)"},
+        "sushi": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f43f5e", "accent2": "#e11d48", "cat_bg": "rgba(244,63,94,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(244,63,94,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(244,63,94,.05)"},
+        "pizza": {"bg": "#1c1917", "bg2": "#292524", "text": "#fef2f2", "text2": "#a8a29e", "accent": "#dc2626", "accent2": "#b91c1c", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(220,38,38,.08)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)"},
+        "bar": {"bg": "#09090b", "bg2": "#18181b", "text": "#e2e8f0", "text2": "#71717a", "accent": "#a855f7", "accent2": "#9333ea", "cat_bg": "rgba(168,85,247,.07)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(168,85,247,.1)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(168,85,247,.06)"},
+        "healthy": {"bg": "#f0fdf4", "bg2": "#dcfce7", "text": "#14532d", "text2": "#4ade80", "accent": "#16a34a", "accent2": "#15803d", "cat_bg": "rgba(22,163,74,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(22,163,74,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(22,163,74,.05)"}
     }
     
     t = templates.get(template_id, templates["classic"])
     
-    # Build HTML
+    # Split categories into slides of 3
+    slides = []
+    for i in range(0, len(categories), 3):
+        slides.append(categories[i:i+3])
+    if not slides:
+        slides = [[]]
+    
+    num_slides = len(slides)
+    slide_duration = 12  # seconds per slide
+    
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
 *{{margin:0;padding:0;box-sizing:border-box}}
-body{{background:{t['bg']};color:{t['text']};font-family:{t['font']};min-height:100vh;padding:40px 60px}}
-.header{{text-align:center;margin-bottom:40px;padding-bottom:24px;border-bottom:2px solid {t['accent']}30}}
-.restaurant-name{{font-size:{t['name_size']};font-weight:900;color:{t['accent']};letter-spacing:2px}}
-.subtitle{{font-size:18px;color:{t['text']}80;margin-top:8px;letter-spacing:1px}}
-.categories{{display:flex;flex-wrap:wrap;gap:32px;justify-content:center}}
-.category{{flex:1;min-width:320px;max-width:520px}}
-.cat-title{{font-size:24px;font-weight:800;color:{t['accent']};padding:12px 20px;background:{t['cat_bg']};border-radius:12px;margin-bottom:16px;text-align:center;text-transform:uppercase;letter-spacing:3px}}
-.cat-desc{{font-size:13px;color:{t['text']}60;text-align:center;margin:-8px 0 16px}}
-.item{{display:flex;align-items:center;gap:14px;padding:14px 16px;background:{t['item_bg']};border-radius:10px;margin-bottom:8px;border:1px solid {t['accent']}10}}
-.item-img{{width:64px;height:64px;border-radius:10px;object-fit:cover;flex-shrink:0;border:2px solid {t['accent']}20}}
+html,body{{width:100%;height:100%;overflow:hidden}}
+body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
+
+.menu-container{{width:100%;height:100%;display:flex;flex-direction:column}}
+
+.header{{text-align:center;padding:24px 40px 16px;flex-shrink:0;background:{t['bg']};border-bottom:2px solid {t['accent']}25}}
+.restaurant-name{{font-size:{t['name_size']};font-weight:900;color:{t['accent']};letter-spacing:3px;text-transform:uppercase}}
+.subtitle{{font-size:16px;color:{t['text2']};margin-top:4px;letter-spacing:1px}}
+
+.slides-wrapper{{flex:1;position:relative;overflow:hidden}}
+.slide{{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;gap:24px;padding:20px 32px;opacity:0;transition:opacity 0.8s ease}}
+.slide.active{{opacity:1}}
+
+.category{{flex:1;display:flex;flex-direction:column;min-width:0;background:{t['bg2']};border-radius:16px;border:1px solid {t['accent']}12;overflow:hidden}}
+.cat-header{{padding:14px 20px;background:{t['cat_bg']};border-bottom:1px solid {t['accent']}15;flex-shrink:0}}
+.cat-title{{font-size:20px;font-weight:800;color:{t['accent']};text-transform:uppercase;letter-spacing:3px;text-align:center}}
+.cat-desc{{font-size:11px;color:{t['text2']};text-align:center;margin-top:3px}}
+.cat-items{{flex:1;overflow-y:auto;padding:8px 12px;scrollbar-width:none}}
+.cat-items::-webkit-scrollbar{{display:none}}
+
+.item{{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-bottom:6px;border:1px solid {t['item_border']};background:{t['item_bg']};transition:background .2s}}
+.item.featured{{background:{t['featured_bg']};border-color:{t['accent']}30}}
+.item-img{{width:52px;height:52px;border-radius:8px;object-fit:cover;flex-shrink:0;border:1px solid {t['accent']}20}}
+.item-img-placeholder{{width:52px;height:52px;border-radius:8px;background:{t['cat_bg']};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px}}
 .item-info{{flex:1;min-width:0}}
-.item-name{{font-size:17px;font-weight:700}}
-.item-desc{{font-size:12px;color:{t['text']}70;margin-top:3px}}
-.item-price{{font-size:22px;font-weight:900;color:{t['accent']};white-space:nowrap}}
-.featured{{border:2px solid {t['accent']}40;background:{t['cat_bg']}}}
-.unavailable{{opacity:.4}}
-.star{{color:{t['accent']};font-size:11px;margin-left:6px}}
+.item-name{{font-size:14px;font-weight:700;line-height:1.2}}
+.item-desc{{font-size:10px;color:{t['text2']};margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+.item-price{{font-size:18px;font-weight:900;color:{t['accent']};white-space:nowrap;flex-shrink:0}}
+.star{{color:{t['accent']};font-size:9px;margin-left:4px;font-weight:400}}
+.unavailable{{opacity:.35}}
+
+.footer{{padding:8px 40px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-top:1px solid {t['accent']}10}}
+.footer-text{{font-size:10px;color:{t['text2']}}}
+.dots{{display:flex;gap:6px}}
+.dot{{width:8px;height:8px;border-radius:50%;background:{t['text2']}40;transition:all .3s}}
+.dot.active{{background:{t['accent']};width:20px;border-radius:4px}}
 </style></head><body>
+<div class="menu-container">
 <div class="header">
 <div class="restaurant-name">{restaurant}</div>"""
     
     if subtitle:
         html += f'<div class="subtitle">{subtitle}</div>'
     
-    html += '</div><div class="categories">'
+    html += '</div><div class="slides-wrapper">'
     
-    for cat in categories:
-        items = [it for it in cat.get("items", []) if it.get("available", True) or True]
-        if not items and not cat.get("name"):
-            continue
+    # Render each slide
+    for si, slide_cats in enumerate(slides):
+        active = ' active' if si == 0 else ''
+        html += f'<div class="slide{active}" data-slide="{si}">'
         
-        html += f'<div class="category"><div class="cat-title">{cat["name"]}</div>'
-        if cat.get("description"):
-            html += f'<div class="cat-desc">{cat["description"]}</div>'
-        
-        for it in items:
-            cls = "item"
-            if it.get("featured"): cls += " featured"
-            if not it.get("available", True): cls += " unavailable"
+        for cat in slide_cats:
+            items = cat.get("items", [])
+            html += '<div class="category"><div class="cat-header">'
+            html += f'<div class="cat-title">{cat["name"]}</div>'
+            if cat.get("description"):
+                html += f'<div class="cat-desc">{cat["description"]}</div>'
+            html += '</div><div class="cat-items">'
             
-            html += f'<div class="{cls}">'
-            if it.get("image"):
-                html += f'<img class="item-img" src="{it["image"]}" alt="">'
-            html += f'<div class="item-info"><div class="item-name">{it["name"]}'
-            if it.get("featured"):
-                html += '<span class="star">★ ESPECIAL</span>'
-            html += '</div>'
-            if it.get("description"):
-                html += f'<div class="item-desc">{it["description"]}</div>'
-            html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
+            for it in items:
+                cls = "item"
+                if it.get("featured"): cls += " featured"
+                if not it.get("available", True): cls += " unavailable"
+                
+                html += f'<div class="{cls}">'
+                if it.get("image"):
+                    html += f'<img class="item-img" src="{it["image"]}" alt="" loading="lazy">'
+                html += '<div class="item-info">'
+                html += f'<div class="item-name">{it["name"]}'
+                if it.get("featured"):
+                    html += '<span class="star">★ ESPECIAL</span>'
+                html += '</div>'
+                if it.get("description"):
+                    html += f'<div class="item-desc">{it["description"]}</div>'
+                html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
+            
+            html += '</div></div>'
         
         html += '</div>'
     
     html += '</div>'
     
-    # Auto-refresh every 5 minutes
-    html += '<script>setTimeout(function(){location.reload()},300000)</script>'
-    html += '</body></html>'
+    # Footer with slide indicators
+    html += '<div class="footer">'
+    html += f'<div class="footer-text">{restaurant}</div>'
+    if num_slides > 1:
+        html += '<div class="dots">'
+        for i in range(num_slides):
+            active = ' active' if i == 0 else ''
+            html += f'<div class="dot{active}" data-dot="{i}"></div>'
+        html += '</div>'
+    html += f'<div class="footer-text">MediAd View</div>'
+    html += '</div></div>'
     
+    # Slideshow JavaScript
+    html += f"""<script>
+var current=0,total={num_slides},duration={slide_duration}000;
+function showSlide(n){{
+  document.querySelectorAll('.slide').forEach(function(s){{s.classList.remove('active')}});
+  document.querySelectorAll('.dot').forEach(function(d){{d.classList.remove('active')}});
+  var slide=document.querySelector('[data-slide="'+n+'"]');
+  var dot=document.querySelector('[data-dot="'+n+'"]');
+  if(slide)slide.classList.add('active');
+  if(dot)dot.classList.add('active');
+}}
+if(total>1){{setInterval(function(){{current=(current+1)%total;showSlide(current)}},duration)}}
+setTimeout(function(){{location.reload()}},300000);
+</script>"""
+    
+    html += '</body></html>'
     return HTMLResponse(content=html)
 
 
