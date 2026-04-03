@@ -2877,20 +2877,32 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
     
     # Promo media strip
     if promo_media:
-        html += '<div class="promo-strip"><div class="promo-scroll" id="promo-scroll">'
-        # Duplicate items for infinite scroll effect
-        for _ in range(2):
-            for pm in promo_media:
-                src = pm.get("data") or pm.get("url", "")
-                if not src:
-                    continue
-                html += '<div class="promo-item">'
+        if len(promo_media) == 1:
+            # Single media: show full width, no scroll
+            pm = promo_media[0]
+            src = pm.get("data") or pm.get("url", "")
+            if src:
+                html += '<div class="promo-strip" style="justify-content:center;padding:0">'
                 if pm.get("type") == "video":
-                    html += f'<video src="{src}" muted autoplay loop playsinline></video>'
+                    html += f'<video src="{src}" muted autoplay loop playsinline style="width:100%;height:100%;object-fit:cover"></video>'
                 else:
-                    html += f'<img src="{src}" alt="">'
+                    html += f'<img src="{src}" style="width:100%;height:100%;object-fit:cover" alt="">'
                 html += '</div>'
-        html += '</div></div>'
+        else:
+            # Multiple media: scrolling strip
+            html += '<div class="promo-strip"><div class="promo-scroll" id="promo-scroll">'
+            for _ in range(2):
+                for pm in promo_media:
+                    src = pm.get("data") or pm.get("url", "")
+                    if not src:
+                        continue
+                    html += '<div class="promo-item">'
+                    if pm.get("type") == "video":
+                        html += f'<video src="{src}" muted autoplay loop playsinline></video>'
+                    else:
+                        html += f'<img src="{src}" alt="">'
+                    html += '</div>'
+            html += '</div></div>'
     
     # Footer
     html += '<div class="footer">'
