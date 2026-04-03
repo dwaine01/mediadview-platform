@@ -2168,18 +2168,287 @@ async def get_menu_templates():
 
 @api_router.post("/menus")
 async def create_menu(data: dict, current_user: dict = Depends(get_current_user)):
-    """Create a new digital menu."""
+    """Create a new digital menu with pre-populated professional content."""
+    template_id = data.get("template_id", "classic")
+    
+    # Pre-populated content per template
+    TEMPLATE_CONTENT = {
+        "classic": [
+            {"name": "Starters", "description": "Begin your culinary journey", "items": [
+                {"name": "French Onion Soup", "description": "Caramelized onions, gruyère cheese, toasted baguette", "price": 14.00, "featured": True},
+                {"name": "Tuna Tartare", "description": "Fresh ahi tuna, avocado, sesame, citrus vinaigrette", "price": 18.00},
+                {"name": "Caesar Salad", "description": "Romaine hearts, parmesan, anchovies, house croutons", "price": 13.00},
+                {"name": "Shrimp Cocktail", "description": "Jumbo shrimp, classic cocktail sauce, lemon", "price": 16.00},
+                {"name": "Bruschetta", "description": "Heirloom tomatoes, basil, balsamic glaze, garlic crostini", "price": 12.00},
+            ]},
+            {"name": "Main Course", "description": "Signature dishes from our chef", "items": [
+                {"name": "Filet Mignon", "description": "8oz center cut, truffle mashed potatoes, asparagus, red wine jus", "price": 48.00, "featured": True},
+                {"name": "Pan-Seared Salmon", "description": "Atlantic salmon, lemon butter, seasonal vegetables, rice pilaf", "price": 34.00},
+                {"name": "Lobster Tail", "description": "Butter-poached Maine lobster, drawn butter, roasted potatoes", "price": 52.00},
+                {"name": "Rack of Lamb", "description": "Herb-crusted lamb, mint pesto, roasted root vegetables", "price": 44.00},
+                {"name": "Chicken Cordon Bleu", "description": "Stuffed with ham & swiss, dijon cream sauce, haricots verts", "price": 28.00},
+                {"name": "Risotto Primavera", "description": "Arborio rice, seasonal vegetables, parmesan, white truffle oil", "price": 26.00},
+            ]},
+            {"name": "Desserts", "description": "Sweet endings", "items": [
+                {"name": "Crème Brûlée", "description": "Classic vanilla bean custard, caramelized sugar", "price": 12.00, "featured": True},
+                {"name": "Chocolate Fondant", "description": "Warm chocolate cake, molten center, vanilla ice cream", "price": 14.00},
+                {"name": "Tiramisu", "description": "Mascarpone, espresso-soaked ladyfingers, cocoa", "price": 12.00},
+                {"name": "Cheesecake", "description": "New York style, berry compote, whipped cream", "price": 11.00},
+            ]},
+            {"name": "Beverages", "description": "Curated selection", "items": [
+                {"name": "House Wine (Glass)", "description": "Red or White, ask your server for today's selection", "price": 12.00},
+                {"name": "Craft Cocktail", "description": "Classic or seasonal, crafted by our mixologist", "price": 16.00},
+                {"name": "Sparkling Water", "description": "San Pellegrino 750ml", "price": 6.00},
+                {"name": "Espresso", "description": "Double shot, Italian roast", "price": 5.00},
+            ]},
+        ],
+        "modern": [
+            {"name": "Brunch", "description": "Available until 3 PM", "items": [
+                {"name": "Avocado Toast", "description": "Sourdough, smashed avo, poached egg, microgreens, chili flakes", "price": 14.00, "featured": True},
+                {"name": "Acai Bowl", "description": "Organic acai, granola, banana, blueberries, honey drizzle", "price": 13.00},
+                {"name": "Eggs Benedict", "description": "Poached eggs, Canadian bacon, hollandaise, English muffin", "price": 16.00},
+                {"name": "Pancake Stack", "description": "Fluffy buttermilk pancakes, maple syrup, fresh berries", "price": 12.00},
+                {"name": "Smoked Salmon Bagel", "description": "Cream cheese, capers, red onion, fresh dill", "price": 15.00},
+            ]},
+            {"name": "Sandwiches & Wraps", "description": "Served with side salad or fries", "items": [
+                {"name": "Club Sandwich", "description": "Turkey, bacon, lettuce, tomato, mayo, toasted sourdough", "price": 15.00},
+                {"name": "Grilled Chicken Wrap", "description": "Grilled chicken, avocado, ranch, mixed greens, tortilla", "price": 14.00},
+                {"name": "Caprese Panini", "description": "Fresh mozzarella, tomato, basil, pesto, ciabatta", "price": 13.00, "featured": True},
+                {"name": "Tuna Melt", "description": "Albacore tuna salad, cheddar, tomato, grilled rye", "price": 13.00},
+            ]},
+            {"name": "Coffee & Drinks", "description": "Specialty coffee & fresh juices", "items": [
+                {"name": "Flat White", "description": "Double espresso, steamed milk, microfoam", "price": 5.50},
+                {"name": "Matcha Latte", "description": "Ceremonial grade matcha, oat milk, honey", "price": 6.00, "featured": True},
+                {"name": "Fresh Orange Juice", "description": "Freshly squeezed, no sugar added", "price": 6.00},
+                {"name": "Iced Americano", "description": "Double shot espresso over ice", "price": 4.50},
+                {"name": "Smoothie", "description": "Mango, banana, spinach, almond milk", "price": 7.00},
+            ]},
+            {"name": "Pastries", "description": "Baked fresh daily", "items": [
+                {"name": "Croissant", "description": "Butter croissant, flaky & golden", "price": 4.00},
+                {"name": "Blueberry Muffin", "description": "Jumbo muffin, fresh blueberries, streusel top", "price": 4.50},
+                {"name": "Cinnamon Roll", "description": "Warm, cream cheese frosting", "price": 5.00, "featured": True},
+            ]},
+        ],
+        "fastfood": [
+            {"name": "Burgers", "description": "100% Angus beef patties", "items": [
+                {"name": "Classic Burger", "description": "Beef patty, lettuce, tomato, onion, pickles, special sauce", "price": 9.99, "featured": True},
+                {"name": "Double Cheeseburger", "description": "Two patties, American cheese, lettuce, tomato, mayo", "price": 12.99},
+                {"name": "Bacon BBQ Burger", "description": "Crispy bacon, BBQ sauce, onion rings, cheddar", "price": 13.99, "featured": True},
+                {"name": "Mushroom Swiss", "description": "Sauteed mushrooms, swiss cheese, garlic aioli", "price": 12.99},
+                {"name": "Veggie Burger", "description": "Plant-based patty, lettuce, tomato, vegan mayo", "price": 11.99},
+            ]},
+            {"name": "Chicken", "description": "Crispy & juicy", "items": [
+                {"name": "Chicken Tenders (6pc)", "description": "Hand-breaded, served with dipping sauce", "price": 8.99},
+                {"name": "Spicy Chicken Sandwich", "description": "Crispy chicken, spicy mayo, pickles, brioche bun", "price": 10.99, "featured": True},
+                {"name": "Chicken Wings (10pc)", "description": "Buffalo, BBQ, or Garlic Parmesan", "price": 12.99},
+            ]},
+            {"name": "Sides", "description": "Perfect additions", "items": [
+                {"name": "French Fries", "description": "Golden crispy, seasoned", "price": 3.99},
+                {"name": "Onion Rings", "description": "Beer-battered, crispy", "price": 4.99},
+                {"name": "Mozzarella Sticks", "description": "Breaded mozzarella, marinara sauce", "price": 5.99},
+                {"name": "Loaded Nachos", "description": "Tortilla chips, cheese, jalapeños, sour cream, guacamole", "price": 8.99},
+            ]},
+            {"name": "Drinks & Shakes", "description": "Ice cold refreshments", "items": [
+                {"name": "Soft Drink", "description": "Coca-Cola, Sprite, Fanta - Regular or Large", "price": 2.99},
+                {"name": "Milkshake", "description": "Vanilla, Chocolate, or Strawberry", "price": 5.99, "featured": True},
+                {"name": "Lemonade", "description": "Fresh squeezed, sweetened", "price": 3.49},
+            ]},
+            {"name": "Combos", "description": "Best value meals", "items": [
+                {"name": "Combo #1", "description": "Classic Burger + Fries + Drink", "price": 13.99, "featured": True},
+                {"name": "Combo #2", "description": "Double Cheeseburger + Fries + Drink", "price": 16.99},
+                {"name": "Combo #3", "description": "Chicken Tenders + Fries + Drink", "price": 12.99},
+                {"name": "Family Combo", "description": "4 Burgers + 4 Fries + 4 Drinks", "price": 44.99},
+            ]},
+        ],
+        "mexican": [
+            {"name": "Antojitos", "description": "Para empezar", "items": [
+                {"name": "Guacamole Fresco", "description": "Aguacate, cilantro, cebolla, jalapeño, limón, totopos", "price": 10.99, "featured": True},
+                {"name": "Queso Fundido", "description": "Queso Oaxaca derretido, chorizo, tortillas de maíz", "price": 11.99},
+                {"name": "Elote Callejero", "description": "Maíz asado, mayonesa, queso cotija, chile, limón", "price": 6.99},
+                {"name": "Nachos Supreme", "description": "Totopos, frijoles, queso, jalapeños, crema, guacamole", "price": 12.99},
+                {"name": "Ceviche de Camarón", "description": "Camarón fresco, limón, tomate, cebolla, aguacate, tostadas", "price": 14.99},
+            ]},
+            {"name": "Tacos", "description": "Servidos con cebolla, cilantro y salsa", "items": [
+                {"name": "Tacos al Pastor (3)", "description": "Cerdo marinado, piña, cebolla, cilantro", "price": 11.99, "featured": True},
+                {"name": "Tacos de Carne Asada (3)", "description": "Res a la parrilla, guacamole, cebolla", "price": 13.99},
+                {"name": "Tacos de Pollo (3)", "description": "Pollo asado, lechuga, crema, queso fresco", "price": 11.99},
+                {"name": "Tacos de Camarón (3)", "description": "Camarón empanizado, chipotle mayo, repollo", "price": 14.99},
+                {"name": "Tacos de Birria (3)", "description": "Res estofada, consomé, cebolla, cilantro", "price": 14.99, "featured": True},
+            ]},
+            {"name": "Platos Fuertes", "description": "Especialidades de la casa", "items": [
+                {"name": "Enchiladas Suizas", "description": "Tortillas rellenas de pollo, salsa verde, crema, queso gratinado", "price": 16.99},
+                {"name": "Burrito Grande", "description": "Tortilla de harina, arroz, frijoles, carne, queso, crema, guacamole", "price": 14.99, "featured": True},
+                {"name": "Chile Relleno", "description": "Chile poblano relleno de queso, salsa de tomate, arroz, frijoles", "price": 15.99},
+                {"name": "Fajitas Mixtas", "description": "Res y pollo, pimientos, cebolla, tortillas, arroz, frijoles", "price": 19.99},
+                {"name": "Mole Poblano", "description": "Pollo en mole tradicional, ajonjolí, arroz, tortillas", "price": 17.99},
+            ]},
+            {"name": "Bebidas", "description": "Refrescantes", "items": [
+                {"name": "Margarita", "description": "Tequila, triple sec, limón fresco - Clásica o de Mango", "price": 10.99, "featured": True},
+                {"name": "Agua de Horchata", "description": "Bebida de arroz, canela, vainilla", "price": 3.99},
+                {"name": "Jamaica", "description": "Agua de flor de jamaica, endulzada", "price": 3.99},
+                {"name": "Michelada", "description": "Cerveza, limón, chamoy, chile, sal", "price": 8.99},
+                {"name": "Mexican Coke", "description": "Coca-Cola de vidrio, hecha con azúcar de caña", "price": 3.49},
+            ]},
+            {"name": "Postres", "description": "Dulce final", "items": [
+                {"name": "Churros con Chocolate", "description": "Churros crujientes, azúcar y canela, salsa de chocolate", "price": 7.99, "featured": True},
+                {"name": "Flan Napolitano", "description": "Flan de vainilla, caramelo", "price": 6.99},
+                {"name": "Tres Leches", "description": "Pastel bañado en tres leches, crema batida, canela", "price": 7.99},
+            ]},
+        ],
+        "sushi": [
+            {"name": "Appetizers", "description": "To start your experience", "items": [
+                {"name": "Edamame", "description": "Steamed soybeans, sea salt", "price": 6.00},
+                {"name": "Miso Soup", "description": "Traditional dashi broth, tofu, wakame, scallions", "price": 5.00},
+                {"name": "Gyoza (6pc)", "description": "Pan-fried pork dumplings, ponzu sauce", "price": 9.00},
+                {"name": "Tuna Tataki", "description": "Seared ahi tuna, ginger sauce, microgreens", "price": 14.00, "featured": True},
+                {"name": "Shrimp Tempura", "description": "Lightly battered shrimp, tempura sauce", "price": 12.00},
+            ]},
+            {"name": "Signature Rolls", "description": "Chef's special creations", "items": [
+                {"name": "Dragon Roll", "description": "Shrimp tempura, avocado on top, eel sauce, sesame", "price": 16.00, "featured": True},
+                {"name": "Rainbow Roll", "description": "California roll topped with assorted sashimi", "price": 18.00},
+                {"name": "Spicy Tuna Roll", "description": "Fresh tuna, spicy mayo, cucumber, sesame", "price": 14.00},
+                {"name": "Philadelphia Roll", "description": "Smoked salmon, cream cheese, cucumber, avocado", "price": 13.00},
+                {"name": "Volcano Roll", "description": "Crab, avocado inside, baked seafood on top, spicy mayo", "price": 17.00, "featured": True},
+                {"name": "Spider Roll", "description": "Soft shell crab, cucumber, avocado, spicy mayo", "price": 16.00},
+            ]},
+            {"name": "Sashimi & Nigiri", "description": "Fresh cuts, premium quality", "items": [
+                {"name": "Salmon Sashimi (5pc)", "description": "Fresh Atlantic salmon", "price": 14.00},
+                {"name": "Tuna Sashimi (5pc)", "description": "Premium bluefin tuna", "price": 16.00, "featured": True},
+                {"name": "Mixed Sashimi (12pc)", "description": "Chef's selection of premium fish", "price": 28.00},
+                {"name": "Nigiri Set (8pc)", "description": "Assorted nigiri, chef's choice", "price": 22.00},
+            ]},
+            {"name": "Drinks", "description": "Japanese beverages", "items": [
+                {"name": "Hot Sake", "description": "Traditional Japanese rice wine", "price": 8.00},
+                {"name": "Sapporo Beer", "description": "Japanese lager, draft", "price": 6.00},
+                {"name": "Green Tea", "description": "Hot or iced sencha", "price": 3.00},
+                {"name": "Ramune Soda", "description": "Japanese marble soda, assorted flavors", "price": 4.00},
+            ]},
+        ],
+        "pizza": [
+            {"name": "Antipasti", "description": "Per iniziare", "items": [
+                {"name": "Bruschetta Classica", "description": "Toasted bread, tomatoes, garlic, fresh basil, olive oil", "price": 9.00},
+                {"name": "Caprese Salad", "description": "Buffalo mozzarella, heirloom tomatoes, basil, balsamic", "price": 12.00, "featured": True},
+                {"name": "Arancini (4pc)", "description": "Fried risotto balls, marinara sauce", "price": 10.00},
+                {"name": "Garlic Knots (6pc)", "description": "Fresh dough, garlic butter, parmesan, marinara", "price": 7.00},
+            ]},
+            {"name": "Pizzas", "description": "Wood-fired, hand-tossed", "items": [
+                {"name": "Margherita", "description": "San Marzano tomatoes, fresh mozzarella, basil, olive oil", "price": 14.00, "featured": True},
+                {"name": "Pepperoni", "description": "Mozzarella, pepperoni, tomato sauce", "price": 16.00},
+                {"name": "Quattro Formaggi", "description": "Mozzarella, gorgonzola, fontina, parmesan", "price": 17.00},
+                {"name": "Diavola", "description": "Spicy salami, mozzarella, chili flakes, tomato sauce", "price": 16.00},
+                {"name": "Prosciutto e Rucola", "description": "Prosciutto di Parma, arugula, parmesan shavings, truffle oil", "price": 18.00, "featured": True},
+                {"name": "Vegetariana", "description": "Grilled vegetables, mozzarella, pesto, cherry tomatoes", "price": 15.00},
+                {"name": "Hawaiian", "description": "Ham, pineapple, mozzarella, tomato sauce", "price": 15.00},
+            ]},
+            {"name": "Pasta", "description": "Fatto in casa", "items": [
+                {"name": "Spaghetti Bolognese", "description": "Slow-cooked meat sauce, parmesan", "price": 15.00},
+                {"name": "Fettuccine Alfredo", "description": "Cream sauce, parmesan, butter", "price": 14.00},
+                {"name": "Penne Arrabbiata", "description": "Spicy tomato sauce, garlic, chili, basil", "price": 13.00},
+                {"name": "Lasagna", "description": "Layered pasta, meat sauce, béchamel, mozzarella", "price": 16.00, "featured": True},
+            ]},
+            {"name": "Dolci & Bevande", "description": "Desserts & Drinks", "items": [
+                {"name": "Tiramisu", "description": "Classic Italian dessert, mascarpone, espresso", "price": 9.00, "featured": True},
+                {"name": "Panna Cotta", "description": "Vanilla cream, berry coulis", "price": 8.00},
+                {"name": "Italian Soda", "description": "Assorted flavors, sparkling water, cream", "price": 4.00},
+                {"name": "Espresso", "description": "Double shot, Italian roast", "price": 3.50},
+                {"name": "House Wine", "description": "Red: Chianti / White: Pinot Grigio - Glass", "price": 9.00},
+            ]},
+        ],
+        "bar": [
+            {"name": "Signature Cocktails", "description": "Crafted by our mixologists", "items": [
+                {"name": "Midnight Mule", "description": "Premium vodka, ginger beer, activated charcoal, lime", "price": 14.00, "featured": True},
+                {"name": "Smoky Old Fashioned", "description": "Bourbon, smoked maple syrup, aromatic bitters, orange peel", "price": 16.00, "featured": True},
+                {"name": "Lavender Martini", "description": "Gin, lavender syrup, lemon, egg white foam", "price": 15.00},
+                {"name": "Tropical Sunset", "description": "Rum, passion fruit, mango, coconut cream, pineapple", "price": 14.00},
+                {"name": "Espresso Martini", "description": "Vodka, Kahlúa, fresh espresso, vanilla", "price": 15.00},
+                {"name": "Mojito Royale", "description": "White rum, mint, lime, sugar cane, soda, prosecco float", "price": 14.00},
+            ]},
+            {"name": "Classic Cocktails", "description": "Timeless favorites", "items": [
+                {"name": "Margarita", "description": "Tequila, Cointreau, fresh lime juice, salt rim", "price": 12.00},
+                {"name": "Negroni", "description": "Gin, Campari, sweet vermouth, orange twist", "price": 13.00},
+                {"name": "Whiskey Sour", "description": "Bourbon, lemon juice, simple syrup, egg white", "price": 12.00},
+                {"name": "Manhattan", "description": "Rye whiskey, sweet vermouth, Angostura bitters, cherry", "price": 14.00},
+                {"name": "Piña Colada", "description": "Rum, coconut cream, pineapple juice, blended", "price": 12.00},
+            ]},
+            {"name": "Bar Bites", "description": "Perfect pairings", "items": [
+                {"name": "Truffle Fries", "description": "Crispy fries, truffle oil, parmesan, herbs", "price": 10.00, "featured": True},
+                {"name": "Wagyu Sliders (3)", "description": "Mini wagyu burgers, caramelized onion, gruyère", "price": 18.00},
+                {"name": "Tuna Poke Nachos", "description": "Wonton chips, ahi tuna, avocado, sriracha mayo", "price": 15.00},
+                {"name": "Charcuterie Board", "description": "Cured meats, artisan cheeses, crackers, honeycomb", "price": 22.00},
+                {"name": "Wings (10pc)", "description": "Korean BBQ or Buffalo, celery, blue cheese", "price": 14.00},
+            ]},
+            {"name": "Beer & Wine", "description": "Curated selection", "items": [
+                {"name": "Draft Beer", "description": "Ask your server for today's rotating selection", "price": 7.00},
+                {"name": "Craft IPA", "description": "Local craft IPA, hoppy & refreshing", "price": 8.00},
+                {"name": "Red Wine (Glass)", "description": "Cabernet Sauvignon / Malbec", "price": 12.00},
+                {"name": "White Wine (Glass)", "description": "Chardonnay / Sauvignon Blanc", "price": 11.00},
+                {"name": "Champagne (Glass)", "description": "French brut, perfect for celebrations", "price": 15.00},
+            ]},
+        ],
+        "healthy": [
+            {"name": "Bowls", "description": "Nutritious & delicious", "items": [
+                {"name": "Buddha Bowl", "description": "Quinoa, roasted sweet potato, chickpeas, avocado, tahini dressing", "price": 14.00, "featured": True},
+                {"name": "Açaí Bowl", "description": "Organic açaí, granola, banana, berries, coconut, honey", "price": 13.00},
+                {"name": "Poke Bowl", "description": "Brown rice, fresh salmon, edamame, cucumber, avocado, ponzu", "price": 16.00},
+                {"name": "Mediterranean Bowl", "description": "Falafel, hummus, tabbouleh, mixed greens, tzatziki", "price": 14.00, "featured": True},
+                {"name": "Protein Power Bowl", "description": "Grilled chicken, brown rice, broccoli, sweet potato, teriyaki", "price": 15.00},
+            ]},
+            {"name": "Salads", "description": "Fresh & crisp", "items": [
+                {"name": "Kale Caesar", "description": "Organic kale, vegan caesar dressing, hemp seeds, croutons", "price": 12.00},
+                {"name": "Cobb Salad", "description": "Grilled chicken, avocado, bacon, egg, blue cheese, ranch", "price": 14.00},
+                {"name": "Asian Sesame", "description": "Mixed greens, mandarin, almonds, crispy wontons, sesame dressing", "price": 13.00, "featured": True},
+                {"name": "Harvest Salad", "description": "Arugula, roasted beets, goat cheese, walnuts, balsamic", "price": 13.00},
+            ]},
+            {"name": "Smoothies & Juices", "description": "Cold-pressed, fresh daily", "items": [
+                {"name": "Green Machine", "description": "Spinach, kale, banana, mango, almond milk", "price": 8.00, "featured": True},
+                {"name": "Berry Blast", "description": "Strawberry, blueberry, raspberry, yogurt, honey", "price": 8.00},
+                {"name": "Tropical Paradise", "description": "Mango, pineapple, coconut water, turmeric", "price": 8.00},
+                {"name": "Detox Juice", "description": "Celery, cucumber, green apple, ginger, lemon", "price": 7.00},
+                {"name": "Protein Shake", "description": "Whey protein, banana, peanut butter, oat milk", "price": 9.00},
+            ]},
+            {"name": "Wraps & Toasts", "description": "Light & satisfying", "items": [
+                {"name": "Avocado Toast", "description": "Multigrain bread, smashed avo, cherry tomatoes, microgreens, seeds", "price": 11.00, "featured": True},
+                {"name": "Turkey Lettuce Wrap", "description": "Ground turkey, Asian sauce, water chestnuts, butter lettuce", "price": 13.00},
+                {"name": "Hummus Veggie Wrap", "description": "Whole wheat wrap, hummus, roasted veggies, feta, spinach", "price": 12.00},
+            ]},
+        ],
+    }
+    
+    # Build categories with IDs
+    template_cats = TEMPLATE_CONTENT.get(template_id, TEMPLATE_CONTENT["classic"])
+    categories = []
+    for i, cat_data in enumerate(template_cats):
+        items = []
+        for j, item_data in enumerate(cat_data.get("items", [])):
+            items.append({
+                "id": gen_id(),
+                "name": item_data["name"],
+                "description": item_data.get("description", ""),
+                "price": item_data.get("price", 0),
+                "image": "",
+                "featured": item_data.get("featured", False),
+                "available": True,
+                "order": j
+            })
+        categories.append({
+            "id": gen_id(),
+            "name": cat_data["name"],
+            "description": cat_data.get("description", ""),
+            "items": items,
+            "order": i
+        })
+    
     menu = {
         "id": gen_id(),
         "user_id": current_user["id"],
         "name": data.get("name", "My Menu"),
-        "template_id": data.get("template_id", "classic"),
+        "template_id": template_id,
         "restaurant_name": data.get("restaurant_name", ""),
         "restaurant_logo": data.get("restaurant_logo", ""),
         "subtitle": data.get("subtitle", ""),
         "currency": data.get("currency", "USD"),
         "currency_symbol": data.get("currency_symbol", "$"),
-        "categories": [],
+        "categories": categories,
         "status": "draft",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
