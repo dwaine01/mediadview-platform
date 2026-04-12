@@ -202,7 +202,7 @@ async function sendHeartbeat() {
   try {
     var r = await fetch(AB + '/api/devices/' + deviceId + '/heartbeat', {
       method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ status: 'online', app_version: '1.1.0', cached_media_count: Object.keys(mediaCache).length })
+      body: JSON.stringify({ status: 'online', app_version: '2.0.0', cached_media_count: Object.keys(mediaCache).length })
     });
     var d = await r.json();
     if (d.action === 'wait') {
@@ -214,8 +214,41 @@ async function sendHeartbeat() {
     if (d.command) {
       if (d.command === 'restart' || d.command === 'reload') { window.location.reload(true); }
       if (d.command === 'clear_cache') { mediaCache = {}; localStorage.clear(); window.location.reload(true); }
+      if (d.command === 'sleep') { enterSleepMode(); }
+      if (d.command === 'wake') { exitSleepMode(); }
+    }
+    // Check power schedule
+    if (d.power_schedule && d.power_schedule.enabled) {
+      checkPowerSchedule(d.power_schedule);
     }
   } catch (e) {}
+}
+
+// ===== POWER SCHEDULE =====
+var isSleeping = false;
+function enterSleepMode() {
+  if (isSleeping) return;
+  isSleeping = true;
+  document.getElementById('player').innerHTML = '<div style="width:100vw;height:100vh;background:#000"></div>';
+}
+function exitSleepMode() {
+  if (!isSleeping) return;
+  isSleeping = false;
+  fetchPlaylist();
+}
+function checkPowerSchedule(schedule) {
+  var now = new Date();
+  var days = ['sun','mon','tue','wed','thu','fri','sat'];
+  var today = days[now.getDay()];
+  if (schedule.days && schedule.days.indexOf(today) === -1) { enterSleepMode(); return; }
+  var h = String(now.getHours()).padStart(2,'0');
+  var m = String(now.getMinutes()).padStart(2,'0');
+  var currentTime = h + ':' + m;
+  if (currentTime >= schedule.power_on && currentTime < schedule.power_off) {
+    if (isSleeping) exitSleepMode();
+  } else {
+    if (!isSleeping) enterSleepMode();
+  }
 }
 
 // ===== PROOF OF PLAY =====

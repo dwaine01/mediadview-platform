@@ -1168,6 +1168,11 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
         # Clear the command after sending
         await db.devices.update_one({"id": device_id}, {"$unset": {"pending_command": ""}})
 
+    # Include power schedule if exists
+    power_schedule = device.get("power_schedule")
+    if power_schedule and power_schedule.get("enabled"):
+        response["power_schedule"] = power_schedule
+
     return response
 
 @api_router.post("/devices/{device_id}/log")
@@ -1225,6 +1230,55 @@ async def admin_device_diagnostics(device_id: str, admin: dict = Depends(require
         "is_online": device.get("last_heartbeat") and
             (datetime.utcnow() - device["last_heartbeat"]).total_seconds() < 120,
     }
+
+# --- Screen Power Schedule ---
+
+@api_router.put("/admin/devices/{device_id}/power-schedule")
+async def set_power_schedule(device_id: str, data: dict, admin: dict = Depends(require_admin)):
+    """Set power on/off schedule for a device."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    schedule = {
+        "enabled": data.get("enabled", True),
+        "power_on": data.get("power_on", "08:00"),
+        "power_off": data.get("power_off", "22:00"),
+        "days": data.get("days", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
+        "timezone": data.get("timezone", "America/New_York")
+    }
+    
+    await db.devices.update_one({"id": device_id}, {"$set": {"power_schedule": schedule}})
+    return {"message": "Power schedule updated", "schedule": schedule}
+
+@api_router.get("/admin/devices/{device_id}/power-schedule")
+async def get_power_schedule(device_id: str, admin: dict = Depends(require_admin)):
+    """Get power schedule for a device."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return device.get("power_schedule", {"enabled": False, "power_on": "08:00", "power_off": "22:00", "days": ["mon","tue","wed","thu","fri","sat","sun"]})
+
+@api_router.post("/admin/devices/{device_id}/power")
+async def device_power_control(device_id: str, data: dict, admin: dict = Depends(require_admin)):
+    """Remote power control: sleep, wake, restart."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    
+    action = data.get("action", "")
+    if action == "sleep":
+        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "sleep", "power_state": "sleeping"}})
+    elif action == "wake":
+        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "wake", "power_state": "awake"}})
+    elif action == "restart":
+        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "restart"}})
+    else:
+        raise HTTPException(status_code=400, detail="Invalid action. Use: sleep, wake, restart")
+    
+    return {"message": f"Command '{action}' sent to device"}
+
+
 
 @api_router.get("/devices/{device_id}/playlist")
 async def device_playlist(device_id: str):
