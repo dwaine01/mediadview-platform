@@ -243,10 +243,49 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <div class="section-badge">For Restaurants</div>
   <div class="section-title">Digital Menus That Drive Sales</div>
   <div class="section-sub">Replace static printed menus with stunning digital displays. Update prices instantly. No reprinting ever again.</div>
-  <div class="menus-grid">
-    <div>
-      <img src="https://images.unsplash.com/photo-1639508033534-524c05b96c30?w=700&q=80" alt="Digital Menu Display" class="menus-img">
+  
+  <!-- Menu Image Slideshow -->
+  <div style="margin-top:40px;margin-bottom:40px;position:relative;border-radius:20px;overflow:hidden;height:420px;border:1px solid var(--dark3)">
+    <div id="menu-slides" style="position:relative;width:100%;height:100%">
+      <div class="menu-slide active" style="position:absolute;inset:0;opacity:1;transition:opacity 1s">
+        <img src="https://images.unsplash.com/photo-1617363052784-be65d7e6404d?w=1200&q=80" style="width:100%;height:100%;object-fit:cover" alt="Digital menu board in restaurant">
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
+          <div style="font-size:22px;font-weight:800;color:var(--white)">Fast Food Digital Menu Boards</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px">High-brightness screens behind the counter displaying your full menu with photos and prices</div>
+        </div>
+      </div>
+      <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
+        <img src="https://images.pexels.com/photos/12700809/pexels-photo-12700809.jpeg?auto=compress&w=1200" style="width:100%;height:100%;object-fit:cover" alt="Drive-thru digital menu">
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
+          <div style="font-size:22px;font-weight:800;color:var(--white)">Drive-Thru & Counter Displays</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px">Weather-resistant outdoor menu displays for drive-thru lanes and walk-up windows</div>
+        </div>
+      </div>
+      <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
+        <img src="https://images.unsplash.com/photo-1775879984830-2e773e81f08b?w=1200&q=80" style="width:100%;height:100%;object-fit:cover" alt="Restaurant counter with digital menus">
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
+          <div style="font-size:22px;font-weight:800;color:var(--white)">Quick Service Restaurant Menus</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px">Replace your static menu board with dynamic digital displays that update in real-time</div>
+        </div>
+      </div>
+      <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
+        <img src="https://images.pexels.com/photos/19069612/pexels-photo-19069612.jpeg?auto=compress&w=1200" style="width:100%;height:100%;object-fit:cover" alt="Bistro digital menu">
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
+          <div style="font-size:22px;font-weight:800;color:var(--white)">Café & Bistro Menu Displays</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px">Elegant digital menus for cafés, bistros, and fine dining with multiple design templates</div>
+        </div>
+      </div>
     </div>
+    <!-- Slide indicators -->
+    <div style="position:absolute;bottom:80px;left:32px;display:flex;gap:8px;z-index:2">
+      <div class="menu-dot active" onclick="showMenuSlide(0)" style="width:32px;height:4px;border-radius:2px;background:var(--cyan);cursor:pointer;transition:all .3s"></div>
+      <div class="menu-dot" onclick="showMenuSlide(1)" style="width:32px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);cursor:pointer;transition:all .3s"></div>
+      <div class="menu-dot" onclick="showMenuSlide(2)" style="width:32px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);cursor:pointer;transition:all .3s"></div>
+      <div class="menu-dot" onclick="showMenuSlide(3)" style="width:32px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);cursor:pointer;transition:all .3s"></div>
+    </div>
+  </div>
+
+  <div class="menus-grid">
     <div class="menu-features">
       <div class="menu-feat">
         <div class="mf-icon">🎨</div>
@@ -258,8 +297,10 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
       </div>
       <div class="menu-feat">
         <div class="mf-icon">📸</div>
-        <div class="mf-text"><h4>Photos & Videos</h4><p>Upload mouth-watering photos of your dishes. Add promotional videos that auto-play at the bottom of the menu.</p></div>
+        <div class="mf-text"><h4>Photos & Promo Videos</h4><p>Upload mouth-watering photos of your dishes. Add promotional videos that auto-play at the bottom of the menu.</p></div>
       </div>
+    </div>
+    <div class="menu-features">
       <div class="menu-feat">
         <div class="mf-icon">📱</div>
         <div class="mf-text"><h4>Manage From Anywhere</h4><p>Edit your menu from any device — phone, tablet, or computer. Changes go live in seconds across all your screens.</p></div>
@@ -267,6 +308,10 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
       <div class="menu-feat">
         <div class="mf-icon">⏰</div>
         <div class="mf-text"><h4>Scheduled Content</h4><p>Show breakfast menu in the morning, lunch at noon, dinner at night. Set it once, it runs automatically.</p></div>
+      </div>
+      <div class="menu-feat">
+        <div class="mf-icon">🔄</div>
+        <div class="mf-text"><h4>Auto-Rotating Slides</h4><p>Menus with many categories auto-slide every 12 seconds. Your customers see everything without scrolling.</p></div>
       </div>
     </div>
   </div>
@@ -353,6 +398,22 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 window.addEventListener('scroll',function(){
   document.getElementById('nav').classList.toggle('scrolled',window.scrollY>50);
 });
+
+// Menu slideshow
+var menuCurrent=0;
+var menuSlides=document.querySelectorAll('.menu-slide');
+var menuDots=document.querySelectorAll('.menu-dot');
+function showMenuSlide(n){
+  menuSlides.forEach(function(s){s.style.opacity='0'});
+  menuDots.forEach(function(d){d.style.background='rgba(255,255,255,.3)'});
+  menuSlides[n].style.opacity='1';
+  menuDots[n].style.background='var(--cyan)';
+  menuCurrent=n;
+}
+setInterval(function(){
+  menuCurrent=(menuCurrent+1)%menuSlides.length;
+  showMenuSlide(menuCurrent);
+},5000);
 </script>
 </body>
 </html>
