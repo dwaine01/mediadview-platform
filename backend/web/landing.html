@@ -179,25 +179,31 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 </section>
 
 <!-- VIDEO SHOWCASE -->
-<section class="section" style="padding:60px 40px">
+<section class="section" style="padding:48px 40px">
 <div class="section-inner">
-  <div style="text-align:center;margin-bottom:32px">
-    <div class="section-badge">See The Difference</div>
-    <div class="section-title">Paper Poster vs. Digital LED</div>
-    <div class="section-sub" style="margin:12px auto 0">Watch how our Ultra Slim LED display transforms your storefront window into a dynamic, eye-catching advertisement.</div>
-  </div>
-  <div style="max-width:900px;margin:0 auto;border-radius:20px;overflow:hidden;border:2px solid var(--dark3);box-shadow:0 40px 80px rgba(0,0,0,.4);position:relative">
-    <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block">
-      <source src="/api/web/promo-video.mp4" type="video/mp4">
-    </video>
-    <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:8px">
-      <button onclick="var v=document.getElementById('promo-video');v.muted=!v.muted;this.textContent=v.muted?'🔇 Sound':'🔊 Sound'" style="background:rgba(0,0,0,.7);color:var(--white);border:1px solid rgba(255,255,255,.2);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;backdrop-filter:blur(8px)">🔇 Sound</button>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center">
+    <div>
+      <div class="section-badge">See The Difference</div>
+      <div class="section-title" style="font-size:32px">Paper Poster vs. Digital LED</div>
+      <div class="section-sub" style="margin-bottom:24px">Watch how our Ultra Slim LED display transforms your storefront window into a dynamic, eye-catching advertisement that drives foot traffic.</div>
+      <div style="display:flex;gap:24px;margin-bottom:24px">
+        <div style="flex:1;padding:16px;border-radius:12px;border:1px solid var(--red);background:rgba(244,63,94,.05)">
+          <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:4px">Traditional Poster</div>
+          <div style="font-size:12px;color:var(--text2)">Static, fades in sunlight, costly reprints, low engagement</div>
+        </div>
+        <div style="flex:1;padding:16px;border-radius:12px;border:1px solid var(--green);background:rgba(52,211,153,.05)">
+          <div style="font-size:14px;font-weight:700;color:var(--green)">MediAd View LED</div>
+          <div style="font-size:12px;color:var(--text2)">Animated, high-brightness, instant updates, 10x more attention</div>
+        </div>
+      </div>
+      <a href="#contact" class="btn-primary">Get a Free Quote →</a>
     </div>
-  </div>
-  <div style="display:flex;justify-content:center;gap:40px;margin-top:32px">
-    <div style="text-align:center"><div style="font-size:32px">📄</div><div style="font-size:13px;color:var(--text2);margin-top:4px">Static Paper Poster</div><div style="font-size:11px;color:var(--red)">Low visibility, outdated</div></div>
-    <div style="font-size:32px;color:var(--text3);align-self:center">→</div>
-    <div style="text-align:center"><div style="font-size:32px">📺</div><div style="font-size:13px;color:var(--text2);margin-top:4px">MediAd View LED</div><div style="font-size:11px;color:var(--green)">Bright, animated, eye-catching</div></div>
+    <div style="border-radius:16px;overflow:hidden;border:1px solid var(--dark3);box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative">
+      <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block">
+        <source src="/api/web/promo-video.mp4" type="video/mp4">
+      </video>
+      <button onclick="var v=document.getElementById('promo-video');v.muted=!v.muted;this.textContent=v.muted?'Sound Off':'Sound On'" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);color:var(--white);border:1px solid rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;backdrop-filter:blur(8px)">Sound Off</button>
+    </div>
   </div>
 </div>
 </section>
@@ -210,22 +216,22 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <div class="section-sub">Professional LED display installation and management for storefronts, churches, and outdoor spaces.</div>
   <div class="services-grid">
     <div class="service-card">
-      <div class="service-icon" style="background:rgba(34,211,238,.1)">🪟</div>
+      <div class="service-icon" style="background:rgba(34,211,238,.1)"><svg width="24" height="24" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div>
       <h3>Storefront Window Displays</h3>
-      <p>Ultra-slim LED screens (30"×54") installed on your front glass window, hanging from above, projecting outward. Attract foot traffic 24/7 without blocking your view.</p>
+      <p>Ultra-slim LED screens (30"x54") installed on your front glass window, hanging from above, projecting outward. Attract foot traffic 24/7 without blocking your view.</p>
     </div>
     <div class="service-card">
-      <div class="service-icon" style="background:rgba(168,85,247,.1)">⛪</div>
+      <div class="service-icon" style="background:rgba(168,85,247,.1)"><svg width="24" height="24" fill="none" stroke="#a855f7" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></div>
       <h3>Church LED Screens</h3>
       <p>High-quality indoor LED displays for churches and worship centers. Display sermons, announcements, lyrics, and live events with crystal-clear quality.</p>
     </div>
     <div class="service-card">
-      <div class="service-icon" style="background:rgba(52,211,153,.1)">🏢</div>
+      <div class="service-icon" style="background:rgba(52,211,153,.1)"><svg width="24" height="24" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-16 0H3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 4v4h4v-4"/></svg></div>
       <h3>Outdoor Wall Displays</h3>
       <p>Waterproof, weather-resistant LED screens mounted on exterior walls. Built to last in rain, sun, and heat. Perfect for outdoor advertising and announcements.</p>
     </div>
     <div class="service-card">
-      <div class="service-icon" style="background:rgba(251,191,36,.1)">🍽️</div>
+      <div class="service-icon" style="background:rgba(251,191,36,.1)"><svg width="24" height="24" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
       <h3>Digital Restaurant Menus</h3>
       <p>Beautiful digital menu boards with 8 professional templates. Update prices and items from your phone. No more printing menus ever again.</p>
     </div>
@@ -312,29 +318,29 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <div class="menus-grid">
     <div class="menu-features">
       <div class="menu-feat">
-        <div class="mf-icon">🎨</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg></div>
         <div class="mf-text"><h4>8 Professional Templates</h4><p>Classic, Modern, Fast Food, Mexican, Sushi, Pizza, Bar, Healthy — pick the perfect design for your restaurant.</p></div>
       </div>
       <div class="menu-feat">
-        <div class="mf-icon">💰</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
         <div class="mf-text"><h4>Real-Time Price Updates</h4><p>Change prices from your phone or computer. Updates appear on the screen instantly. No waiting, no reprinting.</p></div>
       </div>
       <div class="menu-feat">
-        <div class="mf-icon">📸</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
         <div class="mf-text"><h4>Photos & Promo Videos</h4><p>Upload mouth-watering photos of your dishes. Add promotional videos that auto-play at the bottom of the menu.</p></div>
       </div>
     </div>
     <div class="menu-features">
       <div class="menu-feat">
-        <div class="mf-icon">📱</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
         <div class="mf-text"><h4>Manage From Anywhere</h4><p>Edit your menu from any device — phone, tablet, or computer. Changes go live in seconds across all your screens.</p></div>
       </div>
       <div class="menu-feat">
-        <div class="mf-icon">⏰</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
         <div class="mf-text"><h4>Scheduled Content</h4><p>Show breakfast menu in the morning, lunch at noon, dinner at night. Set it once, it runs automatically.</p></div>
       </div>
       <div class="menu-feat">
-        <div class="mf-icon">🔄</div>
+        <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
         <div class="mf-text"><h4>Auto-Rotating Slides</h4><p>Menus with many categories auto-slide every 12 seconds. Your customers see everything without scrolling.</p></div>
       </div>
     </div>
@@ -351,12 +357,12 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
     <div class="section-sub" style="margin:12px auto 0">Everything you need to manage your digital signage network from a single interface.</div>
   </div>
   <div class="platform-grid">
-    <div class="plat-card"><div class="emoji">📊</div><h3>Real-Time Analytics</h3><p>Track impressions, proof-of-play, and campaign performance with detailed reports.</p></div>
-    <div class="plat-card"><div class="emoji">📡</div><h3>Remote Management</h3><p>Control all your screens remotely. Restart, update, and monitor from anywhere in the world.</p></div>
-    <div class="plat-card"><div class="emoji">📅</div><h3>Smart Scheduling</h3><p>Schedule content by date, time, and day of week. Automate your entire content calendar.</p></div>
-    <div class="plat-card"><div class="emoji">🔌</div><h3>Power Control</h3><p>Set automatic on/off schedules. Save energy and extend screen life with smart power management.</p></div>
-    <div class="plat-card"><div class="emoji">🔒</div><h3>Secure & Reliable</h3><p>99.9% uptime with automatic crash recovery. Your content never stops playing.</p></div>
-    <div class="plat-card"><div class="emoji">👥</div><h3>Multi-User Access</h3><p>Admin, manager, and customer roles. Give your team the access they need, nothing more.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--cyan)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0h6m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"/></svg></div><h3>Real-Time Analytics</h3><p>Track impressions, proof-of-play, and campaign performance with detailed reports.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--brand)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Remote Management</h3><p>Control all your screens remotely. Restart, update, and monitor from anywhere in the world.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--amber)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></div><h3>Smart Scheduling</h3><p>Schedule content by date, time, and day of week. Automate your entire content calendar.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><h3>Power Control</h3><p>Set automatic on/off schedules. Save energy and extend screen life with smart power management.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Secure & Reliable</h3><p>99.9% uptime with automatic crash recovery. Your content never stops playing.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="#a78bfa" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div><h3>Multi-User Access</h3><p>Admin, manager, and customer roles. Give your team the access they need, nothing more.</p></div>
   </div>
 </div>
 </section>
@@ -368,8 +374,8 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <h2>Ready to Go Digital?</h2>
   <p>Join hundreds of businesses already using MediAd View to attract more customers and increase revenue.</p>
   <div style="display:flex;gap:16px;justify-content:center;margin-bottom:48px">
-    <a href="tel:18772028181" class="btn-primary" style="font-size:18px;padding:16px 36px">📞 Call 1-877-202-8181</a>
-    <a href="mailto:Sales@mediadview.com" class="btn-secondary" style="font-size:18px;padding:16px 36px">✉️ Sales@mediadview.com</a>
+    <a href="tel:18772028181" class="btn-primary" style="font-size:18px;padding:16px 36px">Call 1-877-202-8181</a>
+    <a href="mailto:Sales@mediadview.com" class="btn-secondary" style="font-size:18px;padding:16px 36px">Sales@mediadview.com</a>
   </div>
   <div style="display:flex;gap:40px;justify-content:center;flex-wrap:wrap">
     <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--cyan)">Free</div><div style="font-size:13px;color:var(--text2)">Consultation</div></div>
