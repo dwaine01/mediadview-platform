@@ -17,14 +17,14 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 .nav-links a{font-size:14px;color:#94a3b8;font-weight:500;transition:color .2s}
 .nav-links a:hover{color:#22d3ee}
 .nav-cta{background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600}
-.section{padding:80px 40px}
-.section-inner{max-width:1280px;margin:0 auto}
-.s-badge{font-size:11px;font-weight:700;color:#22d3ee;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px}
-.s-title{font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:16px}
-.s-sub{font-size:16px;color:#94a3b8;line-height:1.7;max-width:700px}
-.s-center{text-align:center}.s-center .s-sub{margin:0 auto}
-.divider{width:60px;height:3px;background:linear-gradient(90deg,#6366f1,#22d3ee);border-radius:2px;margin:24px 0}
-@media(max-width:768px){.hero{grid-template-columns:1fr!important}.hero-photo{min-height:400px}.grid3{grid-template-columns:1fr!important}.grid4{grid-template-columns:repeat(2,1fr)!important}.timeline-grid{grid-template-columns:1fr!important}}
+.sec{padding:80px 40px}
+.inner{max-width:1200px;margin:0 auto}
+.badge{font-size:11px;font-weight:700;color:#22d3ee;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px}
+.title{font-size:34px;font-weight:900;letter-spacing:-1px;margin-bottom:14px}
+.sub{font-size:15px;color:#94a3b8;line-height:1.7;max-width:600px}
+.center{text-align:center}.center .sub{margin:0 auto}
+.line{width:50px;height:3px;background:linear-gradient(90deg,#6366f1,#22d3ee);border-radius:2px;margin:20px 0}
+@media(max-width:768px){.hero-grid{grid-template-columns:1fr!important}.g3{grid-template-columns:1fr!important}.g4{grid-template-columns:repeat(2,1fr)!important}}
 </style>
 </head>
 <body>
@@ -32,281 +32,175 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 <nav><div class="nav-inner"><a href="/api/landing" class="nav-logo">MediAd <span>View</span></a><div class="nav-links"><a href="/api/landing">Home</a><a href="/api/landing#services">Services</a><a href="/api/landing#menus">Digital Menus</a><a href="/api/landing#contact">Contact</a><a href="https://mediaview-ads.preview.emergentagent.com/api/dashboard" class="nav-cta">Dashboard Login</a></div></div></nav>
 
 <!-- HERO -->
-<section style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:56px" class="hero">
+<section style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:56px" class="hero-grid">
   <div style="background:url('/api/web/ceo-photo.png') center 15%/cover no-repeat"></div>
   <div style="display:flex;flex-direction:column;justify-content:center;padding:60px">
-    <div class="s-badge">Meet The Founder</div>
-    <h1 style="font-size:48px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:20px">Josue <span style="color:#22d3ee">Tejada</span></h1>
-    <div style="font-size:18px;color:#6366f1;font-weight:700;margin-bottom:24px;letter-spacing:1px">CEO & Founder — MediAd View LLC</div>
-    <div class="divider"></div>
-    <p style="font-size:16px;color:#94a3b8;line-height:1.8;margin-bottom:16px">MediAd View is an innovative digital display company offering a complete line of professional LED solutions for indoor, outdoor, and storefront window applications.</p>
-    <p style="font-size:16px;color:#94a3b8;line-height:1.8;margin-bottom:16px">With installations nationwide, MediAd View displays are designed for environments with high ambient light. Brightness levels up to 5,500 nits allow our ultra-high-brightness LED displays to remain visible even in direct sunlight — making them ideal for storefront windows, churches, retail spaces, and outdoor walls.</p>
-    <p style="font-size:16px;color:#94a3b8;line-height:1.8">We offer one of the industry's most complete portfolios of ultra-bright professional LED displays, backed by dedicated support and cloud-based content management solutions.</p>
+    <div class="badge">Meet The Founder</div>
+    <h1 style="font-size:46px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:16px">Josue <span style="color:#22d3ee">Tejada</span></h1>
+    <div style="font-size:16px;color:#6366f1;font-weight:700;margin-bottom:20px">CEO & Founder — MediAd View LLC</div>
+    <div class="line"></div>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px">MediAd View is a digital display company offering professional LED solutions for indoor, outdoor, and storefront window applications.</p>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px">With installations nationwide, our displays are designed for high ambient light environments — with brightness levels up to 5,500 nits for direct sunlight visibility.</p>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8">We provide end-to-end solutions: hardware, installation, cloud management, and ongoing support.</p>
   </div>
-</section>
-
-<!-- TIMELINE -->
-<section class="section" style="background:#111827">
-<div class="section-inner s-center">
-  <div class="s-badge">Our Journey</div>
-  <div class="s-title">Company Timeline</div>
-  <div class="s-sub">From a vision to a nationwide digital signage leader.</div>
-  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-top:48px" class="grid4">
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center;position:relative">
-      <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">2020</div>
-      <div style="font-size:14px;font-weight:700;margin:8px 0 4px">Founded</div>
-      <div style="font-size:12px;color:#64748b">MediAd View LLC established in Florida with a mission to revolutionize storefront advertising.</div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">2021</div>
-      <div style="font-size:14px;font-weight:700;margin:8px 0 4px">First 50 Screens</div>
-      <div style="font-size:12px;color:#64748b">Installed our first 50 LED window displays across local businesses and restaurants.</div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">2022</div>
-      <div style="font-size:14px;font-weight:700;margin:8px 0 4px">Church Expansion</div>
-      <div style="font-size:12px;color:#64748b">Expanded into churches and worship centers with specialized indoor LED solutions.</div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">2024</div>
-      <div style="font-size:14px;font-weight:700;margin:8px 0 4px">Nationwide</div>
-      <div style="font-size:12px;color:#64748b">Reached 500+ installations across all 50 states with outdoor waterproof displays.</div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:32px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent">2026</div>
-      <div style="font-size:14px;font-weight:700;margin:8px 0 4px">Cloud Platform</div>
-      <div style="font-size:12px;color:#64748b">Launched our SaaS platform with digital menus, remote management, and analytics.</div>
-    </div>
-  </div>
-</div>
 </section>
 
 <!-- HOW WE WORK -->
-<section class="section" style="background:#0a0f1a">
-<div class="section-inner s-center">
-  <div class="s-badge">Our Process</div>
-  <div class="s-title">How We Work</div>
-  <div class="s-sub">From consultation to ongoing support — we handle everything.</div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px" class="grid4">
+<section class="sec" style="background:#111827">
+<div class="inner center">
+  <div class="badge">Our Process</div>
+  <div class="title">How We Work</div>
+  <div class="sub">Simple, transparent, and hassle-free — from first call to ongoing support.</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px" class="g4">
     <div style="text-align:center">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 16px;color:#fff">1</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Consultation</div>
-      <div style="font-size:13px;color:#64748b;line-height:1.5">Free on-site or virtual consultation to understand your needs, space, and goals.</div>
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin:0 auto 14px;color:#fff">1</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Consultation</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.5">We assess your space, goals, and budget — on-site or virtually.</div>
     </div>
     <div style="text-align:center">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 16px;color:#fff">2</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Custom Design</div>
-      <div style="font-size:13px;color:#64748b;line-height:1.5">We design the perfect LED solution for your space — size, brightness, and content strategy.</div>
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin:0 auto 14px;color:#fff">2</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Custom Design</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.5">We recommend the right display, size, and content strategy for your needs.</div>
     </div>
     <div style="text-align:center">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 16px;color:#fff">3</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Installation</div>
-      <div style="font-size:13px;color:#64748b;line-height:1.5">Professional installation by our certified team. Clean, fast, and hassle-free.</div>
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin:0 auto 14px;color:#fff">3</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Installation</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.5">Professional installation by our team. Clean, fast, fully tested.</div>
     </div>
     <div style="text-align:center">
-      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 16px;color:#fff">4</div>
-      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Ongoing Support</div>
-      <div style="font-size:13px;color:#64748b;line-height:1.5">24/7 remote monitoring, content updates, and technical support for the life of your display.</div>
+      <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:900;margin:0 auto 14px;color:#fff">4</div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:6px">Ongoing Support</div>
+      <div style="font-size:13px;color:#64748b;line-height:1.5">Remote monitoring, content updates, and technical support included.</div>
     </div>
   </div>
 </div>
 </section>
 
 <!-- CORE VALUES -->
-<section class="section" style="background:#111827">
-<div class="section-inner s-center">
-  <div class="s-badge">What Drives Us</div>
-  <div class="s-title">Our Core Values</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px" class="grid3">
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:32px;text-align:center;transition:all .3s">
-      <div style="width:56px;height:56px;border-radius:14px;background:rgba(34,211,238,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="28" height="28" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Innovation</div>
-      <div style="font-size:13px;color:#94a3b8;line-height:1.6">We push the boundaries of LED technology to deliver brighter, thinner, and more efficient displays.</div>
+<section class="sec" style="background:#0a0f1a">
+<div class="inner center">
+  <div class="badge">What Drives Us</div>
+  <div class="title">Core Values</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px" class="g3">
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(34,211,238,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="24" height="24" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Innovation</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.6">Brighter, thinner, smarter displays — always improving.</div>
     </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:32px;text-align:center">
-      <div style="width:56px;height:56px;border-radius:14px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="28" height="28" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Client Success</div>
-      <div style="font-size:13px;color:#94a3b8;line-height:1.6">Your success is our success. We ensure our displays drive real results for your business.</div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(99,102,241,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="24" height="24" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/></svg></div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Client-First</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.6">Your goals drive every decision we make.</div>
     </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:32px;text-align:center">
-      <div style="width:56px;height:56px;border-radius:14px;background:rgba(52,211,153,.1);display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="28" height="28" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-      <div style="font-size:18px;font-weight:700;margin-bottom:8px">Reliability</div>
-      <div style="font-size:13px;color:#94a3b8;line-height:1.6">Built for 24/7 operation with 99.9% uptime. Depend on MediAd View when it matters.</div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
+      <div style="width:48px;height:48px;border-radius:12px;background:rgba(52,211,153,.08);display:flex;align-items:center;justify-content:center;margin:0 auto 14px"><svg width="24" height="24" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <div style="font-size:16px;font-weight:700;margin-bottom:6px">Reliability</div>
+      <div style="font-size:13px;color:#94a3b8;line-height:1.6">Built for continuous operation. We stand behind our products.</div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- CERTIFICATIONS -->
-<section class="section" style="background:#0a0f1a">
-<div class="section-inner s-center">
-  <div class="s-badge">Quality Guaranteed</div>
-  <div class="s-title">Certifications & Warranties</div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px" class="grid4">
-    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
-      <svg width="36" height="36" fill="none" stroke="#22d3ee" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px">3-Year Warranty</div>
-      <div style="font-size:12px;color:#64748b">Full hardware warranty on all LED displays and components.</div>
+<!-- CREDIBILITY -->
+<section class="sec" style="background:#111827">
+<div class="inner center">
+  <div class="badge">Why Choose Us</div>
+  <div class="title">Built for Trust</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px" class="g4">
+    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:12px;padding:24px;text-align:center">
+      <svg width="32" height="32" fill="none" stroke="#22d3ee" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:10px"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">Hardware Warranty</div>
+      <div style="font-size:12px;color:#64748b">Included with every installation. Terms vary by product.</div>
     </div>
-    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
-      <svg width="36" height="36" fill="none" stroke="#6366f1" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px">99.9% Uptime</div>
-      <div style="font-size:12px;color:#64748b">Guaranteed uptime with automatic crash recovery and remote monitoring.</div>
+    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:12px;padding:24px;text-align:center">
+      <svg width="32" height="32" fill="none" stroke="#6366f1" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:10px"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">High Uptime</div>
+      <div style="font-size:12px;color:#64748b">Cloud platform with automatic recovery and remote monitoring.</div>
     </div>
-    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
-      <svg width="36" height="36" fill="none" stroke="#34d399" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M2 12h20M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px">IP65 Waterproof</div>
-      <div style="font-size:12px;color:#64748b">Outdoor displays rated IP65 for rain, dust, and extreme weather conditions.</div>
+    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:12px;padding:24px;text-align:center">
+      <svg width="32" height="32" fill="none" stroke="#34d399" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:10px"><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M2 12h20"/></svg>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">Weather Resistant</div>
+      <div style="font-size:12px;color:#64748b">Outdoor models designed for rain, heat, and direct sunlight.</div>
     </div>
-    <div style="background:#111827;border:1px solid #1e293b;border-radius:14px;padding:28px;text-align:center">
-      <svg width="36" height="36" fill="none" stroke="#fbbf24" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:12px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <div style="font-size:16px;font-weight:800;margin-bottom:4px">5,500 Nits</div>
-      <div style="font-size:12px;color:#64748b">Ultra-high brightness visible in direct sunlight. Industry-leading luminosity.</div>
-    </div>
-  </div>
-</div>
-</section>
-
-<!-- TESTIMONIALS -->
-<section class="section" style="background:#111827">
-<div class="section-inner s-center">
-  <div class="s-badge">What Our Clients Say</div>
-  <div class="s-title">Testimonials</div>
-  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-top:48px" class="grid3">
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:28px">
-      <div style="font-size:28px;color:#6366f1;margin-bottom:12px">"</div>
-      <div style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:20px">MediAd View increased our foot traffic by 40%. The LED window display pays for itself every month. Best investment we made for our restaurant.</div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">M</div>
-        <div><div style="font-size:14px;font-weight:700">Maria Rodriguez</div><div style="font-size:11px;color:#64748b">Owner, La Casa Restaurant</div></div>
-      </div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:28px">
-      <div style="font-size:28px;color:#6366f1;margin-bottom:12px">"</div>
-      <div style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:20px">Our church now looks incredible with the LED screens. Sermons, announcements, and worship lyrics displayed beautifully. The congregation loves it.</div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">P</div>
-        <div><div style="font-size:14px;font-weight:700">Pastor James Williams</div><div style="font-size:11px;color:#64748b">Grace Community Church</div></div>
-      </div>
-    </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:28px">
-      <div style="font-size:28px;color:#6366f1;margin-bottom:12px">"</div>
-      <div style="font-size:14px;color:#94a3b8;line-height:1.7;margin-bottom:20px">The outdoor waterproof screen has survived two hurricanes and still works perfectly. Incredible quality. MediAd View's support team is always responsive.</div>
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px">D</div>
-        <div><div style="font-size:14px;font-weight:700">David Chen</div><div style="font-size:11px;color:#64748b">Owner, Downtown Auto Shop</div></div>
-      </div>
+    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:12px;padding:24px;text-align:center">
+      <svg width="32" height="32" fill="none" stroke="#fbbf24" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom:10px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px">Up to 5,500 Nits</div>
+      <div style="font-size:12px;color:#64748b">Ultra-high brightness for maximum visibility, even in sunlight.</div>
     </div>
   </div>
 </div>
 </section>
 
-<!-- PARTNERS -->
-<section class="section" style="background:#0a0f1a">
-<div class="section-inner s-center">
-  <div class="s-badge">Trusted Partners</div>
-  <div class="s-title">Brands That Trust Us</div>
-  <div style="display:flex;justify-content:center;gap:48px;flex-wrap:wrap;margin-top:48px;opacity:.6">
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#94a3b8">COLORLIGHT</div>
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#94a3b8">SAMSUNG</div>
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#94a3b8">LG</div>
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#94a3b8">NOVASTAR</div>
-    <div style="font-size:22px;font-weight:900;letter-spacing:2px;color:#94a3b8">ABSEN</div>
-  </div>
-  <div style="font-size:13px;color:#475569;margin-top:24px">Working with industry leaders to deliver the best digital signage solutions.</div>
-</div>
-</section>
-
-<!-- COVERAGE MAP -->
-<section class="section" style="background:#111827">
-<div class="section-inner s-center">
-  <div class="s-badge">Nationwide Service</div>
-  <div class="s-title">We Serve All 50 States</div>
-  <div class="s-sub">From coast to coast, MediAd View has installations in every corner of the country.</div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:48px" class="grid4">
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:36px;font-weight:900;color:#22d3ee">500+</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Screens Installed</div>
+<!-- COVERAGE -->
+<section class="sec" style="background:#0a0f1a">
+<div class="inner center">
+  <div class="badge">Nationwide Reach</div>
+  <div class="title">Serving Businesses Across the U.S.</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:20px;margin-top:40px" class="g4">
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:22px;text-align:center">
+      <div style="font-size:32px;font-weight:900;color:#22d3ee">500+</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Screens Installed</div>
     </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:36px;font-weight:900;color:#6366f1">120+</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Churches Served</div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:22px;text-align:center">
+      <div style="font-size:32px;font-weight:900;color:#6366f1">120+</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Churches Served</div>
     </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:36px;font-weight:900;color:#34d399">1,500+</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">Happy Clients</div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:22px;text-align:center">
+      <div style="font-size:32px;font-weight:900;color:#34d399">1,500+</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">Clients Nationwide</div>
     </div>
-    <div style="background:#0a0f1a;border:1px solid #1e293b;border-radius:14px;padding:24px;text-align:center">
-      <div style="font-size:36px;font-weight:900;color:#fbbf24">50</div>
-      <div style="font-size:13px;color:#64748b;margin-top:4px">States Covered</div>
+    <div style="background:#111827;border:1px solid #1e293b;border-radius:12px;padding:22px;text-align:center">
+      <div style="font-size:32px;font-weight:900;color:#fbbf24">50</div>
+      <div style="font-size:12px;color:#64748b;margin-top:4px">States Covered</div>
     </div>
-  </div>
-  <div style="margin-top:40px;display:flex;flex-wrap:wrap;justify-content:center;gap:8px">
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Florida</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Texas</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">California</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">New York</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Georgia</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">North Carolina</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">New Jersey</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Illinois</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Pennsylvania</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Ohio</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">Arizona</span>
-    <span style="font-size:11px;color:#475569;background:#1e293b;padding:4px 10px;border-radius:4px">+ 39 more states</span>
   </div>
 </div>
 </section>
 
 <!-- TEAM -->
-<section class="section" style="background:#0a0f1a">
-<div class="section-inner s-center">
-  <div class="s-badge">Our Team</div>
-  <div class="s-title">The People Behind MediAd View</div>
-  <div class="s-sub">A dedicated team of professionals committed to your success.</div>
-  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px" class="grid4">
+<section class="sec" style="background:#111827">
+<div class="inner center">
+  <div class="badge">Our Team</div>
+  <div class="title">Dedicated Professionals</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:40px" class="g4">
     <div style="text-align:center">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;margin:0 auto 12px;color:#fff">JT</div>
-      <div style="font-size:15px;font-weight:700">Josue Tejada</div>
-      <div style="font-size:12px;color:#6366f1;font-weight:600">CEO & Founder</div>
-      <div style="font-size:11px;color:#64748b;margin-top:6px">Vision, strategy, and business development</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 10px;color:#fff">JT</div>
+      <div style="font-size:14px;font-weight:700">Josue Tejada</div>
+      <div style="font-size:11px;color:#6366f1;font-weight:600">CEO & Founder</div>
     </div>
     <div style="text-align:center">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#6366f1);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;margin:0 auto 12px;color:#fff">S</div>
-      <div style="font-size:15px;font-weight:700">Sales Team</div>
-      <div style="font-size:12px;color:#22d3ee;font-weight:600">Sales & Consulting</div>
-      <div style="font-size:11px;color:#64748b;margin-top:6px">Custom solutions for every client</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#6366f1);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 10px;color:#fff">S</div>
+      <div style="font-size:14px;font-weight:700">Sales Team</div>
+      <div style="font-size:11px;color:#22d3ee;font-weight:600">Consulting & Solutions</div>
     </div>
     <div style="text-align:center">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#34d399,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;margin:0 auto 12px;color:#fff">I</div>
-      <div style="font-size:15px;font-weight:700">Install Team</div>
-      <div style="font-size:12px;color:#34d399;font-weight:600">Installation & Setup</div>
-      <div style="font-size:11px;color:#64748b;margin-top:6px">Professional certified installers</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#34d399,#22d3ee);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 10px;color:#fff">I</div>
+      <div style="font-size:14px;font-weight:700">Install Team</div>
+      <div style="font-size:11px;color:#34d399;font-weight:600">Installation & Setup</div>
     </div>
     <div style="text-align:center">
-      <div style="width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;margin:0 auto 12px;color:#fff">T</div>
-      <div style="font-size:15px;font-weight:700">Tech Support</div>
-      <div style="font-size:12px;color:#fbbf24;font-weight:600">24/7 Support</div>
-      <div style="font-size:11px;color:#64748b;margin-top:6px">Always available when you need us</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#fbbf24,#f59e0b);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;margin:0 auto 10px;color:#fff">T</div>
+      <div style="font-size:14px;font-weight:700">Tech Support</div>
+      <div style="font-size:11px;color:#fbbf24;font-weight:600">Remote & On-Site</div>
     </div>
   </div>
 </div>
 </section>
 
 <!-- CTA -->
-<section class="section" style="text-align:center;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(34,211,238,.05));border-top:1px solid #1e293b">
-<div class="section-inner">
-  <div class="s-badge">Get Started Today</div>
-  <div class="s-title" style="font-size:40px">Ready to Transform Your Business?</div>
-  <div style="font-size:16px;color:#94a3b8;margin-bottom:32px">Contact us today for a free consultation and quote. No obligation.</div>
+<section class="sec" style="text-align:center;background:linear-gradient(135deg,rgba(99,102,241,.06),rgba(34,211,238,.03));border-top:1px solid #1e293b">
+<div class="inner">
+  <div class="badge">Let's Talk</div>
+  <div class="title" style="font-size:38px">Ready to Get Started?</div>
+  <div style="font-size:15px;color:#94a3b8;margin-bottom:28px">Free consultation. No obligation. Let's find the right solution for your business.</div>
   <div style="display:flex;gap:16px;justify-content:center">
-    <a href="tel:18772028181" style="display:inline-block;background:#6366f1;color:#fff;padding:16px 36px;border-radius:10px;font-size:16px;font-weight:700;transition:all .2s">Call 1-877-202-8181</a>
-    <a href="mailto:Sales@mediadview.com" style="display:inline-block;background:transparent;color:#e2e8f0;padding:16px 36px;border-radius:10px;font-size:16px;font-weight:600;border:1px solid #1e293b;transition:all .2s">Sales@mediadview.com</a>
+    <a href="tel:18772028181" style="display:inline-block;background:#6366f1;color:#fff;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700">Call 1-877-202-8181</a>
+    <a href="mailto:Sales@mediadview.com" style="display:inline-block;color:#e2e8f0;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;border:1px solid #1e293b">Sales@mediadview.com</a>
   </div>
 </div>
 </section>
 
-<footer style="padding:24px 40px;text-align:center;font-size:12px;color:#475569;border-top:1px solid #1e293b">© 2026 MediAd View LLC. All rights reserved.</footer>
+<footer style="padding:20px 40px;text-align:center;font-size:11px;color:#475569;border-top:1px solid #1e293b">© 2026 MediAd View LLC. All rights reserved.</footer>
 
 </body>
 </html>
