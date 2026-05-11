@@ -179,31 +179,29 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 </section>
 
 <!-- VIDEO SHOWCASE -->
-<section class="section" style="padding:48px 40px">
-<div class="section-inner">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center">
-    <div>
-      <div class="section-badge">See The Difference</div>
-      <div class="section-title" style="font-size:32px">Paper Poster vs. Digital LED</div>
-      <div class="section-sub" style="margin-bottom:24px">Watch how our Ultra Slim LED display transforms your storefront window into a dynamic, eye-catching advertisement that drives foot traffic.</div>
-      <div style="display:flex;gap:24px;margin-bottom:24px">
-        <div style="flex:1;padding:16px;border-radius:12px;border:1px solid var(--red);background:rgba(244,63,94,.05)">
-          <div style="font-size:14px;font-weight:700;color:var(--red);margin-bottom:4px">Traditional Poster</div>
-          <div style="font-size:12px;color:var(--text2)">Static, fades in sunlight, costly reprints, low engagement</div>
-        </div>
-        <div style="flex:1;padding:16px;border-radius:12px;border:1px solid var(--green);background:rgba(52,211,153,.05)">
-          <div style="font-size:14px;font-weight:700;color:var(--green)">MediAd View LED</div>
-          <div style="font-size:12px;color:var(--text2)">Animated, high-brightness, instant updates, 10x more attention</div>
-        </div>
+<section style="padding:32px 40px;background:var(--dark2);border-top:1px solid var(--dark3);border-bottom:1px solid var(--dark3)">
+<div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center">
+  <div>
+    <div class="section-badge">See The Difference</div>
+    <div style="font-size:28px;font-weight:800;letter-spacing:-.5px;margin-bottom:8px">Paper Poster vs. Digital LED</div>
+    <div style="font-size:14px;color:var(--text2);line-height:1.6;margin-bottom:20px">Our Ultra Slim LED display transforms your storefront window into a dynamic advertisement that drives foot traffic and increases sales.</div>
+    <div style="display:flex;gap:16px;margin-bottom:20px">
+      <div style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(244,63,94,.2);background:rgba(244,63,94,.03)">
+        <div style="font-size:12px;font-weight:700;color:var(--red)">Traditional Poster</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Static, fades, costly reprints</div>
       </div>
-      <a href="#contact" class="btn-primary">Get a Free Quote →</a>
+      <div style="flex:1;padding:12px;border-radius:10px;border:1px solid rgba(52,211,153,.2);background:rgba(52,211,153,.03)">
+        <div style="font-size:12px;font-weight:700;color:var(--green)">MediAd View LED</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">Bright, animated, 10x attention</div>
+      </div>
     </div>
-    <div style="border-radius:16px;overflow:hidden;border:1px solid var(--dark3);box-shadow:0 20px 60px rgba(0,0,0,.4);position:relative">
-      <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block">
-        <source src="/api/web/promo-video.mp4" type="video/mp4">
-      </video>
-      <button onclick="var v=document.getElementById('promo-video');v.muted=!v.muted;this.textContent=v.muted?'Sound Off':'Sound On'" style="position:absolute;bottom:10px;right:10px;background:rgba(0,0,0,.6);color:var(--white);border:1px solid rgba(255,255,255,.15);padding:6px 12px;border-radius:6px;font-size:11px;cursor:pointer;backdrop-filter:blur(8px)">Sound Off</button>
-    </div>
+    <a href="#contact" class="btn-primary" style="font-size:13px;padding:10px 24px">Get a Free Quote →</a>
+  </div>
+  <div style="border-radius:12px;overflow:hidden;border:1px solid var(--dark3);position:relative">
+    <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block">
+      <source src="/api/web/promo-video.mp4" type="video/mp4">
+    </video>
+    <button onclick="var v=document.getElementById('promo-video');v.muted=!v.muted;this.textContent=v.muted?'Sound Off':'Sound On'" style="position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.5);color:var(--text2);border:none;padding:4px 10px;border-radius:4px;font-size:10px;cursor:pointer">Sound Off</button>
   </div>
 </div>
 </section>
