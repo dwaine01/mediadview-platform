@@ -52,7 +52,8 @@
         {
           "cameraPermission": "Permitir acceso a la cámara para escanear VIN"
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
