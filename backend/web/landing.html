@@ -178,6 +178,30 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 </div>
 </section>
 
+<!-- VIDEO SHOWCASE -->
+<section class="section" style="padding:60px 40px">
+<div class="section-inner">
+  <div style="text-align:center;margin-bottom:32px">
+    <div class="section-badge">See The Difference</div>
+    <div class="section-title">Paper Poster vs. Digital LED</div>
+    <div class="section-sub" style="margin:12px auto 0">Watch how our Ultra Slim LED display transforms your storefront window into a dynamic, eye-catching advertisement.</div>
+  </div>
+  <div style="max-width:900px;margin:0 auto;border-radius:20px;overflow:hidden;border:2px solid var(--dark3);box-shadow:0 40px 80px rgba(0,0,0,.4);position:relative">
+    <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block">
+      <source src="/api/web/promo-video.mp4" type="video/mp4">
+    </video>
+    <div style="position:absolute;bottom:16px;right:16px;display:flex;gap:8px">
+      <button onclick="var v=document.getElementById('promo-video');v.muted=!v.muted;this.textContent=v.muted?'🔇 Sound':'🔊 Sound'" style="background:rgba(0,0,0,.7);color:var(--white);border:1px solid rgba(255,255,255,.2);padding:8px 14px;border-radius:8px;font-size:12px;cursor:pointer;backdrop-filter:blur(8px)">🔇 Sound</button>
+    </div>
+  </div>
+  <div style="display:flex;justify-content:center;gap:40px;margin-top:32px">
+    <div style="text-align:center"><div style="font-size:32px">📄</div><div style="font-size:13px;color:var(--text2);margin-top:4px">Static Paper Poster</div><div style="font-size:11px;color:var(--red)">Low visibility, outdated</div></div>
+    <div style="font-size:32px;color:var(--text3);align-self:center">→</div>
+    <div style="text-align:center"><div style="font-size:32px">📺</div><div style="font-size:13px;color:var(--text2);margin-top:4px">MediAd View LED</div><div style="font-size:11px;color:var(--green)">Bright, animated, eye-catching</div></div>
+  </div>
+</div>
+</section>
+
 <!-- SERVICES -->
 <section class="section" id="services">
 <div class="section-inner">
