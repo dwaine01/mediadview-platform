@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>About Us — MediAd View</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#0a0f1a;color:#e2e8f0;overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rgba(10,15,26,.95);backdrop-filter:blur(20px);border-bottom:1px solid rgba(99,102,241,.1)}
+.nav-inner{max-width:1280px;margin:0 auto;padding:0 40px;display:flex;justify-content:space-between;align-items:center}
+.nav-logo{font-size:22px;font-weight:900;color:#fff;letter-spacing:-.5px}
+.nav-logo span{color:#22d3ee}
+.nav-links{display:flex;gap:32px;align-items:center}
+.nav-links a{font-size:14px;color:#94a3b8;font-weight:500;transition:color .2s}
+.nav-links a:hover{color:#22d3ee}
+.nav-cta{background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600;transition:all .2s;border:none;cursor:pointer}
+.nav-cta:hover{background:#4f46e5}
+
+.hero{min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:60px}
+.hero-photo{background:url('/api/web/ceo-photo.png') center/cover no-repeat}
+.hero-content{display:flex;flex-direction:column;justify-content:center;padding:60px 60px}
+.hero-badge{display:inline-block;font-size:11px;font-weight:700;color:#22d3ee;text-transform:uppercase;letter-spacing:3px;margin-bottom:16px}
+.hero-content h1{font-size:48px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:20px}
+.hero-content h1 span{color:#22d3ee}
+.hero-content .role{font-size:18px;color:#6366f1;font-weight:700;margin-bottom:24px;letter-spacing:1px}
+.hero-content p{font-size:16px;color:#94a3b8;line-height:1.8;margin-bottom:16px}
+.divider{width:60px;height:3px;background:linear-gradient(90deg,#6366f1,#22d3ee);border-radius:2px;margin:24px 0}
+
+.values{padding:80px 40px;background:#111827}
+.values-inner{max-width:1280px;margin:0 auto}
+.values-title{font-size:32px;font-weight:900;text-align:center;margin-bottom:48px;letter-spacing:-.5px}
+.values-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.value-card{background:#0a0f1a;border:1px solid #1e293b;border-radius:16px;padding:32px;text-align:center;transition:all .3s}
+.value-card:hover{border-color:#6366f1;transform:translateY(-4px)}
+.value-icon{width:56px;height:56px;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px}
+.value-card h3{font-size:18px;font-weight:700;margin-bottom:8px}
+.value-card p{font-size:13px;color:#94a3b8;line-height:1.6}
+
+.mission{padding:80px 40px;background:#0a0f1a}
+.mission-inner{max-width:900px;margin:0 auto;text-align:center}
+.mission h2{font-size:36px;font-weight:900;margin-bottom:20px;letter-spacing:-.5px}
+.mission p{font-size:17px;color:#94a3b8;line-height:1.8;margin-bottom:16px}
+.mission-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-top:48px}
+.m-stat{text-align:center}
+.m-stat .num{font-size:40px;font-weight:900;background:linear-gradient(135deg,#22d3ee,#6366f1);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.m-stat .label{font-size:13px;color:#64748b;margin-top:4px}
+
+.cta{padding:60px 40px;text-align:center;background:#111827;border-top:1px solid #1e293b}
+.cta h2{font-size:28px;font-weight:800;margin-bottom:12px}
+.cta p{font-size:15px;color:#94a3b8;margin-bottom:24px}
+.cta a{display:inline-block;background:#6366f1;color:#fff;padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;transition:all .2s}
+.cta a:hover{background:#4f46e5;transform:translateY(-2px)}
+
+footer{padding:24px 40px;text-align:center;font-size:12px;color:#475569;border-top:1px solid #1e293b}
+
+@media(max-width:768px){
+  .hero{grid-template-columns:1fr}
+  .hero-photo{min-height:400px}
+  .values-grid{grid-template-columns:1fr}
+  .mission-stats{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<nav>
+<div class="nav-inner">
+  <a href="/api/landing" class="nav-logo">MediAd <span>View</span></a>
+  <div class="nav-links">
+    <a href="/api/landing">Home</a>
+    <a href="/api/landing#services">Services</a>
+    <a href="/api/landing#menus">Digital Menus</a>
+    <a href="/api/landing#contact">Contact</a>
+    <a href="https://mediaview-ads.preview.emergentagent.com/api/dashboard" class="nav-cta">Dashboard Login</a>
+  </div>
+</div>
+</nav>
+
+<section class="hero">
+  <div class="hero-photo"></div>
+  <div class="hero-content">
+    <div class="hero-badge">Meet The Founder</div>
+    <h1>Josue <span>Tejada</span></h1>
+    <div class="role">CEO & Founder — MediAd View LLC</div>
+    <div class="divider"></div>
+    <p>MediAd View is an innovative digital display company that offers a complete line of professional LED solutions for interior, exterior and window applications.</p>
+    <p>With installations nationwide, MediAd View displays are the proven solution for environments with high ambient light. Brightness levels as high as 5,500 nits allow our ultra-high brightness LED to shine bright in direct sunlight — ideal for storefront windows, churches, and outdoor walls.</p>
+    <p>We offer the industry's biggest portfolio of ultra-bright professional LED displays, backed by dedicated support and cloud-based content management.</p>
+  </div>
+</section>
+
+<section class="values">
+<div class="values-inner">
+  <div class="values-title">Our Core Values</div>
+  <div class="values-grid">
+    <div class="value-card">
+      <div class="value-icon" style="background:rgba(34,211,238,.1)"><svg width="28" height="28" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>
+      <h3>Innovation</h3>
+      <p>We continuously push the boundaries of LED display technology to deliver brighter, thinner, and more energy-efficient solutions for our clients.</p>
+    </div>
+    <div class="value-card">
+      <div class="value-icon" style="background:rgba(99,102,241,.1)"><svg width="28" height="28" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div>
+      <h3>Client Success</h3>
+      <p>Your success is our success. We work closely with every client to ensure our displays drive real results — more foot traffic, more sales, more visibility.</p>
+    </div>
+    <div class="value-card">
+      <div class="value-icon" style="background:rgba(52,211,153,.1)"><svg width="28" height="28" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      <h3>Reliability</h3>
+      <p>Our displays are built for 24/7 operation with 99.9% uptime. When your business depends on digital signage, you can depend on MediAd View.</p>
+    </div>
+  </div>
+</div>
+</section>
+
+<section class="mission">
+<div class="mission-inner">
+  <h2>Our Mission</h2>
+  <p>To empower businesses of all sizes with professional-grade digital signage solutions that are accessible, easy to manage, and proven to increase revenue. From a single storefront window display to a nationwide network of screens — we make digital advertising simple.</p>
+  <div class="mission-stats">
+    <div class="m-stat"><div class="num">500+</div><div class="label">Screens Installed</div></div>
+    <div class="m-stat"><div class="num">120+</div><div class="label">Churches Served</div></div>
+    <div class="m-stat"><div class="num">1,500+</div><div class="label">Happy Clients</div></div>
+    <div class="m-stat"><div class="num">50</div><div class="label">States Covered</div></div>
+  </div>
+</div>
+</section>
+
+<section class="cta">
+  <h2>Ready to Transform Your Business?</h2>
+  <p>Contact us today for a free consultation and quote.</p>
+  <a href="tel:18772028181">Call 1-877-202-8181</a>
+</section>
+
+<footer>© 2026 MediAd View LLC. All rights reserved.</footer>
+
+</body>
+</html>

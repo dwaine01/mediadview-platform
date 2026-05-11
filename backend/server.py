@@ -3021,6 +3021,10 @@ async def serve_screen_public():
 async def serve_landing():
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
+@api_router.get("/about")
+async def serve_about():
+    return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
+
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
