@@ -9,71 +9,97 @@ function enterApp(){
   document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
   document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
   document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();
-  // Show/hide role-specific nav items
-  document.querySelectorAll('[data-p="admin"]').forEach(e=>e.style.display=user?.role==='admin'||user?.role==='superadmin'?'':'none');
+  // Show/hide role-specific nav items + section labels
+  const isAdmin=user?.role==='admin'||user?.role==='superadmin';
+  document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdmin?'':'none');
   document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=user?.role==='superadmin'?'':'none');
   go('dashboard');
 }
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 function go(p){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+p)?.classList.add('on');document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.querySelector(`[data-p="${p}"]`)?.classList.add('on');loaders[p]?.()}
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
-function dot(s){const m={active:'#34d399',pending:'#fbbf24',approved:'#60a5fa',rejected:'#f87171',draft:'#94a3b8',completed:'#a78bfa'};return m[s]||'#94a3b8'}
+function dot(s){const m={active:'#34d399',pending:'#fbbf24',approved:'#a5b4fc',rejected:'#f87171',draft:'#94a3b8',completed:'#c4b5fd'};return m[s]||'#94a3b8'}
 const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#7c3aed,#6d28d9)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#4338ca)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
-function stat(l,v,s,cv,ic){return`<div class="st-card" style="border-left-color:var(${cv})"><div style="display:flex;align-items:center;gap:8px"><div class="st-ico" style="background:color-mix(in srgb,var(${cv}) 12%,transparent)"><svg width="16" height="16" fill="none" stroke="var(${cv})" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div><span style="font-size:11px;font-weight:600;color:var(--t-3)">${l}</span></div><div class="st-val" style="color:var(${cv})">${v}</div><div class="st-sub">${s}</div></div>`}
-function actCard(l,d,c,ic,p){return`<div class="card card-i" style="display:flex;align-items:center;gap:12px;padding:14px" onclick="go('${p}')"><div style="width:36px;height:36px;border-radius:10px;background:${c}15;border:1px solid ${c}25;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" fill="none" stroke="${c}" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div><div style="flex:1"><div style="font-size:13px;font-weight:600">${l}</div><div style="font-size:10px;color:var(--t-4)">${d}</div></div><svg width="14" height="14" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></div>`}
+// Premium stat card: label / icon / value / sub trend
+function stat(label,value,sub,colorVar,iconPath,trend){
+  var trendHtml='';
+  if(trend){var dir=trend.dir||'up';var arrow=dir==='up'?'M5 15l7-7 7 7':dir==='down'?'M19 9l-7 7-7-7':'M5 12h14';trendHtml='<span class="st-trend '+dir+'"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+arrow+'"/></svg>'+trend.label+'</span>'}
+  return '<div class="st-card">'+
+    '<div class="st-top">'+
+      '<span class="st-label">'+label+'</span>'+
+      '<div class="st-ico" style="background:color-mix(in srgb,var('+colorVar+') 14%,transparent);color:var('+colorVar+')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+iconPath+'"/></svg></div>'+
+    '</div>'+
+    '<div class="st-val">'+value+'</div>'+
+    '<div class="st-sub">'+trendHtml+'<span>'+sub+'</span></div>'+
+  '</div>';
+}
+function actCard(l,d,c,ic,p){return`<div class="card card-i" style="display:flex;align-items:center;gap:14px;padding:14px 16px" onclick="go('${p}')"><div style="width:40px;height:40px;border-radius:11px;background:${c}18;border:1px solid ${c}30;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" fill="none" stroke="${c}" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t-1)">${l}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${d}</div></div><svg width="15" height="15" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></div>`}
 
 const loaders={
   async dashboard(){
     const el=document.getElementById('pg-dashboard');
     try{
-      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin')try{a=await api('/admin/analytics')}catch(e){}
+      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){}
       const rev=a?.total_revenue||d.total_spent||0,scr=a?.active_screens||d.active_campaigns||0,camp=a?.total_campaigns||d.total_campaigns||0,pend=a?.pending_campaigns||d.pending_campaigns||0;
       const screens=await api('/screens');
       const recentCamps=a?.recent_campaigns||d.recent_campaigns||[];
+      const now=new Date();const hour=now.getHours();
+      const greet=hour<12?'Good morning':hour<18?'Good afternoon':'Good evening';
+      const today=now.toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric'});
       el.innerHTML=`
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:32px">
-          <div><p style="font-size:11px;font-weight:700;color:var(--brand-l);text-transform:uppercase;letter-spacing:3px;margin-bottom:6px">Welcome back</p><h1 style="font-size:32px;font-weight:800;letter-spacing:-.5px">${user?.name}</h1><p style="color:var(--t-3);font-size:14px;margin-top:4px">Your digital signage network overview</p></div>
-          <button class="btn-p" onclick="go('create')"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m7-7H5"/></svg>New Campaign</button>
+        <div class="welcome-banner fade">
+          <div class="greeting">${greet} · ${today}</div>
+          <h1>Welcome back, ${user?.name?.split(' ')[0]||'there'}</h1>
+          <p>Here's what's happening across your digital signage network today.</p>
         </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:32px">
-          ${stat('Revenue','$'+rev.toLocaleString(),'All time','--cyan','M13 7h8m0 0v8m0-8l-8 8-4-4-6 6')}
-          ${stat('Screens',scr,'Online now','--green','M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z')}
-          ${stat('Campaigns',camp,'Total created','--brand-l','M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2')}
-          ${stat('Pending',pend,'Awaiting review','--amber','M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')}
+
+        <div class="st-grid">
+          ${stat('Total Revenue','$'+Number(rev).toLocaleString(),'All-time earnings','--cyan','M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z',{dir:'up',label:'12%'})}
+          ${stat('Active Screens',scr,'Currently broadcasting','--green-l','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z',{dir:'up',label:scr>0?'Online':'—'})}
+          ${stat('Total Campaigns',camp,'Created campaigns','--brand-l','M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z',{dir:'flat',label:'Live'})}
+          ${stat('Pending Approval',pend,pend>0?'Awaiting review':'All clear','--amber-l','M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',pend>0?{dir:'down',label:'Action'}:{dir:'up',label:'Done'})}
         </div>
-        <div style="display:grid;grid-template-columns:5fr 4fr 3fr;gap:20px">
+
+        <div style="display:grid;grid-template-columns:5fr 4fr 3fr;gap:20px;margin-bottom:24px">
           <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="font-size:16px;font-weight:700">Recent Campaigns</h2><a onclick="go('campaigns')" style="font-size:12px;color:var(--brand-l);cursor:pointer;font-weight:600">View All →</a></div>
-            <div class="card">${(recentCamps).length===0?'<div style="padding:40px;text-align:center;color:var(--t-4)">No campaigns yet</div>':(recentCamps).map((c,i)=>`<div class="lr" onclick="go('campaigns')"><div class="dot" style="background:${dot(c.status)}"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div><div style="font-size:11px;color:var(--t-4)">${c.user_name||c.screen_name||''} · ${c.schedule?.start_date||''}</div></div>${badge(c.status)}</div>`).join('')}</div>
+            <div class="sh"><h2>Recent Campaigns</h2><a class="sh-link" onclick="go('campaigns')">View all <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></a></div>
+            <div class="card">
+              ${recentCamps.length===0?'<div style="padding:48px;text-align:center"><div style="font-size:13px;color:var(--t-4);margin-bottom:6px">No campaigns yet</div><div style="font-size:11px;color:var(--t-5)">Launch your first campaign to get started</div></div>':
+                recentCamps.slice(0,6).map(c=>`<div class="lr" onclick="go('campaigns')"><div class="dot" style="background:${dot(c.status)};color:${dot(c.status)}"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t-1)">${c.name}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${c.user_name||c.screen_name||''}${c.schedule?.start_date?' · '+c.schedule.start_date:''}</div></div>${badge(c.status)}</div>`).join('')}
+            </div>
           </div>
           <div>
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px"><h2 style="font-size:16px;font-weight:700">Active Screens</h2><a onclick="go('screens')" style="font-size:12px;color:var(--brand-l);cursor:pointer;font-weight:600">Browse →</a></div>
-            <div class="card">${screens.slice(0,6).map((s,i)=>`<div class="lr" onclick="go('screens')"><div class="dot" style="background:#34d399"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.name}</div><div style="font-size:11px;color:var(--t-4)">${s.location?.city}, ${s.location?.state}</div></div><div style="font-size:14px;font-weight:700;color:var(--cyan)">$${s.pricing?.per_hour}<span style="font-size:10px;color:var(--t-4);font-weight:400">/hr</span></div></div>`).join('')}</div>
+            <div class="sh"><h2>Active Screens</h2><a class="sh-link" onclick="go('screens')">Browse <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></a></div>
+            <div class="card">
+              ${screens.length===0?'<div style="padding:48px;text-align:center;color:var(--t-4);font-size:13px">No screens available</div>':
+                screens.slice(0,6).map(s=>`<div class="lr" onclick="go('screens')"><div class="dot" style="background:#34d399;color:#34d399"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t-1)">${s.name}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${s.location?.city||''}${s.location?.state?', '+s.location.state:''}</div></div><div style="font-size:14px;font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums">$${s.pricing?.per_hour||0}<span style="font-size:10px;color:var(--t-4);font-weight:400">/hr</span></div></div>`).join('')}
+            </div>
           </div>
           <div>
-            <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Quick Actions</h2>
+            <div class="sh"><h2>Quick Actions</h2></div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              ${actCard('Create Campaign','Launch new ad','#6366f1','M12 5v14m7-7H5','create')}
-              ${actCard('Browse Screens','Explore displays','#22d3ee','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','screens')}
-              ${actCard('Analytics','View reports','#a78bfa','M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10','analytics')}
-              ${user?.role==='admin'?actCard('Admin Panel','Manage platform','#fbbf24','M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z','admin'):''}
+              ${actCard('Launch Campaign','Start advertising','#6366f1','M13 10V3L4 14h7v7l9-11h-7z','create')}
+              ${actCard('Browse Marketplace','Explore screens','#22d3ee','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','screens')}
+              ${actCard('Create Menu','Restaurant menus','#10b981','M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253','menus')}
+              ${actCard('View Analytics','Performance data','#a78bfa','M3 3v18h18M7 14l3-3 4 4 5-6','analytics')}
+              ${user?.role==='admin'||user?.role==='superadmin'?actCard('Manage Devices','Connected players','#f59e0b','M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','devices'):''}
             </div>
           </div>
         </div>
-        <div style="margin-top:24px">
-          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Proof of Play (Last 7 Days)</h2>
-          <div id="proof-of-play" class="card" style="padding:20px"><p style="color:var(--t-4)">Loading...</p></div>
+
+        <div>
+          <div class="sh"><h2>Proof of Play <span style="font-size:11px;color:var(--t-4);font-weight:500;margin-left:6px">Last 7 days</span></h2></div>
+          <div id="proof-of-play" class="card" style="padding:24px"><p style="color:var(--t-4);font-size:13px;text-align:center">Loading play logs…</p></div>
         </div>`;
-      // Load proof of play
       loadProofOfPlay();
-    }catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
+    }catch(e){el.innerHTML=`<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.97l-6.93-12a2 2 0 00-3.48 0l-6.93 12A2 2 0 005.07 19z"/></svg></div><h3>Unable to load dashboard</h3><p>${e.message}</p></div>`}
   },
 
-  async screens(){const el=document.getElementById('pg-screens');try{const d=await api('/screens');el.innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Screens</h1><p style="color:var(--t-3);font-size:14px;margin-bottom:24px">${d.length} LED displays available</p><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">${d.map((s,i)=>`<div class="sc card-i"><div class="hd" style="background:${SG[i%SG.length]}"><div class="city">${s.location?.city}, ${s.location?.state}</div></div><div class="ct"><div class="nm">${s.name}</div><div class="ad">${s.location?.address}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--t-3)">${s.specs?.size||''} · ${s.specs?.resolution||''}</span><div class="pr">$${s.pricing?.per_hour}<span>/hr</span></div></div></div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
+  async screens(){const el=document.getElementById('pg-screens');try{const d=await api('/screens');el.innerHTML=`<div class="ph"><div><h1>Screens Marketplace</h1><p>${d.length} LED displays available to advertise on</p></div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">${d.map((s,i)=>`<div class="sc card-i"><div class="hd" style="background:${SG[i%SG.length]}"><div class="city">${s.location?.city||''}${s.location?.state?', '+s.location.state:''}</div></div><div class="ct"><div class="nm">${s.name}</div><div class="ad">${s.location?.address||''}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--t-4)">${s.specs?.size||''} · ${s.specs?.resolution||''}</span><div class="pr">$${s.pricing?.per_hour||0}<span>/hr</span></div></div></div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
-  async campaigns(){const el=document.getElementById('pg-campaigns');try{const d=user?.role==='admin'?await api('/admin/campaigns'):await api('/campaigns');el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px"><div><h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Campaigns</h1><p style="color:var(--t-3);font-size:14px">${d.length} campaigns</p></div><button class="btn-p" onclick="go('create')">+ New Campaign</button></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="card" style="padding:48px;text-align:center;color:var(--t-4)">No campaigns yet</div>':d.map(c=>`<div class="card card-i" style="display:flex;align-items:center;gap:12px;padding:16px;cursor:pointer"><div style="width:3px;height:40px;border-radius:2px;background:${dot(c.status)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${c.name}</div><div style="font-size:12px;color:var(--t-4);margin-top:2px">${c.user?.name||c.screen?.name||''} · ${c.schedule?.start_date||''} → ${c.schedule?.end_date||''}</div></div>${badge(c.status)}<div style="font-size:20px;font-weight:800;color:var(--cyan);min-width:100px;text-align:right">$${(c.pricing?.total||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
+  async campaigns(){const el=document.getElementById('pg-campaigns');try{const isA=user?.role==='admin'||user?.role==='superadmin';const d=isA?await api('/admin/campaigns'):await api('/campaigns');el.innerHTML=`<div class="ph"><div><h1>Campaigns</h1><p>${d.length} ${d.length===1?'campaign':'campaigns'} total</p></div><button class="btn-p" onclick="go('create')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New Campaign</button></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg></div><h3>No campaigns yet</h3><p>Launch your first advertising campaign to start reaching audiences</p><button class="btn-p" onclick="go(\'create\')">+ Create Campaign</button></div>':d.map(c=>`<div class="card card-i" style="display:flex;align-items:center;gap:14px;padding:18px;cursor:pointer"><div style="width:4px;align-self:stretch;border-radius:3px;background:${dot(c.status)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${c.name}</div><div style="font-size:12px;color:var(--t-4);margin-top:3px">${c.user?.name||c.screen?.name||''}${c.schedule?.start_date?' · '+c.schedule.start_date+' → '+(c.schedule.end_date||''):''}</div></div>${badge(c.status)}<div style="font-size:20px;font-weight:800;color:var(--cyan);min-width:110px;text-align:right;font-variant-numeric:tabular-nums">$${(c.pricing?.total||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
-  async payments(){const el=document.getElementById('pg-payments');try{const d=user?.role==='admin'?await api('/admin/payments'):await api('/payments');el.innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Payments</h1><p style="color:var(--t-3);font-size:14px;margin-bottom:24px">${d.length} transactions</p><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="card" style="padding:48px;text-align:center;color:var(--t-4)">No payments</div>':d.map(p=>`<div class="card" style="display:flex;align-items:center;gap:14px;padding:16px"><div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${p.campaign_name||'Campaign'}</div><div style="font-size:12px;color:var(--t-4)">${p.user_name?p.user_name+' · ':''}${p.invoice_number} · ${p.screen_name||''}</div></div><span class="bdg bdg-${p.status==='completed'?'active':'pending'}">${p.status}</span><div style="font-size:22px;font-weight:800;min-width:110px;text-align:right">$${(p.amount||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
+  async payments(){const el=document.getElementById('pg-payments');try{const d=user?.role==='admin'?await api('/admin/payments'):await api('/payments');const total=d.reduce((s,p)=>s+(p.amount||0),0);el.innerHTML=`<div class="ph"><div><h1>Payments</h1><p>${d.length} ${d.length===1?'transaction':'transactions'} · $${total.toLocaleString()} total</p></div></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><h3>No payments yet</h3><p>Payment transactions will appear here once campaigns are submitted</p></div>':d.map(p=>`<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px"><div style="width:44px;height:44px;border-radius:12px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(99,102,241,.18)"><svg width="20" height="20" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${p.campaign_name||'Campaign'}</div><div style="font-size:12px;color:var(--t-4);margin-top:2px">${p.user_name?p.user_name+' · ':''}${p.invoice_number||''}${p.screen_name?' · '+p.screen_name:''}</div></div><span class="bdg bdg-${p.status==='completed'?'active':'pending'}">${p.status}</span><div style="font-size:22px;font-weight:800;min-width:120px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t-1)">$${(p.amount||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
   // Campaign Creation Wizard
   async create(){
@@ -184,8 +210,7 @@ const loaders={
       const rev=a?.total_revenue||d.total_spent||0;const monthly=a?.monthly_revenue||{};
       const months=Object.keys(monthly).sort().slice(-6);const maxVal=Math.max(...Object.values(monthly).map(Number),1);
       el.innerHTML=`
-        <h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Analytics</h1>
-        <p style="color:var(--t-3);font-size:14px;margin-bottom:24px">Platform performance overview</p>
+        <div class="ph"><div><h1>Analytics</h1><p>Platform performance &amp; revenue insights</p></div></div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Monthly Revenue</h2>
@@ -436,11 +461,12 @@ const loaders={
                   <span class="${isOnline?'tag-on':'tag-off'}" style="margin-left:4px">${isOnline?'Online':'Offline'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--t-3);margin-bottom:8px">${d.device_info?.model||'Unknown'} · ${d.tier==='player_dedicated'?'Dedicated':'TV Direct'} · Code: <span style="color:var(--brand-l);font-weight:600">${d.activation_code}</span></div>
-                <div style="display:flex;gap:8px;margin-bottom:8px">${d.screen_id?'<button onclick="unlinkDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(251,191,36,.1);color:var(--amber);font-size:10px;font-weight:600;border:none;cursor:pointer">Unlink</button>':''}<button onclick="removeDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button></div><div style="display:flex;gap:20px;flex-wrap:wrap">
+                <div style="display:flex;gap:8px;margin-bottom:8px">${d.screen_id?'<button onclick="openPowerSchedule(\''+d.id+'\',\''+(d.device_name||'Device').replace(/\x27/g,'')+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(99,102,241,.12);color:var(--brand-l);font-size:10px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>Power Schedule</button>':''}${d.screen_id?'<button onclick="unlinkDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(251,191,36,.1);color:var(--amber);font-size:10px;font-weight:600;border:none;cursor:pointer">Unlink</button>':''}<button onclick="removeDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button></div><div style="display:flex;gap:20px;flex-wrap:wrap">
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Screen:</span> ${d.screen_name||screenMap[d.screen_id]||'Not assigned'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">IP:</span> ${d.diagnostics?.ip_address||'—'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Uptime:</span> ${upD>0?upD+'d ':''}${upH%24}h</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Sync:</span> ${syncAgo!==null?(syncAgo<1?'Just now':syncAgo+'m ago'):'Never'}</div>
+                  ${d.power_schedule?.enabled?'<div style="font-size:11px;color:var(--brand-l)"><span style="font-weight:600">⏰ Schedule:</span> '+d.power_schedule.power_on+' → '+d.power_schedule.power_off+'</div>':''}
                 </div>
               </div>
             </div>
@@ -1130,3 +1156,68 @@ async function deletePromoMedia(menuId,mediaId){
 }
 
 if(token&&user){enterApp()}
+
+// ============ POWER SCHEDULE ============
+async function openPowerSchedule(deviceId,deviceName,e){
+  if(e)e.stopPropagation();
+  let cur={enabled:false,power_on:'08:00',power_off:'22:00',days:['mon','tue','wed','thu','fri','sat','sun']};
+  try{cur=await api('/admin/devices/'+deviceId+'/power-schedule')}catch(err){}
+  const dayLabels=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
+  const html=`<div id="ps-modal" style="position:fixed;inset:0;background:rgba(2,6,18,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px">
+    <div style="width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden">
+      <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <div style="font-size:17px;font-weight:700">Power Schedule</div>
+          <div style="font-size:12px;color:var(--t-4);margin-top:2px">${deviceName}</div>
+        </div>
+        <button onclick="document.getElementById('ps-modal').remove()" class="btn-icon">✕</button>
+      </div>
+      <div style="padding:24px">
+        <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:var(--rs);cursor:pointer;margin-bottom:20px">
+          <input type="checkbox" id="ps-enabled" ${cur.enabled?'checked':''} style="width:18px;height:18px;accent-color:var(--brand)">
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:600;color:var(--t-1)">Enable automatic schedule</div>
+            <div style="font-size:11px;color:var(--t-4);margin-top:2px">Saves energy by turning the screen off at night</div>
+          </div>
+        </label>
+        <div class="row2" style="margin-bottom:20px">
+          <div>
+            <label class="inp-label"><svg style="display:inline;vertical-align:-2px;margin-right:4px" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path stroke-linecap="round" d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>Power On</label>
+            <input id="ps-on" type="time" class="inp" value="${cur.power_on||'08:00'}">
+          </div>
+          <div>
+            <label class="inp-label"><svg style="display:inline;vertical-align:-2px;margin-right:4px" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>Power Off</label>
+            <input id="ps-off" type="time" class="inp" value="${cur.power_off||'22:00'}">
+          </div>
+        </div>
+        <label class="inp-label">Active Days</label>
+        <div style="display:flex;gap:6px;margin-bottom:24px">
+          ${dayLabels.map(([k,lbl])=>`<button type="button" data-day="${k}" onclick="this.classList.toggle('ps-on')" class="${(cur.days||[]).includes(k)?'ps-on':''}" style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-1);color:var(--t-3);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s">${lbl}</button>`).join('')}
+        </div>
+        <div style="background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.15);border-radius:var(--rs);padding:12px;margin-bottom:20px">
+          <div style="font-size:11px;color:var(--amber-l);display:flex;gap:8px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.97l-6.93-12a2 2 0 00-3.48 0l-6.93 12A2 2 0 005.07 19z"/></svg><span>Device must support remote control. Some manufacturers require enabling this feature on the TV settings.</span></div>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button onclick="document.getElementById('ps-modal').remove()" class="btn-s" style="flex:1;justify-content:center;padding:12px">Cancel</button>
+          <button onclick="savePowerSchedule('${deviceId}')" class="btn-p" style="flex:1;padding:12px">Save Schedule</button>
+        </div>
+        <p id="ps-msg" style="font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+      </div>
+    </div>
+  </div>
+  <style>.ps-on{background:rgba(99,102,241,.15) !important;border-color:var(--brand) !important;color:var(--brand-l) !important}</style>`;
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function savePowerSchedule(deviceId){
+  const enabled=document.getElementById('ps-enabled').checked;
+  const power_on=document.getElementById('ps-on').value;
+  const power_off=document.getElementById('ps-off').value;
+  const days=Array.from(document.querySelectorAll('[data-day].ps-on')).map(b=>b.dataset.day);
+  const msg=document.getElementById('ps-msg');msg.style.display='none';
+  try{
+    await api('/admin/devices/'+deviceId+'/power-schedule',{method:'PUT',body:JSON.stringify({enabled,power_on,power_off,days})});
+    msg.textContent='Schedule saved!';msg.style.color='var(--green-l)';msg.style.display='block';
+    setTimeout(()=>{document.getElementById('ps-modal')?.remove();loaders.devices()},700);
+  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}
+}

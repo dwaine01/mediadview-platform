@@ -3,72 +3,151 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>MediAd View — Advertising Solution</title>
+  <title>MediAd View — Digital Signage Platform</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/api/web/styles.css">
 </head>
 <body>
 
-<!-- LOGIN -->
+<!-- ========== LOGIN ========== -->
 <div id="view-login">
-  <div class="orb" style="width:450px;height:450px;top:-180px;right:-120px;background:radial-gradient(circle,rgba(99,102,241,.09),transparent 70%)"></div>
-  <div class="orb" style="width:350px;height:350px;bottom:-120px;left:-100px;background:radial-gradient(circle,rgba(34,211,238,.05),transparent 70%)"></div>
+  <div class="orb" style="width:520px;height:520px;top:-180px;right:-160px;background:radial-gradient(circle,rgba(99,102,241,.12),transparent 70%)"></div>
+  <div class="orb" style="width:420px;height:420px;bottom:-160px;left:-120px;background:radial-gradient(circle,rgba(34,211,238,.06),transparent 70%)"></div>
   <div class="login-card fade">
-    <div class="login-logo"><img src="/api/web/logo.png" style="width:160px;margin-bottom:12px" alt="MediAd View"><p style="font-size:13px;color:#818cf8;margin-top:4px">Advertising Solution</p></div>
-    <div class="glass" style="border-radius:var(--r);padding:28px">
-      <h2 style="font-size:17px;font-weight:700;margin-bottom:2px">Welcome back</h2>
-      <p style="font-size:12px;color:var(--t-3);margin-bottom:24px">Sign in to your account</p>
+    <div class="login-logo">
+      <img src="/api/web/logo.png" style="width:170px;margin-bottom:6px" alt="MediAd View">
+      <p style="font-size:12px;color:var(--brand-l);letter-spacing:2px;text-transform:uppercase;font-weight:600">Digital Signage Platform</p>
+    </div>
+    <div class="glass" style="border-radius:var(--rl);padding:32px">
+      <h2 style="font-size:18px;font-weight:700;margin-bottom:4px">Welcome back</h2>
+      <p style="font-size:13px;color:var(--t-3);margin-bottom:24px">Sign in to your dashboard</p>
       <div>
         <label class="inp-label">Email</label>
-        <input id="in-email" type="email" class="inp" placeholder="admin@mediaviewads.com" style="margin-bottom:14px">
+        <input id="in-email" type="email" class="inp" placeholder="you@company.com" style="margin-bottom:14px">
         <label class="inp-label">Password</label>
-        <input id="in-pwd" type="password" class="inp" placeholder="Enter your password" style="margin-bottom:20px">
-        <button onclick="doLogin()" class="btn-p" style="width:100%;justify-content:center;padding:12px">Sign In</button>
+        <input id="in-pwd" type="password" class="inp" placeholder="••••••••" style="margin-bottom:22px">
+        <button onclick="doLogin()" class="btn-p" style="width:100%;padding:13px">Sign In</button>
       </div>
       <p id="login-err" style="color:var(--red);font-size:12px;text-align:center;margin-top:14px;display:none"></p>
     </div>
+    <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--t-4)">Powered by <span style="color:var(--brand-l);font-weight:600">MediAd View</span></p>
   </div>
 </div>
 
-<!-- APP -->
+<!-- ========== APP ========== -->
 <div id="view-app">
+
+  <!-- =========== SIDEBAR =========== -->
   <aside class="sb">
-    <div class="sb-brand"><img src="/api/web/logo.png" style="width:120px" alt="MediAd View"></div>
+    <div class="sb-brand">
+      <img src="/api/web/logo.png" class="name-full" style="width:140px" alt="MediAd View">
+      <img src="/api/web/logo.png" style="width:32px;display:none" class="name-icon" alt="MV">
+    </div>
     <nav>
-      <div class="ni on" data-p="dashboard" onclick="go('dashboard')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg><span>Dashboard</span></div>
-      <div class="ni" data-p="screens" onclick="go('screens')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg><span>Screens</span></div>
-      <div class="ni" data-p="campaigns" onclick="go('campaigns')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg><span>Campaigns</span></div>
-      <div class="ni" data-p="payments" onclick="go('payments')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="4" width="22" height="16" rx="2"/><path d="M1 10h22"/></svg><span>Payments</span></div>
-      <div class="ni" data-p="analytics" onclick="go('analytics')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0h6m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"/></svg><span>Analytics</span></div>
-      <div class="sep"></div>
-      <div class="ni" data-p="menus" onclick="go('menus')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg><span>Menus</span></div>
-      <div class="sep"></div>
-      <div class="ni" data-p="devices" onclick="go('devices')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg><span>Devices</span></div>
-      <div class="ni" data-p="widgets" onclick="go('widgets')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg><span>Widgets</span></div>
-      <div class="ni" data-p="admin" onclick="go('admin')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg><span>Admin</span></div>
-      <div class="ni" data-p="superadmin" onclick="go('superadmin')" style="display:none"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg><span>Super Admin</span></div>
-      <div class="ni" data-p="settings" onclick="go('settings')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></div>
+      <div class="sb-section">Overview</div>
+      <div class="ni on" data-p="dashboard" onclick="go('dashboard')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="ni" data-p="analytics" onclick="go('analytics')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3v18h18M7 14l3-3 4 4 5-6"/></svg>
+        <span>Analytics</span>
+      </div>
+
+      <div class="sb-section">Content</div>
+      <div class="ni" data-p="screens" onclick="go('screens')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8m-4-4v4"/></svg>
+        <span>Screens</span>
+      </div>
+      <div class="ni" data-p="campaigns" onclick="go('campaigns')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+        <span>Campaigns</span>
+      </div>
+      <div class="ni" data-p="menus" onclick="go('menus')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        <span>Menus</span>
+      </div>
+      <div class="ni" data-p="widgets" onclick="go('widgets')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>
+        <span>Widgets</span>
+      </div>
+
+      <div class="sb-section">Operations</div>
+      <div class="ni" data-p="devices" onclick="go('devices')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <span>Devices</span>
+      </div>
+      <div class="ni" data-p="payments" onclick="go('payments')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M2 10h20M6 15h4"/></svg>
+        <span>Payments</span>
+      </div>
+
+      <div class="sb-section" data-role-admin>Administration</div>
+      <div class="ni" data-p="admin" data-role-admin onclick="go('admin')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span>Admin Panel</span>
+      </div>
+      <div class="ni" data-p="superadmin" onclick="go('superadmin')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+        <span>Super Admin</span>
+      </div>
     </nav>
     <div class="sb-ft">
-      <div class="av" id="sb-av">U</div>
-      <div style="flex:1;min-width:0"><div id="sb-name" style="font-size:11px;font-weight:600;color:var(--t-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User</div><div id="sb-email" style="font-size:9px;color:var(--t-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">email</div></div>
-      <button onclick="doLogout()" style="background:none;color:var(--t-4);padding:4px" title="Sign out"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4m7 14l5-5-5-5m5 5H9"/></svg></button>
+      <div class="sb-user" onclick="go('settings')">
+        <div class="av" id="sb-av">U</div>
+        <div style="flex:1;min-width:0">
+          <div id="sb-name" style="font-size:13px;font-weight:600;color:var(--t-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">User</div>
+          <div id="sb-email" style="font-size:11px;color:var(--t-4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">email</div>
+        </div>
+        <button onclick="event.stopPropagation();doLogout()" class="btn-icon" title="Sign out" style="width:30px;height:30px">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+        </button>
+      </div>
     </div>
   </aside>
+
+  <!-- =========== MAIN =========== -->
   <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="tb">
+      <button class="btn-icon mobile-menu" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menu">
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <div class="tb-search">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="m21 21-4.3-4.3"/></svg>
+        <input id="tb-search-input" placeholder="Search screens, campaigns, devices…" />
+        <span class="kbd">⌘K</span>
+      </div>
+      <div class="tb-actions">
+        <button class="btn-icon" title="Help" onclick="window.open('/api/landing','_blank')">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+        </button>
+        <button class="btn-icon" title="Notifications">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </button>
+        <button class="tb-cta" onclick="go('create')">
+          <svg fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>
+          <span>New Campaign</span>
+        </button>
+      </div>
+    </header>
+
     <!-- Preview Modal -->
-    <div id="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:100;display:none;align-items:center;justify-content:center;backdrop-filter:blur(8px)">
-      <div style="width:90%;max-width:900px;max-height:90vh;background:#0f172a;border:1px solid #1e293b;border-radius:16px;overflow:hidden;display:flex;flex-direction:column">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #1e293b">
-          <div><div id="modal-title" style="font-size:16px;font-weight:700"></div><div id="modal-sub" style="font-size:12px;color:#64748b"></div></div>
-          <button onclick="closeModal()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer;padding:4px 8px">✕</button>
+    <div id="modal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(2,6,18,.88);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(10px)">
+      <div style="width:90%;max-width:920px;max-height:90vh;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--sh-lg)">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:18px 22px;border-bottom:1px solid var(--border)">
+          <div><div id="modal-title" style="font-size:17px;font-weight:700"></div><div id="modal-sub" style="font-size:12px;color:var(--t-4);margin-top:2px"></div></div>
+          <button onclick="closeModal()" class="btn-icon">✕</button>
         </div>
-        <div id="modal-media" style="flex:1;background:#000;display:flex;align-items:center;justify-content:center;min-height:300px;max-height:500px;overflow:hidden"></div>
-        <div id="modal-actions" style="padding:16px 20px;border-top:1px solid #1e293b"></div>
+        <div id="modal-media" style="flex:1;background:#000;display:flex;align-items:center;justify-content:center;min-height:300px;max-height:520px;overflow:hidden"></div>
+        <div id="modal-actions" style="padding:18px 22px;border-top:1px solid var(--border)"></div>
       </div>
     </div>
 
+    <!-- PAGE CONTAINERS -->
     <div id="pg-dashboard" class="pg on fade"></div>
     <div id="pg-screens" class="pg fade"></div>
     <div id="pg-campaigns" class="pg fade"></div>

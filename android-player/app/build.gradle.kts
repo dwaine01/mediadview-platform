@@ -23,7 +23,7 @@ android {
         // Cambia esta URL a tu servidor real de MediAd View
         // Ejemplo: "https://app.mediadview.com"
         // =============================================================
-        buildConfigField("String", "SERVER_URL", "\"https://mediaview-ads.preview.emergentagent.com\"")
+        buildConfigField("String", "SERVER_URL", "\"https://menu-studio-3.preview.emergentagent.com\"")
     }
 
     buildTypes {

@@ -11,7 +11,7 @@
         m.top.backgroundURI = ""
         
         ' Server config
-        m.serverUrl = "https://mediaview-ads.preview.emergentagent.com"
+        m.serverUrl = "https://menu-studio-3.preview.emergentagent.com"
         m.pollInterval = 60
         m.currentIndex = 0
         m.playlist = []
