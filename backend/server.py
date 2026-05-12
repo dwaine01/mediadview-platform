@@ -2210,6 +2210,30 @@ MENU_TEMPLATES = [
         "category": "Healthy & Organic",
         "preview_color": "#f0fdf4",
         "accent_color": "#16a34a"
+    },
+    {
+        "id": "mcdonalds",
+        "name": "Fast Food Visual",
+        "description": "Estilo McDonald's: fotos grandes en grid. Ideal para comida rapida con fotos de productos.",
+        "category": "Fast Food Visual",
+        "preview_color": "#1c1917",
+        "accent_color": "#dc2626"
+    },
+    {
+        "id": "modern_visual",
+        "name": "Moderno Visual",
+        "description": "Grid moderno con fotos grandes. Para cualquier restaurante que quiera mostrar sus platillos.",
+        "category": "Modern Visual",
+        "preview_color": "#0f172a",
+        "accent_color": "#f59e0b"
+    },
+    {
+        "id": "premium_dark",
+        "name": "Premium Dark",
+        "description": "Elegante fondo negro con fotos iluminadas. Para restaurantes de alta gama.",
+        "category": "Premium",
+        "preview_color": "#000000",
+        "accent_color": "#d4af37"
     }
 ]
 
@@ -2469,7 +2493,11 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
     }
     
     # Build categories with IDs
-    template_cats = TEMPLATE_CONTENT.get(template_id, TEMPLATE_CONTENT["classic"])
+    # New visual templates reuse fastfood content with photos
+    if template_id in ("mcdonalds", "modern_visual", "premium_dark"):
+        template_cats = TEMPLATE_CONTENT.get("fastfood", TEMPLATE_CONTENT["classic"])
+    else:
+        template_cats = TEMPLATE_CONTENT.get(template_id, TEMPLATE_CONTENT["classic"])
     categories = []
     for i, cat_data in enumerate(template_cats):
         items = []
@@ -2479,7 +2507,7 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
                 "name": item_data["name"],
                 "description": item_data.get("description", ""),
                 "price": item_data.get("price", 0),
-                "image": "",
+                "image": item_data.get("image", ""),
                 "featured": item_data.get("featured", False),
                 "available": True,
                 "order": j
@@ -2810,10 +2838,15 @@ async def render_menu(menu_id: str):
         "sushi": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f43f5e", "cat_bg": "rgba(244,63,94,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(244,63,94,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(244,63,94,.05)", "img_bg": "rgba(244,63,94,.06)"},
         "pizza": {"bg": "#1c1917", "bg2": "#292524", "text": "#fef2f2", "text2": "#a8a29e", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(220,38,38,.08)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)", "img_bg": "rgba(220,38,38,.06)"},
         "bar": {"bg": "#09090b", "bg2": "#18181b", "text": "#e2e8f0", "text2": "#71717a", "accent": "#a855f7", "cat_bg": "rgba(168,85,247,.07)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(168,85,247,.1)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(168,85,247,.06)", "img_bg": "rgba(168,85,247,.08)"},
-        "healthy": {"bg": "#f0fdf4", "bg2": "#dcfce7", "text": "#14532d", "text2": "#4ade80", "accent": "#16a34a", "cat_bg": "rgba(22,163,74,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(22,163,74,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(22,163,74,.05)", "img_bg": "rgba(22,163,74,.06)"}
+        "healthy": {"bg": "#f0fdf4", "bg2": "#dcfce7", "text": "#14532d", "text2": "#4ade80", "accent": "#16a34a", "cat_bg": "rgba(22,163,74,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(22,163,74,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(22,163,74,.05)", "img_bg": "rgba(22,163,74,.06)"},
+        "mcdonalds": {"bg": "#1c1917", "bg2": "#292524", "text": "#fef2f2", "text2": "#a8a29e", "accent": "#dc2626", "cat_bg": "rgba(220,38,38,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(220,38,38,.08)", "font": "'Inter',sans-serif", "name_size": "44px", "featured_bg": "rgba(220,38,38,.05)", "img_bg": "rgba(220,38,38,.06)", "grid": True},
+        "modern_visual": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f59e0b", "cat_bg": "rgba(245,158,11,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(245,158,11,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(245,158,11,.05)", "img_bg": "rgba(245,158,11,.06)", "grid": True},
+        "premium_dark": {"bg": "#000000", "bg2": "#0a0a0a", "text": "#e2e8f0", "text2": "#71717a", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "44px", "featured_bg": "rgba(212,175,55,.05)", "img_bg": "rgba(212,175,55,.06)", "grid": True}
     }
     
     t = templates.get(template_id, templates["classic"])
+    
+    is_grid = t.get('grid', False)
     
     # Split categories into slides of 3
     slides = []
@@ -2866,6 +2899,15 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 .star{{color:{t['accent']};font-size:8px;margin-left:3px;font-weight:400}}
 .unavailable{{opacity:.35}}
 
+.grid-items{{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;padding:8px}}
+.grid-card{{background:{t['item_bg']};border:1px solid {t['item_border']};border-radius:10px;overflow:hidden;text-align:center}}
+.grid-card.featured{{border-color:{t['accent']}30;background:{t['featured_bg']}}}
+.grid-card-img{{width:100%;height:100px;object-fit:cover}}
+.grid-card-emoji{{width:100%;height:100px;background:{t['img_bg']};display:flex;align-items:center;justify-content:center;font-size:40px}}
+.grid-card-info{{padding:8px}}
+.grid-card-name{{font-size:12px;font-weight:700;line-height:1.2;margin-bottom:4px}}
+.grid-card-price{{font-size:16px;font-weight:900;color:{t['accent']}}}
+
 .promo-strip{{height:160px;flex-shrink:0;display:flex;gap:12px;padding:10px 28px;overflow:hidden;border-top:2px solid {t['accent']}15;background:{t['bg2']}}}
 .promo-item{{flex-shrink:0;height:140px;border-radius:12px;overflow:hidden;border:1px solid {t['accent']}15;position:relative}}
 .promo-item img{{height:100%;width:auto;max-width:250px;object-fit:cover;display:block}}
@@ -2898,30 +2940,42 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
             html += f'<div class="cat-title">{cat["name"]}</div>'
             if cat.get("description"):
                 html += f'<div class="cat-desc">{cat["description"]}</div>'
-            html += '</div><div class="cat-items">'
+            html += '</div><div class="cat-items">' if not is_grid else '</div><div class="grid-items">'
             
             for it in items:
-                cls = "item"
-                if it.get("featured"): cls += " featured"
-                if not it.get("available", True): cls += " unavailable"
-                
-                html += f'<div class="{cls}">'
-                
-                # Always show image - either uploaded photo or food emoji
-                if it.get("image"):
-                    html += f'<img class="item-img" src="{it["image"]}" alt="" loading="lazy">'
+                if is_grid:
+                    # GRID CARD LAYOUT (McDonald's style)
+                    cls = "grid-card"
+                    if it.get("featured"): cls += " featured"
+                    html += f'<div class="{cls}">'
+                    if it.get("image"):
+                        html += f'<img class="grid-card-img" src="{it["image"]}" alt="" loading="lazy">'
+                    else:
+                        emoji = get_food_emoji(it.get("name", ""))
+                        html += f'<div class="grid-card-emoji">{emoji}</div>'
+                    html += '<div class="grid-card-info">'
+                    html += f'<div class="grid-card-name">{it["name"]}</div>'
+                    html += f'<div class="grid-card-price">{currency_sym}{it.get("price", 0):.2f}</div>'
+                    html += '</div></div>'
                 else:
-                    emoji = get_food_emoji(it.get("name", ""))
-                    html += f'<div class="item-emoji">{emoji}</div>'
-                
-                html += '<div class="item-info">'
-                html += f'<div class="item-name">{it["name"]}'
-                if it.get("featured"):
-                    html += '<span class="star">★ ESPECIAL</span>'
-                html += '</div>'
-                if it.get("description"):
-                    html += f'<div class="item-desc">{it["description"]}</div>'
-                html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
+                    # LIST LAYOUT (original)
+                    cls = "item"
+                    if it.get("featured"): cls += " featured"
+                    if not it.get("available", True): cls += " unavailable"
+                    html += f'<div class="{cls}">'
+                    if it.get("image"):
+                        html += f'<img class="item-img" src="{it["image"]}" alt="" loading="lazy">'
+                    else:
+                        emoji = get_food_emoji(it.get("name", ""))
+                        html += f'<div class="item-emoji">{emoji}</div>'
+                    html += '<div class="item-info">'
+                    html += f'<div class="item-name">{it["name"]}'
+                    if it.get("featured"):
+                        html += '<span class="star">★ ESPECIAL</span>'
+                    html += '</div>'
+                    if it.get("description"):
+                        html += f'<div class="item-desc">{it["description"]}</div>'
+                    html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
             
             html += '</div></div>'
         
