@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design Studio — MediAd View</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#0a0f1a;color:#e2e8f0;height:100vh;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:8px 16px;background:#0a0f1a;border-bottom:1px solid #1e293b;flex-shrink:0}
+.top-back{background:none;border:none;color:#22d3ee;font-size:20px;cursor:pointer;padding:4px 8px}
+.top-title{font-size:15px;font-weight:800;flex:1}
+.top-sub{font-size:11px;color:#64748b}
+.top-help{font-size:11px;color:#94a3b8;background:#111827;border:1px solid #1e293b;padding:6px 12px;border-radius:6px;cursor:pointer;text-decoration:none}
+.editor{flex:1;width:100%;border:none}
+.tips{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.7);align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.tips.on{display:flex}
+.tips-box{background:#111827;border:1px solid #1e293b;border-radius:16px;padding:28px;max-width:500px;width:90%}
+.tips-box h3{font-size:18px;font-weight:800;margin-bottom:16px}
+.tips-box p{font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:10px}
+.tips-box ol{font-size:13px;color:#94a3b8;line-height:1.8;padding-left:20px;margin-bottom:16px}
+.tips-box button{background:#6366f1;color:#fff;border:none;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;width:100%}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <button class="top-back" onclick="history.back()">←</button>
+  <div>
+    <div class="top-title">Design Studio</div>
+    <div class="top-sub">Free visual editor — drag & drop, no account needed</div>
+  </div>
+  <a class="top-help" onclick="document.getElementById('tips').classList.add('on')">How to Use</a>
+</div>
+
+<iframe src="https://studio.polotno.com/" class="editor" allow="clipboard-read; clipboard-write"></iframe>
+
+<div class="tips" id="tips">
+<div class="tips-box">
+  <h3>How to Create Your Menu</h3>
+  <ol>
+    <li><strong>Choose a size</strong> — Use 1920x1080 for landscape screens or 1080x1920 for portrait</li>
+    <li><strong>Add your content</strong> — Use Text, Photos, Shapes from the left panel</li>
+    <li><strong>Upload your food photos</strong> — Click "Uploads" in the left panel to add your own images</li>
+    <li><strong>Use templates</strong> — Click "Templates" to start from a pre-made design</li>
+    <li><strong>Customize</strong> — Change colors, fonts, sizes, positions</li>
+    <li><strong>Export</strong> — Click the download button (top right) to save as PNG or JPG</li>
+    <li><strong>Upload to MediAd View</strong> — Use the exported image as media content in your campaigns or as a menu background</li>
+  </ol>
+  <p style="font-size:11px;color:#64748b">This editor is 100% free. No account required. Your designs stay private in your browser.</p>
+  <button onclick="document.getElementById('tips').classList.remove('on')">Got it, let's design!</button>
+</div>
+</div>
+
+</body>
+</html>
