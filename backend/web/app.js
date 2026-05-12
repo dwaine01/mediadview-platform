@@ -735,6 +735,7 @@ loaders.menus = async function(){
         html+='</div>';
         html+='<div style="display:flex;gap:8px;margin-top:12px">';
         html+='<button class="btn-s" style="flex:1;font-size:11px" onclick="event.stopPropagation();editMenu(\''+m.id+'\')">Edit</button>';
+        html+='<button class="btn-s" style="font-size:11px" onclick="event.stopPropagation();window.open(\'/api/menu-editor?id='+m.id+'\',\'_blank\')">Mobile Edit</button>';
         html+='<button class="btn-s" style="font-size:11px" onclick="event.stopPropagation();previewMenu(\''+m.id+'\')">Preview</button>';
         html+='<button style="background:none;border:1px solid var(--red);color:var(--red);padding:6px 10px;border-radius:8px;font-size:11px;cursor:pointer" onclick="event.stopPropagation();deleteMenu(\''+m.id+'\')">Delete</button>';
         html+='</div></div></div>';

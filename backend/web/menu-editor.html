@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Menu Editor — MediAd View</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0f1a;--bg2:#111827;--bg3:#1e293b;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--cyan:#22d3ee;--brand:#6366f1;--green:#34d399;--red:#f43f5e;--amber:#fbbf24}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}
+
+.top{position:sticky;top:0;z-index:50;background:var(--bg);border-bottom:1px solid var(--bg3);padding:12px 16px;display:flex;align-items:center;gap:12px}
+.top-back{background:none;border:none;color:var(--cyan);font-size:24px;cursor:pointer;padding:4px}
+.top-info{flex:1;min-width:0}
+.top-name{font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.top-sub{font-size:11px;color:var(--text3)}
+.top-btn{background:var(--brand);color:#fff;border:none;padding:8px 16px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer}
+
+.cat{margin:16px 12px}
+.cat-head{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--bg2);border:1px solid var(--bg3);border-radius:12px 12px 0 0}
+.cat-name{flex:1;font-size:15px;font-weight:800;color:var(--cyan)}
+.cat-btn{background:none;border:1px solid var(--bg3);color:var(--text2);padding:6px 10px;border-radius:6px;font-size:11px;cursor:pointer;font-weight:600}
+.cat-btn:active{background:var(--bg3)}
+.cat-del{background:none;border:none;color:var(--text3);font-size:16px;cursor:pointer;padding:4px 8px}
+
+.item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--bg2);border:1px solid var(--bg3);border-top:none}
+.item:last-child{border-radius:0 0 12px 12px}
+.item-img{width:48px;height:48px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid var(--bg3)}
+.item-placeholder{width:48px;height:48px;border-radius:10px;background:var(--bg3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer}
+.item-info{flex:1;min-width:0}
+.item-name{font-size:14px;font-weight:700;cursor:pointer;padding:2px 0}
+.item-desc{font-size:11px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.item-price{font-size:18px;font-weight:900;color:var(--cyan);cursor:pointer;padding:4px 8px;border-radius:6px;min-width:60px;text-align:right}
+.item-price:active{background:var(--bg3)}
+.item-del{background:none;border:none;color:var(--text3);font-size:14px;cursor:pointer;padding:4px}
+
+.item-featured{background:rgba(34,211,238,.03);border-left:3px solid var(--cyan)}
+
+.empty{text-align:center;padding:32px 14px;color:var(--text3);font-size:13px;background:var(--bg2);border:1px solid var(--bg3);border-top:none;border-radius:0 0 12px 12px}
+
+.fab{position:fixed;bottom:20px;right:20px;width:56px;height:56px;border-radius:50%;background:var(--brand);color:#fff;border:none;font-size:28px;cursor:pointer;box-shadow:0 4px 20px rgba(99,102,241,.4);display:flex;align-items:center;justify-content:center;z-index:40}
+
+.modal{display:none;position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:flex-end;justify-content:center}
+.modal.on{display:flex}
+.sheet{width:100%;max-width:500px;background:var(--bg2);border-radius:20px 20px 0 0;padding:20px;max-height:85vh;overflow-y:auto;animation:slideUp .3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.sheet-bar{width:40px;height:4px;border-radius:2px;background:var(--bg3);margin:0 auto 16px}
+.sheet h3{font-size:18px;font-weight:800;margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px}
+.field input,.field textarea{width:100%;background:var(--bg);border:1px solid var(--bg3);color:var(--text);padding:12px;border-radius:10px;font-size:15px;font-family:inherit;outline:none}
+.field input:focus,.field textarea:focus{border-color:var(--cyan)}
+.field textarea{height:60px;resize:none}
+.field-row{display:flex;gap:10px}
+.field-row .field{flex:1}
+.btn-full{width:100%;padding:14px;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;margin-top:8px}
+.btn-save{background:var(--brand);color:#fff}
+.btn-del{background:none;border:1px solid var(--red);color:var(--red)}
+.btn-save:active{background:#4f46e5}
+
+.toggle{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.toggle-switch{width:44px;height:24px;border-radius:12px;background:var(--bg3);position:relative;cursor:pointer;transition:background .2s}
+.toggle-switch.on{background:var(--cyan)}
+.toggle-switch::after{content:'';width:20px;height:20px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left .2s}
+.toggle-switch.on::after{left:22px}
+.preview-link{display:block;text-align:center;padding:12px;color:var(--cyan);font-size:13px;font-weight:600;margin:12px;border:1px dashed var(--bg3);border-radius:10px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <button class="top-back" onclick="window.location='/api/dashboard'">←</button>
+  <div class="top-info">
+    <div class="top-name" id="menu-name">Loading...</div>
+    <div class="top-sub" id="menu-sub"></div>
+  </div>
+  <button class="top-btn" id="preview-btn">Preview</button>
+</div>
+
+<div id="content"></div>
+
+<a class="preview-link" id="preview-link" href="#" target="_blank">View Full Screen Preview →</a>
+
+<button class="fab" onclick="showAddCategory()">+</button>
+
+<div class="modal" id="modal"><div class="sheet" id="sheet"><div class="sheet-bar"></div><div id="sheet-content"></div></div></div>
+
+<script>
+var API='/api';
+var token=localStorage.getItem('mv_t');
+var menuId=new URLSearchParams(location.search).get('id');
+var menu=null;
+var currSym='$';
+
+async function api(p,o={}){
+  var h={'Content-Type':'application/json'};
+  if(token)h['Authorization']='Bearer '+token;
+  var r=await fetch(API+p,{...o,headers:h});
+  if(r.status===401){window.location='/api/dashboard';return}
+  if(!r.ok){var e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}
+  return r.json();
+}
+
+async function load(){
+  if(!menuId){document.getElementById('content').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">No menu ID</p>';return}
+  try{
+    menu=await api('/menus/'+menuId);
+    currSym=menu.currency_symbol||'$';
+    document.getElementById('menu-name').textContent=menu.restaurant_name||menu.name;
+    document.getElementById('menu-sub').textContent=menu.name+' · '+(menu.categories||[]).length+' categories';
+    document.getElementById('preview-btn').onclick=function(){window.open(API+'/menus/'+menuId+'/render','_blank')};
+    document.getElementById('preview-link').href=API+'/menus/'+menuId+'/render';
+    render();
+  }catch(e){document.getElementById('content').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">'+e.message+'</p>'}
+}
+
+function render(){
+  var html='';
+  var cats=menu.categories||[];
+  if(cats.length===0){
+    html+='<div style="text-align:center;padding:60px 20px"><div style="font-size:40px;margin-bottom:12px">🍽</div><div style="font-size:16px;font-weight:700;margin-bottom:6px">No categories yet</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">Tap + to add your first category</div></div>';
+  }
+  cats.forEach(function(cat){
+    html+='<div class="cat">';
+    html+='<div class="cat-head">';
+    html+='<div class="cat-name" onclick="editCategory(\''+cat.id+'\')">'+cat.name+'</div>';
+    html+='<button class="cat-btn" onclick="showAddItem(\''+cat.id+'\')">+ Item</button>';
+    html+='<button class="cat-del" onclick="delCategory(\''+cat.id+'\')">×</button>';
+    html+='</div>';
+    var items=cat.items||[];
+    if(items.length===0){
+      html+='<div class="empty">No items · Tap "+ Item" to add</div>';
+    }
+    items.forEach(function(it){
+      var cls='item'+(it.featured?' item-featured':'');
+      html+='<div class="'+cls+'">';
+      if(it.image){
+        html+='<img class="item-img" src="'+it.image+'" onclick="editItem(\''+cat.id+'\',\''+it.id+'\')">';
+      } else {
+        html+='<div class="item-placeholder" onclick="editItem(\''+cat.id+'\',\''+it.id+'\')">📷</div>';
+      }
+      html+='<div class="item-info" onclick="editItem(\''+cat.id+'\',\''+it.id+'\')">';
+      html+='<div class="item-name">'+it.name+'</div>';
+      if(it.description)html+='<div class="item-desc">'+it.description+'</div>';
+      html+='</div>';
+      html+='<div class="item-price" onclick="quickPrice(\''+cat.id+'\',\''+it.id+'\','+it.price+')">'+currSym+parseFloat(it.price||0).toFixed(2)+'</div>';
+      html+='<button class="item-del" onclick="delItem(\''+cat.id+'\',\''+it.id+'\')">×</button>';
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  document.getElementById('content').innerHTML=html;
+}
+
+function closeModal(){document.getElementById('modal').classList.remove('on')}
+function openModal(html){document.getElementById('sheet-content').innerHTML=html;document.getElementById('modal').classList.add('on')}
+document.getElementById('modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+// QUICK PRICE EDIT
+function quickPrice(catId,itemId,currentPrice){
+  openModal('<h3>Edit Price</h3><div class="field"><label>New Price ('+currSym+')</label><input type="number" step="0.01" id="qp-val" value="'+currentPrice+'" inputmode="decimal" style="font-size:28px;font-weight:900;text-align:center;color:var(--cyan)"></div><button class="btn-full btn-save" onclick="saveQuickPrice(\''+catId+'\',\''+itemId+'\')">Update Price</button>');
+  setTimeout(function(){var el=document.getElementById('qp-val');el.focus();el.select()},100);
+}
+
+async function saveQuickPrice(catId,itemId){
+  var val=parseFloat(document.getElementById('qp-val').value);
+  if(isNaN(val)||val<0)return;
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'PUT',body:JSON.stringify({price:val})});
+    closeModal();
+    menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+// ADD CATEGORY
+function showAddCategory(){
+  openModal('<h3>New Category</h3><div class="field"><label>Category Name</label><input id="ac-name" placeholder="e.g. Appetizers, Main Course, Drinks"></div><button class="btn-full btn-save" onclick="saveCategory()">Add Category</button>');
+  setTimeout(function(){document.getElementById('ac-name').focus()},100);
+}
+
+async function saveCategory(){
+  var name=document.getElementById('ac-name').value.trim();
+  if(!name)return;
+  try{
+    await api('/menus/'+menuId+'/categories',{method:'POST',body:JSON.stringify({name:name})});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+// EDIT CATEGORY
+function editCategory(catId){
+  var cat=(menu.categories||[]).find(function(c){return c.id===catId});
+  if(!cat)return;
+  openModal('<h3>Edit Category</h3><div class="field"><label>Name</label><input id="ec-name" value="'+cat.name+'"></div><button class="btn-full btn-save" onclick="saveCategoryEdit(\''+catId+'\')">Save</button><button class="btn-full btn-del" style="margin-top:8px" onclick="delCategory(\''+catId+'\')">Delete Category</button>');
+}
+
+async function saveCategoryEdit(catId){
+  var name=document.getElementById('ec-name').value.trim();
+  if(!name)return;
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId,{method:'PUT',body:JSON.stringify({name:name})});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+async function delCategory(catId){
+  if(!confirm('Delete this category and all items?'))return;
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId,{method:'DELETE'});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+// ADD ITEM
+function showAddItem(catId){
+  openModal('<h3>New Item</h3><div class="field"><label>Name</label><input id="ai-name" placeholder="e.g. Caesar Salad"></div><div class="field-row"><div class="field"><label>Price ('+currSym+')</label><input id="ai-price" type="number" step="0.01" placeholder="12.99" inputmode="decimal"></div><div class="field" style="flex:0 0 auto"><label>Featured</label><div class="toggle-switch" id="ai-feat" onclick="this.classList.toggle(\'on\')"></div></div></div><div class="field"><label>Description</label><textarea id="ai-desc" placeholder="Short description..."></textarea></div><div class="field"><label>Photo</label><input type="file" accept="image/*" id="ai-img" onchange="previewImg(this,\'ai-prev\')" style="font-size:13px;color:var(--text3)"><div id="ai-prev" style="margin-top:6px"></div><input type="hidden" id="ai-imgdata"></div><button class="btn-full btn-save" onclick="saveItem(\''+catId+'\')">Add Item</button>');
+  setTimeout(function(){document.getElementById('ai-name').focus()},100);
+}
+
+function previewImg(input,prevId){
+  if(!input.files||!input.files[0])return;
+  var r=new FileReader();
+  r.onload=function(e){
+    document.getElementById(prevId.replace('prev','imgdata')).value=e.target.result;
+    document.getElementById(prevId).innerHTML='<img src="'+e.target.result+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover">';
+  };
+  r.readAsDataURL(input.files[0]);
+}
+
+async function saveItem(catId){
+  var name=document.getElementById('ai-name').value.trim();
+  var price=parseFloat(document.getElementById('ai-price').value)||0;
+  var desc=document.getElementById('ai-desc').value.trim();
+  var img=document.getElementById('ai-imgdata').value||'';
+  var feat=document.getElementById('ai-feat').classList.contains('on');
+  if(!name){alert('Enter item name');return}
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items',{method:'POST',body:JSON.stringify({name:name,price:price,description:desc,image:img,featured:feat})});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+// EDIT ITEM
+function editItem(catId,itemId){
+  var item=null;
+  (menu.categories||[]).forEach(function(c){if(c.id===catId)(c.items||[]).forEach(function(i){if(i.id===itemId)item=i})});
+  if(!item)return;
+  var imgHtml=item.image?'<img src="'+item.image+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover">':'';
+  openModal('<h3>Edit Item</h3><div class="field"><label>Name</label><input id="ei-name" value="'+item.name+'"></div><div class="field-row"><div class="field"><label>Price ('+currSym+')</label><input id="ei-price" type="number" step="0.01" value="'+item.price+'" inputmode="decimal"></div><div class="field" style="flex:0 0 auto"><label>Featured</label><div class="toggle-switch'+(item.featured?' on':'')+'" id="ei-feat" onclick="this.classList.toggle(\'on\')"></div></div></div><div class="field"><label>Description</label><textarea id="ei-desc">'+( item.description||'')+'</textarea></div><div class="field"><label>Photo</label><input type="file" accept="image/*" id="ei-img" onchange="previewImg(this,\'ei-prev\')" style="font-size:13px;color:var(--text3)"><div id="ei-prev" style="margin-top:6px">'+imgHtml+'</div><input type="hidden" id="ei-imgdata" value="'+(item.image||'')+'"></div><button class="btn-full btn-save" onclick="saveItemEdit(\''+catId+'\',\''+itemId+'\')">Save Changes</button><button class="btn-full btn-del" style="margin-top:8px" onclick="delItem(\''+catId+'\',\''+itemId+'\')">Delete Item</button>');
+}
+
+async function saveItemEdit(catId,itemId){
+  var name=document.getElementById('ei-name').value.trim();
+  var price=parseFloat(document.getElementById('ei-price').value)||0;
+  var desc=document.getElementById('ei-desc').value.trim();
+  var img=document.getElementById('ei-imgdata').value||'';
+  var feat=document.getElementById('ei-feat').classList.contains('on');
+  if(!name){alert('Enter name');return}
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'PUT',body:JSON.stringify({name:name,price:price,description:desc,image:img,featured:feat})});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+async function delItem(catId,itemId){
+  if(!confirm('Delete this item?'))return;
+  try{
+    await api('/menus/'+menuId+'/categories/'+catId+'/items/'+itemId,{method:'DELETE'});
+    closeModal();menu=await api('/menus/'+menuId);render();
+  }catch(e){alert(e.message)}
+}
+
+load();
+</script>
+</body>
+</html>

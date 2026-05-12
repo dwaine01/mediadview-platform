@@ -3025,6 +3025,10 @@ async def serve_landing():
 async def serve_about():
     return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
 
+@api_router.get("/menu-editor")
+async def serve_menu_editor():
+    return FileResponse(os.path.join(WEB_DIR, 'menu-editor.html'), media_type='text/html')
+
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
