@@ -2285,30 +2285,30 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
         ],
         "fastfood": [
             {"name": "Burgers", "description": "100% Angus beef patties", "items": [
-                {"name": "Classic Burger", "description": "Beef patty, lettuce, tomato, onion, pickles, special sauce", "price": 9.99, "featured": True},
-                {"name": "Double Cheeseburger", "description": "Two patties, American cheese, lettuce, tomato, mayo", "price": 12.99},
-                {"name": "Bacon BBQ Burger", "description": "Crispy bacon, BBQ sauce, onion rings, cheddar", "price": 13.99, "featured": True},
-                {"name": "Mushroom Swiss", "description": "Sauteed mushrooms, swiss cheese, garlic aioli", "price": 12.99},
-                {"name": "Veggie Burger", "description": "Plant-based patty, lettuce, tomato, vegan mayo", "price": 11.99},
+                {"name": "Classic Burger", "description": "Beef patty, lettuce, tomato, onion, pickles, special sauce", "price": 9.99, "featured": True, "image": "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=300&h=300&fit=crop"},
+                {"name": "Double Cheeseburger", "description": "Two patties, American cheese, lettuce, tomato, mayo", "price": 12.99, "image": "https://images.unsplash.com/photo-1553979459-d2229ba7433b?w=300&h=300&fit=crop"},
+                {"name": "Bacon BBQ Burger", "description": "Crispy bacon, BBQ sauce, onion rings, cheddar", "price": 13.99, "featured": True, "image": "https://images.unsplash.com/photo-1594212699903-ec8a3eca50f5?w=300&h=300&fit=crop"},
+                {"name": "Mushroom Swiss", "description": "Sauteed mushrooms, swiss cheese, garlic aioli", "price": 12.99, "image": "https://images.unsplash.com/photo-1572802419224-296b0aeee0d9?w=300&h=300&fit=crop"},
+                {"name": "Veggie Burger", "description": "Plant-based patty, lettuce, tomato, vegan mayo", "price": 11.99, "image": "https://images.unsplash.com/photo-1520072959219-c595dc870360?w=300&h=300&fit=crop"},
             ]},
             {"name": "Chicken", "description": "Crispy & juicy", "items": [
-                {"name": "Chicken Tenders (6pc)", "description": "Hand-breaded, served with dipping sauce", "price": 8.99},
-                {"name": "Spicy Chicken Sandwich", "description": "Crispy chicken, spicy mayo, pickles, brioche bun", "price": 10.99, "featured": True},
-                {"name": "Chicken Wings (10pc)", "description": "Buffalo, BBQ, or Garlic Parmesan", "price": 12.99},
+                {"name": "Chicken Tenders (6pc)", "description": "Hand-breaded, served with dipping sauce", "price": 8.99, "image": "https://images.unsplash.com/photo-1562967914-608f82629710?w=300&h=300&fit=crop"},
+                {"name": "Spicy Chicken Sandwich", "description": "Crispy chicken, spicy mayo, pickles, brioche bun", "price": 10.99, "featured": True, "image": "https://images.unsplash.com/photo-1606755962773-d324e0a13086?w=300&h=300&fit=crop"},
+                {"name": "Chicken Wings (10pc)", "description": "Buffalo, BBQ, or Garlic Parmesan", "price": 12.99, "image": "https://images.unsplash.com/photo-1567620832903-9fc6debc209f?w=300&h=300&fit=crop"},
             ]},
             {"name": "Sides", "description": "Perfect additions", "items": [
-                {"name": "French Fries", "description": "Golden crispy, seasoned", "price": 3.99},
-                {"name": "Onion Rings", "description": "Beer-battered, crispy", "price": 4.99},
+                {"name": "French Fries", "description": "Golden crispy, seasoned", "price": 3.99, "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=300&h=300&fit=crop"},
+                {"name": "Onion Rings", "description": "Beer-battered, crispy", "price": 4.99, "image": "https://images.unsplash.com/photo-1639024471283-03518883512d?w=300&h=300&fit=crop"},
                 {"name": "Mozzarella Sticks", "description": "Breaded mozzarella, marinara sauce", "price": 5.99},
-                {"name": "Loaded Nachos", "description": "Tortilla chips, cheese, jalapeños, sour cream, guacamole", "price": 8.99},
+                {"name": "Loaded Nachos", "description": "Tortilla chips, cheese, jalapeños, sour cream, guacamole", "price": 8.99, "image": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=300&h=300&fit=crop"},
             ]},
             {"name": "Drinks & Shakes", "description": "Ice cold refreshments", "items": [
                 {"name": "Soft Drink", "description": "Coca-Cola, Sprite, Fanta - Regular or Large", "price": 2.99},
-                {"name": "Milkshake", "description": "Vanilla, Chocolate, or Strawberry", "price": 5.99, "featured": True},
+                {"name": "Milkshake", "description": "Vanilla, Chocolate, or Strawberry", "price": 5.99, "featured": True, "image": "https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=300&h=300&fit=crop"},
                 {"name": "Lemonade", "description": "Fresh squeezed, sweetened", "price": 3.49},
             ]},
             {"name": "Combos", "description": "Best value meals", "items": [
-                {"name": "Combo #1", "description": "Classic Burger + Fries + Drink", "price": 13.99, "featured": True},
+                {"name": "Combo #1", "description": "Classic Burger + Fries + Drink", "price": 13.99, "featured": True, "image": "https://images.unsplash.com/photo-1550547660-d9450f859349?w=300&h=300&fit=crop"},
                 {"name": "Combo #2", "description": "Double Cheeseburger + Fries + Drink", "price": 16.99},
                 {"name": "Combo #3", "description": "Chicken Tenders + Fries + Drink", "price": 12.99},
                 {"name": "Family Combo", "description": "4 Burgers + 4 Fries + 4 Drinks", "price": 44.99},
@@ -2316,24 +2316,24 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
         ],
         "mexican": [
             {"name": "Antojitos", "description": "Para empezar", "items": [
-                {"name": "Guacamole Fresco", "description": "Aguacate, cilantro, cebolla, jalapeño, limón, totopos", "price": 10.99, "featured": True},
-                {"name": "Queso Fundido", "description": "Queso Oaxaca derretido, chorizo, tortillas de maíz", "price": 11.99},
-                {"name": "Elote Callejero", "description": "Maíz asado, mayonesa, queso cotija, chile, limón", "price": 6.99},
-                {"name": "Nachos Supreme", "description": "Totopos, frijoles, queso, jalapeños, crema, guacamole", "price": 12.99},
-                {"name": "Ceviche de Camarón", "description": "Camarón fresco, limón, tomate, cebolla, aguacate, tostadas", "price": 14.99},
+                {"name": "Guacamole Fresco", "description": "Aguacate, cilantro, cebolla, jalapeño, limón, totopos", "price": 10.99, "featured": True, "image": "https://images.unsplash.com/photo-1615870216519-2f9fa575fa5c?w=300&h=300&fit=crop"},
+                {"name": "Queso Fundido", "description": "Queso Oaxaca derretido, chorizo, tortillas de maíz", "price": 11.99, "image": "https://images.unsplash.com/photo-1618449840665-9ed506d73a34?w=300&h=300&fit=crop"},
+                {"name": "Elote Callejero", "description": "Maíz asado, mayonesa, queso cotija, chile, limón", "price": 6.99, "image": "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=300&h=300&fit=crop"},
+                {"name": "Nachos Supreme", "description": "Totopos, frijoles, queso, jalapeños, crema, guacamole", "price": 12.99, "image": "https://images.unsplash.com/photo-1513456852971-30c0b8199d4d?w=300&h=300&fit=crop"},
+                {"name": "Ceviche de Camarón", "description": "Camarón fresco, limón, tomate, cebolla, aguacate, tostadas", "price": 14.99, "image": "https://images.unsplash.com/photo-1535399831218-d5bd36d1a6b3?w=300&h=300&fit=crop"},
             ]},
             {"name": "Tacos", "description": "Servidos con cebolla, cilantro y salsa", "items": [
-                {"name": "Tacos al Pastor (3)", "description": "Cerdo marinado, piña, cebolla, cilantro", "price": 11.99, "featured": True},
-                {"name": "Tacos de Carne Asada (3)", "description": "Res a la parrilla, guacamole, cebolla", "price": 13.99},
-                {"name": "Tacos de Pollo (3)", "description": "Pollo asado, lechuga, crema, queso fresco", "price": 11.99},
-                {"name": "Tacos de Camarón (3)", "description": "Camarón empanizado, chipotle mayo, repollo", "price": 14.99},
-                {"name": "Tacos de Birria (3)", "description": "Res estofada, consomé, cebolla, cilantro", "price": 14.99, "featured": True},
+                {"name": "Tacos al Pastor (3)", "description": "Cerdo marinado, piña, cebolla, cilantro", "price": 11.99, "featured": True, "image": "https://images.unsplash.com/photo-1551504734-5ee1c4a1479b?w=300&h=300&fit=crop"},
+                {"name": "Tacos de Carne Asada (3)", "description": "Res a la parrilla, guacamole, cebolla", "price": 13.99, "image": "https://images.unsplash.com/photo-1599974579688-8dbdd335c77f?w=300&h=300&fit=crop"},
+                {"name": "Tacos de Pollo (3)", "description": "Pollo asado, lechuga, crema, queso fresco", "price": 11.99, "image": "https://images.unsplash.com/photo-1624300629298-e9de39c13be5?w=300&h=300&fit=crop"},
+                {"name": "Tacos de Camarón (3)", "description": "Camarón empanizado, chipotle mayo, repollo", "price": 14.99, "image": "https://images.unsplash.com/photo-1611250188496-e966043a0629?w=300&h=300&fit=crop"},
+                {"name": "Tacos de Birria (3)", "description": "Res estofada, consomé, cebolla, cilantro", "price": 14.99, "featured": True, "image": "https://images.unsplash.com/photo-1640719028782-8230f1bdc755?w=300&h=300&fit=crop"},
             ]},
             {"name": "Platos Fuertes", "description": "Especialidades de la casa", "items": [
-                {"name": "Enchiladas Suizas", "description": "Tortillas rellenas de pollo, salsa verde, crema, queso gratinado", "price": 16.99},
-                {"name": "Burrito Grande", "description": "Tortilla de harina, arroz, frijoles, carne, queso, crema, guacamole", "price": 14.99, "featured": True},
+                {"name": "Enchiladas Suizas", "description": "Tortillas rellenas de pollo, salsa verde, crema, queso gratinado", "price": 16.99, "image": "https://images.unsplash.com/photo-1534352956036-cd81e27dd615?w=300&h=300&fit=crop"},
+                {"name": "Burrito Grande", "description": "Tortilla de harina, arroz, frijoles, carne, queso, crema, guacamole", "price": 14.99, "featured": True, "image": "https://images.unsplash.com/photo-1626700051175-6818013e1d4f?w=300&h=300&fit=crop"},
                 {"name": "Chile Relleno", "description": "Chile poblano relleno de queso, salsa de tomate, arroz, frijoles", "price": 15.99},
-                {"name": "Fajitas Mixtas", "description": "Res y pollo, pimientos, cebolla, tortillas, arroz, frijoles", "price": 19.99},
+                {"name": "Fajitas Mixtas", "description": "Res y pollo, pimientos, cebolla, tortillas, arroz, frijoles", "price": 19.99, "image": "https://images.unsplash.com/photo-1625398407796-82650a8c135f?w=300&h=300&fit=crop"},
                 {"name": "Mole Poblano", "description": "Pollo en mole tradicional, ajonjolí, arroz, tortillas", "price": 17.99},
             ]},
             {"name": "Bebidas", "description": "Refrescantes", "items": [
@@ -2856,8 +2856,8 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 .item{{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;margin-bottom:5px;border:1px solid {t['item_border']};background:{t['item_bg']}}}
 .item.featured{{background:{t['featured_bg']};border-color:{t['accent']}30}}
 
-.item-img{{width:50px;height:50px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid {t['accent']}20}}
-.item-emoji{{width:50px;height:50px;border-radius:10px;background:{t['img_bg']};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid {t['accent']}15}}
+.item-img{{width:56px;height:56px;border-radius:10px;object-fit:cover;flex-shrink:0;border:1px solid {t['accent']}20}}
+.item-emoji{{width:56px;height:56px;border-radius:10px;background:{t['img_bg']};flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:26px;border:1px solid {t['accent']}15}}
 
 .item-info{{flex:1;min-width:0}}
 .item-name{{font-size:13px;font-weight:700;line-height:1.2}}
