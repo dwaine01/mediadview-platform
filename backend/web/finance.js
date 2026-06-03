@@ -6,16 +6,18 @@
   const FURL = '/api/finance'; // for browser-direct URLs (iframe src, window.open, downloads)
   if (typeof loaders === 'undefined') return;
 
-  // ===== Document Viewer (in-page iframe modal — avoids popup blockers) =====
+  // ===== Document Viewer (in-page iframe modal — avoids popup blockers)
+  // Loads the PDF directly so browser-added print headers/footers don't appear.
   window.openDocViewer = function(url, title){
     title = title || 'Document';
     // Remove any prior viewer
     const prev = document.getElementById('doc-viewer-overlay');
     if (prev) prev.remove();
 
-    // Detect pdf vs html for the print/download button labels
-    const isPdf = /\.pdf|\/pdf(\?|$)/i.test(url);
+    // If a /render URL is passed, prefer the /pdf endpoint inside the viewer iframe
+    // (PDFs print without the browser's date/URL header & footer).
     const pdfUrl = url.replace(/\/render(\?|$)/, '/pdf$1');
+    const iframeUrl = pdfUrl + (pdfUrl.includes('?') ? '&' : '?') + 'inline=1#toolbar=0&navpanes=0&view=FitH';
 
     const overlay = document.createElement('div');
     overlay.id = 'doc-viewer-overlay';
@@ -36,14 +38,14 @@
         <button id="doc-v-new" style="padding:8px 14px;background:#fff;color:#475569;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer" title="Open in new tab">↗ New Tab</button>
         <button id="doc-v-close" style="padding:8px 14px;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer">✕ Close</button>
       </div>
-      <div style="flex:1;background:#f1f5f9;overflow:hidden;position:relative">
-        <div id="doc-v-load" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:14px;font-weight:600">
+      <div style="flex:1;background:#525659;overflow:hidden;position:relative">
+        <div id="doc-v-load" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:14px;font-weight:600;pointer-events:none">
           <div style="text-align:center">
-            <div style="width:44px;height:44px;border:4px solid #cbd5e1;border-top-color:#2563eb;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite"></div>
-            Loading document…
+            <div style="width:44px;height:44px;border:4px solid #94a3b8;border-top-color:#fff;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite"></div>
+            Generating PDF…
           </div>
         </div>
-        <iframe id="doc-v-iframe" src="${url}" style="width:100%;height:100%;border:none;background:#fff;display:block"></iframe>
+        <iframe id="doc-v-iframe" src="${iframeUrl}" style="width:100%;height:100%;border:none;background:#525659;display:block"></iframe>
       </div>
     `;
     document.body.appendChild(overlay);
@@ -61,11 +63,24 @@
     iframe.addEventListener('load', () => { if (loader) loader.style.display = 'none'; });
 
     document.getElementById('doc-v-close').onclick = () => overlay.remove();
-    document.getElementById('doc-v-new').onclick = () => window.open(url, '_blank');
-    document.getElementById('doc-v-pdf').onclick = () => window.open(pdfUrl, '_blank');
+    document.getElementById('doc-v-new').onclick = () => window.open(pdfUrl, '_blank');
+    document.getElementById('doc-v-pdf').onclick = () => {
+      // Force download by appending download attribute via a temporary link
+      const a = document.createElement('a');
+      a.href = pdfUrl;
+      a.download = (title || 'document') + '.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    };
     document.getElementById('doc-v-print').onclick = () => {
-      try { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
-      catch(e){ window.open(url, '_blank'); }
+      try {
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch(e){
+        // Fallback: open the PDF in new tab so the user can print without browser headers
+        window.open(pdfUrl, '_blank');
+      }
     };
     // ESC to close
     const escHandler = (e) => { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', escHandler); } };
@@ -700,7 +715,7 @@
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
         ${i.status!=='paid' ? `<button class="btn-s" style="color:var(--red-l)" onclick="cancelInvoice('${i.id}')">Cancel</button>` : ''}
       </div></div>
-      <div class="card" style="padding:0;overflow:hidden;height:1000px"><iframe src="${FURL}/invoices/${id}/render" style="width:100%;height:100%;border:none"></iframe></div>
+      <div class="card" style="padding:0;overflow:hidden;height:1000px;background:#525659"><iframe src="${FURL}/invoices/${id}/pdf#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none"></iframe></div>
     `;
   };
 
