@@ -3,7 +3,7 @@ MediAd View — Finance & Administration Module
 Phase 1: Clients (CRM), Contracts, Invoices, Deposits, Payments
 """
 from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from datetime import datetime, timedelta, date
@@ -972,6 +972,43 @@ def create_finance_routes(db, get_current_user):
             raise HTTPException(404, "Deposit not found")
         client = await db.fin_clients.find_one({"id": d["client_id"]})
         return HTMLResponse(render_deposit_html(d, client or {}))
+
+    # ============ PDF GENERATION (ReportLab) ============
+    @finance_router.get("/contracts/{contract_id}/pdf")
+    async def pdf_contract(contract_id: str):
+        from finance_pdf import generate_contract_pdf
+        c = await db.fin_contracts.find_one({"id": contract_id})
+        if not c:
+            raise HTTPException(404, "Contract not found")
+        client = await db.fin_clients.find_one({"id": c["client_id"]}) or {}
+        pdf = generate_contract_pdf(c, client)
+        filename = f"Contract_{c.get('contract_number','')}.pdf"
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
+    @finance_router.get("/invoices/{invoice_id}/pdf")
+    async def pdf_invoice(invoice_id: str):
+        from finance_pdf import generate_invoice_pdf
+        i = await db.fin_invoices.find_one({"id": invoice_id})
+        if not i:
+            raise HTTPException(404, "Invoice not found")
+        client = await db.fin_clients.find_one({"id": i["client_id"]}) or {}
+        pdf = generate_invoice_pdf(i, client)
+        filename = f"Invoice_{i.get('invoice_number','')}.pdf"
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="{filename}"'})
+
+    @finance_router.get("/deposits/{deposit_id}/pdf")
+    async def pdf_deposit(deposit_id: str):
+        from finance_pdf import generate_deposit_pdf
+        d = await db.fin_deposits.find_one({"id": deposit_id})
+        if not d:
+            raise HTTPException(404, "Deposit not found")
+        client = await db.fin_clients.find_one({"id": d["client_id"]}) or {}
+        pdf = generate_deposit_pdf(d, client)
+        filename = f"Deposit_{d.get('receipt_number','')}.pdf"
+        return Response(content=pdf, media_type="application/pdf",
+                        headers={"Content-Disposition": f'inline; filename="{filename}"'})
 
     return finance_router
 

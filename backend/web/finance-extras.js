@@ -466,24 +466,27 @@
       const body = isLessor ? {lessor_signature:dataUrl} : {lessee_signature:dataUrl};
       await api(FAPI + '/contracts/' + contractId + '/sign', {method:'POST', body:JSON.stringify(body)});
       closeFinModal();
-      window.open(FAPI + '/contracts/' + contractId + '/pdf', '_blank');
+      if (typeof openDocViewer === 'function') openDocViewer(FAPI + '/contracts/' + contractId + '/render', 'Signed Contract');
+      else window.open(FAPI + '/contracts/' + contractId + '/render', '_blank');
     };
   };
 
-  // Override Generate Contract to also show signature buttons
-  const origQuickContract = window.quickGenerateContract;
+  // Override Generate Contract to also show signature buttons (uses in-page viewer)
   window.quickGenerateContract = async function(clientId){
     if (!confirm('Generate a new contract using this client\'s locations & screens?')) return;
     try {
       const r = await api(FAPI + '/clients/' + clientId + '/quick-contract', {method:'POST', body:JSON.stringify({})});
-      window.open(FAPI + '/contracts/' + r.contract.id + '/pdf', '_blank');
-      window.open(FAPI + '/deposits/' + r.deposit.id + '/pdf', '_blank');
-      viewClient(clientId);
-    } catch(e){ alert('Error: ' + e.message); }
+      await viewClient(clientId);
+      if (typeof openDocViewer === 'function') {
+        openDocViewer(FAPI + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
+      } else {
+        window.open(FAPI + '/contracts/' + r.contract.id + '/render', '_blank');
+      }
+    } catch(e){ alert('Error: ' + (e.message||e)); }
   };
-  // Override view document buttons to use PDF where available
-  window.viewContractPdf = id => window.open(FAPI + '/contracts/' + id + '/pdf', '_blank');
-  window.viewInvoicePdf = id => window.open(FAPI + '/invoices/' + id + '/pdf', '_blank');
-  window.viewDepositPdf = id => window.open(FAPI + '/deposits/' + id + '/pdf', '_blank');
+  // View document helpers — always use in-page viewer (avoids popup blockers)
+  window.viewContractPdf = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/contracts/' + id + '/render', 'Contract') : window.open(FAPI + '/contracts/' + id + '/render', '_blank');
+  window.viewInvoicePdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/invoices/'  + id + '/render', 'Invoice')  : window.open(FAPI + '/invoices/'  + id + '/render', '_blank');
+  window.viewDepositPdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/deposits/'  + id + '/render', 'Deposit')  : window.open(FAPI + '/deposits/'  + id + '/render', '_blank');
 
 })();
