@@ -29,6 +29,25 @@ COMPANY = {
 }
 
 # ==================== MODELS ====================
+class LocationScreen(BaseModel):
+    id: Optional[str] = None
+    model: str = "MAV-30540S"
+    units: int = 1
+    day_price: float = 8.50
+    serial: Optional[str] = ""
+    notes: Optional[str] = ""
+
+class ClientLocation(BaseModel):
+    id: Optional[str] = None
+    name: str  # e.g. "Dulce Vida - Brickell"
+    address_line1: str
+    city: str = ""
+    state: str = ""
+    zip: str = ""
+    phone: Optional[str] = ""
+    screens: List[LocationScreen] = []
+    status: str = "active"  # active, paused, closed
+
 class ClientCreate(BaseModel):
     business_name: str
     representative: str
@@ -49,6 +68,7 @@ class ClientCreate(BaseModel):
     default_late_fee: float = 50.00
     default_nsf_fee: float = 85.00
     default_install_location: Optional[str] = ""  # Defaults to address_line1 if empty
+    locations: Optional[List[ClientLocation]] = None
 
 class ClientUpdate(BaseModel):
     business_name: Optional[str] = None
@@ -195,6 +215,33 @@ def create_finance_routes(db, get_current_user):
         doc["status"] = "active"
         doc["created_at"] = datetime.utcnow().isoformat()
         doc["created_by"] = user.get("email", "")
+        # Auto-create first location if none provided
+        if not doc.get("locations"):
+            loc_addr = (doc.get("default_install_location") or "").strip() or doc.get("address_line1", "")
+            doc["locations"] = [{
+                "id": str(uuid.uuid4()),
+                "name": f"{doc.get('business_name')} — Main",
+                "address_line1": loc_addr,
+                "city": doc.get("city", ""),
+                "state": doc.get("state", ""),
+                "zip": doc.get("zip", ""),
+                "phone": doc.get("phone", ""),
+                "screens": [{
+                    "id": str(uuid.uuid4()),
+                    "model": doc.get("default_screen_model", "MAV-30540S"),
+                    "units": int(doc.get("default_screens", 1)),
+                    "day_price": float(doc.get("default_day_price", 8.50)),
+                    "serial": "",
+                    "notes": "",
+                }],
+                "status": "active",
+            }]
+        else:
+            # Ensure IDs on incoming locations/screens
+            for loc in doc["locations"]:
+                loc["id"] = loc.get("id") or str(uuid.uuid4())
+                for sc in loc.get("screens", []):
+                    sc["id"] = sc.get("id") or str(uuid.uuid4())
         await db.fin_clients.insert_one(doc)
         doc.pop("_id", None)
         return doc
@@ -238,6 +285,79 @@ def create_finance_routes(db, get_current_user):
     async def delete_client(client_id: str, user: dict = Depends(require_finance_edit)):
         # archive instead of hard delete
         await db.fin_clients.update_one({"id": client_id}, {"$set": {"status": "archived"}})
+        return {"ok": True}
+
+    # ============ LOCATIONS & SCREENS ============
+    @finance_router.post("/clients/{client_id}/locations")
+    async def add_location(client_id: str, data: ClientLocation, user: dict = Depends(require_finance_edit)):
+        cl = await db.fin_clients.find_one({"id": client_id})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+        loc = data.dict()
+        loc["id"] = str(uuid.uuid4())
+        for sc in loc.get("screens", []):
+            sc["id"] = sc.get("id") or str(uuid.uuid4())
+        await db.fin_clients.update_one({"id": client_id}, {"$push": {"locations": loc}})
+        return loc
+
+    @finance_router.put("/clients/{client_id}/locations/{location_id}")
+    async def update_location(client_id: str, location_id: str, payload: dict,
+                              user: dict = Depends(require_finance_edit)):
+        allowed = {"name","address_line1","city","state","zip","phone","status"}
+        sets = {f"locations.$.{k}": v for k, v in payload.items() if k in allowed and v is not None}
+        if sets:
+            await db.fin_clients.update_one(
+                {"id": client_id, "locations.id": location_id},
+                {"$set": sets},
+            )
+        return {"ok": True}
+
+    @finance_router.delete("/clients/{client_id}/locations/{location_id}")
+    async def delete_location(client_id: str, location_id: str, user: dict = Depends(require_finance_edit)):
+        await db.fin_clients.update_one(
+            {"id": client_id},
+            {"$pull": {"locations": {"id": location_id}}},
+        )
+        return {"ok": True}
+
+    @finance_router.post("/clients/{client_id}/locations/{location_id}/screens")
+    async def add_screen(client_id: str, location_id: str, data: LocationScreen,
+                          user: dict = Depends(require_finance_edit)):
+        sc = data.dict()
+        sc["id"] = str(uuid.uuid4())
+        r = await db.fin_clients.update_one(
+            {"id": client_id, "locations.id": location_id},
+            {"$push": {"locations.$.screens": sc}},
+        )
+        if r.matched_count == 0:
+            raise HTTPException(404, "Location not found")
+        return sc
+
+    @finance_router.put("/clients/{client_id}/locations/{location_id}/screens/{screen_id}")
+    async def update_screen(client_id: str, location_id: str, screen_id: str, payload: dict,
+                            user: dict = Depends(require_finance_edit)):
+        # Need to update nested array — fetch, modify, save
+        cl = await db.fin_clients.find_one({"id": client_id})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+        for loc in cl.get("locations", []):
+            if loc.get("id") == location_id:
+                for sc in loc.get("screens", []):
+                    if sc.get("id") == screen_id:
+                        for k in ("model","units","day_price","serial","notes"):
+                            if k in payload and payload[k] is not None:
+                                sc[k] = payload[k]
+                await db.fin_clients.update_one({"id": client_id}, {"$set": {"locations": cl["locations"]}})
+                return {"ok": True}
+        raise HTTPException(404, "Screen not found")
+
+    @finance_router.delete("/clients/{client_id}/locations/{location_id}/screens/{screen_id}")
+    async def delete_screen(client_id: str, location_id: str, screen_id: str,
+                            user: dict = Depends(require_finance_edit)):
+        await db.fin_clients.update_one(
+            {"id": client_id, "locations.id": location_id},
+            {"$pull": {"locations.$.screens": {"id": screen_id}}},
+        )
         return {"ok": True}
 
     # ============ CONTRACTS ============
@@ -312,52 +432,63 @@ def create_finance_routes(db, get_current_user):
     @finance_router.post("/clients/{client_id}/quick-contract")
     async def quick_contract(client_id: str, payload: dict = None,
                               user: dict = Depends(require_finance_edit)):
-        """One-click contract generation using client's default rental setup."""
+        """One-click contract generation using ALL client locations × screens."""
         cl = await db.fin_clients.find_one({"id": client_id})
         if not cl:
             raise HTTPException(404, "Client not found")
         payload = payload or {}
         start = payload.get("start_date") or datetime.utcnow().strftime("%Y-%m-%d")
         term = int(payload.get("term_months") or cl.get("default_term_months", 12))
-        units = int(payload.get("screens") or cl.get("default_screens", 1))
-        day_price = float(payload.get("day_price") or cl.get("default_day_price", 8.50))
         deposit_per = float(payload.get("deposit_per_screen") or cl.get("default_deposit_per_screen", 250))
-        model = payload.get("screen_model") or cl.get("default_screen_model", "MAV-30540S")
-        location = (cl.get("default_install_location") or "").strip() or \
-                   f"{cl.get('address_line1','')} {cl.get('city','')} {cl.get('state','')}".strip()
 
-        screens = [ContractScreen(model=model, units=units, location=location, day_price=day_price)]
-        data = ContractCreate(
-            client_id=client_id,
-            start_date=start,
-            term_months=term,
-            screens=screens,
-            security_deposit_per_screen=deposit_per,
-            late_fee_per_day=float(cl.get("default_late_fee", 50)),
-            nsf_fee=float(cl.get("default_nsf_fee", 85)),
-        )
-        # reuse the standard contract creation
-        # Inline logic since we can't call directly:
-        start_d = parse_date(data.start_date)
-        end_d = add_months(start_d, data.term_months)
-        total_screens = sum(s.units for s in data.screens)
-        monthly_total = sum(s.units * s.day_price * 30 for s in data.screens)
-        security_deposit = total_screens * data.security_deposit_per_screen
+        # Build screens list from ALL active locations
+        screens = []
+        for loc in cl.get("locations", []):
+            if loc.get("status", "active") != "active":
+                continue
+            loc_addr = ", ".join(filter(None, [
+                loc.get("address_line1", ""),
+                loc.get("city", ""),
+                loc.get("state", ""),
+                loc.get("zip", ""),
+            ]))
+            for sc in loc.get("screens", []):
+                screens.append(ContractScreen(
+                    model=sc.get("model", "MAV-30540S"),
+                    units=int(sc.get("units", 1)),
+                    location=f"{loc.get('name','')} — {loc_addr}".strip(' —'),
+                    day_price=float(sc.get("day_price", 8.50)),
+                ))
+
+        # Fallback to defaults if no locations exist
+        if not screens:
+            screens.append(ContractScreen(
+                model=cl.get("default_screen_model", "MAV-30540S"),
+                units=int(cl.get("default_screens", 1)),
+                location=(cl.get("default_install_location") or cl.get("address_line1", "")),
+                day_price=float(cl.get("default_day_price", 8.50)),
+            ))
+
+        start_d = parse_date(start)
+        end_d = add_months(start_d, term)
+        total_screens = sum(s.units for s in screens)
+        monthly_total = sum(s.units * s.day_price * 30 for s in screens)
+        security_deposit = total_screens * deposit_per
         contract_no = await next_doc_number(db, "MV-C-")
         doc = {
             "id": str(uuid.uuid4()),
             "contract_number": contract_no,
             "client_id": client_id,
-            "start_date": data.start_date,
+            "start_date": start,
             "end_date": end_d.strftime("%Y-%m-%d"),
-            "term_months": data.term_months,
-            "screens": [s.dict() for s in data.screens],
+            "term_months": term,
+            "screens": [s.dict() for s in screens],
             "total_units": total_screens,
             "monthly_total": round(monthly_total, 2),
-            "security_deposit_per_screen": data.security_deposit_per_screen,
+            "security_deposit_per_screen": deposit_per,
             "security_deposit": round(security_deposit, 2),
-            "late_fee_per_day": data.late_fee_per_day,
-            "nsf_fee": data.nsf_fee,
+            "late_fee_per_day": float(cl.get("default_late_fee", 50)),
+            "nsf_fee": float(cl.get("default_nsf_fee", 85)),
             "additional_terms": "",
             "notes": "",
             "status": "active",
@@ -365,7 +496,6 @@ def create_finance_routes(db, get_current_user):
             "created_by": user.get("email", ""),
         }
         await db.fin_contracts.insert_one(doc)
-        # Auto-create deposit receipt
         deposit_no = await next_doc_number(db)
         dep = {
             "id": str(uuid.uuid4()),
@@ -375,7 +505,7 @@ def create_finance_routes(db, get_current_user):
             "amount": round(security_deposit, 2),
             "tax": 0.0,
             "total": round(security_deposit, 2),
-            "screens": [s.dict() for s in data.screens],
+            "screens": [s.dict() for s in screens],
             "status": "pending",
             "issue_date": datetime.utcnow().strftime("%Y-%m-%d"),
             "created_at": datetime.utcnow().isoformat(),
@@ -851,42 +981,42 @@ DOC_CSS = """
 *{margin:0;padding:0;box-sizing:border-box;font-family:'Helvetica','Arial',sans-serif}
 body{background:#f3f4f6;padding:30px 20px;color:#111}
 .page{max-width:850px;margin:0 auto;background:#fff;padding:48px 60px;box-shadow:0 4px 20px rgba(0,0,0,.08);min-height:1100px;position:relative}
-.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #6366f1;padding-bottom:22px;margin-bottom:30px}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #2563eb;padding-bottom:22px;margin-bottom:30px}
 .brand{display:flex;align-items:center;gap:14px}
 .brand img{width:64px;height:64px;object-fit:contain}
-.brand h1{font-size:24px;font-weight:800;color:#1e293b;letter-spacing:-.5px}
-.brand .tag{font-size:10px;color:#6366f1;letter-spacing:2px;font-weight:700;margin-top:2px}
+.brand h1{font-size:24px;font-weight:800;color:#0f172a;letter-spacing:-.5px}
+.brand .tag{font-size:10px;color:#2563eb;letter-spacing:2px;font-weight:700;margin-top:2px}
 .hdr .co{text-align:right;font-size:11px;line-height:1.6;color:#475569}
 .title-block{margin-bottom:28px}
-.title{font-size:26px;font-weight:800;color:#1e293b;letter-spacing:-.4px}
+.title{font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-.4px}
 .subtitle{font-size:13px;color:#64748b;margin-top:4px}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
-.box{background:#f8fafc;border-radius:8px;padding:16px 18px;border-left:3px solid #6366f1}
+.box{background:#f8fafc;border-radius:8px;padding:16px 18px;border-left:3px solid #2563eb}
 .box-lbl{font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
 .box-val{font-size:14px;font-weight:600;color:#1e293b;line-height:1.5}
-.box .name{font-size:16px;font-weight:700;color:#1e293b}
+.box .name{font-size:16px;font-weight:700;color:#0f172a}
 table{width:100%;border-collapse:collapse;margin:20px 0}
-table th{background:#1e293b;color:#fff;padding:11px 12px;font-size:11px;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+table th{background:#0f172a;color:#fff;padding:11px 12px;font-size:11px;text-align:left;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
 table th.r,table td.r{text-align:right}
 table th.c,table td.c{text-align:center}
 table td{padding:13px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#334155}
 .totals{display:flex;justify-content:flex-end;margin-top:12px}
 .totals-box{width:280px}
 .tr{display:flex;justify-content:space-between;padding:8px 16px;font-size:13px;color:#475569}
-.tr.total{font-size:18px;font-weight:800;color:#1e293b;background:#fef3c7;border-top:2px solid #f59e0b;margin-top:6px;padding:12px 16px}
+.tr.total{font-size:18px;font-weight:800;color:#0f172a;background:#dbeafe;border-top:2px solid #2563eb;margin-top:6px;padding:12px 16px}
 .pay-info{background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:16px;margin-top:24px;font-size:12px;color:#1e3a8a}
 .pay-info .lbl{font-weight:700;color:#1e40af}
 .pay-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
 .terms{margin-top:24px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;line-height:1.6}
 .terms h3{font-size:12px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
 .footer{position:absolute;bottom:30px;left:60px;right:60px;text-align:center;font-size:11px;color:#94a3b8;padding-top:14px;border-top:1px solid #e2e8f0}
-.thanks{text-align:center;font-size:15px;font-weight:700;color:#6366f1;margin-top:24px}
+.thanks{text-align:center;font-size:15px;font-weight:700;color:#2563eb;margin-top:24px}
 .clause{margin-bottom:14px;font-size:11px;line-height:1.6;color:#334155;text-align:justify}
-.clause strong{color:#1e293b}
+.clause strong{color:#0f172a}
 .sig-block{display:grid;grid-template-columns:1fr 1fr;gap:30px;margin-top:40px}
 .sig{border-top:1px solid #94a3b8;padding-top:8px}
 .sig .role{font-size:10px;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:2px}
-.sig .name{font-size:13px;font-weight:700;color:#1e293b}
+.sig .name{font-size:13px;font-weight:700;color:#0f172a}
 .sig .meta{font-size:11px;color:#64748b;margin-top:2px}
 .badge{display:inline-block;padding:3px 10px;font-size:10px;font-weight:700;border-radius:4px;letter-spacing:.5px;text-transform:uppercase}
 .badge-pending{background:#fef3c7;color:#92400e}
@@ -899,8 +1029,8 @@ table td{padding:13px 12px;border-bottom:1px solid #e2e8f0;font-size:13px;color:
   .no-print{display:none !important}
 }
 .actions{position:fixed;top:20px;right:20px;display:flex;gap:8px;z-index:100}
-.actions button{padding:8px 14px;background:#6366f1;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(99,102,241,.3)}
-.actions button:hover{background:#4f46e5}
+.actions button{padding:9px 16px;background:#2563eb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(37,99,235,.3)}
+.actions button:hover{background:#1d4ed8}
 """
 
 

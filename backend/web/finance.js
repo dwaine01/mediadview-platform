@@ -352,6 +352,8 @@
         </div>
       </div>
 
+      ${renderLocations(cl)}
+
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div>
           <div class="sh"><h2>Contracts (${cl.contracts.length})</h2></div>
@@ -852,6 +854,175 @@
       loaders.finance();
       return true;
     });
+  };
+
+  // ============ LOCATIONS & SCREENS UI ============
+  function renderLocations(cl){
+    const locs = cl.locations || [];
+    const totalScreens = locs.reduce((s,l)=>s+(l.screens||[]).reduce((ss,sc)=>ss+(sc.units||1),0),0);
+    return `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 14px">
+        <div>
+          <h2 style="font-size:16px;font-weight:700;color:var(--t-1)">📍 Locations <span style="color:var(--t-4);font-weight:500">(${locs.length})</span></h2>
+          <p style="font-size:12px;color:var(--t-4);margin-top:2px">${totalScreens} total screen${totalScreens!==1?'s':''} across ${locs.length} location${locs.length!==1?'s':''}</p>
+        </div>
+        <button class="btn-p" onclick="showAddLocation('${cl.id}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>Add Location</button>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:14px;margin-bottom:24px">
+        ${locs.length===0?'<div class="empty" style="grid-column:1/-1"><h3>No locations</h3><p>Add the first store / location for this client</p><button class="btn-p" onclick="showAddLocation(\''+cl.id+'\')">+ Add First Location</button></div>':
+          locs.map(loc=>{
+            const monthlyLoc = (loc.screens||[]).reduce((s,sc)=>s+(sc.units||1)*(sc.day_price||0)*30,0);
+            const addr = [loc.address_line1, loc.city, loc.state, loc.zip].filter(Boolean).join(', ');
+            return `<div class="card" style="padding:16px">
+              <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px">
+                    <svg width="16" height="16" fill="none" stroke="var(--brand)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                    <div style="font-size:14px;font-weight:700;color:var(--t-1)">${esc(loc.name)}</div>
+                    ${loc.status!=='active'?'<span class="bdg bdg-cancelled" style="font-size:9px;padding:2px 6px">'+esc(loc.status)+'</span>':''}
+                  </div>
+                  <div style="font-size:12px;color:var(--t-4)">${esc(addr)}</div>
+                  ${loc.phone?'<div style="font-size:11px;color:var(--t-4);margin-top:2px">📞 '+esc(loc.phone)+'</div>':''}
+                </div>
+                <div style="display:flex;gap:4px">
+                  <button onclick="editLocation('${cl.id}','${loc.id}')" class="btn-icon" style="width:28px;height:28px"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                  <button onclick="deleteLocation('${cl.id}','${loc.id}')" class="btn-icon" style="width:28px;height:28px;color:var(--red)"><svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M1 7h22M9 7V4a2 2 0 012-2h2a2 2 0 012 2v3"/></svg></button>
+                </div>
+              </div>
+              <div style="background:var(--bg-1);border-radius:var(--rxs);padding:10px 12px;margin-bottom:10px">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                  <span style="font-size:10px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:.5px">Screens (${(loc.screens||[]).reduce((s,sc)=>s+(sc.units||1),0)})</span>
+                  <button onclick="showAddScreen('${cl.id}','${loc.id}')" style="padding:3px 9px;border-radius:5px;background:var(--brand);color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">+ Add Screen</button>
+                </div>
+                ${(loc.screens||[]).length===0?'<div style="font-size:12px;color:var(--t-4);padding:6px 0">No screens — click "+ Add Screen"</div>':
+                  loc.screens.map(sc=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--border-l);font-size:12.5px">
+                    <div><strong>${sc.units||1}×</strong> ${esc(sc.model||'MAV-30540S')}${sc.serial?' · <span style="color:var(--t-4);font-family:monospace;font-size:11px">'+esc(sc.serial)+'</span>':''}</div>
+                    <div style="display:flex;align-items:center;gap:6px">
+                      <span style="color:var(--brand-dd);font-weight:700">$${(sc.day_price||0).toFixed(2)}/day</span>
+                      <button onclick="editScreen('${cl.id}','${loc.id}','${sc.id}')" class="btn-icon" style="width:22px;height:22px"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>
+                      <button onclick="deleteScreen('${cl.id}','${loc.id}','${sc.id}')" class="btn-icon" style="width:22px;height:22px;color:var(--red)">✕</button>
+                    </div>
+                  </div>`).join('')}
+              </div>
+              <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--t-3)">
+                <span>Monthly contribution</span><strong style="color:var(--brand-dd)">$${monthlyLoc.toFixed(2)}</strong>
+              </div>
+            </div>`;
+          }).join('')
+        }
+      </div>
+    `;
+  }
+
+  window.showAddLocation = function(clientId){
+    openModal('Add New Location', `
+      <p style="font-size:12.5px;color:var(--t-3);margin-bottom:14px">Add a new store / location to this client. Screens can be added afterwards.</p>
+      <div><label class="inp-label">Location Name <span class="req">*</span></label><input class="inp" id="al-name" placeholder="Dulce Vida — Brickell"></div>
+      <div style="margin-top:10px"><label class="inp-label">Address <span class="req">*</span></label><input class="inp" id="al-addr" placeholder="1234 Brickell Ave"></div>
+      <div class="row3" style="margin-top:10px"><div><label class="inp-label">City</label><input class="inp" id="al-city" placeholder="Miami"></div>
+      <div><label class="inp-label">State</label><input class="inp" id="al-state" placeholder="FL"></div>
+      <div><label class="inp-label">ZIP</label><input class="inp" id="al-zip" placeholder="33131"></div></div>
+      <div style="margin-top:10px"><label class="inp-label">Phone (optional)</label><input class="inp" id="al-phone" placeholder="305-555-1234"></div>
+    `, 'Add Location', async ()=>{
+      const body = {
+        name: val('al-name').trim(),
+        address_line1: val('al-addr').trim(),
+        city: val('al-city').trim(),
+        state: val('al-state').trim(),
+        zip: val('al-zip').trim(),
+        phone: val('al-phone').trim(),
+        screens: [],
+        status: 'active',
+      };
+      if (!body.name || !body.address_line1) { alert('Name and address required'); return false; }
+      await api(FAPI + '/clients/' + clientId + '/locations', {method:'POST', body:JSON.stringify(body)});
+      viewClient(clientId);
+      return true;
+    });
+  };
+
+  window.editLocation = async function(clientId, locationId){
+    const cl = await api(FAPI + '/clients/' + clientId);
+    const loc = (cl.locations||[]).find(l=>l.id===locationId);
+    if (!loc) return;
+    openModal('Edit Location', `
+      <div><label class="inp-label">Location Name</label><input class="inp" id="el-name" value="${esc(loc.name)}"></div>
+      <div style="margin-top:10px"><label class="inp-label">Address</label><input class="inp" id="el-addr" value="${esc(loc.address_line1||'')}"></div>
+      <div class="row3" style="margin-top:10px"><div><label class="inp-label">City</label><input class="inp" id="el-city" value="${esc(loc.city||'')}"></div>
+      <div><label class="inp-label">State</label><input class="inp" id="el-state" value="${esc(loc.state||'')}"></div>
+      <div><label class="inp-label">ZIP</label><input class="inp" id="el-zip" value="${esc(loc.zip||'')}"></div></div>
+      <div class="row2" style="margin-top:10px"><div><label class="inp-label">Phone</label><input class="inp" id="el-phone" value="${esc(loc.phone||'')}"></div>
+      <div><label class="inp-label">Status</label><select class="inp" id="el-status">
+        <option value="active" ${loc.status==='active'?'selected':''}>Active</option>
+        <option value="paused" ${loc.status==='paused'?'selected':''}>Paused</option>
+        <option value="closed" ${loc.status==='closed'?'selected':''}>Closed</option>
+      </select></div></div>
+    `, 'Save Changes', async ()=>{
+      await api(FAPI + '/clients/' + clientId + '/locations/' + locationId, {method:'PUT', body:JSON.stringify({
+        name: val('el-name'), address_line1: val('el-addr'), city: val('el-city'),
+        state: val('el-state'), zip: val('el-zip'), phone: val('el-phone'), status: val('el-status'),
+      })});
+      viewClient(clientId);
+      return true;
+    });
+  };
+
+  window.deleteLocation = async function(clientId, locationId){
+    if (!confirm('Delete this location and ALL its screens?\nThis cannot be undone.')) return;
+    await api(FAPI + '/clients/' + clientId + '/locations/' + locationId, {method:'DELETE'});
+    viewClient(clientId);
+  };
+
+  window.showAddScreen = function(clientId, locationId){
+    openModal('Add Screen', `
+      <p style="font-size:12.5px;color:var(--t-3);margin-bottom:14px">Add a new LED screen to this location.</p>
+      <div class="row3"><div><label class="inp-label">Units <span class="req">*</span></label><input class="inp" id="as-units" type="number" value="1" min="1"></div>
+      <div><label class="inp-label">Model</label><input class="inp" id="as-model" value="MAV-30540S"></div>
+      <div><label class="inp-label">Daily Price ($) <span class="req">*</span></label><input class="inp" id="as-price" type="number" step="0.01" value="8.50"></div></div>
+      <div class="row2" style="margin-top:10px"><div><label class="inp-label">Serial / Tag (optional)</label><input class="inp" id="as-serial" placeholder="e.g. SN-12345"></div>
+      <div><label class="inp-label">Notes (optional)</label><input class="inp" id="as-notes"></div></div>
+    `, 'Add Screen', async ()=>{
+      const body = {
+        units: parseInt(val('as-units'))||1,
+        model: val('as-model'),
+        day_price: parseFloat(val('as-price'))||8.5,
+        serial: val('as-serial'),
+        notes: val('as-notes'),
+      };
+      await api(FAPI + '/clients/' + clientId + '/locations/' + locationId + '/screens', {method:'POST', body:JSON.stringify(body)});
+      viewClient(clientId);
+      return true;
+    });
+  };
+
+  window.editScreen = async function(clientId, locationId, screenId){
+    const cl = await api(FAPI + '/clients/' + clientId);
+    const loc = (cl.locations||[]).find(l=>l.id===locationId);
+    const sc = loc?.screens?.find(s=>s.id===screenId);
+    if (!sc) return;
+    openModal('Edit Screen', `
+      <div class="row3"><div><label class="inp-label">Units</label><input class="inp" id="es-units" type="number" value="${sc.units||1}" min="1"></div>
+      <div><label class="inp-label">Model</label><input class="inp" id="es-model" value="${esc(sc.model||'')}"></div>
+      <div><label class="inp-label">Daily Price ($)</label><input class="inp" id="es-price" type="number" step="0.01" value="${sc.day_price||0}"></div></div>
+      <div class="row2" style="margin-top:10px"><div><label class="inp-label">Serial / Tag</label><input class="inp" id="es-serial" value="${esc(sc.serial||'')}"></div>
+      <div><label class="inp-label">Notes</label><input class="inp" id="es-notes" value="${esc(sc.notes||'')}"></div></div>
+    `, 'Save', async ()=>{
+      await api(FAPI + '/clients/' + clientId + '/locations/' + locationId + '/screens/' + screenId, {method:'PUT', body:JSON.stringify({
+        units: parseInt(val('es-units'))||1,
+        model: val('es-model'),
+        day_price: parseFloat(val('es-price'))||0,
+        serial: val('es-serial'),
+        notes: val('es-notes'),
+      })});
+      viewClient(clientId);
+      return true;
+    });
+  };
+
+  window.deleteScreen = async function(clientId, locationId, screenId){
+    if (!confirm('Remove this screen?')) return;
+    await api(FAPI + '/clients/' + clientId + '/locations/' + locationId + '/screens/' + screenId, {method:'DELETE'});
+    viewClient(clientId);
   };
 
   // ============ Generic modal helper ============
