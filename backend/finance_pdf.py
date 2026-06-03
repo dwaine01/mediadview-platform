@@ -473,10 +473,10 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
     doc.rightMargin = 0.55*inch
     doc.bottomMargin = 0.45*inch
     st = _styles()
-    # Tighter clause style for contract — denser layout to fit in 2 pages
+    # More space between clauses so they don't look squashed; still fits in 2 pages with signatures
     clause_tight = ParagraphStyle(
         "clause_tight", parent=st["clause"],
-        fontSize=9.5, leading=12.5, spaceAfter=4
+        fontSize=9.5, leading=13, spaceAfter=10
     )
     story = []
     # Compact header: small logo + name + tagline (no address/phones)
@@ -712,23 +712,16 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
 # ============== Shared layout helpers =======================
 # ============================================================
 def _contract_header(st):
-    """Compact header for contracts: small logo + brand name + tagline only.
+    """Compact header for contracts: small logo only (logo already includes brand+tagline).
     No address/phones (those appear inside the I. THE PARTIES section)."""
     logo = None
     if os.path.exists(LOGO_PATH):
         try:
-            logo = Image(LOGO_PATH, width=1.1*inch, height=0.33*inch)
+            logo = Image(LOGO_PATH, width=1.7*inch, height=0.5*inch)
         except Exception:
             logo = None
-    name_cell = Table([
-        [Paragraph(COMPANY["brand"], ParagraphStyle("brand_sm", parent=st["brand"], fontSize=16, leading=18, alignment=TA_LEFT))],
-        [Paragraph(COMPANY["tagline"], ParagraphStyle("tag_sm", parent=st["tagline"], alignment=TA_LEFT))],
-    ], colWidths=[2.2*inch])
-    _no_padding(name_cell)
-    row = Table([[logo or Spacer(1, 0.4*inch), name_cell]],
-                colWidths=[1.25*inch, 2.4*inch])
-    _no_padding(row, [("VALIGN", (0,0), (-1,-1), "MIDDLE")])
-    # Centered on the page
+    row = Table([[logo or Spacer(1, 0.5*inch)]], colWidths=[1.7*inch])
+    _no_padding(row, [("ALIGN", (0,0), (-1,-1), "CENTER")])
     outer = Table([[row]], colWidths=[6.9*inch])
     _no_padding(outer, [("ALIGN", (0,0), (-1,-1), "CENTER")])
     return outer
