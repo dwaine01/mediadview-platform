@@ -490,4 +490,141 @@
   window.viewInvoicePdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FURL + '/invoices/'  + id + '/render', 'Invoice')  : window.open(FURL + '/invoices/'  + id + '/render', '_blank');
   window.viewDepositPdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FURL + '/deposits/'  + id + '/render', 'Deposit')  : window.open(FURL + '/deposits/'  + id + '/render', '_blank');
 
+  // ====================================================
+  //  PRINT QUEUE & PRINT AGENT
+  // ====================================================
+  window.enqueuePrint = async function(kind, docId, copies){
+    try {
+      copies = copies || 1;
+      const r = await api(FAPI + '/print/queue', {method:'POST', body:JSON.stringify({kind, doc_id:docId, copies})});
+      alert('✓ Document queued for printing — your local Windows agent will print it within 30 seconds.\n\nJob ID: ' + r.id.substring(0,8));
+    } catch(e){ alert('Error: ' + (e.message||e)); }
+  };
+
+  window.renderPrintQueue = async function(){
+    const main = document.getElementById('f-content') || document.querySelector('.main-content') || document.getElementById('main');
+    if (!main) return;
+    await window.renderPrintQueueInto(main);
+  };
+
+  window.renderPrintQueueInto = async function(container){
+    const stats = await api(FAPI + '/print/stats').catch(()=>({pending:0,printed:0,failed:0,last_printed_at:null}));
+    const list  = await api(FAPI + '/print/queue?status=pending').catch(()=>({jobs:[]}));
+    const histo = await api(FAPI + '/print/queue?status=printed').catch(()=>({jobs:[]}));
+    const fails = await api(FAPI + '/print/queue?status=failed').catch(()=>({jobs:[]}));
+    const fmtTime = s => s ? new Date(s).toLocaleString() : '—';
+    const rowFor = (j, withAct) => `
+      <div style="display:grid;grid-template-columns:90px 1.5fr 1fr 1fr 1fr auto;gap:12px;align-items:center;padding:11px 16px;border-bottom:1px solid #e2e8f0">
+        <div><span style="background:${j.kind==='invoice'?'#dbeafe':j.kind==='contract'?'#fef3c7':'#dcfce7'};color:${j.kind==='invoice'?'#1e40af':j.kind==='contract'?'#92400e':'#166534'};padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;text-transform:uppercase">${j.kind}</span></div>
+        <div style="font-weight:600;color:#0f172a">${j.doc_number||'—'}</div>
+        <div style="font-size:12px;color:#64748b">${fmtTime(j.queued_at)}</div>
+        <div style="font-size:12px;color:#64748b">${fmtTime(j.printed_at)}</div>
+        <div style="font-size:11.5px;color:${j.attempts>=3?'#dc2626':'#64748b'}">${j.attempts||0} attempt${(j.attempts||0)!==1?'s':''}${j.last_error?' · '+j.last_error.substring(0,30):''}</div>
+        <div style="display:flex;gap:6px">
+          ${withAct?`<button style="padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #cbd5e1;color:#475569;border-radius:6px;cursor:pointer" onclick="retryPrintJob('${j.id}')">🔄</button>
+          <button style="padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer" onclick="deletePrintJob('${j.id}')">✕</button>`:''}
+        </div>
+      </div>`;
+    container.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+        <div>
+          <h2 style="margin:0;font-size:20px;color:#0f172a;font-weight:700">🖨️ Print Queue</h2>
+          <p style="margin:4px 0 0;color:#64748b;font-size:13.5px">Documents queued for the Windows print agent · auto-print on day 1 at 11:00 AM ET</p>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer" onclick="renderPrintQueue()">🔄 Refresh</button>
+          <button style="background:#2563eb;color:#fff;border:none;padding:9px 16px;border-radius:8px;font-weight:600;cursor:pointer" onclick="renderPrintAgentSetup()">⚙️ Agent Setup</button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
+        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Pending</div><div style="font-size:26px;font-weight:700;color:#f59e0b;margin-top:4px">${stats.pending}</div></div>
+        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Printed</div><div style="font-size:26px;font-weight:700;color:#16a34a;margin-top:4px">${stats.printed}</div></div>
+        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Failed</div><div style="font-size:26px;font-weight:700;color:#dc2626;margin-top:4px">${stats.failed}</div></div>
+        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Last Print</div><div style="font-size:12.5px;font-weight:600;color:#0f172a;margin-top:8px">${fmtTime(stats.last_printed_at)}</div></div>
+      </div>
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:20px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc"><b style="color:#0f172a">⏳ Pending (${list.jobs.length})</b></div>
+        <div style="display:grid;grid-template-columns:90px 1.5fr 1fr 1fr 1fr auto;gap:12px;padding:10px 16px;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #e2e8f0">
+          <div>Type</div><div>Document</div><div>Queued</div><div>Printed</div><div>Attempts</div><div>Actions</div>
+        </div>
+        ${list.jobs.length ? list.jobs.map(j=>rowFor(j,true)).join('') : '<div style="padding:30px;text-align:center;color:#94a3b8">No documents pending</div>'}
+      </div>
+      ${fails.jobs.length?`<div style="background:#fff;border:1px solid #fecaca;border-radius:10px;margin-bottom:20px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #fecaca;background:#fef2f2"><b style="color:#dc2626">⚠️ Failed (${fails.jobs.length})</b></div>
+        ${fails.jobs.map(j=>rowFor(j,true)).join('')}
+      </div>`:''}
+      <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+        <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc"><b style="color:#0f172a">✓ Recently Printed (showing ${Math.min(histo.jobs.length,15)})</b></div>
+        ${histo.jobs.slice(0,15).map(j=>rowFor(j,false)).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8">No prints yet</div>'}
+      </div>`;
+  };
+
+  window.retryPrintJob = async function(id){
+    await api(FAPI + '/print/queue/' + id + '/retry', {method:'POST'});
+    renderPrintQueue();
+  };
+  window.deletePrintJob = async function(id){
+    if (!confirm('Remove this job from the queue?')) return;
+    await api(FAPI + '/print/queue/' + id, {method:'DELETE'});
+    renderPrintQueue();
+  };
+
+  window.renderPrintAgentSetup = async function(){
+    const t = await api(FAPI + '/print/token').catch(()=>({token:''}));
+    const main = document.getElementById('main') || document.querySelector('.main-content');
+    if (!main) return;
+    const downloadUrl = '/api/web/print-agent.zip';
+    main.innerHTML = `
+      <div style="padding:24px 32px;max-width:900px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h1 style="margin:0;font-size:24px;color:#0f172a;font-weight:700">🖨️ Print Agent Setup</h1>
+          <button class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="renderPrintQueue()">← Back to Queue</button>
+        </div>
+        <p style="color:#64748b;font-size:13.5px;margin:0 0 24px">Install this small agent on the Windows PC connected to your printer. It runs in the background and automatically prints invoices/contracts queued by MediAd View.</p>
+
+        <div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;padding:18px;border-radius:10px;margin-bottom:18px">
+          <div style="font-weight:700;color:#1e40af;margin-bottom:8px">📥 Step 1 — Download the Agent</div>
+          <a href="${downloadUrl}" download="MediAdView-PrintAgent.zip" class="btn-primary" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13.5px">⬇ Download Print Agent (.zip)</a>
+          <div style="font-size:12px;color:#475569;margin-top:10px">Includes: print_agent.py · start-print-agent.bat · README.md · setup instructions</div>
+        </div>
+
+        <div class="card" style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:18px">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:10px">🔑 Step 2 — Copy Your Agent Token</div>
+          <p style="font-size:13px;color:#64748b;margin:0 0 10px">Paste this token into your <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px">print_agent.config.json</code> after extracting the ZIP.</p>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="pa-token" readonly value="${t.token||''}" style="flex:1;font-family:monospace;font-size:13px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a">
+            <button class="btn-primary" style="background:#2563eb;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="navigator.clipboard.writeText(document.getElementById('pa-token').value);this.textContent='✓ Copied';setTimeout(()=>this.innerHTML='📋 Copy',1500)">📋 Copy</button>
+            <button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="rotatePrintToken()">🔄 Rotate</button>
+          </div>
+          <div style="font-size:12px;color:#64748b;margin-top:8px">Server URL to use: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${location.origin}</code></div>
+        </div>
+
+        <div class="card" style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:18px">
+          <div style="font-weight:700;color:#0f172a;margin-bottom:10px">⚙️ Step 3 — Install on Windows</div>
+          <ol style="margin:0;padding-left:24px;color:#334155;font-size:13.5px;line-height:1.9">
+            <li>Extract the downloaded <code>MediAdView-PrintAgent.zip</code> into a folder (e.g. <code>C:\\MediAdViewAgent</code>)</li>
+            <li>Install Python 3.10+ from <a href="https://www.python.org/downloads/" target="_blank" style="color:#2563eb">python.org</a> (check <b>"Add Python to PATH"</b>)</li>
+            <li>Open Command Prompt and run: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">pip install requests pywin32</code></li>
+            <li>Download <a href="https://www.sumatrapdfreader.org/download-free-pdf-viewer" target="_blank" style="color:#2563eb">SumatraPDF.exe</a> (portable) and place it in the same folder</li>
+            <li>Double-click <code>start-print-agent.bat</code> — it creates <code>print_agent.config.json</code></li>
+            <li>Edit the config: paste your token, set <code>server_url</code> to <code>${location.origin}</code></li>
+            <li>Run <code>start-print-agent.bat</code> again — you should see <b>✓ Authenticated with server</b></li>
+            <li>To auto-start on boot: copy a shortcut of the .bat into <code>shell:startup</code></li>
+          </ol>
+        </div>
+
+        <div class="card" style="background:#fffbeb;border:1px solid #fde68a;padding:14px 18px;border-radius:10px">
+          <div style="font-weight:700;color:#92400e;margin-bottom:4px">💡 Tip</div>
+          <p style="font-size:13px;color:#78350f;margin:0">The full step-by-step guide is inside the ZIP file (README.md). The agent polls the server every 30 seconds, so jobs print very quickly after being queued.</p>
+        </div>
+      </div>`;
+  };
+
+  window.rotatePrintToken = async function(){
+    if (!confirm('Rotate the agent token? The current agent will stop working until you update its config.')) return;
+    const r = await api(FAPI + '/print/token/rotate', {method:'POST'});
+    renderPrintAgentSetup();
+    setTimeout(()=>{ document.getElementById('pa-token').value = r.token; }, 100);
+  };
+
 })();

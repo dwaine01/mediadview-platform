@@ -34,6 +34,7 @@
           </div>
         </div>
         <button id="doc-v-print" style="padding:8px 14px;background:#fff;color:#2563eb;border:1.5px solid #2563eb;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer">🖨️ Print</button>
+        <button id="doc-v-queue" style="padding:8px 14px;background:#fff;color:#16a34a;border:1.5px solid #16a34a;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer" title="Send to local Windows printer via agent">📨 Send to Printer</button>
         <button id="doc-v-pdf" style="padding:8px 14px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer">⬇ Download PDF</button>
         <button id="doc-v-new" style="padding:8px 14px;background:#fff;color:#475569;border:1.5px solid #cbd5e1;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer" title="Open in new tab">↗ New Tab</button>
         <button id="doc-v-close" style="padding:8px 14px;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer">✕ Close</button>
@@ -64,6 +65,18 @@
 
     document.getElementById('doc-v-close').onclick = () => overlay.remove();
     document.getElementById('doc-v-new').onclick = () => window.open(pdfUrl, '_blank');
+
+    // Detect doc kind + id from the URL to enable "Send to Printer"
+    const m = url.match(/\/(contracts|invoices|deposits)\/([^/?]+)\//);
+    const kindMap = {contracts:'contract', invoices:'invoice', deposits:'deposit'};
+    const docKind = m ? kindMap[m[1]] : null;
+    const docId   = m ? m[2] : null;
+    document.getElementById('doc-v-queue').onclick = async () => {
+      if (!docKind || !docId) { alert('Unable to detect document'); return; }
+      if (typeof window.enqueuePrint !== 'function') { alert('Print queue not loaded'); return; }
+      await window.enqueuePrint(docKind, docId, 1);
+    };
+
     document.getElementById('doc-v-pdf').onclick = () => {
       // Force download by appending download attribute via a temporary link
       const a = document.createElement('a');
@@ -119,6 +132,7 @@
       {id:'deposits', name:'Deposits', icon:'M3 10h18M3 14h18M5 6h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2z'},
       {id:'payments', name:'Payments', icon:'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'},
       {id:'expenses', name:'Expenses', icon:'M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z'},
+      {id:'print', name:'Print Queue', icon:'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z'},
     ];
     const tabHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px">${tabs.map(t=>`
       <button onclick="window._fTab='${t.id}';loaders.finance()" style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${window._fTab===t.id?'rgba(99,102,241,.35)':'transparent'};cursor:pointer;background:${window._fTab===t.id?'rgba(99,102,241,.12)':'transparent'};color:${window._fTab===t.id?'var(--brand-l)':'var(--t-3)'};transition:all .15s"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${t.icon}"/></svg>${t.name}</button>`).join('')}</div>`;
@@ -134,6 +148,10 @@
       else if (window._fTab === 'deposits') await renderDeposits(c);
       else if (window._fTab === 'payments') await renderPayments(c);
       else if (window._fTab === 'expenses') await renderExpenses(c);
+      else if (window._fTab === 'print') {
+        if (typeof renderPrintQueueInto === 'function') await renderPrintQueueInto(c);
+        else c.innerHTML = '<div class="empty">Print Queue not loaded</div>';
+      }
     } catch(e){
       c.innerHTML = `<div class="empty"><div class="empty-ico">⚠️</div><h3>Error</h3><p>${esc(e.message)}</p></div>`;
     }

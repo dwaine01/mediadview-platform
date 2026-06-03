@@ -3095,8 +3095,11 @@ app.include_router(api_router)
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
 from finance_email import create_finance_extensions
+from finance_print import create_finance_print_routes
+from finance_scheduler import start_scheduler
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
+app.include_router(create_finance_print_routes(db, get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
@@ -3116,6 +3119,10 @@ logger = logging.getLogger(__name__)
 async def startup():
     await seed_data()
     logger.info("MediaView Digital Signage API started")
+    try:
+        start_scheduler(db)
+    except Exception as e:
+        logger.exception(f"Failed to start finance scheduler: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
