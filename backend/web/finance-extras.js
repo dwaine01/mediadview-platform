@@ -5,6 +5,7 @@
 (function(){
   if (typeof loaders === 'undefined') return;
   const FAPI = '/finance';
+  const FURL = '/api/finance'; // for direct browser URLs (window.open / iframe src)
 
   const fmt$ = v => '$' + Number(v||0).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2});
   const fmtDate = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); };
@@ -466,8 +467,8 @@
       const body = isLessor ? {lessor_signature:dataUrl} : {lessee_signature:dataUrl};
       await api(FAPI + '/contracts/' + contractId + '/sign', {method:'POST', body:JSON.stringify(body)});
       closeFinModal();
-      if (typeof openDocViewer === 'function') openDocViewer(FAPI + '/contracts/' + contractId + '/render', 'Signed Contract');
-      else window.open(FAPI + '/contracts/' + contractId + '/render', '_blank');
+      if (typeof openDocViewer === 'function') openDocViewer(FURL + '/contracts/' + contractId + '/render', 'Signed Contract');
+      else window.open(FURL + '/contracts/' + contractId + '/render', '_blank');
     };
   };
 
@@ -478,15 +479,15 @@
       const r = await api(FAPI + '/clients/' + clientId + '/quick-contract', {method:'POST', body:JSON.stringify({})});
       await viewClient(clientId);
       if (typeof openDocViewer === 'function') {
-        openDocViewer(FAPI + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
+        openDocViewer(FURL + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
       } else {
-        window.open(FAPI + '/contracts/' + r.contract.id + '/render', '_blank');
+        window.open(FURL + '/contracts/' + r.contract.id + '/render', '_blank');
       }
     } catch(e){ alert('Error: ' + (e.message||e)); }
   };
   // View document helpers — always use in-page viewer (avoids popup blockers)
-  window.viewContractPdf = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/contracts/' + id + '/render', 'Contract') : window.open(FAPI + '/contracts/' + id + '/render', '_blank');
-  window.viewInvoicePdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/invoices/'  + id + '/render', 'Invoice')  : window.open(FAPI + '/invoices/'  + id + '/render', '_blank');
-  window.viewDepositPdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FAPI + '/deposits/'  + id + '/render', 'Deposit')  : window.open(FAPI + '/deposits/'  + id + '/render', '_blank');
+  window.viewContractPdf = id => (typeof openDocViewer==='function') ? openDocViewer(FURL + '/contracts/' + id + '/render', 'Contract') : window.open(FURL + '/contracts/' + id + '/render', '_blank');
+  window.viewInvoicePdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FURL + '/invoices/'  + id + '/render', 'Invoice')  : window.open(FURL + '/invoices/'  + id + '/render', '_blank');
+  window.viewDepositPdf  = id => (typeof openDocViewer==='function') ? openDocViewer(FURL + '/deposits/'  + id + '/render', 'Deposit')  : window.open(FURL + '/deposits/'  + id + '/render', '_blank');
 
 })();

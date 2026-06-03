@@ -3,6 +3,7 @@
 
 (function(){
   const FAPI = '/finance';
+  const FURL = '/api/finance'; // for browser-direct URLs (iframe src, window.open, downloads)
   if (typeof loaders === 'undefined') return;
 
   // ===== Document Viewer (in-page iframe modal — avoids popup blockers) =====
@@ -72,9 +73,9 @@
   };
 
   // Convenience shortcuts
-  window.openContractDoc = (id) => window.openDocViewer(FAPI + '/contracts/' + id + '/render', 'Contract');
-  window.openInvoiceDoc  = (id) => window.openDocViewer(FAPI + '/invoices/'  + id + '/render', 'Invoice');
-  window.openDepositDoc  = (id) => window.openDocViewer(FAPI + '/deposits/'  + id + '/render', 'Deposit Receipt');
+  window.openContractDoc = (id) => window.openDocViewer(FURL + '/contracts/' + id + '/render', 'Contract');
+  window.openInvoiceDoc  = (id) => window.openDocViewer(FURL + '/invoices/'  + id + '/render', 'Invoice');
+  window.openDepositDoc  = (id) => window.openDocViewer(FURL + '/deposits/'  + id + '/render', 'Deposit Receipt');
 
   if (typeof loaders === 'undefined') return;
 
@@ -377,7 +378,7 @@
             closeFinModal();
             window._fTab='clients';
             await viewClient(c.id);
-            openDocViewer(FAPI + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
+            openDocViewer(FURL + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
             return;
           } else {
             closeFinModal();
@@ -490,7 +491,7 @@
     try {
       const r = await api(FAPI + '/clients/' + clientId + '/quick-contract', {method:'POST', body:JSON.stringify({})});
       await viewClient(clientId);
-      openDocViewer(FAPI + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
+      openDocViewer(FURL + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
     } catch(e){ alert('Error: ' + e.message); }
   };
 
@@ -504,7 +505,7 @@
       // Refresh first then open viewer
       const cl = await api(FAPI + '/contracts/' + contractId);
       if (cl?.client_id) await viewClient(cl.client_id);
-      openDocViewer(FAPI + '/invoices/' + r.invoice.id + '/render', 'Invoice ' + (r.invoice.invoice_number||''));
+      openDocViewer(FURL + '/invoices/' + r.invoice.id + '/render', 'Invoice ' + (r.invoice.invoice_number||''));
     } catch(e){ alert('Error: ' + e.message); }
   };
 
@@ -618,7 +619,7 @@
       };
       const r = await api(FAPI + '/contracts', {method:'POST', body:JSON.stringify(body)});
       loaders.finance();
-      openDocViewer(FAPI + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
+      openDocViewer(FURL + '/contracts/' + r.contract.id + '/render', 'Contract ' + (r.contract.contract_number||''));
       return true;
     });
     addCtScreen();
@@ -699,7 +700,7 @@
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
         ${i.status!=='paid' ? `<button class="btn-s" style="color:var(--red-l)" onclick="cancelInvoice('${i.id}')">Cancel</button>` : ''}
       </div></div>
-      <div class="card" style="padding:0;overflow:hidden;height:1000px"><iframe src="${FAPI}/invoices/${id}/render" style="width:100%;height:100%;border:none"></iframe></div>
+      <div class="card" style="padding:0;overflow:hidden;height:1000px"><iframe src="${FURL}/invoices/${id}/render" style="width:100%;height:100%;border:none"></iframe></div>
     `;
   };
 
