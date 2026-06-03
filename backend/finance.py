@@ -40,6 +40,15 @@ class ClientCreate(BaseModel):
     zip: str = ""
     country: str = "USA"
     notes: Optional[str] = ""
+    # Default rental setup (pre-filled when generating contracts/invoices)
+    default_screens: int = 1
+    default_screen_model: str = "MAV-30540S"
+    default_day_price: float = 8.50
+    default_term_months: int = 12
+    default_deposit_per_screen: float = 250.00
+    default_late_fee: float = 50.00
+    default_nsf_fee: float = 85.00
+    default_install_location: Optional[str] = ""  # Defaults to address_line1 if empty
 
 class ClientUpdate(BaseModel):
     business_name: Optional[str] = None
@@ -53,6 +62,14 @@ class ClientUpdate(BaseModel):
     country: Optional[str] = None
     notes: Optional[str] = None
     status: Optional[str] = None
+    default_screens: Optional[int] = None
+    default_screen_model: Optional[str] = None
+    default_day_price: Optional[float] = None
+    default_term_months: Optional[int] = None
+    default_deposit_per_screen: Optional[float] = None
+    default_late_fee: Optional[float] = None
+    default_nsf_fee: Optional[float] = None
+    default_install_location: Optional[str] = None
 
 class ContractScreen(BaseModel):
     model: str = "MAV-30540S"
@@ -291,6 +308,137 @@ def create_finance_routes(db, get_current_user):
         doc.pop("_id", None)
         dep.pop("_id", None)
         return {"contract": doc, "deposit": dep}
+
+    @finance_router.post("/clients/{client_id}/quick-contract")
+    async def quick_contract(client_id: str, payload: dict = None,
+                              user: dict = Depends(require_finance_edit)):
+        """One-click contract generation using client's default rental setup."""
+        cl = await db.fin_clients.find_one({"id": client_id})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+        payload = payload or {}
+        start = payload.get("start_date") or datetime.utcnow().strftime("%Y-%m-%d")
+        term = int(payload.get("term_months") or cl.get("default_term_months", 12))
+        units = int(payload.get("screens") or cl.get("default_screens", 1))
+        day_price = float(payload.get("day_price") or cl.get("default_day_price", 8.50))
+        deposit_per = float(payload.get("deposit_per_screen") or cl.get("default_deposit_per_screen", 250))
+        model = payload.get("screen_model") or cl.get("default_screen_model", "MAV-30540S")
+        location = (cl.get("default_install_location") or "").strip() or \
+                   f"{cl.get('address_line1','')} {cl.get('city','')} {cl.get('state','')}".strip()
+
+        screens = [ContractScreen(model=model, units=units, location=location, day_price=day_price)]
+        data = ContractCreate(
+            client_id=client_id,
+            start_date=start,
+            term_months=term,
+            screens=screens,
+            security_deposit_per_screen=deposit_per,
+            late_fee_per_day=float(cl.get("default_late_fee", 50)),
+            nsf_fee=float(cl.get("default_nsf_fee", 85)),
+        )
+        # reuse the standard contract creation
+        # Inline logic since we can't call directly:
+        start_d = parse_date(data.start_date)
+        end_d = add_months(start_d, data.term_months)
+        total_screens = sum(s.units for s in data.screens)
+        monthly_total = sum(s.units * s.day_price * 30 for s in data.screens)
+        security_deposit = total_screens * data.security_deposit_per_screen
+        contract_no = await next_doc_number(db, "MV-C-")
+        doc = {
+            "id": str(uuid.uuid4()),
+            "contract_number": contract_no,
+            "client_id": client_id,
+            "start_date": data.start_date,
+            "end_date": end_d.strftime("%Y-%m-%d"),
+            "term_months": data.term_months,
+            "screens": [s.dict() for s in data.screens],
+            "total_units": total_screens,
+            "monthly_total": round(monthly_total, 2),
+            "security_deposit_per_screen": data.security_deposit_per_screen,
+            "security_deposit": round(security_deposit, 2),
+            "late_fee_per_day": data.late_fee_per_day,
+            "nsf_fee": data.nsf_fee,
+            "additional_terms": "",
+            "notes": "",
+            "status": "active",
+            "created_at": datetime.utcnow().isoformat(),
+            "created_by": user.get("email", ""),
+        }
+        await db.fin_contracts.insert_one(doc)
+        # Auto-create deposit receipt
+        deposit_no = await next_doc_number(db)
+        dep = {
+            "id": str(uuid.uuid4()),
+            "receipt_number": deposit_no,
+            "contract_id": doc["id"],
+            "client_id": client_id,
+            "amount": round(security_deposit, 2),
+            "tax": 0.0,
+            "total": round(security_deposit, 2),
+            "screens": [s.dict() for s in data.screens],
+            "status": "pending",
+            "issue_date": datetime.utcnow().strftime("%Y-%m-%d"),
+            "created_at": datetime.utcnow().isoformat(),
+        }
+        await db.fin_deposits.insert_one(dep)
+        doc.pop("_id", None); dep.pop("_id", None)
+        return {"contract": doc, "deposit": dep}
+
+    @finance_router.post("/contracts/{contract_id}/quick-invoice")
+    async def quick_invoice(contract_id: str, payload: dict = None,
+                            user: dict = Depends(require_finance_edit)):
+        """One-click invoice for a contract — defaults to current month."""
+        ct = await db.fin_contracts.find_one({"id": contract_id})
+        if not ct:
+            raise HTTPException(404, "Contract not found")
+        payload = payload or {}
+        now = datetime.utcnow()
+        y = int(payload.get("year") or now.year)
+        m = int(payload.get("month") or now.month)
+        period_start = date(y, m, 1)
+        period_end = date(y, m, monthrange(y, m)[1])
+        days = (period_end - period_start).days + 1
+        # Check duplicate
+        existing = await db.fin_invoices.find_one({"contract_id": contract_id, "period_start": period_start.isoformat()})
+        if existing and existing.get("status") != "cancelled":
+            existing.pop("_id", None)
+            return {"invoice": existing, "duplicate": True}
+        items = []
+        total = 0.0
+        for idx, s in enumerate(ct.get("screens", []), 1):
+            line_total = s["units"] * s["day_price"] * days
+            items.append({
+                "line_no": f"{idx:02d}",
+                "description": f"LED Ultra Brightness {s.get('model','MAV-30540S')}",
+                "day_price": s["day_price"],
+                "days": days,
+                "units": s["units"],
+                "total": round(line_total, 2),
+            })
+            total += line_total
+        inv_no = await next_doc_number(db)
+        inv = {
+            "id": str(uuid.uuid4()),
+            "invoice_number": inv_no,
+            "contract_id": contract_id,
+            "client_id": ct["client_id"],
+            "period_start": period_start.isoformat(),
+            "period_end": period_end.isoformat(),
+            "issue_date": period_start.isoformat(),
+            "due_date": period_start.isoformat(),
+            "items": items,
+            "subtotal": round(total, 2),
+            "tax": 0.0,
+            "total": round(total, 2),
+            "amount_paid": 0.0,
+            "balance": round(total, 2),
+            "status": "pending",
+            "created_at": datetime.utcnow().isoformat(),
+            "auto_generated": True,
+        }
+        await db.fin_invoices.insert_one(inv)
+        inv.pop("_id", None)
+        return {"invoice": inv, "duplicate": False}
 
     @finance_router.get("/contracts/{contract_id}")
     async def get_contract(contract_id: str, user: dict = Depends(require_finance)):

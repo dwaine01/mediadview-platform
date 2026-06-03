@@ -144,61 +144,228 @@
     `;
   }
 
-  window.showNewClient = function(){
-    openModal('New Client', `
-      <div class="row2"><div><label class="inp-label">Business Name *</label><input class="inp" id="nc-name" placeholder="Jungle Juice Bar"></div>
-      <div><label class="inp-label">Representative *</label><input class="inp" id="nc-rep" placeholder="Brittany Smith"></div></div>
-      <div class="row2" style="margin-top:12px"><div><label class="inp-label">Email</label><input class="inp" id="nc-email" type="email" placeholder="contact@business.com"></div>
-      <div><label class="inp-label">Phone *</label><input class="inp" id="nc-phone" placeholder="323-996-1375"></div></div>
-      <div style="margin-top:12px"><label class="inp-label">Address *</label><input class="inp" id="nc-addr" placeholder="891 Oak St"></div>
-      <div class="row2" style="margin-top:12px"><div><label class="inp-label">City</label><input class="inp" id="nc-city" placeholder="Columbus"></div>
-      <div><label class="inp-label">State / ZIP</label><div style="display:flex;gap:6px"><input class="inp" id="nc-state" placeholder="OH" style="width:80px"><input class="inp" id="nc-zip" placeholder="43205"></div></div></div>
-      <div style="margin-top:12px"><label class="inp-label">Notes</label><textarea class="inp" id="nc-notes" rows="2" placeholder="Internal notes..."></textarea></div>
-    `, 'Create Client', async ()=>{
-      const body = {
-        business_name: val('nc-name'), representative: val('nc-rep'), email: val('nc-email'),
-        phone: val('nc-phone'), address_line1: val('nc-addr'), city: val('nc-city'),
-        state: val('nc-state'), zip: val('nc-zip'), notes: val('nc-notes'),
+  window.showNewClient = function(){ openClientWizard(); };
+
+  // ===== 3-Step Client Wizard =====
+  let _wzData = {};
+  function openClientWizard(step=1){
+    if (step===1) _wzData = {
+      // step 1 defaults
+      business_name:'', representative:'', email:'', phone:'',
+      address_line1:'', city:'', state:'', zip:'',
+      // step 2 defaults (rental setup)
+      default_screens:1, default_screen_model:'MAV-30540S',
+      default_day_price:8.50, default_term_months:12,
+      default_deposit_per_screen:250, default_late_fee:50, default_nsf_fee:85,
+      default_install_location:'',
+      notes:'',
+      _create_contract:true,
+    };
+    const stepsBar = `<div class="wz-steps">
+      <div class="wz-s ${step>=1?(step>1?'ok':'on'):''}"><span class="n">${step>1?'✓':'1'}</span>Business Info</div>
+      <div class="wz-c ${step>1?'ok':''}"></div>
+      <div class="wz-s ${step>=2?(step>2?'ok':'on'):''}"><span class="n">${step>2?'✓':'2'}</span>Rental Setup</div>
+      <div class="wz-c ${step>2?'ok':''}"></div>
+      <div class="wz-s ${step>=3?'on':''}"><span class="n">3</span>Review &amp; Create</div>
+    </div>`;
+
+    let body = '', primaryLabel = 'Next →';
+    if (step===1) {
+      body = `${stepsBar}
+        <p style="font-size:13px;color:var(--t-3);margin-bottom:18px">Tell us about the business. This is who you're talking to in the office.</p>
+        <div class="row2"><div><label class="inp-label">Business Name <span class="req">*</span></label><input class="inp" id="w1-name" value="${esc(_wzData.business_name)}" placeholder="Toro Meat Market"></div>
+        <div><label class="inp-label">Representative <span class="req">*</span></label><input class="inp" id="w1-rep" value="${esc(_wzData.representative)}" placeholder="John Doe"></div></div>
+        <div class="row2" style="margin-top:12px"><div><label class="inp-label">Email</label><input class="inp" id="w1-email" type="email" value="${esc(_wzData.email)}" placeholder="contact@business.com"></div>
+        <div><label class="inp-label">Phone <span class="req">*</span></label><input class="inp" id="w1-phone" value="${esc(_wzData.phone)}" placeholder="323-996-1375"></div></div>
+        <div style="margin-top:12px"><label class="inp-label">Address Line 1 <span class="req">*</span></label><input class="inp" id="w1-addr" value="${esc(_wzData.address_line1)}" placeholder="891 Oak St"></div>
+        <div class="row3" style="margin-top:12px"><div><label class="inp-label">City</label><input class="inp" id="w1-city" value="${esc(_wzData.city)}" placeholder="Columbus"></div>
+        <div><label class="inp-label">State</label><input class="inp" id="w1-state" value="${esc(_wzData.state)}" placeholder="OH"></div>
+        <div><label class="inp-label">ZIP</label><input class="inp" id="w1-zip" value="${esc(_wzData.zip)}" placeholder="43205"></div></div>
+        <div style="margin-top:12px"><label class="inp-label">Notes</label><textarea class="inp" id="w1-notes" rows="2" placeholder="Optional internal notes...">${esc(_wzData.notes)}</textarea></div>
+      `;
+    } else if (step===2) {
+      body = `${stepsBar}
+        <p style="font-size:13px;color:var(--t-3);margin-bottom:18px">Define the rental setup. <strong>These values pre-fill every contract and invoice</strong> — you'll be able to adjust them later if needed.</p>
+        <div class="row3"><div><label class="inp-label">How many screens? <span class="req">*</span></label><input class="inp" id="w2-screens" type="number" min="1" value="${_wzData.default_screens}"></div>
+        <div><label class="inp-label">Screen model</label><input class="inp" id="w2-model" value="${esc(_wzData.default_screen_model)}"></div>
+        <div><label class="inp-label">Daily price ($) <span class="req">*</span></label><input class="inp" id="w2-price" type="number" step="0.01" value="${_wzData.default_day_price}"></div></div>
+        <div style="margin-top:12px"><label class="inp-label">Installation location</label><input class="inp" id="w2-loc" value="${esc(_wzData.default_install_location)}" placeholder="Defaults to business address"></div>
+        <div class="row3" style="margin-top:14px"><div><label class="inp-label">Contract term <span class="req">*</span></label><select class="inp" id="w2-term">
+          <option value="6" ${_wzData.default_term_months===6?'selected':''}>6 months</option>
+          <option value="12" ${_wzData.default_term_months===12?'selected':''}>12 months</option>
+          <option value="18" ${_wzData.default_term_months===18?'selected':''}>18 months</option>
+          <option value="24" ${_wzData.default_term_months===24?'selected':''}>24 months</option>
+        </select></div>
+        <div><label class="inp-label">Deposit/screen ($)</label><input class="inp" id="w2-dep" type="number" step="0.01" value="${_wzData.default_deposit_per_screen}"></div>
+        <div><label class="inp-label">Late fee/day ($)</label><input class="inp" id="w2-late" type="number" step="0.01" value="${_wzData.default_late_fee}"></div></div>
+        <div class="row2" style="margin-top:12px"><div><label class="inp-label">NSF fee ($)</label><input class="inp" id="w2-nsf" type="number" step="0.01" value="${_wzData.default_nsf_fee}"></div>
+        <div style="display:flex;align-items:flex-end"><label style="display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--brand-tint);border:1px solid #bfdbfe;border-radius:var(--rs);cursor:pointer;width:100%;font-size:12.5px;color:var(--brand-dd);font-weight:600"><input type="checkbox" id="w2-make-ct" ${_wzData._create_contract?'checked':''} style="width:16px;height:16px;accent-color:var(--brand)">Generate contract &amp; deposit receipt now</label></div></div>
+
+        <div style="margin-top:18px;padding:14px;background:var(--bg-1);border-radius:var(--rs);font-size:12px;color:var(--t-3)">
+          💡 Monthly total preview: <strong style="color:var(--brand-dd)" id="w2-monthly">$${(_wzData.default_screens*_wzData.default_day_price*30).toFixed(2)}</strong>
+          · Total deposit: <strong style="color:var(--brand-dd)" id="w2-totaldep">$${(_wzData.default_screens*_wzData.default_deposit_per_screen).toFixed(2)}</strong>
+        </div>
+      `;
+    } else if (step===3) {
+      const monthly = _wzData.default_screens*_wzData.default_day_price*30;
+      const totalDep = _wzData.default_screens*_wzData.default_deposit_per_screen;
+      const fullAddr = [_wzData.address_line1, _wzData.city, _wzData.state, _wzData.zip].filter(Boolean).join(', ');
+      body = `${stepsBar}
+        <p style="font-size:13px;color:var(--t-3);margin-bottom:18px">Review everything before creating the client.</p>
+        <div class="card" style="padding:18px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Business</div>
+          <div style="font-size:18px;font-weight:700;margin-bottom:4px">${esc(_wzData.business_name)}</div>
+          <div style="font-size:13px;color:var(--t-3)">${esc(_wzData.representative)} · ${esc(_wzData.phone)}${_wzData.email?' · '+esc(_wzData.email):''}</div>
+          <div style="font-size:13px;color:var(--t-4);margin-top:4px">${esc(fullAddr)}</div>
+        </div>
+        <div class="card" style="padding:18px;margin-bottom:14px">
+          <div style="font-size:11px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px">Rental Setup</div>
+          <div class="row2">
+            <div><div style="font-size:11px;color:var(--t-4)">Screens</div><div style="font-size:15px;font-weight:700">${_wzData.default_screens} × ${esc(_wzData.default_screen_model)}</div></div>
+            <div><div style="font-size:11px;color:var(--t-4)">Term</div><div style="font-size:15px;font-weight:700">${_wzData.default_term_months} months</div></div>
+            <div><div style="font-size:11px;color:var(--t-4)">Daily price</div><div style="font-size:15px;font-weight:700">$${_wzData.default_day_price.toFixed(2)}/screen/day</div></div>
+            <div><div style="font-size:11px;color:var(--t-4)">Deposit</div><div style="font-size:15px;font-weight:700">$${_wzData.default_deposit_per_screen.toFixed(2)}/screen</div></div>
+          </div>
+        </div>
+        <div class="prc-box">
+          <div class="prc-r"><span>Monthly rent</span><span style="font-weight:700">$${monthly.toFixed(2)}</span></div>
+          <div class="prc-r"><span>Total contract value (${_wzData.default_term_months} months)</span><span style="font-weight:700">$${(monthly*_wzData.default_term_months).toFixed(2)}</span></div>
+          <div class="prc-t"><span>Security Deposit</span><span>$${totalDep.toFixed(2)}</span></div>
+        </div>
+        ${_wzData._create_contract?'<div style="margin-top:14px;padding:12px;background:var(--green-tint);border:1px solid #a7f3d0;border-radius:var(--rs);font-size:12.5px;color:#047857;font-weight:600">✓ Contract and deposit receipt will be auto-generated</div>':''}
+      `;
+      primaryLabel = '✓ Create Client';
+    }
+
+    closeFinModal();
+    const html = `<div id="fin-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.5);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px);padding:20px;overflow-y:auto">
+      <div style="width:100%;max-width:720px;background:#fff;border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden;max-height:92vh;display:flex;flex-direction:column">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div style="font-size:17px;font-weight:700">New Client — Step ${step} of 3</div>
+          <button onclick="closeFinModal()" class="btn-icon">✕</button>
+        </div>
+        <div style="padding:24px;overflow-y:auto;flex:1">${body}<p id="fin-modal-msg" style="font-size:12px;margin-top:10px;display:none"></p></div>
+        <div style="padding:14px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:space-between;flex-shrink:0;background:var(--bg-1)">
+          <button class="btn-s" onclick="${step>1?'wzBack('+step+')':'closeFinModal()'}">${step>1?'← Back':'Cancel'}</button>
+          <button class="btn-p" id="wz-next">${primaryLabel}</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+
+    // Live preview on step 2
+    if (step===2) {
+      const upd = ()=>{
+        const s = parseInt(val('w2-screens'))||1;
+        const p = parseFloat(val('w2-price'))||0;
+        const d = parseFloat(val('w2-dep'))||0;
+        const m = document.getElementById('w2-monthly');
+        const t = document.getElementById('w2-totaldep');
+        if (m) m.textContent = '$' + (s*p*30).toFixed(2);
+        if (t) t.textContent = '$' + (s*d).toFixed(2);
       };
-      if (!body.business_name || !body.representative || !body.phone || !body.address_line1) { alert('Please fill required fields'); return false; }
-      await api(FAPI + '/clients', {method:'POST', body:JSON.stringify(body)});
-      loaders.finance();
-      return true;
-    });
-  };
+      ['w2-screens','w2-price','w2-dep'].forEach(id=>document.getElementById(id).addEventListener('input', upd));
+    }
+
+    document.getElementById('wz-next').onclick = async ()=>{
+      if (step===1) {
+        _wzData.business_name = val('w1-name').trim();
+        _wzData.representative = val('w1-rep').trim();
+        _wzData.email = val('w1-email').trim();
+        _wzData.phone = val('w1-phone').trim();
+        _wzData.address_line1 = val('w1-addr').trim();
+        _wzData.city = val('w1-city').trim();
+        _wzData.state = val('w1-state').trim();
+        _wzData.zip = val('w1-zip').trim();
+        _wzData.notes = val('w1-notes').trim();
+        if (!_wzData.business_name || !_wzData.representative || !_wzData.phone || !_wzData.address_line1) {
+          showWzErr('Please fill all required fields (marked *)');return;
+        }
+        openClientWizard(2);
+      } else if (step===2) {
+        _wzData.default_screens = parseInt(val('w2-screens'))||1;
+        _wzData.default_screen_model = val('w2-model').trim() || 'MAV-30540S';
+        _wzData.default_day_price = parseFloat(val('w2-price'))||8.5;
+        _wzData.default_install_location = val('w2-loc').trim();
+        _wzData.default_term_months = parseInt(val('w2-term'))||12;
+        _wzData.default_deposit_per_screen = parseFloat(val('w2-dep'))||250;
+        _wzData.default_late_fee = parseFloat(val('w2-late'))||50;
+        _wzData.default_nsf_fee = parseFloat(val('w2-nsf'))||85;
+        _wzData._create_contract = document.getElementById('w2-make-ct').checked;
+        if (_wzData.default_day_price<=0) { showWzErr('Daily price must be greater than 0'); return; }
+        openClientWizard(3);
+      } else {
+        // Step 3 — create
+        try {
+          const {_create_contract, ...payload} = _wzData;
+          const c = await api(FAPI + '/clients', {method:'POST', body:JSON.stringify(payload)});
+          if (_create_contract) {
+            const r = await api(FAPI + '/clients/' + c.id + '/quick-contract', {method:'POST', body:JSON.stringify({})});
+            closeFinModal();
+            window.open(FAPI + '/contracts/' + r.contract.id + '/render', '_blank');
+            window.open(FAPI + '/deposits/' + r.deposit.id + '/render', '_blank');
+          } else {
+            closeFinModal();
+          }
+          window._fTab='clients';
+          viewClient(c.id);
+        } catch(e){ showWzErr(e.message); }
+      }
+    };
+  }
+  window.wzBack = function(step){ openClientWizard(step-1); };
+  function showWzErr(msg){ const m=document.getElementById('fin-modal-msg'); m.textContent=msg; m.style.color='var(--red)'; m.style.display='block'; }
 
   window.viewClient = async function(id){
     const c = document.getElementById('f-content');
     const cl = await api(FAPI + '/clients/' + id);
+    const monthly = (cl.default_screens||1)*(cl.default_day_price||0)*30;
     c.innerHTML = `
-      <button class="btn-ghost" style="margin-bottom:14px" onclick="loaders.finance()">← Back to Clients</button>
+      <button class="btn-ghost" style="margin-bottom:14px" onclick="window._fTab='clients';loaders.finance()">← Back to Clients</button>
       <div class="welcome-banner" style="margin-bottom:20px">
         <div class="greeting">Client Profile</div>
         <h1>${esc(cl.business_name)}</h1>
-        <p>Rep: ${esc(cl.representative)} · ${esc(cl.phone)} · ${esc(cl.email||'—')}</p>
+        <p>Rep: ${esc(cl.representative)} · ${esc(cl.phone)}${cl.email?' · '+esc(cl.email):''}</p>
+        <p style="margin-top:4px;font-size:12px">${esc([cl.address_line1, cl.city, cl.state, cl.zip].filter(Boolean).join(', '))}</p>
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-p" onclick="showNewContract('${cl.id}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New Contract</button>
-          <button class="btn-s" onclick="showNewPayment('','${cl.id}')">Record Payment</button>
-          <button class="btn-s" onclick="editClient('${cl.id}')">Edit</button>
+          <button class="btn-p" style="background:#fff;color:var(--brand-dd);border:none" onclick="quickGenerateContract('${cl.id}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Generate Contract</button>
+          <button class="btn-s" onclick="showNewPayment('','${cl.id}')">+ Record Payment</button>
+          <button class="btn-s" onclick="editClient('${cl.id}')">Edit Client</button>
         </div>
       </div>
 
       <div class="st-grid" style="grid-template-columns:repeat(4,1fr)">
-        ${stat('Total Invoiced', fmt$(cl.total_invoiced), '', '--brand-l', 'M9 12h6m-6 4h6')}
-        ${stat('Total Paid', fmt$(cl.total_paid), '', '--green-l', 'M5 13l4 4L19 7')}
-        ${stat('Balance', fmt$(cl.balance), cl.balance>0?'Outstanding':'Settled', cl.balance>0?'--amber-l':'--green-l', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')}
+        ${stat('Total Invoiced', fmt$(cl.total_invoiced), '', '--brand', 'M9 12h6m-6 4h6')}
+        ${stat('Total Paid', fmt$(cl.total_paid), '', '--green', 'M5 13l4 4L19 7')}
+        ${stat('Balance', fmt$(cl.balance), cl.balance>0?'Outstanding':'Settled', cl.balance>0?'--amber':'--green', 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z')}
         ${stat('Contracts', cl.contracts.length, '', '--cyan', 'M9 12h6m-6 4h6')}
+      </div>
+
+      <div class="card" style="padding:18px;margin-bottom:20px;background:linear-gradient(90deg,var(--brand-tint) 0%,#fff 60%)">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <div>
+            <div style="font-size:11px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Rental Defaults · Pre-fills every contract &amp; invoice</div>
+            <div style="font-size:14px;color:var(--t-2)"><strong>${cl.default_screens||1}</strong> screen${(cl.default_screens||1)>1?'s':''} × <strong>${esc(cl.default_screen_model||'MAV-30540S')}</strong> · <strong>$${(cl.default_day_price||0).toFixed(2)}/day</strong> · <strong>${cl.default_term_months||12} months</strong> term</div>
+            <div style="font-size:12px;color:var(--t-4);margin-top:4px">Monthly: <strong style="color:var(--brand-dd)">$${monthly.toFixed(2)}</strong> · Deposit/screen: <strong>$${(cl.default_deposit_per_screen||250).toFixed(2)}</strong> · Late fee: $${(cl.default_late_fee||50).toFixed(2)}/day · NSF: $${(cl.default_nsf_fee||85).toFixed(2)}</div>
+          </div>
+          <button class="btn-s" onclick="editClientRental('${cl.id}')"><svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>Edit Defaults</button>
+        </div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
         <div>
           <div class="sh"><h2>Contracts (${cl.contracts.length})</h2></div>
           <div class="card">
-            ${cl.contracts.length===0?'<div style="padding:28px;text-align:center;color:var(--t-4);font-size:13px">No contracts yet</div>':
-              cl.contracts.map(ct=>`<div class="lr" onclick="viewContract('${ct.id}')">
-                <div style="flex:1"><div style="font-size:13px;font-weight:700">${esc(ct.contract_number)}</div><div style="font-size:11px;color:var(--t-4)">${fmtDate(ct.start_date)} → ${fmtDate(ct.end_date)} · ${ct.term_months}mo</div></div>
-                ${status_badge(ct.status)}
-                <div style="font-size:14px;font-weight:700;color:var(--cyan);min-width:90px;text-align:right">${fmt$(ct.monthly_total)}/mo</div>
+            ${cl.contracts.length===0?'<div style="padding:28px;text-align:center;color:var(--t-4);font-size:13px">No contracts yet — click "Generate Contract" above</div>':
+              cl.contracts.map(ct=>`<div style="padding:14px 16px;border-bottom:1px solid var(--border-l)">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+                  <div><div style="font-size:13px;font-weight:700;color:var(--t-1)">${esc(ct.contract_number)}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${fmtDate(ct.start_date)} → ${fmtDate(ct.end_date)} · ${ct.term_months}mo</div></div>
+                  <div style="display:flex;gap:8px;align-items:center">${status_badge(ct.status)}<div style="font-size:14px;font-weight:700;color:var(--brand-dd);min-width:80px;text-align:right">${fmt$(ct.monthly_total)}/mo</div></div>
+                </div>
+                <div style="display:flex;gap:6px">
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="window.open('${FAPI}/contracts/${ct.id}/render','_blank')">📄 View / Print</button>
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px;background:var(--brand-tint);color:var(--brand-dd);border-color:#bfdbfe" onclick="quickGenerateInvoice('${ct.id}')">⚡ Generate This Month's Invoice</button>
+                </div>
               </div>`).join('')}
           </div>
 
@@ -208,7 +375,7 @@
               cl.deposits.map(d=>`<div class="lr" onclick="window.open('${FAPI}/deposits/${d.id}/render','_blank')">
                 <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(d.receipt_number)}</div><div style="font-size:11px;color:var(--t-4)">${fmtDate(d.issue_date)}</div></div>
                 ${status_badge(d.status)}
-                <div style="font-size:14px;font-weight:700;color:var(--cyan)">${fmt$(d.total)}</div>
+                <div style="font-size:14px;font-weight:700;color:var(--brand-dd)">${fmt$(d.total)}</div>
               </div>`).join('')}
           </div>
         </div>
@@ -218,10 +385,10 @@
           <div class="card">
             ${cl.invoices.length===0?'<div style="padding:28px;text-align:center;color:var(--t-4);font-size:13px">No invoices yet</div>':
               cl.invoices.slice(0,12).map(i=>`<div class="lr" onclick="viewInvoice('${i.id}')">
-                <div class="dot" style="background:${i.status==='paid'?'#34d399':i.status==='overdue'?'#f87171':'#fbbf24'};color:${i.status==='paid'?'#34d399':i.status==='overdue'?'#f87171':'#fbbf24'}"></div>
+                <div class="dot" style="background:${i.status==='paid'?'var(--green)':i.status==='overdue'?'var(--red)':'var(--amber-l)'};color:${i.status==='paid'?'var(--green)':i.status==='overdue'?'var(--red)':'var(--amber-l)'}"></div>
                 <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${esc(i.invoice_number)}</div><div style="font-size:11px;color:var(--t-4)">${fmtDate(i.issue_date)}</div></div>
                 ${status_badge(i.status)}
-                <div style="font-size:14px;font-weight:700;color:var(--cyan);min-width:80px;text-align:right">${fmt$(i.total)}</div>
+                <div style="font-size:14px;font-weight:700;color:var(--brand-dd);min-width:80px;text-align:right">${fmt$(i.total)}</div>
               </div>`).join('')}
           </div>
 
@@ -230,12 +397,70 @@
             ${cl.payments.length===0?'<div style="padding:24px;text-align:center;color:var(--t-4);font-size:13px">No payments</div>':
               cl.payments.slice(0,10).map(p=>`<div class="lr">
                 <div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(p.method)}${p.reference?' · '+esc(p.reference):''}</div><div style="font-size:11px;color:var(--t-4)">${fmtDate(p.date)}</div></div>
-                <div style="font-size:14px;font-weight:700;color:var(--green-l)">+${fmt$(p.amount)}</div>
+                <div style="font-size:14px;font-weight:700;color:var(--green)">+${fmt$(p.amount)}</div>
               </div>`).join('')}
           </div>
         </div>
       </div>
     `;
+  };
+
+  // One-click contract generation
+  window.quickGenerateContract = async function(clientId){
+    if (!confirm('Generate a new contract using this client\'s default rental setup?\n\nThis will create the contract + deposit receipt automatically.')) return;
+    try {
+      const r = await api(FAPI + '/clients/' + clientId + '/quick-contract', {method:'POST', body:JSON.stringify({})});
+      window.open(FAPI + '/contracts/' + r.contract.id + '/render', '_blank');
+      window.open(FAPI + '/deposits/' + r.deposit.id + '/render', '_blank');
+      viewClient(clientId);
+    } catch(e){ alert('Error: ' + e.message); }
+  };
+
+  // One-click invoice generation
+  window.quickGenerateInvoice = async function(contractId){
+    try {
+      const r = await api(FAPI + '/contracts/' + contractId + '/quick-invoice', {method:'POST', body:JSON.stringify({})});
+      if (r.duplicate) {
+        if (!confirm('This month\'s invoice already exists. Open it?')) return;
+      }
+      window.open(FAPI + '/invoices/' + r.invoice.id + '/render', '_blank');
+      // Refresh
+      const cl = await api(FAPI + '/contracts/' + contractId);
+      if (cl?.client_id) viewClient(cl.client_id);
+    } catch(e){ alert('Error: ' + e.message); }
+  };
+
+  window.editClientRental = async function(id){
+    const cl = await api(FAPI + '/clients/' + id);
+    openModal('Edit Rental Defaults', `
+      <p style="font-size:12.5px;color:var(--t-3);margin-bottom:14px">These values pre-fill every new contract and invoice for this client.</p>
+      <div class="row3"><div><label class="inp-label">Screens</label><input class="inp" id="er-screens" type="number" value="${cl.default_screens||1}"></div>
+      <div><label class="inp-label">Model</label><input class="inp" id="er-model" value="${esc(cl.default_screen_model||'MAV-30540S')}"></div>
+      <div><label class="inp-label">Daily price ($)</label><input class="inp" id="er-price" type="number" step="0.01" value="${cl.default_day_price||8.5}"></div></div>
+      <div style="margin-top:10px"><label class="inp-label">Install location</label><input class="inp" id="er-loc" value="${esc(cl.default_install_location||'')}" placeholder="Defaults to business address"></div>
+      <div class="row3" style="margin-top:10px"><div><label class="inp-label">Term</label><select class="inp" id="er-term">
+        <option value="6" ${cl.default_term_months===6?'selected':''}>6 months</option>
+        <option value="12" ${cl.default_term_months===12?'selected':''}>12 months</option>
+        <option value="18" ${cl.default_term_months===18?'selected':''}>18 months</option>
+        <option value="24" ${cl.default_term_months===24?'selected':''}>24 months</option>
+      </select></div>
+      <div><label class="inp-label">Deposit/screen ($)</label><input class="inp" id="er-dep" type="number" step="0.01" value="${cl.default_deposit_per_screen||250}"></div>
+      <div><label class="inp-label">Late fee/day ($)</label><input class="inp" id="er-late" type="number" step="0.01" value="${cl.default_late_fee||50}"></div></div>
+      <div style="margin-top:10px"><label class="inp-label">NSF fee ($)</label><input class="inp" id="er-nsf" type="number" step="0.01" value="${cl.default_nsf_fee||85}"></div>
+    `, 'Save Defaults', async ()=>{
+      await api(FAPI + '/clients/' + id, {method:'PUT', body:JSON.stringify({
+        default_screens: parseInt(val('er-screens'))||1,
+        default_screen_model: val('er-model'),
+        default_day_price: parseFloat(val('er-price'))||8.5,
+        default_install_location: val('er-loc'),
+        default_term_months: parseInt(val('er-term'))||12,
+        default_deposit_per_screen: parseFloat(val('er-dep'))||250,
+        default_late_fee: parseFloat(val('er-late'))||50,
+        default_nsf_fee: parseFloat(val('er-nsf'))||85,
+      })});
+      viewClient(id);
+      return true;
+    });
   };
 
   window.editClient = async function(id){
