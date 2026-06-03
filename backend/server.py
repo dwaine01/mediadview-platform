@@ -3092,6 +3092,10 @@ app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
 app.include_router(api_router)
 
+# ============ FINANCE & ADMIN MODULE ============
+from finance import create_finance_routes
+app.include_router(create_finance_routes(db, get_current_user))
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
