@@ -571,51 +571,51 @@
 
   window.renderPrintAgentSetup = async function(){
     const t = await api(FAPI + '/print/token').catch(()=>({token:''}));
-    const main = document.getElementById('main') || document.querySelector('.main-content');
-    if (!main) return;
+    const main = document.getElementById('f-content') || document.querySelector('.main-content') || document.getElementById('main');
+    if (!main) { alert('Container not found'); return; }
     const downloadUrl = '/api/web/print-agent.zip';
     main.innerHTML = `
-      <div style="padding:24px 32px;max-width:900px">
+      <div style="max-width:920px">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-          <h1 style="margin:0;font-size:24px;color:#0f172a;font-weight:700">🖨️ Print Agent Setup</h1>
-          <button class="btn" style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="renderPrintQueue()">← Back to Queue</button>
+          <h2 style="margin:0;font-size:22px;color:#0f172a;font-weight:700">🖨️ Print Agent Setup</h2>
+          <button style="background:#fff;color:#475569;border:1px solid #cbd5e1;padding:8px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="renderPrintQueue()">← Back to Queue</button>
         </div>
-        <p style="color:#64748b;font-size:13.5px;margin:0 0 24px">Install this small agent on the Windows PC connected to your printer. It runs in the background and automatically prints invoices/contracts queued by MediAd View.</p>
+        <p style="color:#64748b;font-size:13.5px;margin:0 0 20px">Install this small agent on the Windows PC connected to your printer. It runs in the background and automatically prints invoices/contracts queued by MediAd View.</p>
 
-        <div class="card" style="background:#eff6ff;border:1px solid #bfdbfe;padding:18px;border-radius:10px;margin-bottom:18px">
+        <div style="background:#eff6ff;border:1px solid #bfdbfe;padding:18px;border-radius:10px;margin-bottom:16px">
           <div style="font-weight:700;color:#1e40af;margin-bottom:8px">📥 Step 1 — Download the Agent</div>
-          <a href="${downloadUrl}" download="MediAdView-PrintAgent.zip" class="btn-primary" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13.5px">⬇ Download Print Agent (.zip)</a>
+          <a href="${downloadUrl}" download="MediAdView-PrintAgent.zip" style="display:inline-block;background:#2563eb;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13.5px">⬇ Download Print Agent (.zip)</a>
           <div style="font-size:12px;color:#475569;margin-top:10px">Includes: print_agent.py · start-print-agent.bat · README.md · setup instructions</div>
         </div>
 
-        <div class="card" style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:18px">
+        <div style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:16px">
           <div style="font-weight:700;color:#0f172a;margin-bottom:10px">🔑 Step 2 — Copy Your Agent Token</div>
           <p style="font-size:13px;color:#64748b;margin:0 0 10px">Paste this token into your <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;font-size:12px">print_agent.config.json</code> after extracting the ZIP.</p>
           <div style="display:flex;gap:8px;align-items:center">
             <input id="pa-token" readonly value="${t.token||''}" style="flex:1;font-family:monospace;font-size:13px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a">
-            <button class="btn-primary" style="background:#2563eb;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="navigator.clipboard.writeText(document.getElementById('pa-token').value);this.textContent='✓ Copied';setTimeout(()=>this.innerHTML='📋 Copy',1500)">📋 Copy</button>
-            <button class="btn" style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="rotatePrintToken()">🔄 Rotate</button>
+            <button style="background:#2563eb;color:#fff;border:none;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="navigator.clipboard.writeText(document.getElementById('pa-token').value);this.textContent='✓ Copied';setTimeout(()=>this.innerHTML='📋 Copy',1500)">📋 Copy</button>
+            <button style="background:#fff;color:#dc2626;border:1px solid #fecaca;padding:10px 14px;border-radius:8px;font-weight:600;cursor:pointer" onclick="rotatePrintToken()">🔄 Rotate</button>
           </div>
           <div style="font-size:12px;color:#64748b;margin-top:8px">Server URL to use: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${location.origin}</code></div>
         </div>
 
-        <div class="card" style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:18px">
+        <div style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:16px">
           <div style="font-weight:700;color:#0f172a;margin-bottom:10px">⚙️ Step 3 — Install on Windows</div>
           <ol style="margin:0;padding-left:24px;color:#334155;font-size:13.5px;line-height:1.9">
-            <li>Extract the downloaded <code>MediAdView-PrintAgent.zip</code> into a folder (e.g. <code>C:\\MediAdViewAgent</code>)</li>
+            <li>Extract <code>MediAdView-PrintAgent.zip</code> into a folder (e.g. <code>C:\\MediAdViewAgent</code>)</li>
             <li>Install Python 3.10+ from <a href="https://www.python.org/downloads/" target="_blank" style="color:#2563eb">python.org</a> (check <b>"Add Python to PATH"</b>)</li>
-            <li>Open Command Prompt and run: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">pip install requests pywin32</code></li>
-            <li>Download <a href="https://www.sumatrapdfreader.org/download-free-pdf-viewer" target="_blank" style="color:#2563eb">SumatraPDF.exe</a> (portable) and place it in the same folder</li>
-            <li>Double-click <code>start-print-agent.bat</code> — it creates <code>print_agent.config.json</code></li>
+            <li>Open Command Prompt: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">pip install requests pywin32</code></li>
+            <li>Download <a href="https://www.sumatrapdfreader.org/download-free-pdf-viewer" target="_blank" style="color:#2563eb">SumatraPDF.exe</a> (portable) into the same folder</li>
+            <li>Double-click <code>start-print-agent.bat</code> — creates <code>print_agent.config.json</code></li>
             <li>Edit the config: paste your token, set <code>server_url</code> to <code>${location.origin}</code></li>
             <li>Run <code>start-print-agent.bat</code> again — you should see <b>✓ Authenticated with server</b></li>
-            <li>To auto-start on boot: copy a shortcut of the .bat into <code>shell:startup</code></li>
+            <li>Auto-start on boot: copy shortcut of the .bat into <code>shell:startup</code></li>
           </ol>
         </div>
 
-        <div class="card" style="background:#fffbeb;border:1px solid #fde68a;padding:14px 18px;border-radius:10px">
+        <div style="background:#fffbeb;border:1px solid #fde68a;padding:14px 18px;border-radius:10px">
           <div style="font-weight:700;color:#92400e;margin-bottom:4px">💡 Tip</div>
-          <p style="font-size:13px;color:#78350f;margin:0">The full step-by-step guide is inside the ZIP file (README.md). The agent polls the server every 30 seconds, so jobs print very quickly after being queued.</p>
+          <p style="font-size:13px;color:#78350f;margin:0">Full step-by-step guide is inside the ZIP (README.md). The agent polls every 30s, so jobs print very quickly.</p>
         </div>
       </div>`;
   };
