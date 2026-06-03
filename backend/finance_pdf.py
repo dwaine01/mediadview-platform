@@ -355,19 +355,28 @@ def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
 # ============================================================
 def generate_contract_pdf(ct: dict, client: dict) -> bytes:
     buf = BytesIO()
-    doc = _doc(buf, top_margin=0.55*inch)
+    doc = _doc(buf, top_margin=0.45*inch)
+    # Override margins for contract: tighter to fit in 2 pages
+    doc.leftMargin = 0.55*inch
+    doc.rightMargin = 0.55*inch
+    doc.bottomMargin = 0.45*inch
     st = _styles()
+    # Tighter clause style for contract — denser layout to fit in 2 pages
+    clause_tight = ParagraphStyle(
+        "clause_tight", parent=st["clause"],
+        fontSize=9.5, leading=12.5, spaceAfter=4
+    )
     story = []
-    story.append(_brand_header(st))
-    story.append(Spacer(1, 8))
+    # Compact header: small logo + name + tagline (no address/phones)
+    story.append(_contract_header(st))
+    story.append(Spacer(1, 6))
 
     # Centered title
     story.append(Paragraph(
         "LED DISPLAY RENTAL AGREEMENT",
-        ParagraphStyle("ct_title", fontSize=16, leading=20, alignment=TA_CENTER,
-                       textColor=DARK, fontName="Helvetica-Bold")
+        ParagraphStyle("ct_title", fontSize=15, leading=18, alignment=TA_CENTER,
+                       textColor=DARK, fontName="Helvetica-Bold", spaceAfter=8)
     ))
-    story.append(Spacer(1, 12))
 
     # Contract date
     try:
@@ -386,22 +395,22 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
     story.append(Paragraph(
         f"<b>I. THE PARTIES.</b> This Equipment Rental Agreement (&ldquo;Agreement&rdquo;) is made on this "
         f"<b>{contract_date}</b> by and between:",
-        st["clause"]
+        clause_tight
     ))
     story.append(Paragraph(
         f"<b>Lessor:</b> A business entity known as <b>{COMPANY['name']}</b>, with a mailing address of "
         f"{COMPANY['address_line1']}, {COMPANY['address_line2']}, Phone {COMPANY['phone_1']} (&ldquo;Lessor&rdquo;), and",
-        st["clause"]
+        clause_tight
     ))
     story.append(Paragraph(
         f"<b>Lessee:</b> A business entity known as <b>{client.get('business_name','—')}</b>{rep_html} with a mailing "
         f"address of {lessee_addr}, Phone {client.get('phone','')} (&ldquo;Lessee&rdquo;).",
-        st["clause"]
+        clause_tight
     ))
     story.append(Paragraph(
         "Lessor and Lessee are each referred to herein as a &ldquo;Party&rdquo; and collectively as the "
         "&ldquo;Parties.&rdquo;",
-        st["clause"]
+        clause_tight
     ))
 
     # II. EQUIPMENT DESCRIPTION
@@ -415,7 +424,7 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
         f"<b>II. EQUIPMENT DESCRIPTION.</b> The Lessor hereby leases to Lessee the following equipment: "
         f"Number of rented Equipment <b>{total_units}</b> UNIT ULTRA SLIM LED DISPLAY Model: <b>{model}</b>, "
         f"distributed in <b>{len(locs) or 1}</b> store(s) as follows, {locs_text}.",
-        st["clause"]
+        clause_tight
     ))
 
     # III. LEASE TYPE
@@ -424,7 +433,7 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
         f"<b>{_fmt(ct.get('start_date',''))}</b> and ending on <b>{_fmt(ct.get('end_date',''))}</b> "
         f"(&ldquo;Lease Term&rdquo;). At the end of the Lease Term and no renewal is made, the Lessee shall be "
         f"required to return the Equipment to the Lessor.",
-        st["clause"]
+        clause_tight
     ))
 
     # IV. RENT
@@ -433,14 +442,14 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
         f"<b>IV. RENT.</b> Lessee agrees to pay Lessor <b>${fmt_money(day_price)}</b> per display per day for a "
         f"total of <b>${fmt_money(ct.get('monthly_total',0))}</b> for the rental of the Equipment "
         f"(&ldquo;Rent&rdquo;) to be paid monthly.",
-        st["clause"]
+        clause_tight
     ))
     story.append(Paragraph(
         f"<b>a.) Rent Instructions.</b> The Rent will be paid in the following way: direct deposit to the account "
         f"mentioned below or by check every first day of each month — "
         f"<b>{COMPANY['name']}</b>, Account Number <b>{COMPANY['account_number']}</b>, "
         f"Bank Name <b>{COMPANY['bank_name']}</b>, Routing <b>{COMPANY['routing']}</b> deposits and ACH transactions.",
-        st["clause"]
+        clause_tight
     ))
 
     # V. LATE CHARGES
@@ -448,13 +457,13 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
         f"<b>V. LATE CHARGES.</b> If any amount of Rent is late under this Agreement of more than 5 day(s) late, "
         f"the Lessee will be obligated to pay a late fee of <b>${fmt_money(ct.get('late_fee_per_day',50))}</b> for "
         f"each day that Rent is late.",
-        st["clause"]
+        clause_tight
     ))
     # VI. NSF
     story.append(Paragraph(
         f"<b>VI. NON-SUFFICIENT FUNDS.</b> The Lessee shall be charged <b>${fmt_money(ct.get('nsf_fee',85))}</b> "
         f"for each check that is returned to the Lessor for lack of sufficient funds.",
-        st["clause"]
+        clause_tight
     ))
     # VII. SECURITY DEPOSIT
     sec_per = ct.get("security_deposit_per_screen", 250)
@@ -465,7 +474,7 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
         f"<b>${fmt_money(sec_tot)}</b>, for Renter&rsquo;s performance under this Agreement for damages caused by "
         f"the Lessee or Lessee&rsquo;s agents to the Equipment during the Lease Term. In addition, the Security "
         f"Deposit may be applied to any amount owed by the Lessee to the Lessor.",
-        st["clause"]
+        clause_tight
     ))
 
     # VIII–XXIII (fixed clauses)
@@ -538,7 +547,7 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
          "behalf of each party is duly authorized to execute and deliver this Agreement on behalf of that party."),
     ]
     for label, body in clauses:
-        story.append(Paragraph(f"<b>{label}.</b> {body}", st["clause"]))
+        story.append(Paragraph(f"<b>{label}.</b> {body}", clause_tight))
 
     story.append(Spacer(1, 14))
 
@@ -590,6 +599,29 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
 # ============================================================
 # ============== Shared layout helpers =======================
 # ============================================================
+def _contract_header(st):
+    """Compact header for contracts: small logo + brand name + tagline only.
+    No address/phones (those appear inside the I. THE PARTIES section)."""
+    logo = None
+    if os.path.exists(LOGO_PATH):
+        try:
+            logo = Image(LOGO_PATH, width=1.1*inch, height=0.33*inch)
+        except Exception:
+            logo = None
+    name_cell = Table([
+        [Paragraph(COMPANY["brand"], ParagraphStyle("brand_sm", parent=st["brand"], fontSize=16, leading=18, alignment=TA_LEFT))],
+        [Paragraph(COMPANY["tagline"], ParagraphStyle("tag_sm", parent=st["tagline"], alignment=TA_LEFT))],
+    ], colWidths=[2.2*inch])
+    _no_padding(name_cell)
+    row = Table([[logo or Spacer(1, 0.4*inch), name_cell]],
+                colWidths=[1.25*inch, 2.4*inch])
+    _no_padding(row, [("VALIGN", (0,0), (-1,-1), "MIDDLE")])
+    # Centered on the page
+    outer = Table([[row]], colWidths=[6.9*inch])
+    _no_padding(outer, [("ALIGN", (0,0), (-1,-1), "CENTER")])
+    return outer
+
+
 def _brand_header(st):
     """Right-aligned brand block (logo + name + tagline + address + phones)."""
     logo = None
