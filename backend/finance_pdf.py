@@ -170,33 +170,108 @@ def _footer(canvas, doc):
 # ============================================================
 # =============== SECURITY DEPOSIT RECEIPT ===================
 # ============================================================
+def _draw_deposit_tail(canvas, dep):
+    """Draw bank info (left) + totals (right) + 'Thank You' + Terms anchored at bottom."""
+    canvas.saveState()
+    base_y = 0.85*inch
+    # --- BANK INFO (left)
+    x_left = 0.6*inch
+    y = base_y + 1.55*inch
+    canvas.setFont("Helvetica-Bold", 10.5)
+    canvas.setFillColor(DARK)
+    canvas.drawString(x_left, y, COMPANY["name"])
+    canvas.setFont("Helvetica", 9)
+    y -= 14
+    canvas.drawString(x_left, y, f"Account Number   {COMPANY['account_number']}")
+    y -= 12
+    canvas.drawString(x_left, y, f"Bank Name   {COMPANY['bank_name']}")
+    y -= 12
+    canvas.drawString(x_left, y, f"Routing   {COMPANY['routing']} deposits and ACH transactions")
+
+    # --- TOTALS (right)
+    x_right_label = PAGE_W - 2.55*inch
+    x_right_value = PAGE_W - 0.7*inch
+    y = base_y + 1.55*inch
+    canvas.setFont("Helvetica-Bold", 10.5)
+    canvas.drawString(x_right_label, y, "Sub-Total")
+    canvas.drawRightString(x_right_value, y, fmt_money(dep.get("amount",0)))
+    y -= 18
+    canvas.drawString(x_right_label, y, "TAX")
+    canvas.drawRightString(x_right_value, y, fmt_money(dep.get("tax",0)))
+    y -= 14
+    canvas.setStrokeColor(LINE); canvas.setLineWidth(0.7)
+    canvas.line(x_right_label, y, x_right_value, y)
+    y -= 18
+    canvas.setFont("Helvetica-Bold", 13)
+    canvas.drawString(x_right_label, y, "TOTAL")
+    canvas.drawRightString(x_right_value, y, fmt_money(dep.get("total", dep.get("amount",0))))
+
+    # Thank You (left) + Terms (right) — same line as the totals base
+    canvas.setFont("Helvetica-Bold", 12)
+    canvas.drawString(0.6*inch, base_y, "Thank You For Your Business")
+    canvas.setFont("Helvetica-Bold", 9.5)
+    canvas.setFillColor(DARK)
+    canvas.drawString(x_right_label - 0.3*inch, base_y + 0.05*inch, "Terms and Conditions")
+    canvas.setFont("Helvetica", 8.2)
+    from reportlab.pdfbase.pdfmetrics import stringWidth
+    terms = ("We may condition future contract renewals/service renewals or suspend our "
+             "services to you until such amount is paid in full.")
+    # Wrap manually within ~2.85in
+    max_w = 2.85*inch
+    words = terms.split()
+    line = ""
+    line_y = base_y - 0.08*inch
+    for w in words:
+        test = (line + " " + w).strip()
+        if stringWidth(test, "Helvetica", 8.2) <= max_w:
+            line = test
+        else:
+            canvas.drawString(x_right_label - 0.3*inch, line_y, line)
+            line = w
+            line_y -= 11
+    if line:
+        canvas.drawString(x_right_label - 0.3*inch, line_y, line)
+
+    # website footer
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(DARK)
+    canvas.drawCentredString(PAGE_W/2, 0.32*inch, COMPANY["website"])
+    canvas.restoreState()
+
+
 def generate_deposit_pdf(dep: dict, client: dict) -> bytes:
     buf = BytesIO()
-    doc = _doc(buf)
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=0.6*inch, rightMargin=0.6*inch,
+        topMargin=0.5*inch, bottomMargin=2.7*inch,
+        title="MediAd View Deposit Receipt", author="MediAd View",
+    )
     st = _styles()
     story = []
+    story.append(_brand_header(st))
+    story.append(Spacer(1, 4))
 
-    # ===== Top section: title (left) + brand/company (right)
+    # Title + customer (left), full-width then horizontal strip with date/receipt
     title_block = Table([
         [Paragraph("Security Deposit Receipt:", st["title"])],
-        [Spacer(1, 14)],
+        [Spacer(1, 10)],
         [Paragraph(f"{client.get('business_name','—')}", st["name_lg"])],
         [Paragraph(_addr_html(client), st["small"])],
         [Paragraph(client.get("phone",""), st["small"])],
-    ], colWidths=[4.0*inch])
+    ], colWidths=[6.9*inch])
     _no_padding(title_block)
+    story.append(title_block)
+    story.append(Spacer(1, 18))
 
-    top = Table([[title_block, _header_right_block(st, [
-        ("Receipt Date", _today_or(dep.get("issue_date"))),
-        ("Receipt No.",  dep.get("receipt_number","")),
-    ])]], colWidths=[4.0*inch, 3.0*inch])
-    _no_padding(top)
-    story.append(_brand_header(st))
-    story.append(Spacer(1, 4))
-    story.append(top)
-    story.append(Spacer(1, 22))
+    # Horizontal strip with Receipt Date / Receipt No.
+    story.append(_period_strip(st, [
+        ("RECEIPT DATE", _today_or(dep.get("issue_date"))),
+        ("RECEIPT NO.",  dep.get("receipt_number","")),
+    ]))
+    story.append(Spacer(1, 20))
 
-    # ===== Items table
+    # Items table
     screens = dep.get("screens") or []
     rows = [[Paragraph("LED", st["th"]),
              Paragraph("ITEM DESCRIPTION", st["th"]),
@@ -213,8 +288,8 @@ def generate_deposit_pdf(dep: dict, client: dict) -> bytes:
     items.setStyle(TableStyle([
         ("LINEBELOW", (0,0), (-1,0), 0.7, LINE),
         ("LINEBELOW", (0,-1),(-1,-1), 0.7, LINE),
-        ("TOPPADDING", (0,0), (-1,-1), 9),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 9),
+        ("TOPPADDING", (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING",(0,0),(-1,-1), 10),
         ("LEFTPADDING",(0,0),(-1,-1), 2),
         ("RIGHTPADDING",(0,0),(-1,-1), 2),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
@@ -222,79 +297,136 @@ def generate_deposit_pdf(dep: dict, client: dict) -> bytes:
     story.append(items)
     story.append(Spacer(1, 6))
 
-    # Location text under the table (left)
     loc_text = _loc_summary(screens, client)
     if loc_text:
         story.append(Paragraph(loc_text, st["small_g"]))
-    story.append(Spacer(1, 26))
 
-    # ===== Bottom: bank info (left) + totals (right)
-    bank_block = _bank_block(st)
-    totals = Table([
-        [Paragraph("Sub-Total", st["tot_lbl"]), Paragraph(fmt_money(dep.get("amount",0)), st["tot_val"])],
-        [Paragraph("TAX",       st["tot_lbl"]), Paragraph(fmt_money(dep.get("tax",0)),    st["tot_val"])],
-        [Paragraph("TOTAL",     st["TOT_LBL"]), Paragraph(fmt_money(dep.get("total", dep.get("amount",0))), st["TOT_VAL"])],
-    ], colWidths=[1.4*inch, 1.5*inch])
-    totals.setStyle(TableStyle([
-        ("LINEABOVE", (0,2), (-1,2), 0.7, LINE),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-        ("LEFTPADDING",(0,0),(-1,-1), 2),
-        ("RIGHTPADDING",(0,0),(-1,-1), 2),
-    ]))
-    bottom = Table([[bank_block, totals]], colWidths=[4.0*inch, 3.0*inch])
-    _no_padding(bottom, [("VALIGN", (0,0), (-1,-1), "TOP")])
-    story.append(bottom)
-    story.append(Spacer(1, 24))
-
-    # ===== Thanks + Terms
-    terms_text = ("We may condition future contract renewals/service renewals or "
-                  "suspend our services to you until such amount is paid in full.")
-    last = Table([[
-        Paragraph("Thank You For Your Business", st["thanks"]),
-        Table([
-            [Paragraph("Terms and Conditions", st["section_t"])],
-            [Paragraph(terms_text, st["section_b"])],
-        ], colWidths=[3.0*inch])
-    ]], colWidths=[3.6*inch, 3.4*inch])
-    _no_padding(last, [("VALIGN", (0,0), (-1,-1), "TOP")])
-    story.append(last)
-
-    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    cb = lambda c, d: _draw_deposit_tail(c, dep)
+    doc.build(story, onFirstPage=cb, onLaterPages=cb)
     return buf.getvalue()
 
 
 # ============================================================
 # ========================= INVOICE ==========================
 # ============================================================
+def _period_strip(st, items):
+    """Horizontal strip with bordered box: 'PERIOD DATE | INVOICE DUE | INVOICE#'."""
+    n = len(items)
+    cells = []
+    for label, value in items:
+        cells.append(Table([
+            [Paragraph(label, ParagraphStyle("ps_l", fontSize=8.5, leading=10, textColor=GRAY,
+                                              fontName="Helvetica-Bold", alignment=TA_LEFT))],
+            [Paragraph(str(value or "—"), ParagraphStyle("ps_v", fontSize=11, leading=13, textColor=DARK,
+                                                          fontName="Helvetica-Bold", alignment=TA_LEFT))],
+        ], colWidths=[2.05*inch]))
+    # Equal-width columns
+    w = 6.9 / n
+    tbl = Table([cells], colWidths=[w*inch]*n)
+    # Border + dividers
+    style = [
+        ("BOX", (0,0), (-1,-1), 0.6, LINE),
+        ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
+        ("TOPPADDING", (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 10),
+        ("LEFTPADDING", (0,0), (-1,-1), 14),
+        ("RIGHTPADDING", (0,0), (-1,-1), 6),
+    ]
+    for i in range(1, n):
+        style.append(("LINEBEFORE", (i,0), (i,-1), 0.5, LINE))
+    tbl.setStyle(TableStyle(style))
+    # Strip the inner cell padding so labels sit flush
+    for c in cells:
+        _no_padding(c)
+    return tbl
+
+
+def _draw_invoice_tail(canvas, inv):
+    """Draw bank info (left) + totals (right) + 'Thank You' centered, anchored at bottom of page."""
+    canvas.saveState()
+    # Bottom block lives between Y=0.55in (above the website footer) up to ~3.2in
+    base_y = 0.85*inch  # bottom of the totals area
+    # --- BANK INFO (left)
+    x_left = 0.6*inch
+    y = base_y + 1.55*inch
+    canvas.setFont("Helvetica-Bold", 10.5)
+    canvas.setFillColor(DARK)
+    canvas.drawString(x_left, y, COMPANY["name"])
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(DARK)
+    y -= 14
+    canvas.drawString(x_left, y, f"Account Number   {COMPANY['account_number']}")
+    y -= 12
+    canvas.drawString(x_left, y, f"Bank Name   {COMPANY['bank_name']}")
+    y -= 12
+    canvas.drawString(x_left, y, f"Routing   {COMPANY['routing']} deposits and ACH transactions")
+
+    # --- TOTALS (right column)
+    x_right_label = PAGE_W - 2.55*inch
+    x_right_value = PAGE_W - 0.7*inch
+    y = base_y + 1.55*inch
+    canvas.setFont("Helvetica-Bold", 10.5)
+    canvas.setFillColor(DARK)
+    canvas.drawString(x_right_label, y, "Sub-Total")
+    canvas.drawRightString(x_right_value, y, f"${fmt_money(inv.get('subtotal',0))}")
+    y -= 18
+    canvas.drawString(x_right_label, y, "Tax")
+    canvas.drawRightString(x_right_value, y, fmt_money(inv.get("tax",0)))
+    # separator line above TOTAL
+    y -= 14
+    canvas.setStrokeColor(LINE); canvas.setLineWidth(0.7)
+    canvas.line(x_right_label, y, x_right_value, y)
+    y -= 18
+    canvas.setFont("Helvetica-Bold", 13)
+    canvas.drawString(x_right_label, y, "TOTAL")
+    canvas.drawRightString(x_right_value, y, f"${fmt_money(inv.get('total',0))}")
+
+    # --- Thank You centered, below the block
+    canvas.setFont("Helvetica-Bold", 12.5)
+    canvas.setFillColor(DARK)
+    canvas.drawCentredString(PAGE_W/2, base_y, "Thank You For Your Business")
+
+    # website footer
+    canvas.setFont("Helvetica", 9)
+    canvas.setFillColor(DARK)
+    canvas.drawCentredString(PAGE_W/2, 0.32*inch, COMPANY["website"])
+    canvas.restoreState()
+
+
 def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
     buf = BytesIO()
-    doc = _doc(buf)
+    # Reserve space at the bottom for the totals/bank/thanks block (~2.6in)
+    doc = SimpleDocTemplate(
+        buf, pagesize=letter,
+        leftMargin=0.6*inch, rightMargin=0.6*inch,
+        topMargin=0.5*inch, bottomMargin=2.7*inch,
+        title="MediAd View Invoice", author="MediAd View",
+    )
     st = _styles()
     story = []
 
     story.append(_brand_header(st))
     story.append(Spacer(1, 4))
 
-    # Top: INVOICE TO (left), dates (right)
+    # Top: INVOICE TO (left), brand block already on right via header. Customer info below.
     title_block = Table([
         [Paragraph("INVOICE TO:", st["title"])],
-        [Spacer(1, 12)],
+        [Spacer(1, 10)],
         [Paragraph(f"{client.get('business_name','—')}", st["name_lg"])],
         [Paragraph(_addr_html(client), st["small"])],
         [Paragraph(client.get("phone",""), st["small"])],
-    ], colWidths=[4.0*inch])
+    ], colWidths=[6.9*inch])
     _no_padding(title_block)
+    story.append(title_block)
+    story.append(Spacer(1, 18))
 
-    right = _header_right_block(st, [
-        ("PERIOD DATE", f"{_fmt(inv.get('period_start',''))} - {_fmt(inv.get('period_end',''))}"),
+    # Horizontal strip with the 3 dates side by side, bordered
+    story.append(_period_strip(st, [
+        ("PERIOD DATE", f"{_fmt(inv.get('period_start',''))} – {_fmt(inv.get('period_end',''))}"),
         ("INVOICE DUE", _fmt(inv.get("due_date",""))),
-        ("INVOICE",     inv.get("invoice_number","")),
-    ])
-    top = Table([[title_block, right]], colWidths=[4.0*inch, 3.0*inch])
-    _no_padding(top)
-    story.append(top)
-    story.append(Spacer(1, 22))
+        ("INVOICE #",   inv.get("invoice_number","")),
+    ]))
+    story.append(Spacer(1, 20))
 
     # Items
     rows = [[
@@ -316,37 +448,17 @@ def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
     items.setStyle(TableStyle([
         ("LINEBELOW", (0,0), (-1,0), 0.7, LINE),
         ("LINEBELOW", (0,-1),(-1,-1), 0.7, LINE),
-        ("TOPPADDING", (0,0), (-1,-1), 9),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 9),
+        ("TOPPADDING", (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING",(0,0),(-1,-1), 10),
         ("LEFTPADDING",(0,0),(-1,-1), 2),
         ("RIGHTPADDING",(0,0),(-1,-1), 2),
         ("VALIGN", (0,0), (-1,-1), "MIDDLE"),
     ]))
     story.append(items)
-    story.append(Spacer(1, 22))
 
-    # Bank info (left) + totals (right)
-    bank_block = _bank_block(st)
-    totals = Table([
-        [Paragraph("Sub-Total", st["tot_lbl"]), Paragraph("$"+fmt_money(inv.get("subtotal",0)), st["tot_val"])],
-        [Paragraph("Tax",       st["tot_lbl"]), Paragraph(fmt_money(inv.get("tax",0)),         st["tot_val"])],
-        [Paragraph("TOTAL",     st["TOT_LBL"]), Paragraph("$"+fmt_money(inv.get("total",0)),   st["TOT_VAL"])],
-    ], colWidths=[1.4*inch, 1.5*inch])
-    totals.setStyle(TableStyle([
-        ("LINEABOVE", (0,2), (-1,2), 0.7, LINE),
-        ("TOPPADDING", (0,0), (-1,-1), 4),
-        ("BOTTOMPADDING",(0,0),(-1,-1), 4),
-        ("LEFTPADDING",(0,0),(-1,-1), 2),
-        ("RIGHTPADDING",(0,0),(-1,-1), 2),
-    ]))
-    bottom = Table([[bank_block, totals]], colWidths=[4.0*inch, 3.0*inch])
-    _no_padding(bottom, [("VALIGN", (0,0), (-1,-1), "TOP")])
-    story.append(bottom)
-    story.append(Spacer(1, 24))
-
-    story.append(Paragraph("Thank You For Your Business", st["thanks"]))
-
-    doc.build(story, onFirstPage=_footer, onLaterPages=_footer)
+    # The bottom block (bank info + totals + thanks) is drawn via canvas
+    cb = lambda c, d: _draw_invoice_tail(c, inv)
+    doc.build(story, onFirstPage=cb, onLaterPages=cb)
     return buf.getvalue()
 
 
@@ -623,33 +735,23 @@ def _contract_header(st):
 
 
 def _brand_header(st):
-    """Right-aligned brand block (logo + name + tagline + address + phones)."""
+    """Right-aligned brand block — LOGO ONLY (the logo already contains brand+tagline)
+    + address + phones below."""
     logo = None
     if os.path.exists(LOGO_PATH):
         try:
-            # The logo file is a wide horizontal logo (~3.3:1 aspect)
-            logo = Image(LOGO_PATH, width=1.65*inch, height=0.5*inch)
+            # Wide logo (~3.3:1 aspect)
+            logo = Image(LOGO_PATH, width=2.0*inch, height=0.6*inch)
         except Exception:
             logo = None
-    name_cell = Table([
-        [Paragraph(COMPANY["brand"], st["brand"])],
-        [Paragraph(COMPANY["tagline"], st["tagline"])],
-    ], colWidths=[1.65*inch])
-    _no_padding(name_cell)
-
-    # Logo above, brand name below (matches the original document layout)
-    right_top = Table([
-        [logo or Spacer(1, 0.4*inch)],
-        [name_cell],
-    ], colWidths=[1.65*inch])
-    _no_padding(right_top, [("ALIGN", (0,0), (-1,-1), "RIGHT")])
 
     addr_para = Paragraph(
         f"{COMPANY['address_line1']}<br/>{COMPANY['address_line2']}<br/>"
         f"{COMPANY['phone_1']}<br/>{COMPANY['phone_2']}",
         st["co"]
     )
-    right = Table([[right_top], [addr_para]], colWidths=[3.1*inch])
+    right = Table([[logo or Spacer(1, 0.55*inch)], [Spacer(1, 4)], [addr_para]],
+                  colWidths=[3.1*inch])
     _no_padding(right, [("ALIGN", (0,0), (-1,-1), "RIGHT")])
 
     outer = Table([[Spacer(1, 1), right]], colWidths=[3.9*inch, 3.1*inch])
