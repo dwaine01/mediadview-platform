@@ -364,9 +364,11 @@
                   <div><div style="font-size:13px;font-weight:700;color:var(--t-1)">${esc(ct.contract_number)}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${fmtDate(ct.start_date)} → ${fmtDate(ct.end_date)} · ${ct.term_months}mo</div></div>
                   <div style="display:flex;gap:8px;align-items:center">${status_badge(ct.status)}<div style="font-size:14px;font-weight:700;color:var(--brand-dd);min-width:80px;text-align:right">${fmt$(ct.monthly_total)}/mo</div></div>
                 </div>
-                <div style="display:flex;gap:6px">
-                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="window.open('${FAPI}/contracts/${ct.id}/render','_blank')">📄 View / Print</button>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="window.open('${FAPI}/contracts/${ct.id}/pdf','_blank')">📄 View / Print</button>
                   <button class="btn-s" style="padding:5px 10px;font-size:11.5px;background:var(--brand-tint);color:var(--brand-dd);border-color:#bfdbfe" onclick="quickGenerateInvoice('${ct.id}')">⚡ Generate This Month's Invoice</button>
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="openSignatureModal('${ct.id}','lessor')">✍️ Sign as Lessor</button>
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="openSignatureModal('${ct.id}','lessee')">✍️ Sign as Lessee</button>
                 </div>
               </div>`).join('')}
           </div>
@@ -618,9 +620,10 @@
     c.innerHTML = `
       <button class="btn-ghost" style="margin-bottom:14px" onclick="window._fTab='invoices';loaders.finance()">← Back to Invoices</button>
       <div class="ph"><div><h1>Invoice ${esc(i.invoice_number)}</h1><p>Period: ${fmtDate(i.period_start)} – ${fmtDate(i.period_end)}</p></div>
-      <div style="display:flex;gap:8px">
-        <button class="btn-s" onclick="window.open('${FAPI}/invoices/${id}/render','_blank')">View / Print PDF</button>
-        ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-p" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-s" onclick="window.open('${FAPI}/invoices/${id}/pdf','_blank')">📄 View / Print PDF</button>
+        ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-p" onclick="sendInvoiceEmail('${i.id}')">📧 Send by Email</button>` : ''}
+        ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
         ${i.status!=='paid' ? `<button class="btn-s" style="color:var(--red-l)" onclick="cancelInvoice('${i.id}')">Cancel</button>` : ''}
       </div></div>
       <div class="card" style="padding:0;overflow:hidden;height:1000px"><iframe src="${FAPI}/invoices/${id}/render" style="width:100%;height:100%;border:none"></iframe></div>

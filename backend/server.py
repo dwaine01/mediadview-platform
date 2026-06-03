@@ -3094,7 +3094,9 @@ app.include_router(api_router)
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
+from finance_email import create_finance_extensions
 app.include_router(create_finance_routes(db, get_current_user))
+app.include_router(create_finance_extensions(db, get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
