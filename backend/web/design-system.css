@@ -150,24 +150,29 @@ button { font-family: var(--ds-font); }
 ::-webkit-scrollbar-thumb:hover { background: #b4bac4; background-clip: padding-box; border: 2px solid transparent; }
 ::-webkit-scrollbar-track { background: transparent; }
 
-/* ===== LAYOUT ===== */
-#view-app {
-  display: grid;
-  grid-template-columns: 248px 1fr;
-  min-height: 100vh;
-  background: var(--ds-bg);
+/* ===== LAYOUT (override legacy to avoid gap on wide screens) ===== */
+#view-app { display: none; }
+#view-app.on { display: flex !important; }
+.sb {
+  width: 248px !important;
+  position: fixed !important;
+  top: 0; bottom: 0; left: 0;
+  z-index: 30;
 }
 .main {
-  display: flex; flex-direction: column;
+  flex: 1;
+  margin-left: 248px !important;
   min-height: 100vh;
+  display: flex; flex-direction: column;
   background: var(--ds-bg);
   min-width: 0;
+  width: calc(100% - 248px);
 }
 .pg {
-  padding: var(--ds-sp-6) var(--ds-sp-7) var(--ds-sp-10);
-  max-width: 1400px;
-  width: 100%;
-  margin: 0 auto;
+  padding: 22px 32px 64px;
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
 }
 
 /* ===== SIDEBAR (Stripe-style) ===== */
