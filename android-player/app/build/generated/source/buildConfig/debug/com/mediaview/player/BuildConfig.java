@@ -10,5 +10,5 @@ public final class BuildConfig {
   public static final int VERSION_CODE = 2;
   public static final String VERSION_NAME = "2.0.0";
   // Field from default config.
-  public static final String SERVER_URL = "https://mediaview-ads.preview.emergentagent.com";
+  public static final String SERVER_URL = "https://menu-studio-3.preview.emergentagent.com";
 }
