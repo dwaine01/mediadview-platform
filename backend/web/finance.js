@@ -178,23 +178,20 @@
         ${stat('Active Clients', s.total_clients, s.total_contracts + ' active contracts', '--cyan', 'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75')}
       </div>
 
-      <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:24px;margin-bottom:32px">
         <div>
-          <div class="sh"><h2>Cash Flow — Last 12 Months</h2><div style="display:flex;gap:12px;font-size:11px;color:var(--t-3)"><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:var(--green-l);border-radius:2px"></span>Revenue</span><span style="display:inline-flex;align-items:center;gap:5px"><span style="width:10px;height:10px;background:var(--red-l);border-radius:2px"></span>Expenses</span></div></div>
-          <div class="card" style="padding:24px">
-            <div style="display:flex;align-items:flex-end;gap:8px;height:200px;border-bottom:1px solid var(--border);padding-bottom:8px">
-              ${cf.map(m=>{
-                const rH = (m.revenue/maxCf)*180;
-                const eH = (m.expenses/maxCf)*180;
-                return `<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;height:100%;justify-content:flex-end">
-                  <div style="width:100%;display:flex;gap:2px;justify-content:center;height:100%;align-items:flex-end">
-                    <div title="Revenue ${fmt$(m.revenue)}" style="width:14px;height:${rH}px;min-height:2px;background:linear-gradient(180deg,var(--green-l),var(--green));border-radius:3px 3px 0 0"></div>
-                    <div title="Expenses ${fmt$(m.expenses)}" style="width:14px;height:${eH}px;min-height:2px;background:linear-gradient(180deg,var(--red-l),var(--red));border-radius:3px 3px 0 0"></div>
-                  </div>
-                </div>`;
-              }).join('')}
+          <div class="sh">
+            <h2>Cash Flow <span style="color:var(--ds-text-quiet);font-weight:500;font-size:12px;margin-left:8px">Last 12 months</span></h2>
+            <div style="display:flex;gap:14px;font-size:11.5px;color:var(--ds-text-soft);font-weight:500">
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;background:var(--ds-success);border-radius:999px"></span>Revenue</span>
+              <span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;background:var(--ds-danger);border-radius:999px"></span>Expenses</span>
             </div>
-            <div style="display:flex;gap:8px;margin-top:6px">${cf.map(m=>`<div style="flex:1;text-align:center;font-size:9px;color:var(--t-4)">${m.month.substring(5)}</div>`).join('')}</div>
+          </div>
+          <div class="card" style="padding:20px 14px 14px" id="cf-chart-wrap">
+            ${buildSmoothChart([
+              {color:'#059669', values: cf.map(m=>m.revenue||0),  label:'Revenue'},
+              {color:'#DC2626', values: cf.map(m=>m.expenses||0), label:'Expenses'},
+            ], {height:240, labels: cf.map(m=>m.month.substring(5))})}
           </div>
         </div>
         <div>
@@ -220,14 +217,128 @@
           </div>`).join('')}
       </div>
     `;
+    // Wire up smooth chart tooltips
+    setTimeout(()=>{ try { window.attachChartTooltips && window.attachChartTooltips(document.getElementById('cf-chart-wrap')); } catch(e){} }, 100);
   }
 
   function qaCard(l, d, c, ic, fn){
-    return `<div class="card card-i" style="display:flex;align-items:center;gap:12px;padding:13px 15px" onclick="${fn}">
-      <div style="width:36px;height:36px;border-radius:10px;background:${c}20;border:1px solid ${c}30;display:flex;align-items:center;justify-content:center;flex-shrink:0;color:${c}"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div>
-      <div style="flex:1"><div style="font-size:13px;font-weight:600;color:var(--t-1)">${l}</div><div style="font-size:10px;color:var(--t-4)">${d}</div></div>
+    return `<div class="qa-card" onclick="${fn}">
+      <div class="qa-icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div>
+      <div class="qa-meta"><div class="qa-title">${l}</div><div class="qa-desc">${d}</div></div>
+      <svg width="13" height="13" fill="none" stroke="var(--ds-text-quiet)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg>
     </div>`;
   }
+
+  // ===== SMOOTH AREA CHART (Stripe-style) =====
+  function buildSmoothChart(series, opts){
+    // series: [{color:'#10b981', values:[...], label:'Revenue'}, ...]
+    opts = opts || {};
+    const W = opts.width || 720;
+    const H = opts.height || 240;
+    const PAD_L = 36, PAD_R = 16, PAD_T = 18, PAD_B = 28;
+    const innerW = W - PAD_L - PAD_R;
+    const innerH = H - PAD_T - PAD_B;
+    const labels = opts.labels || [];
+    const n = (series[0]?.values || []).length;
+    if (!n) return '<div style="padding:48px;text-align:center;color:var(--ds-text-quiet);font-size:13px">No data yet</div>';
+
+    const allVals = series.flatMap(s => s.values);
+    const max = Math.max(...allVals, 1);
+    const min = 0;
+
+    const xAt = i => PAD_L + (n === 1 ? innerW/2 : (i/(n-1))*innerW);
+    const yAt = v => PAD_T + innerH - ((v - min)/(max - min || 1)) * innerH;
+
+    // Catmull-Rom → cubic Bezier (smooth)
+    const smoothPath = pts => {
+      if (pts.length < 2) return '';
+      let d = `M ${pts[0].x} ${pts[0].y}`;
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[i-1] || pts[i];
+        const p1 = pts[i];
+        const p2 = pts[i+1];
+        const p3 = pts[i+2] || p2;
+        const t = 0.18; // tension (low = smoother)
+        const cp1x = p1.x + (p2.x - p0.x) * t;
+        const cp1y = p1.y + (p2.y - p0.y) * t;
+        const cp2x = p2.x - (p3.x - p1.x) * t;
+        const cp2y = p2.y - (p3.y - p1.y) * t;
+        d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${p2.x} ${p2.y}`;
+      }
+      return d;
+    };
+
+    // Y-axis grid (5 lines)
+    const gridLines = [];
+    const gridLabels = [];
+    for (let i = 0; i <= 4; i++) {
+      const y = PAD_T + (innerH * i / 4);
+      const val = max - (max * i / 4);
+      gridLines.push(`<line x1="${PAD_L}" y1="${y}" x2="${W-PAD_R}" y2="${y}" stroke="var(--ds-divider)" stroke-width="1"/>`);
+      gridLabels.push(`<text x="${PAD_L-8}" y="${y+3.5}" text-anchor="end" font-size="10" font-family="Inter" fill="var(--ds-text-quiet)" font-weight="500">${val>=1000?'$'+Math.round(val/1000)+'k':'$'+Math.round(val)}</text>`);
+    }
+    // X-axis labels
+    const xLabels = labels.map((lbl, i) => `<text x="${xAt(i)}" y="${H-9}" text-anchor="middle" font-size="10.5" font-family="Inter" fill="var(--ds-text-quiet)" font-weight="500">${lbl}</text>`).join('');
+
+    // Build series
+    const seriesSVG = series.map((s, sIdx) => {
+      const pts = s.values.map((v, i) => ({x: xAt(i), y: yAt(v)}));
+      const pathD = smoothPath(pts);
+      const gradId = 'grad-' + sIdx + '-' + Math.random().toString(36).slice(2,7);
+      const areaD = pathD + ` L ${pts[pts.length-1].x} ${PAD_T+innerH} L ${pts[0].x} ${PAD_T+innerH} Z`;
+      const dots = pts.map((p, i) => `<circle cx="${p.x}" cy="${p.y}" r="3" fill="#fff" stroke="${s.color}" stroke-width="2" data-v="${s.values[i]}" data-lbl="${labels[i]||''}" data-series="${s.label||''}" class="chart-dot" style="opacity:0;transition:opacity .15s"/>`).join('');
+      return `
+        <defs>
+          <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="${s.color}" stop-opacity="0.18"/>
+            <stop offset="100%" stop-color="${s.color}" stop-opacity="0"/>
+          </linearGradient>
+        </defs>
+        <path d="${areaD}" fill="url(#${gradId})" class="chart-area" style="opacity:0;animation:chartAreaIn .6s cubic-bezier(.4,0,.2,1) ${sIdx*0.08}s forwards"/>
+        <path d="${pathD}" fill="none" stroke="${s.color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="chart-line" style="stroke-dasharray:1500;stroke-dashoffset:1500;animation:chartLineIn .9s cubic-bezier(.65,0,.35,1) ${sIdx*0.08}s forwards"/>
+        ${dots}
+      `;
+    }).join('');
+
+    return `
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:${H}px;display:block;overflow:visible" class="ds-chart">
+        ${gridLines.join('')}
+        ${gridLabels.join('')}
+        ${seriesSVG}
+        ${xLabels}
+      </svg>
+      <div id="chart-tt" class="chart-tt" style="display:none"></div>
+    `;
+  }
+
+  // Wire up tooltip hover after chart is rendered
+  window.attachChartTooltips = function(container){
+    if (!container) return;
+    const dots = container.querySelectorAll('.chart-dot');
+    const tt = container.querySelector('#chart-tt');
+    if (!tt) return;
+    container.style.position = 'relative';
+    dots.forEach(dot => {
+      dot.style.cursor = 'pointer';
+      dot.addEventListener('mouseenter', e => {
+        dot.style.opacity = '1';
+        const v = parseFloat(dot.dataset.v||0);
+        const lbl = dot.dataset.lbl || '';
+        const series = dot.dataset.series || '';
+        tt.innerHTML = `<div class="chart-tt-h">${lbl}</div><div class="chart-tt-row"><span class="chart-tt-dot" style="background:${dot.getAttribute('stroke')}"></span>${series}<span class="chart-tt-val">$${v.toLocaleString(undefined,{maximumFractionDigits:2})}</span></div>`;
+        const rect = dot.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        tt.style.display = 'block';
+        tt.style.left = (rect.left - cRect.left + rect.width/2) + 'px';
+        tt.style.top  = (rect.top  - cRect.top - 8) + 'px';
+      });
+      dot.addEventListener('mouseleave', () => {
+        dot.style.opacity = '0';
+        tt.style.display = 'none';
+      });
+    });
+  };
+  window.buildSmoothChart = buildSmoothChart;
 
   // ============ CLIENTS ============
   async function renderClients(c){
