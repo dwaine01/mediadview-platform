@@ -23,17 +23,18 @@ const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea5
 // Premium stat card: label / icon / value / sub trend
 function stat(label,value,sub,colorVar,iconPath,trend){
   var trendHtml='';
-  if(trend){var dir=trend.dir||'up';var arrow=dir==='up'?'M5 15l7-7 7 7':dir==='down'?'M19 9l-7 7-7-7':'M5 12h14';trendHtml='<span class="st-trend '+dir+'"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+arrow+'"/></svg>'+trend.label+'</span>'}
-  return '<div class="st-card">'+
-    '<div class="st-top">'+
+  if(trend){var dir=trend.dir||'up';var arrow=dir==='up'?'M5 15l7-7 7 7':dir==='down'?'M19 9l-7 7-7-7':'M5 12h14';trendHtml='<span class="st-trend '+dir+'"><svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="3" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+arrow+'"/></svg>'+trend.label+'</span>'}
+  return '<div class="st">'+
+    '<div class="st-h">'+
       '<span class="st-label">'+label+'</span>'+
-      '<div class="st-ico" style="background:color-mix(in srgb,var('+colorVar+') 14%,transparent);color:var('+colorVar+')"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+iconPath+'"/></svg></div>'+
+      '<div class="st-icon"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="'+iconPath+'"/></svg></div>'+
     '</div>'+
-    '<div class="st-val">'+value+'</div>'+
-    '<div class="st-sub">'+trendHtml+'<span>'+sub+'</span></div>'+
+    '<div class="st-value">'+value+'</div>'+
+    '<div class="st-sub">'+sub+'</div>'+
+    trendHtml+
   '</div>';
 }
-function actCard(l,d,c,ic,p){return`<div class="card card-i" style="display:flex;align-items:center;gap:14px;padding:14px 16px" onclick="go('${p}')"><div style="width:40px;height:40px;border-radius:11px;background:${c}18;border:1px solid ${c}30;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" fill="none" stroke="${c}" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t-1)">${l}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${d}</div></div><svg width="15" height="15" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></div>`}
+function actCard(l,d,c,ic,p){return`<div class="qa-card" onclick="go('${p}')"><div class="qa-icon"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${ic}"/></svg></div><div class="qa-meta"><div class="qa-title">${l}</div><div class="qa-desc">${d}</div></div><svg width="13" height="13" fill="none" stroke="var(--ds-text-quiet)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></div>`}
 
 const loaders={
   async dashboard(){
