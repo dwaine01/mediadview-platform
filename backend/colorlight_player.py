@@ -520,13 +520,29 @@ def create_player_routes(db):
             ],
         })
 
-        # ---- 5. Queue the CORRECT activate command ----
-        # The A40 expects the FULL path: api/vsns/sources/{source}/vsns/{vsn_filename}/activated
-        # source = "internet" for cloud-published programs, "lan" for local
-        cmd_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000 + 1
+        # ---- 5. Queue commands in proper sequence:
+        #         1. api/update         → tells A40 to refresh its program list
+        #         2. api/vsns/.../activated → tells A40 which one to play
+        # Both are needed: update makes the A40 call /programs + /media + download files;
+        # activated tells it which playlist to actually start showing.
+        now_ms = int(datetime.utcnow().timestamp() * 1000)
+        cmd_update_id   = now_ms % 1_000_000_000
+        cmd_activate_id = (now_ms % 1_000_000_000) + 1
         activate_url = f"api/vsns/sources/internet/vsns/{vsn_filename}/activated"
+
+        # First, command to refresh programs list (and download new files)
         await db.colorlight_commands.insert_one({
-            "cmd_id":      cmd_id,
+            "cmd_id":      cmd_update_id,
+            "device_id":   req.device_id,
+            "author_url":  "api/update",
+            "raw":         "{}",
+            "karma":       2,
+            "status":      "pending",
+            "created_at":  _now_iso(),
+        })
+        # Then, the activate command (will be polled after update is processed)
+        await db.colorlight_commands.insert_one({
+            "cmd_id":      cmd_activate_id,
             "device_id":   req.device_id,
             "author_url":  activate_url,
             "raw":         "{}",
@@ -539,9 +555,9 @@ def create_player_routes(db):
             "program_id":   program_id,
             "vsn":          {"filename": vsn_filename, "size": vsn_size, "md5": vsn_md5},
             "media":        {"filename": media_filename, "size": media_size, "md5": media_md5},
-            "command_id":   cmd_id,
+            "commands":     [cmd_update_id, cmd_activate_id],
             "activate_url": activate_url,
-            "note":         "Device will fetch and activate within 5s.",
+            "note":         "Sent: api/update + activate. Device will fetch and play within 10s.",
         }
 
     # ────────── Convenience command shortcuts ──────────
