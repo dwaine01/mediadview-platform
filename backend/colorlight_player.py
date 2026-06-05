@@ -340,12 +340,18 @@ def create_player_routes(db):
 
     @router.post("/cls/push")
     async def admin_publish_program(req: DirectPushReq):
-        """Upload media + create program + tell device to refresh program list.
-        Full E2E: bytes → file on disk → program in DB → 'update program' command."""
+        """Upload media + create program (with .vsn descriptor) + tell device to refresh.
+        Colorlight protocol requires BOTH files to be downloaded by the A40:
+          1. The media file: F_<MD5>_<SIZE>.<ext>
+          2. The playlist descriptor (.vsn): <ProgramName>_<MD5>_<SIZE>.vsn
+        Without the .vsn the device downloads the image but has no idea what to do
+        with it (no duration, no position, no playback config). Result: black screen.
+        """
         term = await db.colorlight_terminals.find_one({"device_id": req.device_id})
         if not term:
             raise HTTPException(404, "Device not found")
-        # 1. Decode and save the file
+
+        # ---- 1. Decode and save the MEDIA file ----
         b64 = req.media_base64
         if "," in b64 and b64.startswith("data:"):
             b64 = b64.split(",", 1)[1]
@@ -353,43 +359,140 @@ def create_player_routes(db):
             raw_bytes = base64.b64decode(b64)
         except Exception as e:
             raise HTTPException(400, f"Invalid base64: {e}")
-        size = len(raw_bytes)
-        md5 = _bytes_md5(raw_bytes)
+        media_size = len(raw_bytes)
+        media_md5 = _bytes_md5(raw_bytes)
         ext = (req.filename.rsplit(".", 1)[-1] if "." in req.filename else "jpg").lower()
-        # Colorlight material file naming: F_<MD5>_<SIZE>.<ext>
-        material_name = f"F_{md5}_{size}.{ext}"
-        file_path = os.path.join(MEDIA_DIR, material_name)
-        with open(file_path, "wb") as f:
+        media_filename = f"F_{media_md5}_{media_size}.{ext}"
+        media_path = os.path.join(MEDIA_DIR, media_filename)
+        with open(media_path, "wb") as f:
             f.write(raw_bytes)
 
-        # 2. Generate program ID and vsn name
+        # ---- 2. Build the .vsn playlist descriptor (Colorlight format) ----
         program_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000
         program_name = f"Playlist{program_id}"
-        vsn_name = f"{program_name}_{md5.lower()}_{size}.vsn"
+        file_type = "image"
+        if req.content_type.startswith("video/"):
+            file_type = "video"
+        elif req.content_type == "image/gif":
+            file_type = "gif"
 
-        # 3. Insert program record
+        # vsn is a JSON playlist structure that the A40 firmware understands.
+        # Mirrors the structure ColorlightCloud's web editor produces.
+        vsn_content = {
+            "name":         program_name,
+            "displayName":  req.title or program_name,
+            "id":           program_id,
+            "type":         "contents",
+            "version":      4,
+            "isCrop":       0,
+            "selectChild":  0,
+            "addNum":       1,
+            "overStage":    False,
+            "info": {
+                "Information": {"Width": req.width, "Height": req.height, "Scale": 1},
+                "Pages": []
+            },
+            "children": [{
+                "name":         "Page1",
+                "id":           program_id + 1,
+                "index":        1,
+                "type":         "page",
+                "selectChild":  0,
+                "addNum":       1,
+                "info": {
+                    "AppointDuration": 3600000,
+                    "Opacity":         1,
+                    "LoopType":        1,
+                    "BgColor":         "0xFF000000",
+                    "Regions":         []
+                },
+                "children": [{
+                    "name":            "File Window",
+                    "id":              program_id + 2,
+                    "index":           1,
+                    "type":            "fileWindow",
+                    "vsnType":         3,
+                    "Rect": {
+                        "X": 0, "Y": 0,
+                        "Width":  req.width,
+                        "Height": req.height,
+                        "BorderWidth": 0, "BorderColor": "#ffff00"
+                    },
+                    "IsScheduleRegion": 0,
+                    "selectChild":      None,
+                    "children": [{
+                        "fileID":      program_id + 3,
+                        "name":        req.filename,
+                        "type":        file_type,
+                        "file_type":   ext,
+                        "author":      term["device_id"],
+                        "source_url":  f"/api/wp-content/upload/{media_filename}",
+                        "src":         f"/api/wp-content/upload/{media_filename}",
+                        "Duration":    req.duration_ms,
+                        "IsSchedule":  0,
+                        "Schedule": {
+                            "IsLimitTime":  0,
+                            "StartTime":   "00:00:00",
+                            "EndTime":     "23:59:59",
+                            "IsLimitDate": 0,
+                            "IsLimitWeek": 0,
+                            "LimitWeek":  [1, 1, 1, 1, 1, 1, 1]
+                        },
+                        "Trigger":       {"Type": "lightStrip", "Value": "0"},
+                        "thumbnailSize": {"width": 113, "height": 200},
+                        "fullSize":      {"width": req.width, "height": req.height},
+                    }]
+                }]
+            }]
+        }
+        vsn_bytes = json.dumps(vsn_content, separators=(",", ":")).encode("utf-8")
+        vsn_size = len(vsn_bytes)
+        vsn_md5 = _bytes_md5(vsn_bytes)
+        vsn_filename = f"{program_name}_{vsn_md5}_{vsn_size}.vsn"
+        vsn_path = os.path.join(MEDIA_DIR, vsn_filename)
+        with open(vsn_path, "wb") as f:
+            f.write(vsn_bytes)
+
+        # ---- 3. Disable all previous active programs for this device ----
+        await db.colorlight_programs.update_many(
+            {"device_id": req.device_id, "active": True},
+            {"$set": {"active": False}}
+        )
+
+        # ---- 4. Insert program record with BOTH materials ----
         now = _now_iso()
         await db.colorlight_programs.insert_one({
             "program_id": program_id,
             "device_id":  req.device_id,
             "name":       req.title or program_name,
-            "vsn_name":   vsn_name,
+            "vsn_name":   vsn_filename,
             "active":     True,
             "created":    now,
             "modified":   now,
             "width":      req.width,
             "height":     req.height,
             "duration_ms": req.duration_ms,
-            "materials": [{
-                "filename":    material_name,
-                "source_url":  f"/api/wp-content/upload/{material_name}",
-                "md5":         md5,
-                "size":        size,
-                "content_type": req.content_type,
-            }],
+            "materials": [
+                # The .vsn descriptor MUST come first (or at least be in the list)
+                {
+                    "filename":     vsn_filename,
+                    "source_url":   f"/api/wp-content/upload/{vsn_filename}",
+                    "md5":          vsn_md5,
+                    "size":         vsn_size,
+                    "content_type": "application/octet-stream",
+                },
+                # And the media file
+                {
+                    "filename":     media_filename,
+                    "source_url":   f"/api/wp-content/upload/{media_filename}",
+                    "md5":          media_md5,
+                    "size":         media_size,
+                    "content_type": req.content_type,
+                },
+            ],
         })
 
-        # 4. Queue an "update program" command so the device fetches the new program
+        # ---- 5. Queue an 'update program' command so device fetches ----
         cmd_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000 + 1
         await db.colorlight_commands.insert_one({
             "cmd_id":      cmd_id,
@@ -402,13 +505,11 @@ def create_player_routes(db):
         })
         return {
             "ok": True,
-            "program_id":  program_id,
-            "vsn_name":    vsn_name,
-            "material":    material_name,
-            "size":        size,
-            "md5":         md5,
-            "command_id":  cmd_id,
-            "note":        "Device will fetch within 5s. Check status afterwards.",
+            "program_id":   program_id,
+            "vsn":          {"filename": vsn_filename, "size": vsn_size, "md5": vsn_md5},
+            "media":        {"filename": media_filename, "size": media_size, "md5": media_md5},
+            "command_id":   cmd_id,
+            "note":         "Device will fetch within 5s. Check status afterwards.",
         }
 
     # ────────── Convenience command shortcuts ──────────
