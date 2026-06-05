@@ -4,6 +4,7 @@ SAFE MODE: read-only by default. Publishing requires explicit user confirmation.
 """
 import os
 import logging
+from datetime import datetime
 from typing import Optional, Dict, List, Any
 import requests
 from fastapi import APIRouter, Depends, HTTPException
@@ -272,6 +273,74 @@ class ColorlightSession:
                 "group_id": group_id, "terminals": terminal_ids,
                 "status_code": r.status_code}
 
+    # ---------- TERMINAL PROVISIONING (auto-create A40 in ColorlightCloud) ----------
+    @staticmethod
+    def _gen_credentials() -> Dict[str, str]:
+        """Generate Device ID + Secret Key + dummy email exactly like ColorlightCloud's
+        front-end does. Format matches the HAR capture:
+          - username (Device ID): 12 chars [A-Za-z0-9]
+          - password (Secret Key): 15 chars [A-Za-z0-9]
+          - email: 7-digit-number @lednets.com
+        """
+        import secrets
+        import random
+        import string
+        alphabet = string.ascii_letters + string.digits
+        username = "".join(secrets.choice(alphabet) for _ in range(12))
+        password = "".join(secrets.choice(alphabet) for _ in range(15))
+        email = f"{random.randint(1000000, 9999999)}@lednets.com"
+        return {"username": username, "password": password, "email": email}
+
+    def create_terminal(self, title: str, group_id: int,
+                        description: str = "",
+                        lat: Optional[float] = None,
+                        lng: Optional[float] = None) -> Dict[str, Any]:
+        """POST /wp-json/wp/v2/leds/account — exact replica of the ColorlightCloud
+        web panel's 'Add Terminal' flow. Generates Device ID + Secret Key client-side
+        and returns them so the admin can paste them into the A40's Cloud Account page.
+
+        Returns: {"terminal_id", "device_id", "secret_key", "email", "url"}
+        """
+        creds = self._gen_credentials()
+        payload = {
+            "terminalModel": {
+                "title": title,
+                "excerpt": description or "",
+                "status": "publish",
+                "terminalgroup": [int(group_id)],
+                "lat": lat,
+                "lng": lng,
+                "roles": ["terminal"],
+            },
+            "accountModel": {
+                "email": creds["email"],
+                "password": creds["password"],
+                "username": creds["username"],
+                "roles": ["terminal"],
+            },
+        }
+        r = self.s.post(self.server + "/wp-json/wp/v2/leds/account",
+                        json=payload, timeout=30,
+                        headers={"Content-Type": "application/json"})
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"create_terminal HTTP {r.status_code}: {r.text[:400]}")
+        try:
+            data = r.json()
+        except Exception:
+            data = {}
+        terminal_id = data.get("id") or data.get("terminal_id")
+        return {
+            "ok": True,
+            "terminal_id": terminal_id,
+            "device_id": creds["username"],
+            "secret_key": creds["password"],
+            "email": creds["email"],
+            "url": f"https://{self.server.replace('https://','').replace('http://','').strip('/')}",
+            "title": title,
+            "group_id": int(group_id),
+            "_raw": data,
+        }
+
 
 def create_colorlight_routes(db, get_current_user):
     router = APIRouter(prefix="/api/colorlight", tags=["colorlight"])
@@ -381,6 +450,50 @@ def create_colorlight_routes(db, get_current_user):
     async def list_terminals_flat(_admin=Depends(require_admin)):
         sess = await get_session()
         return {"items": sess.get_terminals_flat()}
+
+    # ============ TERMINAL PROVISIONING (auto-create A40 in ColorlightCloud) ============
+    class ProvisionReq(BaseModel):
+        title: str                                 # display name
+        group_id: int                              # ColorlightCloud group id
+        description: Optional[str] = ""
+        lat: Optional[float] = None
+        lng: Optional[float] = None
+        link_screen_id: Optional[str] = None       # optional MediaView screen id to link
+
+    @router.post("/provision")
+    async def provision_terminal(req: ProvisionReq, _admin=Depends(require_admin)):
+        """Create a brand-new terminal in ColorlightCloud and return the Device ID
+        + Secret Key so the admin can paste them into the A40's Cloud Account page.
+        Optionally links the new terminal to an existing MediAd View screen."""
+        sess = await get_session()
+        try:
+            result = sess.create_terminal(
+                title=req.title,
+                group_id=req.group_id,
+                description=req.description or "",
+                lat=req.lat, lng=req.lng,
+            )
+        except Exception as e:
+            raise HTTPException(502, f"ColorlightCloud provision failed: {e}")
+        # Persist a record so we never lose the credentials
+        await db.colorlight_terminals.insert_one({
+            **{k: v for k, v in result.items() if k != "_raw"},
+            "created_at": datetime.utcnow().isoformat(),
+            "linked_screen_id": req.link_screen_id,
+        })
+        # If linked to a MediAd View screen, store the cloud info there too
+        if req.link_screen_id:
+            await db.screens.update_one({"id": req.link_screen_id}, {"$set": {
+                "colorlight": {
+                    "terminal_id": result["terminal_id"],
+                    "group_id": result["group_id"],
+                    "device_id": result["device_id"],
+                    "secret_key": result["secret_key"],
+                    "url": result["url"],
+                    "provisioned_at": datetime.utcnow().isoformat(),
+                }
+            }})
+        return result
 
     # ============ PUSH FLOW (3-step: upload → create → publish) ============
     class PushReq(BaseModel):

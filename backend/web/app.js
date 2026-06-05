@@ -557,8 +557,8 @@ async function editAdminScreen(id){
   '<div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(99,102,241,.04),transparent);border:1px solid rgba(99,102,241,.2)">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
       '<svg width="20" height="20" fill="none" stroke="#818cf8" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>'+
-      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#818cf8">Device Pairing Credentials</div>'+
-      '<div style="font-size:11px;color:var(--t-4)">Give these to the customer to set up the MediAd View Player APK (v2.2.0+) on their TV/Android device.</div></div>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#818cf8">Device Pairing — Android TV / APK</div>'+
+      '<div style="font-size:11px;color:var(--t-4)">For Fire TV, TCL, Chromecast, etc. Give these to the customer to set up the MediAd View Player APK (v2.2.0+).</div></div>'+
     '</div>'+
     '<div class="row2" style="gap:14px">'+
       '<div><div class="lbl">Device ID</div>'+
@@ -577,6 +577,30 @@ async function editAdminScreen(id){
       '</div>'+
       '<button class="btn-s" onclick="regenPairingSecret(\''+id+'\')" style="font-size:11px;padding:5px 10px;color:var(--red)">↻ Regenerate Secret</button>'+
     '</div>'+
+  '</div>'+
+  // ===== Colorlight A40 Pairing Section =====
+  '<div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(34,211,238,.05),transparent);border:1px solid rgba(34,211,238,.25)">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
+      '<svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--cyan)">Colorlight A40 / LED Cloud Pairing</div>'+
+      '<div style="font-size:11px;color:var(--t-4)">Automatically create the terminal in ColorlightCloud and get the credentials to paste into the A40 device.</div></div>'+
+    '</div>'+
+    (s.colorlight && s.colorlight.device_id ? (
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'+
+        '<div><div class="lbl">Cloud URL</div><div style="display:flex;gap:6px"><input class="inp" readonly value="'+(s.colorlight.url||'')+'" style="font-family:ui-monospace,monospace;font-size:11px"><button class="btn-s" onclick="copyText(this,\''+(s.colorlight.url||'')+'\')">📋</button></div></div>'+
+        '<div><div class="lbl">Device ID</div><div style="display:flex;gap:6px"><input class="inp" readonly value="'+s.colorlight.device_id+'" style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:var(--cyan)"><button class="btn-s" onclick="copyText(this,\''+s.colorlight.device_id+'\')">📋</button></div></div>'+
+        '<div><div class="lbl">Secret Key</div><div style="display:flex;gap:6px"><input class="inp" id="es-clsec" readonly type="password" value="'+s.colorlight.secret_key+'" style="font-family:ui-monospace,monospace;font-size:12px"><button class="btn-s" onclick="document.getElementById(\'es-clsec\').type=document.getElementById(\'es-clsec\').type===\'password\'?\'text\':\'password\'">👁</button><button class="btn-s" onclick="copyText(this,\''+s.colorlight.secret_key+'\')">📋</button></div></div>'+
+      '</div>'+
+      '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border)">'+
+        '<div style="font-size:11px;color:var(--green-l)">✓ Provisioned in ColorlightCloud · Terminal #'+(s.colorlight.terminal_id||'?')+' · '+(s.colorlight.provisioned_at?new Date(s.colorlight.provisioned_at).toLocaleString():'')+'</div>'+
+        '<button class="btn-s" onclick="showColorlightInstructions(\''+id+'\')" style="font-size:11px;padding:5px 10px">📖 Setup Instructions</button>'+
+      '</div>'
+    ) : (
+      '<div id="cl-provision-box-'+id+'">'+
+        '<p style="font-size:12px;color:var(--t-4);margin-bottom:12px">This screen is not linked to ColorlightCloud yet. Click below to auto-create the terminal and get the credentials.</p>'+
+        '<button class="btn-p" onclick="openProvisionModal(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:12px"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Provision in ColorlightCloud</button>'+
+      '</div>'
+    ))+
   '</div>'+
   '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
   window._editOrient=orient}
@@ -1274,6 +1298,116 @@ async function regenPairingSecret(screenId){
     alert('✓ New credentials generated.\n\nDevice ID: '+res.pairing_code+'\nSecret Key: '+res.pairing_secret+'\n\nReloading editor…');
     editAdminScreen(screenId);
   }catch(e){alert('Error: '+e.message)}
+}
+
+// ============ COLORLIGHT A40 PROVISIONING (auto-create terminal in cloud) ============
+async function openProvisionModal(screenId, screenName){
+  // Fetch terminal groups from ColorlightCloud
+  let groups=[];
+  try{
+    const terms=await api('/colorlight/terminals');
+    groups=terms.groups||[];
+  }catch(e){
+    alert('ColorlightCloud not configured or unreachable.\n\nGo to Admin Panel → LED Cloud first and connect your account.\n\nError: '+e.message);
+    return;
+  }
+  const ov=document.createElement('div');ov.id='cl-prov-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
+  ov.innerHTML='<div class="card" style="max-width:520px;width:100%;padding:28px;background:var(--bg-2)">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(34,211,238,.12);color:var(--cyan);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div>'+
+      '<div style="flex:1"><h2 style="font-size:18px;font-weight:700;margin:0">Provision A40 in ColorlightCloud</h2><p style="font-size:12px;color:var(--t-4);margin:4px 0 0">Auto-creates the terminal and returns Device ID + Secret Key.</p></div>'+
+      '<button onclick="document.getElementById(\'cl-prov-modal\').remove()" style="background:none;border:none;color:var(--t-4);font-size:24px;cursor:pointer;padding:0;line-height:1">×</button>'+
+    '</div>'+
+    '<div style="margin-bottom:14px"><div class="lbl">Terminal name</div><input class="inp" id="prov-title" value="'+(screenName||'')+'" placeholder="Eg. casa josue A40"></div>'+
+    '<div style="margin-bottom:14px"><div class="lbl">Description (optional)</div><input class="inp" id="prov-desc" placeholder="Eg. Columbus OH 30x54 Portrait"></div>'+
+    '<div style="margin-bottom:18px"><div class="lbl">Target group in ColorlightCloud</div><select class="inp" id="prov-group"><option value="">— Select a group —</option>'+
+      groups.map(g=>'<option value="'+g.group_id+'">'+g.group_name+' ('+g.terminal_count+' terminals)</option>').join('')+
+    '</select></div>'+
+    '<button class="btn-p" id="prov-btn" onclick="executeProvision(\''+screenId+'\')" style="width:100%;justify-content:center;padding:14px;font-size:14px"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Create Terminal & Get Credentials</button>'+
+    '<p id="prov-msg" style="font-size:12px;margin-top:14px;text-align:center;display:none"></p>'+
+  '</div>';
+  document.body.appendChild(ov);
+}
+
+async function executeProvision(screenId){
+  const title=document.getElementById('prov-title').value.trim();
+  const desc=document.getElementById('prov-desc').value.trim();
+  const groupId=parseInt(document.getElementById('prov-group').value);
+  const msg=document.getElementById('prov-msg');msg.style.display='none';
+  const btn=document.getElementById('prov-btn');
+  if(!title){msg.textContent='Enter a name';msg.style.color='var(--red)';msg.style.display='block';return}
+  if(!groupId){msg.textContent='Select a group';msg.style.color='var(--red)';msg.style.display='block';return}
+  btn.disabled=true;btn.style.opacity='.6';
+  msg.textContent='Creating terminal in ColorlightCloud…';msg.style.color='var(--t-4)';msg.style.display='block';
+  try{
+    const res=await api('/colorlight/provision',{method:'POST',body:JSON.stringify({
+      title,description:desc,group_id:groupId,link_screen_id:screenId
+    })});
+    document.getElementById('cl-prov-modal').remove();
+    showColorlightCredentialsModal(res);
+    // Refresh the editor to show the new colorlight section
+    setTimeout(()=>editAdminScreen(screenId),300);
+  }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)';btn.disabled=false;btn.style.opacity='1'}
+}
+
+function showColorlightCredentialsModal(creds){
+  const ov=document.createElement('div');ov.id='cl-creds-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.9);backdrop-filter:blur(6px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
+  ov.innerHTML='<div class="card" style="max-width:580px;width:100%;padding:28px;background:var(--bg-2)">'+
+    '<div style="text-align:center;margin-bottom:20px">'+
+      '<div style="width:64px;height:64px;border-radius:50%;background:rgba(34,197,94,.15);color:var(--green-l);display:flex;align-items:center;justify-content:center;margin:0 auto 12px"><svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>'+
+      '<h2 style="font-size:20px;font-weight:700;margin:0">Terminal Created! 🎉</h2>'+
+      '<p style="font-size:13px;color:var(--t-4);margin:6px 0 0">Now enter these 3 values into your A40 device:</p>'+
+    '</div>'+
+    '<div style="display:flex;flex-direction:column;gap:14px;margin-bottom:20px">'+
+      '<div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-1)">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:var(--t-3);font-weight:700;text-transform:uppercase;letter-spacing:.6px">1️⃣ Cloud URL</div><button class="btn-s" onclick="copyText(this,\''+creds.url+'\')" style="font-size:11px;padding:4px 10px">📋 Copy</button></div>'+
+        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--cyan);word-break:break-all">'+creds.url+'</div>'+
+      '</div>'+
+      '<div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-1)">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:var(--t-3);font-weight:700;text-transform:uppercase;letter-spacing:.6px">2️⃣ Device ID</div><button class="btn-s" onclick="copyText(this,\''+creds.device_id+'\')" style="font-size:11px;padding:4px 10px">📋 Copy</button></div>'+
+        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+creds.device_id+'</div>'+
+      '</div>'+
+      '<div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-1)">'+
+        '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:var(--t-3);font-weight:700;text-transform:uppercase;letter-spacing:.6px">3️⃣ Secret Key</div><button class="btn-s" onclick="copyText(this,\''+creds.secret_key+'\')" style="font-size:11px;padding:4px 10px">📋 Copy</button></div>'+
+        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;color:#22d3ee;letter-spacing:1px;word-break:break-all">'+creds.secret_key+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="padding:14px;border-left:3px solid var(--cyan);background:rgba(34,211,238,.05);border-radius:6px;margin-bottom:18px">'+
+      '<div style="font-size:12px;color:var(--t-2);line-height:1.6">'+
+        '<b style="color:var(--cyan)">📺 On the A40:</b><br>'+
+        '1. Open the device web admin (eg. <code>http://192.168.x.x</code>)<br>'+
+        '2. Go to <b>Cloud account</b> tab<br>'+
+        '3. Paste the 3 values above<br>'+
+        '4. Click <b>Apply</b><br>'+
+        '5. Status should change to: <span style="color:var(--green-l)">✓ Network Connected · Login Logged in</span>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;gap:10px">'+
+      '<button class="btn-s" onclick="copyAllColorlightCreds(\''+creds.url+'\',\''+creds.device_id+'\',\''+creds.secret_key+'\')" style="flex:1;justify-content:center;padding:12px">📋 Copy All 3</button>'+
+      '<button class="btn-p" onclick="document.getElementById(\'cl-creds-modal\').remove()" style="flex:1;justify-content:center;padding:12px">Done</button>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(ov);
+}
+
+function copyAllColorlightCreds(url,deviceId,secretKey){
+  const text='URL: '+url+'\nDevice ID: '+deviceId+'\nSecret Key: '+secretKey;
+  navigator.clipboard.writeText(text).then(()=>{
+    alert('✓ All 3 credentials copied to clipboard');
+  }).catch(()=>alert('Copy failed. Please copy each value individually.'));
+}
+
+function showColorlightInstructions(screenId){
+  // Re-open the credentials modal using saved values
+  api('/screens/'+screenId).then(s=>{
+    if(s.colorlight && s.colorlight.device_id){
+      showColorlightCredentialsModal(s.colorlight);
+    }else{
+      alert('No ColorlightCloud credentials saved for this screen.');
+    }
+  }).catch(e=>alert('Error: '+e.message));
 }
 
 // ============ COLORLIGHT CLOUD ============
