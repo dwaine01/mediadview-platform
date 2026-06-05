@@ -1,9 +1,20 @@
 -- Merging decision tree log ---
+provider#androidx.core.content.FileProvider
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:105:9-113:20
+	android:grantUriPermissions
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:109:13-47
+	android:authorities
+		INJECTED from /app/android-player/app/src/main/AndroidManifest.xml
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:107:13-64
+	android:exported
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:108:13-37
+	android:name
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:106:13-62
 manifest
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-103:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-103:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-103:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-103:12
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /root/.gradle/caches/transforms-4/9f7e3cc5831df4cbfd29ee7ed7b865d7/transformed/appcompat-resources-1.6.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.appcompat:appcompat:1.6.1] /root/.gradle/caches/transforms-4/b27725821584d208d50eda84996d4896/transformed/appcompat-1.6.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.webkit:webkit:1.10.0] /root/.gradle/caches/transforms-4/9ec96b7b1d57cfb428acb1b7ad64aab9/transformed/webkit-1.10.0/AndroidManifest.xml:2:1-7:12
@@ -106,21 +117,25 @@ uses-permission#android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
 ADDED from /app/android-player/app/src/main/AndroidManifest.xml:16:5-95
 	android:name
 		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:16:22-92
+uses-permission#android.permission.REQUEST_INSTALL_PACKAGES
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:17:5-83
+	android:name
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:17:22-80
 uses-feature#android.software.leanback
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:19:5-87
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:5-87
 	android:required
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:19:60-84
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:60-84
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:19:19-59
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:19-59
 uses-feature#android.hardware.touchscreen
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:5-90
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:21:5-90
 	android:required
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:63-87
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:21:63-87
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:20:19-62
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:21:19-62
 application
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:22:5-102:19
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:22:5-102:19
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-115:19
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-115:19
 MERGED from [androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-4/947855cacaff24bdd91b3f4424dec61a/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-4/947855cacaff24bdd91b3f4424dec61a/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.work:work-runtime:2.9.0] /root/.gradle/caches/transforms-4/99ab30fdfd3bf3c885b69515cc966790/transformed/work-runtime-2.9.0/AndroidManifest.xml:28:5-143:19
@@ -140,137 +155,143 @@ MERGED from [androidx.startup:startup-runtime:1.1.1] /root/.gradle/caches/transf
 	android:appComponentFactory
 		ADDED from [androidx.core:core:1.12.0] /root/.gradle/caches/transforms-4/718b5795429cf36e583af2723762b198/transformed/core-1.12.0/AndroidManifest.xml:28:18-86
 	android:supportsRtl
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:28:9-35
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:29:9-35
 	android:label
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:27:9-41
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:28:9-41
 	android:hardwareAccelerated
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:30:9-43
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:31:9-43
 	tools:targetApi
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:31:9-29
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:32:9-29
 	android:icon
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:25:9-45
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:26:9-45
 	android:allowBackup
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:24:9-36
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:25:9-36
 	android:banner
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:26:9-47
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:27:9-47
 	android:theme
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:29:9-53
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:30:9-53
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:23:9-34
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:24:9-34
 activity#com.mediaview.player.MainActivity
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:34:9-63:20
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:35:9-64:20
 	android:screenOrientation
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:38:13-56
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:39:13-56
 	android:lockTaskMode
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:41:13-50
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:42:13-50
 	android:excludeFromRecents
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:42:13-47
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:43:13-47
 	android:launchMode
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:40:13-44
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:41:13-44
 	android:exported
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:36:13-36
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:37:13-36
 	android:keepScreenOn
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:39:13-40
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:40:13-40
 	android:configChanges
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:37:13-85
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:38:13-85
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:35:13-41
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:36:13-41
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:45:13-48:29
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:46:13-49:29
 action#android.intent.action.MAIN
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:46:17-69
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:47:17-69
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:46:25-66
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:47:25-66
 category#android.intent.category.LAUNCHER
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:47:17-77
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:48:17-77
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:47:27-74
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:48:27-74
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LEANBACK_LAUNCHER
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:51:13-54:29
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:52:13-55:29
 category#android.intent.category.LEANBACK_LAUNCHER
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:53:17-86
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:54:17-86
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:53:27-83
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:54:27-83
 intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.DEFAULT+category:name:android.intent.category.HOME
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:58:13-62:29
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:59:13-63:29
 category#android.intent.category.HOME
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:60:17-73
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:61:17-73
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:60:27-70
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:61:27-70
 category#android.intent.category.DEFAULT
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:61:17-76
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:62:17-76
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:61:27-73
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:62:27-73
 receiver#com.mediaview.player.BootReceiver
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:66:9-78:20
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:67:9-79:20
 	android:enabled
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:68:13-35
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:69:13-35
 	android:exported
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:69:13-36
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:70:13-36
 	android:directBootAware
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:70:13-43
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:71:13-43
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:67:13-41
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:68:13-41
 intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.LOCKED_BOOT_COMPLETED+action:name:android.intent.action.MY_PACKAGE_REPLACED+action:name:android.intent.action.QUICKBOOT_POWERON+action:name:android.intent.action.REBOOT
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:71:13-77:29
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:72:13-78:29
 	android:priority
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:71:28-51
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:72:28-51
 action#android.intent.action.BOOT_COMPLETED
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:72:17-79
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:73:17-79
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:72:25-76
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:73:25-76
 action#android.intent.action.QUICKBOOT_POWERON
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:73:17-82
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:74:17-82
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:73:25-79
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:74:25-79
 action#android.intent.action.REBOOT
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:74:17-71
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:75:17-71
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:74:25-68
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:75:25-68
 action#android.intent.action.MY_PACKAGE_REPLACED
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:75:17-84
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:76:17-84
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:75:25-81
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:76:25-81
 action#android.intent.action.LOCKED_BOOT_COMPLETED
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:76:17-86
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:77:17-86
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:76:25-83
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:77:25-83
 receiver#com.mediaview.player.NetworkBootReceiver
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:81:9-94:20
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:82:9-95:20
 	android:enabled
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:83:13-35
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:84:13-35
 	android:exported
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:84:13-36
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:85:13-36
 	android:directBootAware
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:85:13-43
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:86:13-43
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:82:13-48
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:83:13-48
 intent-filter#action:name:android.intent.action.BOOT_COMPLETED+action:name:android.intent.action.TIMEZONE_CHANGED+action:name:android.intent.action.TIME_SET+action:name:android.intent.action.USER_PRESENT+action:name:android.net.conn.CONNECTIVITY_CHANGE+category:name:android.intent.category.DEFAULT
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:86:13-93:29
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:87:13-94:29
 action#android.net.conn.CONNECTIVITY_CHANGE
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:87:17-79
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:88:17-79
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:87:25-76
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:88:25-76
 action#android.intent.action.TIME_SET
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:89:17-73
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:90:17-73
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:89:25-70
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:90:25-70
 action#android.intent.action.TIMEZONE_CHANGED
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:90:17-81
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:91:17-81
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:90:25-78
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:91:25-78
 action#android.intent.action.USER_PRESENT
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:91:17-77
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:92:17-77
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:91:25-74
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:92:25-74
 service#com.mediaview.player.OverlayService
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:97:9-100:40
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:98:9-101:40
 	android:enabled
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:99:13-35
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:100:13-35
 	android:exported
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:100:13-37
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:101:13-37
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:98:13-43
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:99:13-43
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:110:13-112:63
+	android:resource
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:112:17-60
+	android:name
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:111:17-67
 uses-sdk
 INJECTED from /app/android-player/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /app/android-player/app/src/main/AndroidManifest.xml

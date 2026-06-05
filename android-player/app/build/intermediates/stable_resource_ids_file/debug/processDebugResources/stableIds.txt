@@ -1,3 +1,4 @@
+com.mediaview.player.debug:xml/file_provider_paths = 0x7f0f0000
 com.mediaview.player.debug:styleable/Toolbar = 0x7f0e002b
 com.mediaview.player.debug:styleable/MenuGroup = 0x7f0e001f
 com.mediaview.player.debug:styleable/FragmentContainerView = 0x7f0e0019

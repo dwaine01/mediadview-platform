@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mediaview.player.debug"
-    android:versionCode="2"
-    android:versionName="2.0.0" >
+    android:versionCode="3"
+    android:versionName="2.1.0" >
 
     <uses-sdk
         android:minSdkVersion="21"
@@ -20,6 +20,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Declare TV feature (not required, allows non-TV too) -->
     <uses-feature
@@ -123,6 +124,16 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!-- FileProvider for APK auto-update install -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.mediaview.player.debug.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="com.mediaview.player.debug.androidx-startup"

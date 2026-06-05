@@ -1173,7 +1173,95 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     if power_schedule and power_schedule.get("enabled"):
         response["power_schedule"] = power_schedule
 
+    # ====== AUTO-UPDATE CHECK ======
+    # If a target_apk_version is set globally or per-device, instruct the player to update
+    try:
+        cfg = await db.app_config.find_one({"_id": "player_release"}) or {}
+        latest_version = cfg.get("version_name")
+        latest_code = int(cfg.get("version_code") or 0)
+        apk_url = cfg.get("apk_url")
+        device_version = (data.app_version or "").strip()
+        device_code = int(device.get("device_info", {}).get("app_version_code") or 0)
+        # Allow per-device pinning
+        pinned_skip = device.get("disable_auto_update", False)
+        if latest_version and apk_url and not pinned_skip:
+            should_update = False
+            if latest_code and device_code and latest_code > device_code:
+                should_update = True
+            elif latest_version and device_version and latest_version != device_version:
+                should_update = True
+            if should_update:
+                response["update_available"] = {
+                    "version_name": latest_version,
+                    "version_code": latest_code,
+                    "apk_url": apk_url,
+                    "sha256": cfg.get("sha256"),
+                    "mandatory": cfg.get("mandatory", False),
+                    "notes": cfg.get("notes", ""),
+                }
+    except Exception as e:
+        logger.warning(f"Update check error for device {device_id}: {e}")
+
     return response
+
+@api_router.get("/devices/{device_id}/update-check")
+async def device_update_check(device_id: str, current_version: str = "", current_code: int = 0):
+    """Lightweight endpoint the player can poll to see if an update is needed."""
+    device = await db.devices.find_one({"id": device_id})
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+    cfg = await db.app_config.find_one({"_id": "player_release"}) or {}
+    latest_version = cfg.get("version_name")
+    latest_code = int(cfg.get("version_code") or 0)
+    apk_url = cfg.get("apk_url")
+    needs = False
+    if latest_version and apk_url and not device.get("disable_auto_update", False):
+        if latest_code and current_code and latest_code > current_code:
+            needs = True
+        elif latest_version and current_version and latest_version != current_version:
+            needs = True
+    return {
+        "update_available": needs,
+        "version_name": latest_version,
+        "version_code": latest_code,
+        "apk_url": apk_url if needs else None,
+        "sha256": cfg.get("sha256") if needs else None,
+        "mandatory": cfg.get("mandatory", False) if needs else False,
+        "notes": cfg.get("notes", "") if needs else "",
+    }
+
+@api_router.post("/admin/player-release")
+async def set_player_release(payload: dict, current_user: dict = Depends(get_current_user)):
+    """Admin: publish a new player APK release. All devices with a different version
+    will be instructed to auto-update on their next heartbeat."""
+    if current_user.get("role") not in ("superadmin", "admin"):
+        raise HTTPException(403, "Admin required")
+    required = ["version_name", "version_code", "apk_url"]
+    for k in required:
+        if not payload.get(k):
+            raise HTTPException(400, f"Missing field: {k}")
+    doc = {
+        "_id": "player_release",
+        "version_name": str(payload["version_name"]),
+        "version_code": int(payload["version_code"]),
+        "apk_url": payload["apk_url"],
+        "sha256": payload.get("sha256"),
+        "mandatory": bool(payload.get("mandatory", False)),
+        "notes": payload.get("notes", ""),
+        "published_at": datetime.utcnow().isoformat(),
+        "published_by": current_user.get("email"),
+    }
+    await db.app_config.update_one({"_id": "player_release"}, {"$set": doc}, upsert=True)
+    return {"ok": True, "release": doc}
+
+@api_router.get("/admin/player-release")
+async def get_player_release(current_user: dict = Depends(get_current_user)):
+    if current_user.get("role") not in ("superadmin", "admin"):
+        raise HTTPException(403, "Admin required")
+    cfg = await db.app_config.find_one({"_id": "player_release"})
+    if cfg:
+        cfg.pop("_id", None)
+    return cfg or {}
 
 @api_router.post("/devices/{device_id}/log")
 async def device_log(device_id: str, data: DeviceLog):
