@@ -87,30 +87,45 @@ class ColorlightSession:
 
     # ============ READ-ONLY METHODS (safe to call against production) ============
     def get_terminal_groups(self) -> List[Dict[str, Any]]:
+        """List all groups (high-level)."""
         r = self.s.get(self.server + "/wp-json/wp/v2/terminalgroup",
-                       params={"schedule": "true"}, timeout=20)
+                       params={"schedule": "true", "per_page": 100}, timeout=20)
         if r.status_code != 200:
             raise RuntimeError(f"GET terminalgroup → HTTP {r.status_code}: {r.text[:200]}")
-        return r.json() if isinstance(r.json(), list) else r.json().get("groups", [])
+        data = r.json()
+        return data if isinstance(data, list) else data.get("groups", [])
 
-    def get_terminals_flat(self) -> List[Dict[str, Any]]:
-        """Flatten groups + terminals into a single list for dropdowns."""
+    def get_group_detail(self, group_id: int) -> Dict[str, Any]:
+        """Per-group detail — contains the 'leds' (terminals) array."""
+        r = self.s.get(self.server + f"/wp-json/wp/v2/terminalgroup/{group_id}", timeout=15)
+        if r.status_code != 200:
+            raise RuntimeError(f"GET terminalgroup/{group_id} → HTTP {r.status_code}")
+        return r.json()
+
+    def get_all_terminals(self) -> List[Dict[str, Any]]:
+        """Walk all groups and fetch each group's terminals (leds)."""
         groups = self.get_terminal_groups()
-        flat = []
+        out = []
         for g in groups:
             gid = g.get("id")
-            gname = g.get("name") or g.get("title", {}).get("rendered", "")
-            terminals = g.get("terminals") or g.get("children") or []
-            for t in terminals:
-                flat.append({
+            try:
+                detail = self.get_group_detail(gid)
+            except Exception:
+                continue
+            for led in (detail.get("leds") or []):
+                out.append({
                     "group_id": gid,
-                    "group_name": gname,
-                    "terminal_id": t.get("id"),
-                    "terminal_name": t.get("name") or t.get("title", "Terminal"),
-                    "online": t.get("online", False),
-                    "model": t.get("model", ""),
+                    "group_name": detail.get("name") or g.get("name", "(unnamed)"),
+                    "group_description": detail.get("description", ""),
+                    "terminal_id": led.get("led_id"),
+                    "terminal_name": led.get("led_name") or f"Terminal {led.get('led_id')}",
+                    "last_seen": led.get("_led_latest_report_time"),
+                    "description": led.get("led_description", ""),
                 })
-        return flat
+        return out
+
+    def get_terminals_flat(self):
+        return self.get_all_terminals()
 
 
 def create_colorlight_routes(db, get_current_user):
