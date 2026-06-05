@@ -2,7 +2,7 @@
 MediAd View — Finance & Administration Module
 Phase 1: Clients (CRM), Contracts, Invoices, Deposits, Payments
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
@@ -586,6 +586,36 @@ def create_finance_routes(db, get_current_user):
         upd["updated_at"] = datetime.utcnow().isoformat()
         await db.fin_contracts.update_one({"id": contract_id}, {"$set": upd})
         return {"ok": True}
+
+    @finance_router.post("/contracts/{contract_id}/sign")
+    async def sign_contract(contract_id: str, payload: dict = Body(...),
+                            user: dict = Depends(require_finance_edit)):
+        """Save a base64 PNG signature for the Lessor or Lessee.
+        Payload: {"lessor_signature":"data:image/png;base64,..."} OR {"lessee_signature":...}"""
+        ct = await db.fin_contracts.find_one({"id": contract_id})
+        if not ct:
+            raise HTTPException(404, "Contract not found")
+        upd = {}
+        if payload.get("lessor_signature"):
+            upd["lessor_signature"] = payload["lessor_signature"]
+        if payload.get("lessee_signature"):
+            upd["lessee_signature"] = payload["lessee_signature"]
+        if not upd:
+            raise HTTPException(400, "lessor_signature or lessee_signature is required")
+        # Stamp signed_at the FIRST time either signature is applied
+        if not ct.get("signed_at"):
+            upd["signed_at"] = datetime.utcnow().strftime("%B %d, %Y")
+        # If both signatures exist now, mark as active
+        will_have_both = bool(
+            (ct.get("lessor_signature") or upd.get("lessor_signature"))
+            and (ct.get("lessee_signature") or upd.get("lessee_signature"))
+        )
+        if will_have_both and ct.get("status") in (None, "", "draft"):
+            upd["status"] = "active"
+        upd["updated_at"] = datetime.utcnow().isoformat()
+        await db.fin_contracts.update_one({"id": contract_id}, {"$set": upd})
+        return {"ok": True, "signed_at": upd.get("signed_at") or ct.get("signed_at"),
+                "fully_signed": will_have_both}
 
     @finance_router.delete("/contracts/{contract_id}")
     async def delete_contract(contract_id: str, user: dict = Depends(require_finance_edit)):

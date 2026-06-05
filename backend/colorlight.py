@@ -19,12 +19,14 @@ def _fernet():
 
 
 def encrypt(plain: str) -> str:
-    if not plain: return ""
+    if not plain:
+        return ""
     return _fernet().encrypt(plain.encode()).decode()
 
 
 def decrypt(token: str) -> str:
-    if not token: return ""
+    if not token:
+        return ""
     try:
         return _fernet().decrypt(token.encode()).decode()
     except Exception:
@@ -48,41 +50,68 @@ class ColorlightSession:
         self.nonce: Optional[str] = None
 
     def login(self) -> Dict[str, Any]:
-        """Try several common WordPress / ColorlightCloud login endpoints."""
-        candidates = [
-            ("/wp-json/jwt-auth/v1/token", "json"),    # JWT (most modern)
-            ("/wp-json/wp/v2/users/me",    "basic"),    # HTTP basic
-            ("/wp-login.php",              "form"),     # classic WP form
-        ]
+        """ColorlightCloud uses WP-form login (JSESSIONID cookie).
+        Try form login FIRST (confirmed method), then JWT / Basic as fallback."""
         last_err = ""
-        for path, mode in candidates:
-            try:
-                url = self.server + path
-                if mode == "json":
-                    r = self.s.post(url, json={"username": self.username, "password": self.password}, timeout=15)
-                    if r.status_code == 200:
-                        data = r.json()
-                        token = data.get("token") or data.get("access_token")
-                        if token:
-                            self.s.headers["Authorization"] = f"Bearer {token}"
-                            logger.info(f"[colorlight] JWT login OK via {path}")
-                            return {"ok": True, "method": "jwt", "token": "*****"}
-                elif mode == "basic":
-                    r = self.s.get(url, auth=(self.username, self.password), timeout=15)
-                    if r.status_code == 200:
-                        # Persist basic auth on session
-                        self.s.auth = (self.username, self.password)
-                        logger.info(f"[colorlight] Basic auth OK via {path}")
-                        return {"ok": True, "method": "basic"}
-                elif mode == "form":
-                    r = self.s.post(url, data={"log": self.username, "pwd": self.password, "wp-submit": "Log In"},
-                                    timeout=15, allow_redirects=True)
-                    if "wordpress_logged_in" in self.s.cookies.get_dict().__str__() or r.status_code == 200:
-                        logger.info(f"[colorlight] Form login OK via {path}")
-                        return {"ok": True, "method": "form"}
-                last_err = f"{path} → HTTP {r.status_code}"
-            except Exception as e:
-                last_err = f"{path} → {e}"
+
+        # 1) ColorlightCloud form login (confirmed method — sets JSESSIONID cookie)
+        try:
+            url = self.server + "/wp-login.php"
+            r = self.s.post(url, data={
+                "log": self.username,
+                "pwd": self.password,
+                "wp-submit": "Log In",
+                "redirect_to": self.server + "/wp-admin/",
+                "testcookie": "1",
+            }, timeout=20, allow_redirects=True)
+            cookies = self.s.cookies.get_dict()
+            cookie_str = " ".join(cookies.keys()).lower()
+            # Success indicators: JSESSIONID cookie OR wordpress_logged_in OR redirect to wp-admin
+            authed = (
+                "jsessionid" in cookie_str
+                or "wordpress_logged_in" in cookie_str
+                or "/wp-admin" in r.url
+            )
+            if authed:
+                # Probe a protected endpoint to confirm the session really works
+                probe = self.s.get(self.server + "/wp-json/wp/v2/terminalgroup",
+                                   params={"per_page": 1}, timeout=15)
+                if probe.status_code == 200:
+                    logger.info(f"[colorlight] Form login OK (JSESSIONID). Cookies: {list(cookies.keys())}")
+                    return {"ok": True, "method": "form", "cookies": list(cookies.keys())}
+                last_err = f"form login set cookies but probe → HTTP {probe.status_code}"
+            else:
+                last_err = f"/wp-login.php → HTTP {r.status_code}, no auth cookies set"
+        except Exception as e:
+            last_err = f"/wp-login.php → {e}"
+
+        # 2) JWT fallback (some modern WP installs)
+        try:
+            url = self.server + "/wp-json/jwt-auth/v1/token"
+            r = self.s.post(url, json={"username": self.username, "password": self.password}, timeout=15)
+            if r.status_code == 200:
+                data = r.json()
+                token = data.get("token") or data.get("access_token")
+                if token:
+                    self.s.headers["Authorization"] = f"Bearer {token}"
+                    logger.info("[colorlight] JWT login OK")
+                    return {"ok": True, "method": "jwt", "token": "*****"}
+            last_err = f"jwt → HTTP {r.status_code}"
+        except Exception as e:
+            last_err = f"jwt → {e}"
+
+        # 3) Basic auth fallback
+        try:
+            url = self.server + "/wp-json/wp/v2/users/me"
+            r = self.s.get(url, auth=(self.username, self.password), timeout=15)
+            if r.status_code == 200:
+                self.s.auth = (self.username, self.password)
+                logger.info("[colorlight] Basic auth OK")
+                return {"ok": True, "method": "basic"}
+            last_err = f"basic → HTTP {r.status_code}"
+        except Exception as e:
+            last_err = f"basic → {e}"
+
         raise RuntimeError(f"Could not authenticate against ColorlightCloud. Last error: {last_err}")
 
     # ============ READ-ONLY METHODS (safe to call against production) ============
@@ -286,7 +315,8 @@ def create_colorlight_routes(db, get_current_user):
     @router.get("/status")
     async def status(_admin=Depends(require_admin)):
         cfg = await db.fin_settings.find_one({"_id": "colorlight"})
-        if not cfg: return {"configured": False}
+        if not cfg:
+            return {"configured": False}
         return {
             "configured": True,
             "server": cfg.get("server"),
@@ -302,19 +332,46 @@ def create_colorlight_routes(db, get_current_user):
             raw_groups = sess.get_terminal_groups()
         except Exception as e:
             raise HTTPException(502, f"ColorlightCloud read error: {e}")
-        # Build a clean response for the dropdown
+        # Build a clean response for the dropdown — fetch detail per group to get leds
         clean_groups = []
         for g in raw_groups:
-            terms = g.get("terminals") or g.get("children") or []
+            gid = g.get("id")
+            group_name = (g.get("name")
+                          or (g.get("title", {}).get("rendered") if isinstance(g.get("title"), dict) else None)
+                          or g.get("title")
+                          or f"Group {gid}")
+            terms = []
+            try:
+                detail = sess.get_group_detail(gid)
+                for led in (detail.get("leds") or []):
+                    led_id = led.get("led_id") or led.get("id")
+                    led_name = led.get("led_name") or led.get("name") or f"Terminal {led_id}"
+                    last_seen = led.get("_led_latest_report_time") or led.get("last_report_time")
+                    # Online if seen in the last 10 minutes
+                    online = False
+                    try:
+                        if last_seen:
+                            from datetime import datetime as _dt
+                            ts = last_seen if isinstance(last_seen, (int, float)) else None
+                            if ts:
+                                # Heuristic: treat ms or s
+                                ts_s = ts / 1000 if ts > 10_000_000_000 else ts
+                                online = (_dt.utcnow().timestamp() - ts_s) < 600
+                    except Exception:
+                        online = False
+                    terms.append({
+                        "id": led_id,
+                        "name": led_name,
+                        "online": online,
+                        "model": led.get("led_model", "") or led.get("model", ""),
+                        "last_seen": last_seen,
+                    })
+            except Exception as e:
+                logger.warning(f"[colorlight] could not load detail for group {gid}: {e}")
             clean_groups.append({
-                "group_id": g.get("id"),
-                "group_name": g.get("name") or g.get("title", {}).get("rendered", "(unnamed)"),
-                "terminals": [{
-                    "id": t.get("id"),
-                    "name": t.get("name") or f"Terminal {t.get('id')}",
-                    "online": bool(t.get("online", False)),
-                    "model": t.get("model", ""),
-                } for t in terms],
+                "group_id": gid,
+                "group_name": group_name,
+                "terminals": terms,
                 "terminal_count": len(terms),
             })
         return {"groups": clean_groups, "total_groups": len(clean_groups),

@@ -250,7 +250,8 @@ const loaders={
       var tabs=[
         {id:'screens',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',name:'Screens'},
         {id:'pending',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',name:'Pending'},
-        {id:'users',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',name:'Users'}
+        {id:'users',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',name:'Users'},
+        {id:'colorlight',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',name:'LED Cloud'}
       ];
 
       var tabHtml='<div style="display:flex;gap:6px;margin-bottom:24px">'+tabs.map(t=>
@@ -313,6 +314,10 @@ const loaders={
         el.innerHTML='<div class="ph"><div><h1>Users</h1><p>'+users2.length+' registered accounts</p></div></div>'+tabHtml+
         '<div class="card"><div class="tbl-h" style="grid-template-columns:2fr 2fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
         users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+u.role+'</div></div><span style="font-size:13px;color:#94a3b8">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
+      }else if(window._adminTab==='colorlight'){
+        el.innerHTML='<div class="ph"><div><h1>LED Cloud</h1><p>Direct push to ColorlightCloud LED screens</p></div></div>'+tabHtml+
+          '<div id="cl-panel"><div style="padding:60px;text-align:center;color:var(--t-4)">Loading ColorlightCloud…</div></div>';
+        loadColorlightPanel();
       }
     }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },
@@ -548,6 +553,31 @@ async function editScreen(id){
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Size</div><input class="inp" id="es-size" value="'+(s.specs?.size||'')+'"></div><div><div class="lbl">Resolution</div><input class="inp" id="es-res" value="'+(s.specs?.resolution||'')+'"></div></div>'+
   '<div style="margin-bottom:16px"><div class="lbl">Orientation</div><div style="display:flex;gap:8px"><button onclick="setOrientPreview(\'landscape\')" id="es-oland" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='landscape'?'var(--cyan)':'var(--border)')+';background:'+(orient==='landscape'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='landscape'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↔ Landscape</button><button onclick="setOrientPreview(\'portrait\')" id="es-oport" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='portrait'?'var(--cyan)':'var(--border)')+';background:'+(orient==='portrait'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='portrait'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↕ Portrait</button></div></div>'+
   '</div></div>'+
+  // ===== Pairing Credentials Section (for APK setup) =====
+  '<div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(99,102,241,.04),transparent);border:1px solid rgba(99,102,241,.2)">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
+      '<svg width="20" height="20" fill="none" stroke="#818cf8" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#818cf8">Device Pairing Credentials</div>'+
+      '<div style="font-size:11px;color:var(--t-4)">Give these to the customer to set up the MediAd View Player APK (v2.2.0+) on their TV/Android device.</div></div>'+
+    '</div>'+
+    '<div class="row2" style="gap:14px">'+
+      '<div><div class="lbl">Device ID</div>'+
+        '<div style="display:flex;gap:6px"><input class="inp" id="es-pcode" readonly value="'+(s.pairing_code||'—')+'" style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--cyan)">'+
+        '<button class="btn-s" onclick="copyText(this,\''+(s.pairing_code||'')+'\')" title="Copy Device ID">📋</button></div>'+
+      '</div>'+
+      '<div><div class="lbl">Secret Key</div>'+
+        '<div style="display:flex;gap:6px"><input class="inp" id="es-psec" readonly type="password" value="'+(s.pairing_secret||'')+'" style="font-family:ui-monospace,Menlo,monospace;font-size:13px">'+
+        '<button class="btn-s" onclick="document.getElementById(\'es-psec\').type=document.getElementById(\'es-psec\').type===\'password\'?\'text\':\'password\'" title="Show/Hide">👁</button>'+
+        '<button class="btn-s" onclick="copyText(this,\''+(s.pairing_secret||'').replace(/\\/g,'\\\\').replace(/\'/g,'\\\'')+'\')" title="Copy Secret">📋</button></div>'+
+      '</div>'+
+    '</div>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'+
+      '<div style="font-size:11px;color:'+(s.paired_device_id?'var(--green-l)':'var(--t-4)')+'">'+
+        (s.paired_device_id?'✓ Paired with a device · '+(s.paired_at?new Date(s.paired_at).toLocaleString():''):'⚠ Not yet paired')+
+      '</div>'+
+      '<button class="btn-s" onclick="regenPairingSecret(\''+id+'\')" style="font-size:11px;padding:5px 10px;color:var(--red)">↻ Regenerate Secret</button>'+
+    '</div>'+
+  '</div>'+
   '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
   window._editOrient=orient}
 async function removeScreen(id){if(!confirm('Remove this screen?'))return;try{await api('/admin/screens/'+id,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
@@ -1221,4 +1251,165 @@ async function savePowerSchedule(deviceId){
     msg.textContent='Schedule saved!';msg.style.color='var(--green-l)';msg.style.display='block';
     setTimeout(()=>{document.getElementById('ps-modal')?.remove();loaders.devices()},700);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}
+}
+
+// ============ PAIRING / COLORLIGHT HELPERS ============
+function copyText(btn,text){
+  if(!text)return;
+  navigator.clipboard.writeText(text).then(()=>{
+    const orig=btn.innerHTML;btn.innerHTML='✓';btn.style.background='rgba(34,197,94,.15)';btn.style.color='var(--green-l)';
+    setTimeout(()=>{btn.innerHTML=orig;btn.style.background='';btn.style.color=''},1200);
+  }).catch(()=>{
+    // Fallback for non-secure contexts
+    const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+    document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();
+    btn.innerHTML='✓';setTimeout(()=>btn.innerHTML='📋',1000);
+  });
+}
+
+async function regenPairingSecret(screenId){
+  if(!confirm('⚠ Regenerate Device ID + Secret Key?\n\nThis will INVALIDATE the current credentials. Any device currently paired with this screen will need to re-enter the new credentials.\n\nContinue?'))return;
+  try{
+    const res=await api('/admin/screens/'+screenId+'/regenerate-pairing',{method:'POST'});
+    alert('✓ New credentials generated.\n\nDevice ID: '+res.pairing_code+'\nSecret Key: '+res.pairing_secret+'\n\nReloading editor…');
+    editScreen(screenId);
+  }catch(e){alert('Error: '+e.message)}
+}
+
+// ============ COLORLIGHT CLOUD ============
+async function loadColorlightPanel(){
+  const panel=document.getElementById('cl-panel');if(!panel)return;
+  let status;
+  try{status=await api('/colorlight/status')}catch(e){panel.innerHTML='<div class="card" style="padding:24px;color:var(--red)">'+e.message+'</div>';return}
+  if(!status.configured){
+    panel.innerHTML='<div class="card" style="padding:24px;max-width:560px"><h3 style="font-size:16px;font-weight:700;margin-bottom:6px">Connect to ColorlightCloud</h3><p style="font-size:13px;color:var(--t-4);margin-bottom:18px">Enter the credentials of your ColorlightCloud tenant to allow MediAd View to push media directly to your LED screens.</p>'+
+      '<div style="margin-bottom:12px"><div class="lbl">Server</div><input class="inp" id="cl-server" value="us33.colorlightcloud.com"></div>'+
+      '<div style="margin-bottom:12px"><div class="lbl">Username</div><input class="inp" id="cl-user" placeholder="josue"></div>'+
+      '<div style="margin-bottom:16px"><div class="lbl">Password</div><input class="inp" id="cl-pwd" type="password"></div>'+
+      '<button class="btn-p" onclick="saveColorlightSettings()" style="width:100%;justify-content:center">Test & Save</button>'+
+      '<p id="cl-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p></div>';
+    return;
+  }
+  // Configured → show terminals + push form
+  let terms;
+  try{terms=await api('/colorlight/terminals')}catch(e){panel.innerHTML='<div class="card" style="padding:24px;color:var(--red)"><b>Connection error:</b> '+e.message+'<div style="margin-top:14px"><button class="btn-s" onclick="resetColorlightSettings()">Reconfigure</button></div></div>';return}
+  const groups=terms.groups||[];
+  panel.innerHTML='<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start">'+
+    // LEFT — Status + Push form
+    '<div>'+
+      '<div class="card" style="padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:14px">'+
+        '<div style="width:42px;height:42px;border-radius:10px;background:rgba(34,197,94,.12);color:var(--green-l);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg></div>'+
+        '<div style="flex:1"><div style="font-size:14px;font-weight:700">Connected to '+status.server+'</div><div style="font-size:11px;color:var(--t-4)">User: '+status.username+' · Auth: '+(status.method||'form')+' · '+terms.total_terminals+' terminal(s) in '+terms.total_groups+' group(s)</div></div>'+
+        '<button class="btn-s" onclick="resetColorlightSettings()" style="font-size:11px;padding:6px 12px">Reconfigure</button>'+
+      '</div>'+
+      '<div class="card" style="padding:20px">'+
+        '<h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Push Media to LED Screen</h3>'+
+        '<p style="font-size:12px;color:var(--t-4);margin-bottom:18px">Upload an image/video and publish it directly to the selected ColorlightCloud terminal.</p>'+
+        '<div style="margin-bottom:12px"><div class="lbl">Title (program name)</div><input class="inp" id="cl-title" placeholder="Promo June 2025"></div>'+
+        '<div style="margin-bottom:12px"><div class="lbl">Media file</div><input class="inp" id="cl-file" type="file" accept="image/*,video/*"></div>'+
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">'+
+          '<div><div class="lbl">Width (px)</div><input class="inp" id="cl-w" type="number" value="192"></div>'+
+          '<div><div class="lbl">Height (px)</div><input class="inp" id="cl-h" type="number" value="320"></div>'+
+        '</div>'+
+        '<div style="margin-bottom:12px"><div class="lbl">Duration per image (sec)</div><input class="inp" id="cl-dur" type="number" value="8"></div>'+
+        '<div style="margin-bottom:14px"><div class="lbl">Target group</div><select class="inp" id="cl-group" onchange="updateColorlightTerminals()">'+
+          '<option value="">— Select a group —</option>'+
+          groups.map(g=>'<option value="'+g.group_id+'">'+(g.group_name||'(unnamed)')+' ('+g.terminal_count+' terminals)</option>').join('')+
+        '</select></div>'+
+        '<div style="margin-bottom:14px"><div class="lbl">Target terminal(s)</div><div id="cl-terms-list" style="padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-1);min-height:60px;font-size:12px;color:var(--t-4)">Select a group first…</div></div>'+
+        '<button class="btn-p" id="cl-push-btn" onclick="pushToColorlight()" style="width:100%;justify-content:center;padding:14px;font-size:14px">⚡ Push to LED Screens</button>'+
+        '<p id="cl-push-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p>'+
+      '</div>'+
+    '</div>'+
+    // RIGHT — Terminal listing
+    '<div>'+
+      '<h3 style="font-size:13px;font-weight:700;margin-bottom:10px;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px">Available Terminals</h3>'+
+      (groups.length===0?'<div class="card" style="padding:24px;color:var(--t-4);text-align:center">No groups found in your ColorlightCloud account.</div>':
+        '<div style="display:flex;flex-direction:column;gap:10px">'+groups.map(g=>
+          '<div class="card" style="padding:14px">'+
+            '<div style="font-size:13px;font-weight:700;margin-bottom:8px">'+(g.group_name||'(unnamed)')+' <span style="font-size:10px;color:var(--t-4);font-weight:500">#'+g.group_id+'</span></div>'+
+            (g.terminals.length===0?'<div style="font-size:11px;color:var(--t-4)">No terminals</div>':
+              '<div style="display:flex;flex-direction:column;gap:6px">'+g.terminals.map(t=>
+                '<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg-1);border-radius:6px">'+
+                  '<span style="width:6px;height:6px;border-radius:50%;background:'+(t.online?'var(--green-l)':'var(--t-4)')+'"></span>'+
+                  '<span style="font-size:12px;font-weight:600;flex:1">'+(t.name||'Terminal '+t.id)+'</span>'+
+                  '<span style="font-size:10px;color:var(--t-4)">#'+t.id+'</span>'+
+                '</div>').join('')+'</div>')+
+          '</div>').join('')+'</div>')+
+    '</div>'+
+  '</div>';
+  // cache groups for use in updateColorlightTerminals
+  window._clGroups=groups;
+}
+
+async function saveColorlightSettings(){
+  const server=document.getElementById('cl-server').value.trim();
+  const username=document.getElementById('cl-user').value.trim();
+  const password=document.getElementById('cl-pwd').value;
+  const msg=document.getElementById('cl-msg');msg.style.display='none';
+  if(!server||!username||!password){msg.textContent='All fields are required';msg.style.color='var(--red)';msg.style.display='block';return}
+  try{
+    msg.textContent='Testing connection…';msg.style.color='var(--t-4)';msg.style.display='block';
+    const res=await api('/colorlight/settings',{method:'POST',body:JSON.stringify({server,username,password})});
+    msg.textContent='✓ Connected ('+res.method+'). Loading…';msg.style.color='var(--green-l)';
+    setTimeout(()=>loadColorlightPanel(),600);
+  }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)'}
+}
+
+async function resetColorlightSettings(){
+  if(!confirm('Reset ColorlightCloud connection? You will need to re-enter credentials.'))return;
+  try{await api('/colorlight/settings',{method:'POST',body:JSON.stringify({server:'',username:'',password:''})})}catch(e){}
+  // Just re-render setup form by treating as not configured
+  document.getElementById('cl-panel').innerHTML='<div style="padding:24px;text-align:center;color:var(--t-4)">Resetting…</div>';
+  setTimeout(async()=>{
+    // Quick hack: directly render setup form
+    const panel=document.getElementById('cl-panel');
+    panel.innerHTML='<div class="card" style="padding:24px;max-width:560px"><h3 style="font-size:16px;font-weight:700;margin-bottom:6px">Reconnect to ColorlightCloud</h3>'+
+      '<div style="margin-bottom:12px"><div class="lbl">Server</div><input class="inp" id="cl-server" value="us33.colorlightcloud.com"></div>'+
+      '<div style="margin-bottom:12px"><div class="lbl">Username</div><input class="inp" id="cl-user" placeholder="josue"></div>'+
+      '<div style="margin-bottom:16px"><div class="lbl">Password</div><input class="inp" id="cl-pwd" type="password"></div>'+
+      '<button class="btn-p" onclick="saveColorlightSettings()" style="width:100%;justify-content:center">Test & Save</button>'+
+      '<p id="cl-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p></div>';
+  },300);
+}
+
+function updateColorlightTerminals(){
+  const gid=parseInt(document.getElementById('cl-group').value);
+  const box=document.getElementById('cl-terms-list');
+  const g=(window._clGroups||[]).find(x=>x.group_id===gid);
+  if(!g||!g.terminals.length){box.innerHTML='<span style="color:var(--t-4)">No terminals in this group</span>';return}
+  box.innerHTML='<div style="display:flex;flex-direction:column;gap:6px">'+
+    '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:600;color:var(--t-2);margin-bottom:4px"><input type="checkbox" id="cl-t-all" onchange="document.querySelectorAll(\'.cl-t-chk\').forEach(c=>c.checked=this.checked)"> Select all</label>'+
+    g.terminals.map(t=>'<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px"><input type="checkbox" class="cl-t-chk" value="'+t.id+'"> <span style="width:6px;height:6px;border-radius:50%;background:'+(t.online?'var(--green-l)':'var(--t-4)')+'"></span> '+(t.name||'Terminal '+t.id)+' <span style="color:var(--t-4)">#'+t.id+'</span></label>').join('')+'</div>';
+}
+
+async function pushToColorlight(){
+  const title=document.getElementById('cl-title').value.trim();
+  const file=document.getElementById('cl-file').files[0];
+  const gid=parseInt(document.getElementById('cl-group').value);
+  const w=parseInt(document.getElementById('cl-w').value)||192;
+  const h=parseInt(document.getElementById('cl-h').value)||320;
+  const dur=(parseInt(document.getElementById('cl-dur').value)||8)*1000;
+  const termIds=Array.from(document.querySelectorAll('.cl-t-chk:checked')).map(c=>parseInt(c.value));
+  const msg=document.getElementById('cl-push-msg');msg.style.display='none';
+  const btn=document.getElementById('cl-push-btn');
+  if(!title){msg.textContent='Enter a title';msg.style.color='var(--red)';msg.style.display='block';return}
+  if(!file){msg.textContent='Select a media file';msg.style.color='var(--red)';msg.style.display='block';return}
+  if(!gid){msg.textContent='Select a target group';msg.style.color='var(--red)';msg.style.display='block';return}
+  if(!termIds.length){msg.textContent='Select at least one terminal';msg.style.color='var(--red)';msg.style.display='block';return}
+  // Convert file to base64
+  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
+  btn.disabled=true;btn.style.opacity='.6';
+  msg.textContent='Uploading & publishing… (this may take 10-30s)';msg.style.color='var(--t-4)';msg.style.display='block';
+  try{
+    const res=await api('/colorlight/push',{method:'POST',body:JSON.stringify({
+      title,media_base64:b64,filename:file.name,content_type:file.type||'image/jpeg',
+      group_id:gid,terminal_ids:termIds,mode:'single',width:w,height:h,duration_ms:dur
+    })});
+    msg.textContent='✓ Published successfully! Program #'+res.program_id+' sent to '+termIds.length+' terminal(s).';
+    msg.style.color='var(--green-l)';
+    document.getElementById('cl-title').value='';
+    document.getElementById('cl-file').value='';
+  }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)'}
+  finally{btn.disabled=false;btn.style.opacity='1'}
 }
