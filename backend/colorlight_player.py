@@ -476,7 +476,8 @@ def create_player_routes(db):
         }
         vsn_bytes = json.dumps(vsn_content, separators=(",", ":")).encode("utf-8")
         vsn_size = len(vsn_bytes)
-        vsn_md5 = _bytes_md5(vsn_bytes)
+        # Colorlight expects lowercase MD5 in the vsn filename (per docs example)
+        vsn_md5 = hashlib.md5(vsn_bytes).hexdigest()
         vsn_filename = f"{program_name}_{vsn_md5}_{vsn_size}.vsn"
         vsn_path = os.path.join(MEDIA_DIR, vsn_filename)
         with open(vsn_path, "wb") as f:
@@ -502,7 +503,6 @@ def create_player_routes(db):
             "height":     req.height,
             "duration_ms": req.duration_ms,
             "materials": [
-                # The .vsn descriptor MUST come first (or at least be in the list)
                 {
                     "filename":     vsn_filename,
                     "source_url":   f"/api/wp-content/upload/{vsn_filename}",
@@ -510,7 +510,6 @@ def create_player_routes(db):
                     "size":         vsn_size,
                     "content_type": "application/octet-stream",
                 },
-                # And the media file
                 {
                     "filename":     media_filename,
                     "source_url":   f"/api/wp-content/upload/{media_filename}",
@@ -521,12 +520,15 @@ def create_player_routes(db):
             ],
         })
 
-        # ---- 5. Queue an 'update program' command so device fetches ----
+        # ---- 5. Queue the CORRECT activate command ----
+        # The A40 expects the FULL path: api/vsns/sources/{source}/vsns/{vsn_filename}/activated
+        # source = "internet" for cloud-published programs, "lan" for local
         cmd_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000 + 1
+        activate_url = f"api/vsns/sources/internet/vsns/{vsn_filename}/activated"
         await db.colorlight_commands.insert_one({
             "cmd_id":      cmd_id,
             "device_id":   req.device_id,
-            "author_url":  "api/program/update",
+            "author_url":  activate_url,
             "raw":         "{}",
             "karma":       2,
             "status":      "pending",
@@ -538,7 +540,8 @@ def create_player_routes(db):
             "vsn":          {"filename": vsn_filename, "size": vsn_size, "md5": vsn_md5},
             "media":        {"filename": media_filename, "size": media_size, "md5": media_md5},
             "command_id":   cmd_id,
-            "note":         "Device will fetch within 5s. Check status afterwards.",
+            "activate_url": activate_url,
+            "note":         "Device will fetch and activate within 5s.",
         }
 
     # ────────── Convenience command shortcuts ──────────
