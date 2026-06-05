@@ -3292,9 +3292,11 @@ from finance import create_finance_routes
 from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
+from colorlight import create_colorlight_routes
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
 app.include_router(create_finance_print_routes(db, get_current_user))
+app.include_router(create_colorlight_routes(db, get_current_user))
 
 app.add_middleware(
     CORSMiddleware,
