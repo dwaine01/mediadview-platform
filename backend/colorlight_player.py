@@ -216,12 +216,41 @@ def create_player_routes(db):
                 "type":          "program",
                 "title": {"rendered": p["name"]},
                 "_links": {
+                    # href is RELATIVE to the base URL the A40 was configured with.
+                    # The A40 base URL ends in /api, so we send /wp-json/... (no double prefix).
                     "wp:attachment": [{
-                        "href": f"/api/wp-json/wp/v2/media?parent={p['program_id']}"
+                        "href": f"/wp-json/wp/v2/media?parent={p['program_id']}"
                     }]
                 }
             })
         return out
+
+    # ────────── 4b. STUB endpoints the A40 firmware also calls ──────────
+    # Without these the device boot-loop gets blocked and never proceeds to /media.
+    @router.get("/wp-json/wp/v3/schedules")
+    async def device_schedules_v3(term=Depends(_authenticate_device)):
+        """A40 polls for v3 schedules — we have no scheduled programs at this layer,
+        playlist scheduling is embedded inside .vsn. Return empty array."""
+        return []
+
+    @router.post("/wp-json/screen/v1/info")
+    async def device_post_info(req: Request, term=Depends(_authenticate_device)):
+        """The A40 sometimes POSTs its info instead of PUT /status. Accept both."""
+        try:
+            payload = await req.json()
+        except Exception:
+            payload = {}
+        await db.colorlight_terminal_status.update_one(
+            {"device_id": term["device_id"]},
+            {"$set": {"info_post": payload, "last_seen": _now_iso(), "online": True}},
+            upsert=True,
+        )
+        return {"code": 200, "message": "success"}
+
+    @router.get("/wp-json/screen/v1/status")
+    async def device_get_status_check(term=Depends(_authenticate_device)):
+        """Some firmware versions verify connectivity via GET to /status."""
+        return {"code": 200, "message": "success"}
 
     # ────────── 5. MATERIAL LIST (the A40 fetches files for one program) ──────────
     @router.get("/wp-json/wp/v2/media")
