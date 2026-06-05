@@ -886,16 +886,20 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
     return serialize_doc(updated)
 
 @api_router.delete("/admin/screens/{screen_id}")
-async def admin_delete_screen(screen_id: str, admin: dict = Depends(require_admin)):
+async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict = Depends(require_admin)):
     active = await db.campaigns.count_documents(
         {"screen_id": screen_id, "status": {"$in": ["pending", "approved", "active"]}}
     )
-    if active > 0:
-        raise HTTPException(status_code=400, detail="Cannot delete screen with active campaigns")
+    if active > 0 and not cascade:
+        raise HTTPException(status_code=400, detail=f"Cannot delete screen with {active} active campaign(s). Use cascade=true to force.")
+    # Cascade: clean up related data
+    if cascade:
+        await db.campaigns.delete_many({"screen_id": screen_id})
+        await db.devices.update_many({"screen_id": screen_id}, {"$set": {"screen_id": None}})
     result = await db.screens.delete_one({"id": screen_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Screen not found")
-    return {"message": "Screen deleted"}
+    return {"message": "Screen deleted", "cascaded_campaigns": active if cascade else 0}
 
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):

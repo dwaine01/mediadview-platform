@@ -604,7 +604,26 @@ async function editAdminScreen(id){
   '</div>'+
   '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
   window._editOrient=orient}
-async function removeScreen(id){if(!confirm('Remove this screen?'))return;try{await api('/admin/screens/'+id,{method:'DELETE'});loaders.admin()}catch(e){alert(e.message)}}
+async function removeScreen(id){
+  if(!confirm('⚠ Remove this screen?\n\nThis will permanently delete the screen and unlink any paired devices.'))return;
+  try{
+    await api('/admin/screens/'+id,{method:'DELETE'});
+    loaders.admin();
+  }catch(e){
+    // If the error is about active campaigns, offer cascade delete
+    if((e.message||'').toLowerCase().includes('active campaign')){
+      if(confirm('⚠ This screen has active campaigns.\n\nDo you want to delete the screen AND all its campaigns?\n\nThis action is irreversible.')){
+        try{
+          await api('/admin/screens/'+id+'?cascade=true',{method:'DELETE'});
+          loaders.admin();
+          return;
+        }catch(e2){alert('Cascade delete failed: '+e2.message);return}
+      }
+    }else{
+      alert('Could not delete: '+e.message);
+    }
+  }
+}
 async function linkDevice(){
   const code=document.getElementById('dev-code')?.value,screenId=document.getElementById('dev-screen')?.value;
   const msg=document.getElementById('dev-msg');msg.style.display='none';
