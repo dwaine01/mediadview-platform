@@ -553,58 +553,30 @@ async function editAdminScreen(id){
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Size</div><input class="inp" id="es-size" value="'+(s.specs?.size||'')+'"></div><div><div class="lbl">Resolution</div><input class="inp" id="es-res" value="'+(s.specs?.resolution||'')+'"></div></div>'+
   '<div style="margin-bottom:16px"><div class="lbl">Orientation</div><div style="display:flex;gap:8px"><button onclick="setOrientPreview(\'landscape\')" id="es-oland" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='landscape'?'var(--cyan)':'var(--border)')+';background:'+(orient==='landscape'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='landscape'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↔ Landscape</button><button onclick="setOrientPreview(\'portrait\')" id="es-oport" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='portrait'?'var(--cyan)':'var(--border)')+';background:'+(orient==='portrait'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='portrait'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↕ Portrait</button></div></div>'+
   '</div></div>'+
-  // ===== Pairing Credentials Section (for APK setup) =====
-  '<div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(99,102,241,.04),transparent);border:1px solid rgba(99,102,241,.2)">'+
+  // ===== LED/TV PAIRING CREDENTIALS — ONE unified panel (Direct Mode) =====
+  // Auto-provision in the background if this screen doesn't have credentials yet.
+  '<div class="card" id="pair-card-'+id+'" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(34,211,238,.06),transparent);border:1px solid rgba(34,211,238,.25)">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
-      '<svg width="20" height="20" fill="none" stroke="#818cf8" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>'+
-      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:#818cf8">Device Pairing — Android TV / APK</div>'+
-      '<div style="font-size:11px;color:var(--t-4)">For Fire TV, TCL, Chromecast, etc. Give these to the customer to set up the MediAd View Player APK (v2.2.0+).</div></div>'+
+      '<svg width="22" height="22" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--cyan)">Cloud Account — Paste these into the LED device</div>'+
+      '<div style="font-size:11px;color:var(--t-4)">Open the A40 → Settings → Cloud account → paste URL + Device ID + Secret Key → Apply.</div></div>'+
+      '<button class="btn-s" onclick="regenDirectCreds(\''+id+'\')" style="font-size:10px;padding:4px 10px;color:var(--red)" title="Generate new credentials (current device will disconnect)">↻ Regen</button>'+
     '</div>'+
-    '<div class="row2" style="gap:14px">'+
-      '<div><div class="lbl">Device ID</div>'+
-        '<div style="display:flex;gap:6px"><input class="inp" id="es-pcode" readonly value="'+(s.pairing_code||'—')+'" style="font-family:ui-monospace,Menlo,monospace;font-size:15px;font-weight:700;letter-spacing:1px;color:var(--cyan)">'+
-        '<button class="btn-s" onclick="copyText(this,\''+(s.pairing_code||'')+'\')" title="Copy Device ID">📋</button></div>'+
-      '</div>'+
-      '<div><div class="lbl">Secret Key</div>'+
-        '<div style="display:flex;gap:6px"><input class="inp" id="es-psec" readonly type="password" value="'+(s.pairing_secret||'')+'" style="font-family:ui-monospace,Menlo,monospace;font-size:13px">'+
-        '<button class="btn-s" onclick="document.getElementById(\'es-psec\').type=document.getElementById(\'es-psec\').type===\'password\'?\'text\':\'password\'" title="Show/Hide">👁</button>'+
-        '<button class="btn-s" onclick="copyText(this,\''+(s.pairing_secret||'').replace(/\\/g,'\\\\').replace(/\'/g,'\\\'')+'\')" title="Copy Secret">📋</button></div>'+
-      '</div>'+
+    '<div id="pair-body-'+id+'" style="display:grid;grid-template-columns:1fr;gap:10px">'+
+      '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">1️⃣ URL</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-url-'+id+'" value="" style="font-family:ui-monospace,monospace;font-size:12px;color:var(--cyan)"><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-url-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
+      '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">2️⃣ Device ID</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-did-'+id+'" value="" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:1px"><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-did-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
+      '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">3️⃣ Secret Key</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-sec-'+id+'" type="password" value="" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#22d3ee"><button class="btn-s" onclick="document.getElementById(\'pair-sec-'+id+'\').type=document.getElementById(\'pair-sec-'+id+'\').type===\'password\'?\'text\':\'password\'" style="padding:6px 10px">👁</button><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-sec-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
     '</div>'+
-    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">'+
-      '<div style="font-size:11px;color:'+(s.paired_device_id?'var(--green-l)':'var(--t-4)')+'">'+
-        (s.paired_device_id?'✓ Paired with a device · '+(s.paired_at?new Date(s.paired_at).toLocaleString():''):'⚠ Not yet paired')+
-      '</div>'+
-      '<button class="btn-s" onclick="regenPairingSecret(\''+id+'\')" style="font-size:11px;padding:5px 10px;color:var(--red)">↻ Regenerate Secret</button>'+
+    '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">'+
+      '<div id="pair-status-'+id+'" style="font-size:11px;color:var(--t-4)">⏳ Loading credentials…</div>'+
+      '<button class="btn-s" onclick="copyAllPairing(\''+id+'\')" style="font-size:11px;padding:5px 12px">📋 Copy All 3</button>'+
     '</div>'+
-  '</div>'+
-  // ===== Colorlight A40 Pairing Section =====
-  '<div class="card" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(34,211,238,.05),transparent);border:1px solid rgba(34,211,238,.25)">'+
-    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
-      '<svg width="20" height="20" fill="none" stroke="var(--cyan)" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>'+
-      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--cyan)">Colorlight A40 / LED Cloud Pairing</div>'+
-      '<div style="font-size:11px;color:var(--t-4)">Automatically create the terminal in ColorlightCloud and get the credentials to paste into the A40 device.</div></div>'+
-    '</div>'+
-    (s.colorlight && s.colorlight.device_id ? (
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px">'+
-        '<div><div class="lbl">Cloud URL</div><div style="display:flex;gap:6px"><input class="inp" readonly value="'+(s.colorlight.url||'')+'" style="font-family:ui-monospace,monospace;font-size:11px"><button class="btn-s" onclick="copyText(this,\''+(s.colorlight.url||'')+'\')">📋</button></div></div>'+
-        '<div><div class="lbl">Device ID</div><div style="display:flex;gap:6px"><input class="inp" readonly value="'+s.colorlight.device_id+'" style="font-family:ui-monospace,monospace;font-size:13px;font-weight:700;color:var(--cyan)"><button class="btn-s" onclick="copyText(this,\''+s.colorlight.device_id+'\')">📋</button></div></div>'+
-        '<div><div class="lbl">Secret Key</div><div style="display:flex;gap:6px"><input class="inp" id="es-clsec" readonly type="password" value="'+s.colorlight.secret_key+'" style="font-family:ui-monospace,monospace;font-size:12px"><button class="btn-s" onclick="document.getElementById(\'es-clsec\').type=document.getElementById(\'es-clsec\').type===\'password\'?\'text\':\'password\'">👁</button><button class="btn-s" onclick="copyText(this,\''+s.colorlight.secret_key+'\')">📋</button></div></div>'+
-      '</div>'+
-      '<div style="display:flex;justify-content:space-between;align-items:center;padding-top:12px;border-top:1px solid var(--border)">'+
-        '<div style="font-size:11px;color:var(--green-l)">✓ Provisioned in ColorlightCloud · Terminal #'+(s.colorlight.terminal_id||'?')+' · '+(s.colorlight.provisioned_at?new Date(s.colorlight.provisioned_at).toLocaleString():'')+'</div>'+
-        '<button class="btn-s" onclick="showColorlightInstructions(\''+id+'\')" style="font-size:11px;padding:5px 10px">📖 Setup Instructions</button>'+
-      '</div>'
-    ) : (
-      '<div id="cl-provision-box-'+id+'">'+
-        '<p style="font-size:12px;color:var(--t-4);margin-bottom:12px">This screen is not linked to a Colorlight device yet. Choose how to provision:</p>'+
-        '<button class="btn-p" onclick="provisionDirect(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:14px;margin-bottom:10px;background:linear-gradient(135deg,#06b6d4,#3b82f6)"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Provision in MediAd View — Direct Mode <span style="font-size:10px;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px;margin-left:6px">RECOMMENDED</span></button>'+
-        '<button class="btn-s" onclick="openProvisionModal(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:10px;font-size:11px;color:var(--t-4)">or Provision via ColorlightCloud Bridge (legacy)</button>'+
-      '</div>'
-    ))+
   '</div>'+
   '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
-  window._editOrient=orient}
+  window._editOrient=orient;
+  // Trigger auto-load of pairing credentials (innerHTML doesn't execute <script> tags)
+  setTimeout(()=>autoLoadPairing(id, s.colorlight||{}, s.name||''), 30);
+}
 async function removeScreen(id){
   if(!confirm('⚠ Remove this screen?\n\nThis will permanently delete the screen and unlink any paired devices.'))return;
   try{
@@ -1431,6 +1403,79 @@ function showColorlightInstructions(screenId){
 }
 
 // ============ DIRECT MODE — A40 controlled directly by MediAd View ============
+
+// Auto-load (or auto-create) the Direct Mode credentials for a given screen.
+// Called every time the editor opens. If the screen already has them → display.
+// If not → call /cls/provision-direct in background, store, then display.
+async function autoLoadPairing(screenId, existing, screenName){
+  const urlEl=document.getElementById('pair-url-'+screenId);
+  const didEl=document.getElementById('pair-did-'+screenId);
+  const secEl=document.getElementById('pair-sec-'+screenId);
+  const statusEl=document.getElementById('pair-status-'+screenId);
+  if(!urlEl) return;
+  let creds=existing;
+  if(!creds || !creds.device_id){
+    statusEl.innerHTML='⏳ Generating credentials…';
+    try{
+      const res=await api('/cls/provision-direct',{method:'POST',body:JSON.stringify({
+        title: screenName||'A40',
+        link_screen_id: screenId,
+        url_base: window.location.origin
+      })});
+      creds={url:res.url, device_id:res.device_id, secret_key:res.secret_key,
+             terminal_id:res.terminal_id, provisioned_at:new Date().toISOString()};
+    }catch(e){
+      statusEl.innerHTML='<span style="color:var(--red)">✗ Could not generate: '+e.message+'</span>';
+      return;
+    }
+  }
+  urlEl.value=creds.url||'';
+  didEl.value=creds.device_id||'';
+  secEl.value=creds.secret_key||'';
+  // Now poll for online status
+  refreshPairStatus(screenId, creds.device_id);
+}
+
+async function refreshPairStatus(screenId, deviceId){
+  const statusEl=document.getElementById('pair-status-'+screenId);
+  if(!statusEl||!deviceId)return;
+  try{
+    const s=await api('/cls/devices/'+deviceId+'/status');
+    if(s.online){
+      statusEl.innerHTML='<span style="color:var(--green-l)">● Connected · last seen '+new Date(s.last_seen).toLocaleTimeString()+'</span>';
+    }else if(s.last_seen){
+      statusEl.innerHTML='<span style="color:var(--t-4)">○ Offline · last seen '+new Date(s.last_seen).toLocaleString()+'</span>';
+    }else{
+      statusEl.innerHTML='<span style="color:var(--t-4)">⚠ Not connected yet — paste credentials into the LED device.</span>';
+    }
+  }catch(e){
+    statusEl.innerHTML='<span style="color:var(--t-4)">⚠ Not connected yet.</span>';
+  }
+}
+
+function copyAllPairing(screenId){
+  const url=document.getElementById('pair-url-'+screenId).value;
+  const did=document.getElementById('pair-did-'+screenId).value;
+  const sec=document.getElementById('pair-sec-'+screenId).value;
+  const text='URL: '+url+'\nDevice ID: '+did+'\nSecret Key: '+sec;
+  navigator.clipboard.writeText(text).then(()=>alert('✓ All 3 credentials copied'))
+    .catch(()=>alert('Copy failed — please copy each one individually'));
+}
+
+async function regenDirectCreds(screenId){
+  if(!confirm('⚠ Generate BRAND NEW credentials for this screen?\n\nThe LED device currently connected with the old credentials will DISCONNECT.\nYou will need to enter the new credentials into the device.\n\nContinue?'))return;
+  try{
+    // Unlink the old colorlight credentials so autoLoadPairing creates new ones
+    const screen=await api('/screens/'+screenId);
+    if(screen.colorlight && screen.colorlight.device_id){
+      // Delete old terminal entry
+      try{await api('/admin/screens/'+screenId+'/unlink-colorlight',{method:'POST'})}catch(e){}
+    }
+    // Reload editor — autoLoadPairing will generate new ones
+    editAdminScreen(screenId);
+  }catch(e){alert('Error: '+e.message)}
+}
+
 async function provisionDirect(screenId, screenName){
   if(!confirm('Provision this screen in MediAd View DIRECT MODE?\n\nA Device ID + Secret Key will be generated and saved locally. NO call to ColorlightCloud will be made.\n\nProceed?'))return;
   try{
