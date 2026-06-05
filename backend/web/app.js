@@ -269,7 +269,7 @@ const loaders={
               '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div>'+
             '</div>'+
             '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
-              '<button onclick="editScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
+              '<button onclick="editAdminScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
               '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
             '</div>'+
             '<svg width="18" height="18" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
@@ -541,7 +541,7 @@ async function addScreen(){
     msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
-async function editScreen(id){
+async function editAdminScreen(id){
   var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error');return}
   var el=document.getElementById('pg-admin');
   var orient=s.specs?.orientation||'landscape';
@@ -1272,7 +1272,7 @@ async function regenPairingSecret(screenId){
   try{
     const res=await api('/admin/screens/'+screenId+'/regenerate-pairing',{method:'POST'});
     alert('✓ New credentials generated.\n\nDevice ID: '+res.pairing_code+'\nSecret Key: '+res.pairing_secret+'\n\nReloading editor…');
-    editScreen(screenId);
+    editAdminScreen(screenId);
   }catch(e){alert('Error: '+e.message)}
 }
 
