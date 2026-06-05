@@ -1405,14 +1405,14 @@ function showColorlightInstructions(screenId){
 // ============ DIRECT MODE — A40 controlled directly by MediAd View ============
 
 // Auto-load (or auto-create) the Direct Mode credentials for a given screen.
-// Called every time the editor opens. If the screen already has them → display.
-// If not → call /cls/provision-direct in background, store, then display.
 async function autoLoadPairing(screenId, existing, screenName){
   const urlEl=document.getElementById('pair-url-'+screenId);
   const didEl=document.getElementById('pair-did-'+screenId);
   const secEl=document.getElementById('pair-sec-'+screenId);
   const statusEl=document.getElementById('pair-status-'+screenId);
   if(!urlEl) return;
+  // Clear any previous polling interval
+  if(window._pairPollIv){clearInterval(window._pairPollIv);window._pairPollIv=null}
   let creds=existing;
   if(!creds || !creds.device_id){
     statusEl.innerHTML='⏳ Generating credentials…';
@@ -1425,15 +1425,42 @@ async function autoLoadPairing(screenId, existing, screenName){
       creds={url:res.url, device_id:res.device_id, secret_key:res.secret_key,
              terminal_id:res.terminal_id, provisioned_at:new Date().toISOString()};
     }catch(e){
-      statusEl.innerHTML='<span style="color:var(--red)">✗ Could not generate: '+e.message+'</span>';
+      statusEl.innerHTML='<span style="color:var(--red)">✗ '+e.message+'</span>';
       return;
     }
   }
   urlEl.value=creds.url||'';
   didEl.value=creds.device_id||'';
   secEl.value=creds.secret_key||'';
-  // Now poll for online status
+  window._pairCurrentDeviceId=creds.device_id;
+  window._pairCurrentScreenId=screenId;
+  // Show schedule button now that we have a device
+  injectScheduleAndControlsButtons(screenId, creds.device_id);
+  // Refresh status NOW + then every 8 seconds while the editor is open
   refreshPairStatus(screenId, creds.device_id);
+  window._pairPollIv=setInterval(()=>{
+    if(document.getElementById('pair-status-'+screenId)){
+      refreshPairStatus(screenId, creds.device_id);
+    }else{
+      clearInterval(window._pairPollIv);window._pairPollIv=null;
+    }
+  }, 8000);
+}
+
+function injectScheduleAndControlsButtons(screenId, deviceId){
+  const status=document.getElementById('pair-status-'+screenId);
+  if(!status)return;
+  const parent=status.parentNode;
+  // Don't duplicate
+  if(document.getElementById('pair-actions-'+screenId))return;
+  const row=document.createElement('div');
+  row.id='pair-actions-'+screenId;
+  row.style.cssText='display:flex;gap:8px;margin-top:10px;padding-top:10px;border-top:1px dashed var(--border)';
+  row.innerHTML=
+    '<button class="btn-s" onclick="openDirectPushModal(\''+deviceId+'\',\''+(document.getElementById('es-name')?.value||'A40').replace(/\'/g,'')+'\')" style="flex:1;justify-content:center;padding:8px;font-size:11px">⚡ Push Media</button>'+
+    '<button class="btn-s" onclick="openScheduleModal(\''+deviceId+'\',\''+(document.getElementById('es-name')?.value||'A40').replace(/\'/g,'')+'\')" style="flex:1;justify-content:center;padding:8px;font-size:11px">🕐 ON/OFF Schedule</button>'+
+    '<button class="btn-s" onclick="openDirectControlsModal(\''+deviceId+'\',\''+(document.getElementById('es-name')?.value||'A40').replace(/\'/g,'')+'\')" style="flex:1;justify-content:center;padding:8px;font-size:11px">🎛 Controls</button>';
+  parent.parentNode.appendChild(row);
 }
 
 async function refreshPairStatus(screenId, deviceId){
@@ -1442,15 +1469,85 @@ async function refreshPairStatus(screenId, deviceId){
   try{
     const s=await api('/cls/devices/'+deviceId+'/status');
     if(s.online){
-      statusEl.innerHTML='<span style="color:var(--green-l)">● Connected · last seen '+new Date(s.last_seen).toLocaleTimeString()+'</span>';
+      const lastSeen=new Date(s.last_seen);
+      const ago=Math.floor((Date.now()-lastSeen.getTime())/1000);
+      statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;color:var(--green-l);font-weight:700">'+
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#22c55e;box-shadow:0 0 12px #22c55e;animation:pulse 1.5s infinite"></span>'+
+        ' ONLINE · Connected '+(ago<10?'just now':ago+'s ago')+' · '+lastSeen.toLocaleTimeString()+'</span>';
     }else if(s.last_seen){
-      statusEl.innerHTML='<span style="color:var(--t-4)">○ Offline · last seen '+new Date(s.last_seen).toLocaleString()+'</span>';
+      const lastSeen=new Date(s.last_seen);
+      const minAgo=Math.floor((Date.now()-lastSeen.getTime())/60000);
+      let reason='No internet or device powered off';
+      if(minAgo<5) reason='Reconnecting…';
+      statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;color:var(--red);font-weight:700">'+
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444"></span>'+
+        ' OFFLINE · '+reason+' · last seen '+(minAgo<60?minAgo+' min ago':lastSeen.toLocaleString())+'</span>';
     }else{
-      statusEl.innerHTML='<span style="color:var(--t-4)">⚠ Not connected yet — paste credentials into the LED device.</span>';
+      statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;color:var(--t-4)">'+
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8"></span>'+
+        ' Waiting for device · paste credentials into the LED and click Apply</span>';
     }
   }catch(e){
-    statusEl.innerHTML='<span style="color:var(--t-4)">⚠ Not connected yet.</span>';
+    statusEl.innerHTML='<span style="color:var(--t-4)">⚠ Status unavailable</span>';
   }
+}
+
+async function openScheduleModal(deviceId, deviceName){
+  let sched={};
+  try{sched=await api('/cls/schedule/'+deviceId)}catch(e){}
+  const w=sched.wakeup_time||'07:00',sl=sched.sleep_time||'22:00';
+  const days=sched.days||[1,1,1,1,1,1,1];
+  const dn=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const ov=document.createElement('div');ov.id='sched-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+  ov.innerHTML='<div class="card" style="max-width:480px;width:100%;padding:28px;background:var(--bg-2)">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(34,211,238,.12);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px">🕐</div>'+
+      '<div style="flex:1"><h2 style="font-size:18px;font-weight:700;margin:0">ON/OFF Schedule</h2><p style="font-size:12px;color:var(--t-4);margin:4px 0 0">Device: '+deviceName+'</p></div>'+
+      '<button onclick="document.getElementById(\'sched-modal\').remove()" style="background:none;border:none;color:var(--t-4);font-size:24px;cursor:pointer">×</button>'+
+    '</div>'+
+    '<label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--bg-1);border-radius:8px;cursor:pointer;margin-bottom:16px"><input type="checkbox" id="sc-enabled" '+(sched.enabled?'checked':'')+'><span style="font-size:13px;font-weight:600">Enable automatic schedule</span></label>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">'+
+      '<div><div class="lbl">🌅 Wake up (turn ON)</div><input class="inp" type="time" id="sc-wake" value="'+w+'"></div>'+
+      '<div><div class="lbl">🌙 Sleep (turn OFF)</div><input class="inp" type="time" id="sc-sleep" value="'+sl+'"></div>'+
+    '</div>'+
+    '<div class="lbl" style="margin-bottom:8px">Active days</div>'+
+    '<div style="display:flex;gap:6px;margin-bottom:18px">'+
+      dn.map((d,i)=>'<label style="flex:1;padding:8px;border:1px solid '+(days[i]?'var(--cyan)':'var(--border)')+';background:'+(days[i]?'rgba(34,211,238,.1)':'var(--bg-1)')+';color:'+(days[i]?'var(--cyan)':'var(--t-4)')+';border-radius:6px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;user-select:none" onclick="this.classList.toggle(\'on\');var on=this.classList.contains(\'on\')||this.style.color==\'var(--cyan)\';if(this.style.color==\'var(--cyan)\'){this.style.color=\'var(--t-4)\';this.style.background=\'var(--bg-1)\';this.style.borderColor=\'var(--border)\';this.dataset.on=0}else{this.style.color=\'var(--cyan)\';this.style.background=\'rgba(34,211,238,.1)\';this.style.borderColor=\'var(--cyan)\';this.dataset.on=1}"><input type="hidden" class="sc-d" data-d="'+i+'" data-on="'+days[i]+'">'+d+'</label>').join('')+
+    '</div>'+
+    '<div style="padding:10px;background:rgba(99,102,241,.05);border-left:3px solid #818cf8;border-radius:6px;font-size:11px;color:var(--t-3);margin-bottom:18px"><b>💡 What this does:</b> the A40 stays powered ON but the LED panel turns OFF during sleep hours (saves power, extends LED life). It wakes up automatically.</div>'+
+    '<div style="display:flex;gap:10px;margin-bottom:14px">'+
+      '<button class="btn-s" onclick="manualSleepWake(\''+deviceId+'\',\'sleep\')" style="flex:1;justify-content:center;padding:10px;color:#818cf8">🌙 Sleep NOW</button>'+
+      '<button class="btn-s" onclick="manualSleepWake(\''+deviceId+'\',\'wakeup\')" style="flex:1;justify-content:center;padding:10px;color:var(--green-l)">🌅 Wake NOW</button>'+
+    '</div>'+
+    '<button class="btn-p" onclick="saveSchedule(\''+deviceId+'\')" style="width:100%;justify-content:center;padding:12px">Save Schedule</button>'+
+    '<p id="sc-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p>'+
+  '</div>';
+  document.body.appendChild(ov);
+  // initialize day toggle states
+  setTimeout(()=>{document.querySelectorAll('.sc-d').forEach(c=>{c.parentElement.dataset.on=c.dataset.on});},10);
+}
+
+async function saveSchedule(deviceId){
+  const enabled=document.getElementById('sc-enabled').checked;
+  const wakeup_time=document.getElementById('sc-wake').value;
+  const sleep_time=document.getElementById('sc-sleep').value;
+  const days=Array.from(document.querySelectorAll('.sc-d')).map(c=>parseInt(c.parentElement.dataset.on||c.dataset.on||0));
+  const msg=document.getElementById('sc-msg');msg.style.display='none';
+  try{
+    await api('/cls/schedule',{method:'POST',body:JSON.stringify({device_id:deviceId,enabled,wakeup_time,sleep_time,days})});
+    msg.textContent='✓ Schedule saved. Will activate at next time match.';
+    msg.style.color='var(--green-l)';msg.style.display='block';
+    setTimeout(()=>document.getElementById('sched-modal')?.remove(),1500);
+  }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)';msg.style.display='block'}
+}
+
+async function manualSleepWake(deviceId, action){
+  try{
+    await api('/cls/'+action+'/'+deviceId,{method:'POST'});
+    const msg=document.getElementById('sc-msg');
+    if(msg){msg.textContent='✓ Command sent. Device should react in <5s.';msg.style.color='var(--green-l)';msg.style.display='block'}
+  }catch(e){alert('Error: '+e.message)}
 }
 
 function copyAllPairing(screenId){

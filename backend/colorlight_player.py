@@ -138,7 +138,19 @@ def create_player_routes(db):
     async def device_poll_commands(clt_type: str = Query(...), device_num: Optional[str] = Query(None),
                                     term=Depends(_authenticate_device)):
         """A40 polls this every 5 seconds asking 'any commands for me?'.
-        Returns array of command objects pending execution."""
+        Returns array of command objects pending execution. Also updates last_seen
+        — this is the real heartbeat (status PUT is less frequent)."""
+        # Refresh last_seen on EVERY poll (the A40 polls every 5s — perfect heartbeat)
+        await db.colorlight_terminals.update_one(
+            {"device_id": term["device_id"]},
+            {"$set": {"last_seen": _now_iso(), "online": True,
+                      "device_num_reported": device_num}}
+        )
+        await db.colorlight_terminal_status.update_one(
+            {"device_id": term["device_id"]},
+            {"$set": {"last_seen": _now_iso(), "online": True}},
+            upsert=True,
+        )
         if clt_type != "terminal":
             return []
         # Find unsent commands for this device
@@ -459,6 +471,50 @@ def create_player_routes(db):
             c.pop("_id", None)
             out.append(c)
         return {"commands": out, "device_id": device_id}
+
+    # ============ SCHEDULE (auto sleep/wakeup like ColorlightCloud) ============
+    class ScheduleReq(BaseModel):
+        device_id: str
+        enabled: bool = True
+        wakeup_time: Optional[str] = None   # "HH:MM" — when screen turns ON
+        sleep_time: Optional[str] = None    # "HH:MM" — when screen turns OFF
+        days: Optional[List[int]] = None    # [1,1,1,1,1,1,1] Mon-Sun
+
+    @router.post("/cls/schedule")
+    async def admin_set_schedule(req: ScheduleReq):
+        term = await db.colorlight_terminals.find_one({"device_id": req.device_id})
+        if not term:
+            raise HTTPException(404, "Device not found")
+        sched = {
+            "enabled":      req.enabled,
+            "wakeup_time":  req.wakeup_time or "07:00",
+            "sleep_time":   req.sleep_time or "22:00",
+            "days":         req.days or [1, 1, 1, 1, 1, 1, 1],
+            "updated_at":   _now_iso(),
+        }
+        await db.colorlight_terminals.update_one(
+            {"device_id": req.device_id},
+            {"$set": {"schedule": sched}}
+        )
+        return {"ok": True, "schedule": sched}
+
+    @router.get("/cls/schedule/{device_id}")
+    async def admin_get_schedule(device_id: str):
+        term = await db.colorlight_terminals.find_one({"device_id": device_id})
+        if not term:
+            raise HTTPException(404, "Device not found")
+        return term.get("schedule") or {"enabled": False, "wakeup_time": "07:00",
+                                         "sleep_time": "22:00", "days": [1]*7}
+
+    @router.post("/cls/sleep/{device_id}")
+    async def admin_sleep_now(device_id: str):
+        return await admin_queue_command(CommandReq(
+            device_id=device_id, author_url="api/sleep", content={}))
+
+    @router.post("/cls/wakeup/{device_id}")
+    async def admin_wakeup_now(device_id: str):
+        return await admin_queue_command(CommandReq(
+            device_id=device_id, author_url="api/wakeup", content={}))
 
     class ProvisionDirectReq(BaseModel):
         title: str
