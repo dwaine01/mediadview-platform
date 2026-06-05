@@ -1,20 +1,20 @@
 -- Merging decision tree log ---
 provider#androidx.core.content.FileProvider
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:105:9-113:20
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:112:9-120:20
 	android:grantUriPermissions
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:109:13-47
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:116:13-47
 	android:authorities
 		INJECTED from /app/android-player/app/src/main/AndroidManifest.xml
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:107:13-64
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:114:13-64
 	android:exported
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:108:13-37
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:115:13-37
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:106:13-62
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:113:13-62
 manifest
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-116:12
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-123:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-123:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-123:12
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:2:1-123:12
 MERGED from [androidx.appcompat:appcompat-resources:1.6.1] /root/.gradle/caches/transforms-4/9f7e3cc5831df4cbfd29ee7ed7b865d7/transformed/appcompat-resources-1.6.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.appcompat:appcompat:1.6.1] /root/.gradle/caches/transforms-4/b27725821584d208d50eda84996d4896/transformed/appcompat-1.6.1/AndroidManifest.xml:17:1-22:12
 MERGED from [androidx.webkit:webkit:1.10.0] /root/.gradle/caches/transforms-4/9ec96b7b1d57cfb428acb1b7ad64aab9/transformed/webkit-1.10.0/AndroidManifest.xml:2:1-7:12
@@ -134,8 +134,8 @@ ADDED from /app/android-player/app/src/main/AndroidManifest.xml:21:5-90
 	android:name
 		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:21:19-62
 application
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-115:19
-INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-115:19
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-122:19
+INJECTED from /app/android-player/app/src/main/AndroidManifest.xml:23:5-122:19
 MERGED from [androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-4/947855cacaff24bdd91b3f4424dec61a/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.emoji2:emoji2:1.2.0] /root/.gradle/caches/transforms-4/947855cacaff24bdd91b3f4424dec61a/transformed/emoji2-1.2.0/AndroidManifest.xml:23:5-33:19
 MERGED from [androidx.work:work-runtime:2.9.0] /root/.gradle/caches/transforms-4/99ab30fdfd3bf3c885b69515cc966790/transformed/work-runtime-2.9.0/AndroidManifest.xml:28:5-143:19
@@ -286,12 +286,22 @@ ADDED from /app/android-player/app/src/main/AndroidManifest.xml:98:9-101:40
 		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:101:13-37
 	android:name
 		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:99:13-43
-meta-data#android.support.FILE_PROVIDER_PATHS
-ADDED from /app/android-player/app/src/main/AndroidManifest.xml:110:13-112:63
-	android:resource
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:112:17-60
+activity#com.mediaview.player.SetupActivity
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:105:9-109:66
+	android:screenOrientation
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:108:13-50
+	android:exported
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:107:13-37
+	android:theme
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:109:13-63
 	android:name
-		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:111:17-67
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:106:13-42
+meta-data#android.support.FILE_PROVIDER_PATHS
+ADDED from /app/android-player/app/src/main/AndroidManifest.xml:117:13-119:63
+	android:resource
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:119:17-60
+	android:name
+		ADDED from /app/android-player/app/src/main/AndroidManifest.xml:118:17-67
 uses-sdk
 INJECTED from /app/android-player/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /app/android-player/app/src/main/AndroidManifest.xml

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mediaview.player.debug"
-    android:versionCode="3"
-    android:versionName="2.1.0" >
+    android:versionCode="4"
+    android:versionName="2.2.0" >
 
     <uses-sdk
         android:minSdkVersion="21"
@@ -123,6 +123,13 @@
             android:name="com.mediaview.player.OverlayService"
             android:enabled="true"
             android:exported="false" />
+
+        <!-- SETUP ACTIVITY (Device pairing UI) -->
+        <activity
+            android:name="com.mediaview.player.SetupActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
 
         <!-- FileProvider for APK auto-update install -->
         <provider

@@ -90,6 +90,16 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
+        // ===== PAIRING CHECK: redirect to SetupActivity if not paired =====
+        if (!DeviceIdentity.isRegistered(this)) {
+            Log.i(PlayerApp.TAG, "Device not paired — launching SetupActivity")
+            startActivity(android.content.Intent(this, SetupActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+            })
+            finish()
+            return
+        }
+
         // ===== FULL SCREEN + ALWAYS ON =====
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or

@@ -751,19 +751,126 @@ async def get_unique_location_code():
             return code
     return "MV-" + uuid.uuid4().hex[:4].upper()
 
+def gen_pairing_code() -> str:
+    """Short, human-friendly Device ID (e.g. MV-A4F2-B83K). Easy to type on a TV remote."""
+    import secrets, string
+    alphabet = string.ascii_uppercase + string.digits
+    # remove confusing chars
+    alphabet = alphabet.replace('O','').replace('0','').replace('I','').replace('1','')
+    part1 = ''.join(secrets.choice(alphabet) for _ in range(4))
+    part2 = ''.join(secrets.choice(alphabet) for _ in range(4))
+    return f"MV-{part1}-{part2}"
+
+def gen_pairing_secret() -> str:
+    """Random secret key for device pairing (24 chars URL-safe)."""
+    import secrets
+    return secrets.token_urlsafe(18)
+
 @api_router.post("/admin/screens")
 async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
     # Auto-generate permanent location code
     location_code = await get_unique_location_code()
+    # Generate the device pairing credentials (ColorlightCloud style)
+    pairing_code = gen_pairing_code()
+    # Ensure uniqueness
+    while await db.screens.find_one({"pairing_code": pairing_code}):
+        pairing_code = gen_pairing_code()
+    pairing_secret = gen_pairing_secret()
     screen = {
         "id": gen_id(), "name": data.name, "description": data.description,
         "location": data.location.dict(), "pricing": data.pricing.dict(),
         "specs": data.specs.dict(), "preview_image": data.preview_image,
-        "status": data.status, "location_code": location_code, "active": True,
+        "status": data.status, "location_code": location_code,
+        "pairing_code": pairing_code, "pairing_secret": pairing_secret,
+        "paired_device_id": None, "paired_at": None,
+        "active": True,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
     return serialize_doc(screen)
+
+# ============ DEVICE PAIRING (ColorlightCloud-style flow) ============
+class DevicePair(BaseModel):
+    pairing_code: str
+    pairing_secret: str
+    device_model: Optional[str] = ""
+    device_name: Optional[str] = ""
+    os_version: Optional[str] = ""
+    app_version: Optional[str] = ""
+    app_version_code: Optional[int] = 0
+    resolution: Optional[str] = ""
+    client_uuid: Optional[str] = ""
+
+@api_router.post("/devices/pair")
+async def device_pair(data: DevicePair):
+    """Customer-facing pairing endpoint.
+    The player calls this with the Device ID + Secret Key the admin gave the customer.
+    Links the physical device to the screen and returns the backend device_id."""
+    code = (data.pairing_code or "").strip().upper()
+    secret = (data.pairing_secret or "").strip()
+    if not code or not secret:
+        raise HTTPException(400, "pairing_code and pairing_secret are required")
+    screen = await db.screens.find_one({"pairing_code": code})
+    if not screen:
+        raise HTTPException(404, "Device ID not found. Check the code provided by your administrator.")
+    if screen.get("pairing_secret") != secret:
+        raise HTTPException(401, "Invalid Secret Key. Please verify the credentials.")
+    # If already paired to a different physical device, allow re-pairing (returns same screen)
+    device_id = screen.get("paired_device_id") or gen_id()
+    device_info = {
+        "model": data.device_model or "Unknown",
+        "name": data.device_name or "MediAd View Player",
+        "os": data.os_version or "",
+        "app_version": data.app_version or "",
+        "app_version_code": data.app_version_code or 0,
+        "resolution": data.resolution or "",
+        "client_uuid": data.client_uuid or "",
+    }
+    device_doc = {
+        "id": device_id,
+        "screen_id": screen["id"],
+        "device_info": device_info,
+        "status": "active",
+        "paired_at": datetime.utcnow(),
+        "last_heartbeat": datetime.utcnow(),
+        "created_at": datetime.utcnow(),
+        "pairing_code": code,
+    }
+    # Upsert device
+    await db.devices.update_one({"id": device_id}, {"$set": device_doc}, upsert=True)
+    # Mark screen as paired
+    await db.screens.update_one(
+        {"id": screen["id"]},
+        {"$set": {"paired_device_id": device_id, "paired_at": datetime.utcnow()}}
+    )
+    logger.info(f"✓ Device paired: code={code} → screen={screen['id'][:8]} ({screen.get('name')})")
+    return {
+        "ok": True,
+        "device_id": device_id,
+        "screen_id": screen["id"],
+        "screen_name": screen.get("name"),
+        "location_code": screen.get("location_code"),
+        "player_url": f"/api/player/{screen['id']}/web",
+        "message": f"Connected to screen: {screen.get('name')}",
+    }
+
+@api_router.post("/admin/screens/{screen_id}/regenerate-pairing")
+async def regenerate_pairing(screen_id: str, admin: dict = Depends(require_admin)):
+    """Rotate pairing credentials (unpairs any current device)."""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(404, "Screen not found")
+    new_code = gen_pairing_code()
+    while await db.screens.find_one({"pairing_code": new_code}):
+        new_code = gen_pairing_code()
+    new_secret = gen_pairing_secret()
+    await db.screens.update_one({"id": screen_id}, {"$set": {
+        "pairing_code": new_code,
+        "pairing_secret": new_secret,
+        "paired_device_id": None,
+        "paired_at": None,
+    }})
+    return {"pairing_code": new_code, "pairing_secret": new_secret}
 
 @api_router.put("/admin/screens/{screen_id}")
 async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = Depends(require_admin)):

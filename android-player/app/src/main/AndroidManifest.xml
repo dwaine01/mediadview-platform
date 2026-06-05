@@ -101,6 +101,13 @@
             android:exported="false" />
 
 
+        <!-- SETUP ACTIVITY (Device pairing UI) -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
         <!-- FileProvider for APK auto-update install -->
         <provider
             android:name="androidx.core.content.FileProvider"

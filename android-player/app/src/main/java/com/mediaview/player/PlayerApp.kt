@@ -24,20 +24,14 @@ class PlayerApp : Application() {
         Log.i(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
         Log.i(TAG, "Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
         Log.i(TAG, "device_id: ${DeviceIdentity.getDeviceId(this)}")
+        Log.i(TAG, "paired: ${DeviceIdentity.isRegistered(this)}")
         Log.i(TAG, "========================================")
         setupCrashRecovery()
 
-        // Schedule the periodic 5-min heartbeat (runs even when MainActivity is not visible).
-        try {
-            HeartbeatWorker.enqueuePeriodic(this)
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to enqueue heartbeat worker: ${e.message}")
-        }
-
-        // Try to register the device with the backend on first boot (non-blocking).
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try { DeviceRegistrar.registerIfNeeded(this@PlayerApp) }
-            catch (e: Exception) { Log.e(TAG, "Initial registration failed: ${e.message}") }
+        // Schedule heartbeat ONLY if device is paired
+        if (DeviceIdentity.isRegistered(this)) {
+            try { HeartbeatWorker.enqueuePeriodic(this) }
+            catch (e: Exception) { Log.e(TAG, "Failed to enqueue heartbeat: ${e.message}") }
         }
     }
 
