@@ -522,24 +522,45 @@ def create_player_routes(db):
         url_base: Optional[str] = None  # public base URL of MediAd View (e.g. https://api.mediadview.com)
 
     @router.post("/cls/provision-direct")
-    async def provision_direct(req: ProvisionDirectReq):
+    async def provision_direct(req: ProvisionDirectReq, request: Request):
         """Generate a fresh Device ID + Secret Key locally and register the
         terminal so the A40 can connect directly to MediAd View (no
-        ColorlightCloud roundtrip)."""
+        ColorlightCloud roundtrip).
+        Determines the public URL from (in this order):
+          1. env PUBLIC_BASE_URL  (recommended for production — set in .env)
+          2. X-Forwarded-Host / X-Forwarded-Proto (when behind a reverse proxy)
+          3. request Host header
+          4. req.url_base sent from the frontend
+        """
         import string
         alphabet = string.ascii_letters + string.digits
         device_id = "".join(secrets.choice(alphabet) for _ in range(12))
         secret_key = "".join(secrets.choice(alphabet) for _ in range(15))
         terminal_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000
-        url_base = req.url_base or "https://api.mediadview.com"
+
+        # ---- determine the canonical public URL ----
+        url_base = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+        if not url_base:
+            # try X-Forwarded headers (typical behind k8s ingress / nginx)
+            fwd_host = request.headers.get("x-forwarded-host") or request.headers.get("host", "")
+            fwd_proto = request.headers.get("x-forwarded-proto", "https")
+            # Skip if host is localhost — fall back to user-supplied URL
+            if fwd_host and "localhost" not in fwd_host and "127.0.0.1" not in fwd_host:
+                url_base = f"{fwd_proto}://{fwd_host}"
+        if not url_base:
+            url_base = (req.url_base or "https://api.mediadview.com").rstrip("/")
+        # Force https in production-looking URLs
+        if url_base.startswith("http://") and "localhost" not in url_base:
+            url_base = "https://" + url_base[7:]
+
         record = {
             "title":       req.title,
             "device_id":   device_id,
             "secret_key":  secret_key,
             "terminal_id": terminal_id,
-            "group_id":    0,                 # local — not tied to ColorlightCloud group
-            "url":         url_base + "/api", # what goes into A40's Cloud URL field
-            "mode":        "direct",          # vs "bridge"
+            "group_id":    0,
+            "url":         url_base + "/api",
+            "mode":        "direct",
             "created_at":  _now_iso(),
             "linked_screen_id": req.link_screen_id,
         }
