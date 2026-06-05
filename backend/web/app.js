@@ -1429,13 +1429,129 @@ function showColorlightInstructions(screenId){
   }).catch(e=>alert('Error: '+e.message));
 }
 
+// ============ DIRECT MODE — A40 controlled directly by MediAd View ============
+function openDirectPushModal(deviceId, deviceName){
+  const ov=document.createElement('div');ov.id='dir-push-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
+  ov.innerHTML='<div class="card" style="max-width:520px;width:100%;padding:28px;background:var(--bg-2)">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(34,211,238,.12);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px">⚡</div>'+
+      '<div style="flex:1"><h2 style="font-size:18px;font-weight:700;margin:0">Push to '+deviceName+'</h2><p style="font-size:12px;color:var(--t-4);margin:4px 0 0">Direct push (no ColorlightCloud) · Device: '+deviceId+'</p></div>'+
+      '<button onclick="document.getElementById(\'dir-push-modal\').remove()" style="background:none;border:none;color:var(--t-4);font-size:24px;cursor:pointer">×</button>'+
+    '</div>'+
+    '<div style="margin-bottom:14px"><div class="lbl">Title</div><input class="inp" id="dp-title" placeholder="Promo Junio 2026"></div>'+
+    '<div style="margin-bottom:14px"><div class="lbl">Media file (image/video)</div><input class="inp" id="dp-file" type="file" accept="image/*,video/*"></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px">'+
+      '<div><div class="lbl">Width</div><input class="inp" id="dp-w" type="number" value="192"></div>'+
+      '<div><div class="lbl">Height</div><input class="inp" id="dp-h" type="number" value="320"></div>'+
+      '<div><div class="lbl">Duration (s)</div><input class="inp" id="dp-dur" type="number" value="8"></div>'+
+    '</div>'+
+    '<button class="btn-p" id="dp-btn" onclick="executeDirectPush(\''+deviceId+'\')" style="width:100%;justify-content:center;padding:14px;font-size:14px">⚡ Push Now</button>'+
+    '<p id="dp-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p>'+
+  '</div>';
+  document.body.appendChild(ov);
+}
+
+async function executeDirectPush(deviceId){
+  const title=document.getElementById('dp-title').value.trim()||'Untitled';
+  const file=document.getElementById('dp-file').files[0];
+  const w=parseInt(document.getElementById('dp-w').value)||192;
+  const h=parseInt(document.getElementById('dp-h').value)||320;
+  const dur=(parseInt(document.getElementById('dp-dur').value)||8)*1000;
+  const msg=document.getElementById('dp-msg');msg.style.display='none';
+  const btn=document.getElementById('dp-btn');
+  if(!file){msg.textContent='Select a media file';msg.style.color='var(--red)';msg.style.display='block';return}
+  const b64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=rej;r.readAsDataURL(file)});
+  btn.disabled=true;btn.style.opacity='.6';
+  msg.textContent='Uploading & queueing…';msg.style.color='var(--t-4)';msg.style.display='block';
+  try{
+    const res=await api('/cls/push',{method:'POST',body:JSON.stringify({
+      device_id:deviceId,media_base64:b64,filename:file.name,content_type:file.type||'image/jpeg',
+      title:title,width:w,height:h,duration_ms:dur
+    })});
+    msg.textContent='✓ Pushed! Program #'+res.program_id+' queued. Device will pick it up within 5s.';
+    msg.style.color='var(--green-l)';
+    setTimeout(()=>document.getElementById('dir-push-modal')?.remove(),2200);
+  }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)';btn.disabled=false;btn.style.opacity='1'}
+}
+
+function openDirectControlsModal(deviceId, deviceName){
+  const ov=document.createElement('div');ov.id='dir-ctl-modal';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
+  ov.innerHTML='<div class="card" style="max-width:480px;width:100%;padding:28px;background:var(--bg-2)">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(99,102,241,.12);color:#818cf8;display:flex;align-items:center;justify-content:center;font-size:20px">🎛</div>'+
+      '<div style="flex:1"><h2 style="font-size:18px;font-weight:700;margin:0">Controls — '+deviceName+'</h2><p style="font-size:12px;color:var(--t-4);margin:4px 0 0">'+deviceId+'</p></div>'+
+      '<button onclick="document.getElementById(\'dir-ctl-modal\').remove()" style="background:none;border:none;color:var(--t-4);font-size:24px;cursor:pointer">×</button>'+
+    '</div>'+
+    '<div style="margin-bottom:16px"><label style="font-size:12px;color:var(--t-3);font-weight:600">Brightness</label><div style="display:flex;align-items:center;gap:10px;margin-top:6px"><input type="range" id="ctl-bri" min="0" max="255" value="200" oninput="document.getElementById(\'ctl-bri-v\').textContent=this.value" style="flex:1"><span id="ctl-bri-v" style="min-width:40px;text-align:right;font-family:ui-monospace,monospace;font-weight:700;color:var(--cyan)">200</span><button class="btn-s" onclick="sendDirectCommand(\''+deviceId+'\',\'brightness\',document.getElementById(\'ctl-bri\').value)" style="padding:6px 12px">Set</button></div></div>'+
+    '<div style="margin-bottom:16px"><label style="font-size:12px;color:var(--t-3);font-weight:600">Volume (0-15)</label><div style="display:flex;align-items:center;gap:10px;margin-top:6px"><input type="range" id="ctl-vol" min="0" max="15" value="10" oninput="document.getElementById(\'ctl-vol-v\').textContent=this.value" style="flex:1"><span id="ctl-vol-v" style="min-width:40px;text-align:right;font-family:ui-monospace,monospace;font-weight:700;color:var(--cyan)">10</span><button class="btn-s" onclick="sendDirectCommand(\''+deviceId+'\',\'volume\',document.getElementById(\'ctl-vol\').value)" style="padding:6px 12px">Set</button></div></div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:18px">'+
+      '<button class="btn-s" onclick="sendDirectCommand(\''+deviceId+'\',\'reboot\')" style="justify-content:center;padding:12px">🔁 Reboot</button>'+
+      '<button class="btn-s" onclick="sendDirectCommand(\''+deviceId+'\',\'screenshot\')" style="justify-content:center;padding:12px">📷 Screenshot</button>'+
+      '<button class="btn-s" onclick="sendDirectCommand(\''+deviceId+'\',\'clear\')" style="justify-content:center;padding:12px;color:var(--red)">🗑 Clear Programs</button>'+
+      '<button class="btn-s" onclick="showRecentCommands(\''+deviceId+'\')" style="justify-content:center;padding:12px">📜 Recent Commands</button>'+
+    '</div>'+
+    '<p id="ctl-msg" style="font-size:12px;margin-top:14px;text-align:center;display:none"></p>'+
+  '</div>';
+  document.body.appendChild(ov);
+}
+
+async function sendDirectCommand(deviceId, kind, value){
+  const msg=document.getElementById('ctl-msg');if(msg)msg.style.display='none';
+  try{
+    let res;
+    if(kind==='brightness')      res=await api('/cls/brightness',{method:'POST',body:JSON.stringify({device_id:deviceId,value:parseInt(value)})});
+    else if(kind==='volume')     res=await api('/cls/volume',{method:'POST',body:JSON.stringify({device_id:deviceId,value:parseInt(value)})});
+    else if(kind==='reboot')     res=await api('/cls/reboot/'+deviceId,{method:'POST'});
+    else if(kind==='screenshot') res=await api('/cls/screenshot/'+deviceId,{method:'POST'});
+    else if(kind==='clear')      res=await api('/cls/clear-program/'+deviceId,{method:'POST'});
+    if(msg){msg.textContent='✓ Command #'+res.cmd_id+' queued. Device will pick it up within 5s.';msg.style.color='var(--green-l)';msg.style.display='block'}
+  }catch(e){if(msg){msg.textContent='✗ '+e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+}
+
+async function showRecentCommands(deviceId){
+  try{
+    const res=await api('/cls/commands/'+deviceId);
+    const lines=res.commands.map(c=>{
+      const t=new Date(c.created_at).toLocaleTimeString();
+      return '['+t+'] '+c.author_url+' · '+c.status+(c.device_response?' ('+c.device_response+')':'');
+    }).join('\n');
+    alert('Recent commands for '+deviceId+':\n\n'+(lines||'(none)'));
+  }catch(e){alert('Error: '+e.message)}
+}
+
+
 // ============ COLORLIGHT CLOUD ============
 async function loadColorlightPanel(){
   const panel=document.getElementById('cl-panel');if(!panel)return;
-  let status;
+  // Load BOTH: ColorlightCloud bridge status + Direct Mode devices
+  let status, direct=null;
   try{status=await api('/colorlight/status')}catch(e){panel.innerHTML='<div class="card" style="padding:24px;color:var(--red)">'+e.message+'</div>';return}
+  try{direct=await api('/cls/devices')}catch(e){direct={devices:[],total:0}}
+  // ===== Render Direct Mode banner first (the new pro flow) =====
+  let directHtml='<div class="card" style="padding:20px;margin-bottom:18px;border:1px solid rgba(34,211,238,.3);background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(99,102,241,.04))">'+
+    '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+
+      '<div style="width:42px;height:42px;border-radius:10px;background:rgba(34,211,238,.15);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px">⚡</div>'+
+      '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--cyan)">Direct Mode — A40 ↔ MediAd View (no ColorlightCloud)</div>'+
+        '<div style="font-size:11px;color:var(--t-4)">Devices configured to talk directly to YOUR server. Full control, zero dependency.</div></div>'+
+      '<span style="font-size:11px;padding:6px 12px;border-radius:14px;background:rgba(34,211,238,.15);color:var(--cyan);font-weight:600">'+direct.total+' direct device(s)</span>'+
+    '</div>'+
+    (direct.total===0
+      ? '<div style="padding:16px;background:var(--bg-1);border-radius:8px;font-size:12px;color:var(--t-4);line-height:1.6"><b style="color:var(--t-2)">📺 How to add a device in Direct Mode:</b><br>1. Click <b>Provision in ColorlightCloud</b> on any screen (Edit Screen → Colorlight section)<br>2. After provisioning, in the A40 Settings → Cloud account → put:<br>&nbsp;&nbsp;&nbsp;<code style="color:var(--cyan)">URL = '+window.location.origin+'/api</code><br>&nbsp;&nbsp;&nbsp;<code style="color:var(--cyan)">Device ID = (from MediAd View)</code><br>&nbsp;&nbsp;&nbsp;<code style="color:var(--cyan)">Secret Key = (from MediAd View)</code><br>3. Click Apply on the A40 → device appears here within 30s</div>'
+      : '<div style="display:flex;flex-direction:column;gap:8px">'+
+          direct.devices.map(d=>'<div style="padding:12px;background:var(--bg-1);border-radius:8px;display:flex;align-items:center;gap:12px">'+
+            '<span style="width:10px;height:10px;border-radius:50%;background:'+(d.online?'var(--green-l)':'var(--t-4)')+';box-shadow:'+(d.online?'0 0 8px var(--green-l)':'none')+'"></span>'+
+            '<div style="flex:1"><div style="font-size:13px;font-weight:700">'+(d.title||d.device_id)+' <span style="font-size:10px;color:var(--t-4);font-weight:500">#'+d.device_id+'</span></div>'+
+              '<div style="font-size:10px;color:var(--t-4)">'+(d.model||'A40')+' · fw '+(d.firmware||'?')+' · S/N '+(d.serial||'?')+' · last seen '+(d.last_seen?new Date(d.last_seen).toLocaleTimeString():'never')+'</div></div>'+
+            '<button class="btn-p" onclick="openDirectPushModal(\''+d.device_id+'\',\''+(d.title||d.device_id).replace(/\'/g,'')+'\')" style="font-size:11px;padding:6px 14px">⚡ Push</button>'+
+            '<button class="btn-s" onclick="openDirectControlsModal(\''+d.device_id+'\',\''+(d.title||d.device_id).replace(/\'/g,'')+'\')" style="font-size:11px;padding:6px 10px" title="Controls (brightness, volume, reboot)">🎛</button>'+
+          '</div>').join('')+
+        '</div>')+
+  '</div>';
+  // ===== ColorlightCloud Bridge section (legacy) =====
   if(!status.configured){
-    panel.innerHTML='<div class="card" style="padding:24px;max-width:560px"><h3 style="font-size:16px;font-weight:700;margin-bottom:6px">Connect to ColorlightCloud</h3><p style="font-size:13px;color:var(--t-4);margin-bottom:18px">Enter the credentials of your ColorlightCloud tenant to allow MediAd View to push media directly to your LED screens.</p>'+
+    panel.innerHTML=directHtml+'<div class="card" style="padding:24px;max-width:560px"><h3 style="font-size:16px;font-weight:700;margin-bottom:6px">Connect ColorlightCloud Bridge (legacy)</h3><p style="font-size:13px;color:var(--t-4);margin-bottom:18px">Optional. Lets you also manage screens that are still on ColorlightCloud.</p>'+
       '<div style="margin-bottom:12px"><div class="lbl">Server</div><input class="inp" id="cl-server" value="us33.colorlightcloud.com"></div>'+
       '<div style="margin-bottom:12px"><div class="lbl">Username</div><input class="inp" id="cl-user" placeholder="josue"></div>'+
       '<div style="margin-bottom:16px"><div class="lbl">Password</div><input class="inp" id="cl-pwd" type="password"></div>'+
@@ -1443,11 +1559,10 @@ async function loadColorlightPanel(){
       '<p id="cl-msg" style="font-size:12px;margin-top:12px;text-align:center;display:none"></p></div>';
     return;
   }
-  // Configured → show terminals + push form
   let terms;
-  try{terms=await api('/colorlight/terminals')}catch(e){panel.innerHTML='<div class="card" style="padding:24px;color:var(--red)"><b>Connection error:</b> '+e.message+'<div style="margin-top:14px"><button class="btn-s" onclick="resetColorlightSettings()">Reconfigure</button></div></div>';return}
+  try{terms=await api('/colorlight/terminals')}catch(e){panel.innerHTML=directHtml+'<div class="card" style="padding:24px;color:var(--red)"><b>Bridge error:</b> '+e.message+'<div style="margin-top:14px"><button class="btn-s" onclick="resetColorlightSettings()">Reconfigure</button></div></div>';return}
   const groups=terms.groups||[];
-  panel.innerHTML='<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start">'+
+  panel.innerHTML=directHtml+'<div style="display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start">'+
     // LEFT — Status + Push form
     '<div>'+
       '<div class="card" style="padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:14px">'+

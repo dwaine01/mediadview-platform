@@ -3297,10 +3297,15 @@ from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
 from colorlight import create_colorlight_routes
+from colorlight_player import create_player_routes
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
 app.include_router(create_finance_print_routes(db, get_current_user))
 app.include_router(create_colorlight_routes(db, get_current_user))
+# Direct player ('Integrate to Player' mode — A40 talks to MediAd View directly).
+# Public device-facing routes are at /api/wp-json/... and /api/wp-content/...
+# (mounted under /api because k8s ingress routes only /api/* to backend port 8001).
+app.include_router(create_player_routes(db), prefix="/api")
 
 app.add_middleware(
     CORSMiddleware,
