@@ -597,8 +597,9 @@ async function editAdminScreen(id){
       '</div>'
     ) : (
       '<div id="cl-provision-box-'+id+'">'+
-        '<p style="font-size:12px;color:var(--t-4);margin-bottom:12px">This screen is not linked to ColorlightCloud yet. Click below to auto-create the terminal and get the credentials.</p>'+
-        '<button class="btn-p" onclick="openProvisionModal(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:12px"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Provision in ColorlightCloud</button>'+
+        '<p style="font-size:12px;color:var(--t-4);margin-bottom:12px">This screen is not linked to a Colorlight device yet. Choose how to provision:</p>'+
+        '<button class="btn-p" onclick="provisionDirect(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:14px;margin-bottom:10px;background:linear-gradient(135deg,#06b6d4,#3b82f6)"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:6px"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> Provision in MediAd View — Direct Mode <span style="font-size:10px;background:rgba(255,255,255,.25);padding:2px 8px;border-radius:10px;margin-left:6px">RECOMMENDED</span></button>'+
+        '<button class="btn-s" onclick="openProvisionModal(\''+id+'\',\''+(s.name||'').replace(/\'/g,'')+'\')" style="width:100%;justify-content:center;padding:10px;font-size:11px;color:var(--t-4)">or Provision via ColorlightCloud Bridge (legacy)</button>'+
       '</div>'
     ))+
   '</div>'+
@@ -1430,6 +1431,26 @@ function showColorlightInstructions(screenId){
 }
 
 // ============ DIRECT MODE — A40 controlled directly by MediAd View ============
+async function provisionDirect(screenId, screenName){
+  if(!confirm('Provision this screen in MediAd View DIRECT MODE?\n\nA Device ID + Secret Key will be generated and saved locally. NO call to ColorlightCloud will be made.\n\nProceed?'))return;
+  try{
+    const res=await api('/cls/provision-direct',{method:'POST',body:JSON.stringify({
+      title: screenName || 'A40 Direct',
+      link_screen_id: screenId,
+      url_base: window.location.origin
+    })});
+    showColorlightCredentialsModal({
+      url:        res.url,
+      device_id:  res.device_id,
+      secret_key: res.secret_key,
+      terminal_id: res.terminal_id,
+      provisioned_at: new Date().toISOString(),
+      mode: 'direct'
+    });
+    setTimeout(()=>editAdminScreen(screenId),400);
+  }catch(e){alert('Error: '+e.message)}
+}
+
 function openDirectPushModal(deviceId, deviceName){
   const ov=document.createElement('div');ov.id='dir-push-modal';
   ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';

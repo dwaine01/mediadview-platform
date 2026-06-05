@@ -460,4 +460,52 @@ def create_player_routes(db):
             out.append(c)
         return {"commands": out, "device_id": device_id}
 
+    class ProvisionDirectReq(BaseModel):
+        title: str
+        link_screen_id: Optional[str] = None
+        url_base: Optional[str] = None  # public base URL of MediAd View (e.g. https://api.mediadview.com)
+
+    @router.post("/cls/provision-direct")
+    async def provision_direct(req: ProvisionDirectReq):
+        """Generate a fresh Device ID + Secret Key locally and register the
+        terminal so the A40 can connect directly to MediAd View (no
+        ColorlightCloud roundtrip)."""
+        import string
+        alphabet = string.ascii_letters + string.digits
+        device_id = "".join(secrets.choice(alphabet) for _ in range(12))
+        secret_key = "".join(secrets.choice(alphabet) for _ in range(15))
+        terminal_id = int(datetime.utcnow().timestamp() * 1000) % 1_000_000_000
+        url_base = req.url_base or "https://api.mediadview.com"
+        record = {
+            "title":       req.title,
+            "device_id":   device_id,
+            "secret_key":  secret_key,
+            "terminal_id": terminal_id,
+            "group_id":    0,                 # local — not tied to ColorlightCloud group
+            "url":         url_base + "/api", # what goes into A40's Cloud URL field
+            "mode":        "direct",          # vs "bridge"
+            "created_at":  _now_iso(),
+            "linked_screen_id": req.link_screen_id,
+        }
+        await db.colorlight_terminals.insert_one(record)
+        if req.link_screen_id:
+            await db.screens.update_one({"id": req.link_screen_id}, {"$set": {
+                "colorlight": {
+                    "mode":         "direct",
+                    "terminal_id":  terminal_id,
+                    "device_id":    device_id,
+                    "secret_key":   secret_key,
+                    "url":          url_base + "/api",
+                    "provisioned_at": _now_iso(),
+                }
+            }})
+        return {
+            "ok": True, "mode": "direct",
+            "terminal_id": terminal_id,
+            "device_id":   device_id,
+            "secret_key":  secret_key,
+            "url":         url_base + "/api",
+            "title":       req.title,
+        }
+
     return router
