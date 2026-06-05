@@ -161,13 +161,14 @@ def create_player_routes(db):
         cmds = []
         async for c in cursor:
             cmds.append({
-                "id":          c["cmd_id"],
-                "post":        term.get("terminal_id") or 0,
-                "karma":       c.get("karma", 2),          # 2 = PUT (most common)
+                "id":           c["cmd_id"],
+                "post":         term.get("terminal_id") or 0,
+                "karma":        c.get("karma", 2),         # 2 = PUT (most common)
                 "ContentDTO": {
-                    "raw":        c.get("raw") or "{}",
-                    "author_url": c["author_url"],
+                    "raw":         c.get("raw") or "{}",
+                    "author_url":  c["author_url"],
                 },
+                "screen_state": 0,    # CRITICAL — terminal screen execution method (per doc)
             })
             # mark as dispatched (waiting for device confirmation)
             await db.colorlight_commands.update_one(
