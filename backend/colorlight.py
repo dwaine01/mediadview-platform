@@ -127,6 +127,122 @@ class ColorlightSession:
     def get_terminals_flat(self):
         return self.get_all_terminals()
 
+    # ============ WRITE METHODS (require explicit confirmation in UI) ============
+    def upload_media(self, file_bytes: bytes, filename: str, content_type: str = "image/jpeg") -> Dict[str, Any]:
+        """POST /wp-json/wp/v2/media (multipart). Returns {fileID, source_url, src}."""
+        files = {"file": (filename, file_bytes, content_type)}
+        r = self.s.post(self.server + "/wp-json/wp/v2/media", files=files, timeout=120)
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"upload_media HTTP {r.status_code}: {r.text[:300]}")
+        d = r.json()
+        # Normalize the response — different ColorlightCloud versions use different keys
+        return {
+            "fileID":     d.get("fileID") or d.get("id"),
+            "source_url": d.get("source_url") or d.get("guid", {}).get("rendered") if isinstance(d.get("guid"), dict) else d.get("guid"),
+            "src":        (d.get("media_details", {}).get("sizes", {}).get("thumbnail", {}).get("source_url")
+                          if isinstance(d.get("media_details"), dict) else None) or d.get("src") or d.get("source_url"),
+            "filename":   filename,
+            "file_type":  content_type.split("/")[-1] if "/" in content_type else "jpeg",
+            "width":      d.get("media_details", {}).get("width", 900) if isinstance(d.get("media_details"), dict) else 900,
+            "height":     d.get("media_details", {}).get("height", 1600) if isinstance(d.get("media_details"), dict) else 1600,
+            "_raw":       d,
+        }
+
+    def create_program(self, name: str, media_items: List[Dict[str, Any]],
+                       width: int = 192, height: int = 320,
+                       page_duration_ms: int = 3600000,
+                       per_item_duration_ms: int = 8000) -> Dict[str, Any]:
+        """POST /wp-json/wp/v2/programs. media_items = [{fileID, name, source_url, src, file_type, width, height}, ...]
+        Returns program_id."""
+        children = []
+        for it in media_items:
+            children.append({
+                "fileID": it["fileID"],
+                "name": it.get("filename") or it.get("name") or "media",
+                "type": "image" if it.get("file_type", "jpeg") in ("jpeg","jpg","png","gif","webp") else "video",
+                "file_type": it.get("file_type", "jpeg"),
+                "author": self.username,
+                "source_url": it.get("source_url", ""),
+                "src": it.get("src") or it.get("source_url", ""),
+                "Duration": per_item_duration_ms,
+                "IsSchedule": 0,
+                "Schedule": {
+                    "IsLimitTime": 0,
+                    "StartTime": "00:00:00",
+                    "EndTime": "23:59:59",
+                    "IsLimitDate": 0,
+                    "IsLimitWeek": 0,
+                    "LimitWeek": [1,1,1,1,1,1,1],
+                },
+                "Trigger": {"Type": "lightStrip", "Value": "0"},
+                "thumbnailSize": {"width": 113, "height": 200},
+                "fullSize": {"width": it.get("width", 900), "height": it.get("height", 1600)},
+            })
+
+        payload = {
+            "title": name,
+            "Terminalgroup": [],
+            "program_info": {
+                "name": name, "displayName": name,
+                "isCrop": 0, "id": 10, "type": "contents",
+                "version": 4, "selectChild": 0, "addNum": 1, "overStage": False,
+                "info": {"Information": {"Width": width, "Height": height, "Scale": 1}, "Pages": []},
+                "children": [{
+                    "name": "Page1", "id": 11, "index": 1, "type": "page",
+                    "selectChild": 0, "addNum": 1,
+                    "info": {
+                        "AppointDuration": page_duration_ms, "Opacity": 1, "LoopType": 1,
+                        "BgColor": "0xFF000000", "Regions": []
+                    },
+                    "children": [{
+                        "name": "File Window", "id": 12, "index": 1, "type": "fileWindow", "vsnType": 3,
+                        "Rect": {"X": 0, "Y": 0, "Width": width, "Height": height,
+                                  "BorderWidth": 0, "BorderColor": "#ffff00"},
+                        "IsScheduleRegion": 0, "selectChild": None,
+                        "children": children,
+                    }]
+                }]
+            }
+        }
+        r = self.s.post(self.server + "/wp-json/wp/v2/programs",
+                        json=payload, timeout=30,
+                        headers={"Content-Type": "application/json"})
+        if r.status_code not in (200, 201):
+            raise RuntimeError(f"create_program HTTP {r.status_code}: {r.text[:300]}")
+        d = r.json()
+        program_id = d.get("id") or d.get("program_id") or d.get("ID")
+        if not program_id:
+            raise RuntimeError(f"create_program: no program_id in response: {str(d)[:200]}")
+        return {"program_id": program_id, "_raw": d}
+
+    def publish_program(self, program_id: int, group_id: int,
+                        terminal_ids: List[int], mode: str = "single") -> Dict[str, Any]:
+        """PUT /wp-json/wp/v2/programs/{id}?flag=terminalgroup.
+        mode: 'group' = all=true (whole group), 'single' = all=false (specific terminals)."""
+        if mode not in ("group", "single"):
+            raise ValueError("mode must be 'group' or 'single'")
+        if not terminal_ids:
+            raise ValueError("terminal_ids cannot be empty")
+        payload = {
+            "what": "assign_program_to_terminal_group",
+            "to": {
+                "terminals_groups": [{
+                    "all": (mode == "group"),
+                    "id": group_id,
+                    "terminals": terminal_ids,
+                }]
+            }
+        }
+        r = self.s.put(self.server + f"/wp-json/wp/v2/programs/{program_id}",
+                       params={"flag": "terminalgroup"},
+                       json=payload, timeout=30,
+                       headers={"Content-Type": "application/json"})
+        if r.status_code not in (200, 201, 204):
+            raise RuntimeError(f"publish HTTP {r.status_code}: {r.text[:300]}")
+        return {"ok": True, "program_id": program_id, "mode": mode,
+                "group_id": group_id, "terminals": terminal_ids,
+                "status_code": r.status_code}
+
 
 def create_colorlight_routes(db, get_current_user):
     router = APIRouter(prefix="/api/colorlight", tags=["colorlight"])
@@ -208,5 +324,62 @@ def create_colorlight_routes(db, get_current_user):
     async def list_terminals_flat(_admin=Depends(require_admin)):
         sess = await get_session()
         return {"items": sess.get_terminals_flat()}
+
+    # ============ PUSH FLOW (3-step: upload → create → publish) ============
+    class PushReq(BaseModel):
+        title: str                    # program name
+        media_base64: str             # data URL or raw base64
+        filename: str = "media.jpg"
+        content_type: str = "image/jpeg"
+        # Target
+        group_id: int
+        terminal_ids: List[int]
+        mode: str = "single"          # 'single' or 'group'
+        # Display
+        width: int = 192
+        height: int = 320
+        duration_ms: int = 8000
+
+    @router.post("/push")
+    async def push(req: PushReq, _admin=Depends(require_admin)):
+        """⚠️ PRODUCTION ACTION — uploads media to ColorlightCloud, creates a program,
+        and publishes to the selected terminal(s)."""
+        import base64
+        sess = await get_session()
+        # Decode media
+        b64 = req.media_base64
+        if "," in b64 and ";base64," in b64:
+            b64 = b64.split(",", 1)[1]
+        try:
+            file_bytes = base64.b64decode(b64)
+        except Exception as e:
+            raise HTTPException(400, f"Invalid media_base64: {e}")
+        # 1) Upload
+        try:
+            up = sess.upload_media(file_bytes, req.filename, req.content_type)
+        except Exception as e:
+            raise HTTPException(502, f"Upload failed: {e}")
+        # 2) Create program
+        try:
+            prog = sess.create_program(
+                req.title, [up], width=req.width, height=req.height,
+                per_item_duration_ms=req.duration_ms,
+            )
+        except Exception as e:
+            raise HTTPException(502, f"Create program failed (media uploaded as {up.get('fileID')}): {e}")
+        # 3) Publish
+        try:
+            pub = sess.publish_program(
+                prog["program_id"], req.group_id, req.terminal_ids, mode=req.mode
+            )
+        except Exception as e:
+            raise HTTPException(502, f"Publish failed (program created as {prog['program_id']}): {e}")
+        logger.info(f"✓ Colorlight push: file={up.get('fileID')} program={prog['program_id']} → group={req.group_id} terminals={req.terminal_ids}")
+        return {
+            "ok": True,
+            "file_id": up.get("fileID"),
+            "program_id": prog["program_id"],
+            "publish": pub,
+        }
 
     return router
