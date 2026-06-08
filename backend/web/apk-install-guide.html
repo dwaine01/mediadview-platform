@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de Instalación — MediAd View Player APK</title>
+<link rel="stylesheet" href="/api/web/design-system.css">
+<style>
+  body{margin:0;background:#0b1220;color:#e2e8f0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif;line-height:1.6}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 24px 64px}
+  h1{font-size:28px;font-weight:800;margin:0 0 6px;color:#22d3ee}
+  h2{font-size:20px;font-weight:700;margin:32px 0 12px;color:#f1f5f9;border-bottom:1px solid #1e293b;padding-bottom:8px}
+  h3{font-size:15px;font-weight:700;margin:22px 0 8px;color:#cbd5e1}
+  p{color:#94a3b8;font-size:14px;margin:8px 0}
+  ol,ul{color:#94a3b8;font-size:14px;padding-left:22px}
+  ol li,ul li{margin:6px 0}
+  .top-bar{display:flex;align-items:center;gap:14px;margin-bottom:24px;padding:14px 0;border-bottom:1px solid #1e293b}
+  .top-bar a{color:#22d3ee;text-decoration:none;font-size:13px;font-weight:600}
+  .top-bar a:hover{text-decoration:underline}
+  .badge{display:inline-block;padding:3px 10px;font-size:11px;font-weight:600;border-radius:11px;background:rgba(34,211,238,.15);color:#22d3ee;margin-left:8px;vertical-align:middle}
+  .card{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px 20px;margin:18px 0}
+  .step{display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px dashed #1e293b}
+  .step:last-child{border-bottom:none}
+  .step-num{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#0b1220;font-weight:800;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .step-body{flex:1}
+  .step-title{color:#f1f5f9;font-weight:700;font-size:14px;margin-bottom:4px}
+  .alert{padding:14px 16px;border-radius:8px;font-size:13px;margin:14px 0}
+  .alert-info{background:rgba(34,211,238,.08);border-left:3px solid #22d3ee;color:#a5f3fc}
+  .alert-warn{background:rgba(251,191,36,.08);border-left:3px solid #fbbf24;color:#fde68a}
+  .alert-danger{background:rgba(239,68,68,.08);border-left:3px solid #ef4444;color:#fca5a5}
+  .alert-success{background:rgba(34,197,94,.08);border-left:3px solid #22c55e;color:#bbf7d0}
+  code{background:#1e293b;color:#22d3ee;padding:2px 8px;border-radius:4px;font-size:12.5px;font-family:'JetBrains Mono','Fira Code',Consolas,monospace}
+  pre{background:#020617;color:#e2e8f0;border:1px solid #1e293b;border-radius:8px;padding:14px 16px;overflow-x:auto;font-size:12.5px;line-height:1.5;font-family:'JetBrains Mono','Fira Code',Consolas,monospace}
+  pre code{background:transparent;color:inherit;padding:0}
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:12px 0}
+  th,td{padding:10px 12px;text-align:left;border-bottom:1px solid #1e293b}
+  th{color:#22d3ee;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+  td{color:#cbd5e1}
+  .btn{display:inline-block;padding:11px 22px;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#0b1220;font-weight:700;font-size:13px;border-radius:8px;text-decoration:none;border:none;cursor:pointer;margin:6px 8px 6px 0}
+  .btn-secondary{background:#1e293b;color:#e2e8f0;border:1px solid #334155}
+  .pill{display:inline-block;padding:4px 10px;font-size:11px;font-weight:600;border-radius:10px;margin-right:6px}
+  .pill-recommended{background:rgba(34,197,94,.15);color:#86efac}
+  .pill-advanced{background:rgba(251,191,36,.15);color:#fde68a}
+  .toc{background:#0f172a;border:1px solid #1e293b;border-radius:12px;padding:18px 24px;margin:18px 0}
+  .toc h3{margin-top:0;color:#22d3ee}
+  .toc ol{margin:0}
+  .toc a{color:#cbd5e1;text-decoration:none;font-size:13.5px}
+  .toc a:hover{color:#22d3ee}
+  .footer{text-align:center;color:#475569;font-size:12px;margin-top:48px;padding-top:24px;border-top:1px solid #1e293b}
+  .kbd{display:inline-block;padding:2px 8px;font-size:11px;background:#1e293b;border:1px solid #334155;border-bottom-width:2px;border-radius:4px;color:#e2e8f0;font-family:monospace;margin:0 2px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="top-bar">
+    <a href="/">← Volver al Panel</a>
+    <span style="color:#475569">|</span>
+    <a href="/api/web/mediaview-player-v2.2.0.apk" download>⬇ Descargar APK v2.2.0</a>
+    <span style="color:#475569">|</span>
+    <a href="/api/web/mediaview-player-android.zip" download>⬇ Código fuente Kotlin</a>
+  </div>
+
+  <h1>📺 Guía de Instalación — MediAd View Player APK<span class="badge">Colorlight A40</span></h1>
+  <p>Instalación del reproductor MediAd View en Colorlight A40 vía PlayerMaster, ADB o cualquier dispositivo Android TV compatible.</p>
+
+  <div class="alert alert-success">
+    <b>✓ Por qué un APK propio en lugar de la nube de Colorlight:</b> tu A40 deja de depender de los servidores chinos de Colorlight, no necesitas pagar el <i>Private Server</i> y ganas control 100% sobre lo que se reproduce. El reproductor descarga las imágenes y videos directamente desde tu servidor MediAd View.
+  </div>
+
+  <div class="toc">
+    <h3>📑 Contenido</h3>
+    <ol>
+      <li><a href="#requisitos">Requisitos previos</a></li>
+      <li><a href="#metodo-1">Método 1 — PlayerMaster (recomendado para A40)</a></li>
+      <li><a href="#metodo-2">Método 2 — ADB sobre Wi-Fi (rápido, todo Android)</a></li>
+      <li><a href="#metodo-3">Método 3 — USB con pendrive (sin PC)</a></li>
+      <li><a href="#emparejar">Emparejar el reproductor con MediAd View</a></li>
+      <li><a href="#auto-arranque">Auto-arranque (Launcher)</a></li>
+      <li><a href="#mantenimiento">Buenas prácticas y mantenimiento</a></li>
+      <li><a href="#problemas">Solución de problemas comunes</a></li>
+    </ol>
+  </div>
+
+  <!-- ========================================================== -->
+  <h2 id="requisitos">1. Requisitos previos</h2>
+  <table>
+    <tr><th>Componente</th><th>Versión / Recomendación</th></tr>
+    <tr><td>Colorlight A40</td><td>Firmware nativo (Android 9.0 simplificado). ROOT habilitado de fábrica.</td></tr>
+    <tr><td>PlayerMaster</td><td>v2 o superior · descargable desde <a href="https://en.colorlightinside.com/" target="_blank" style="color:#22d3ee">colorlightinside.com</a> · contraseña por defecto: <code>168</code></td></tr>
+    <tr><td>PC</td><td>Windows / Mac / Linux conectado a la misma red Wi-Fi que el A40</td></tr>
+    <tr><td>APK</td><td><b>mediaview-player-v2.2.0.apk</b> — descargable arriba ⬆</td></tr>
+    <tr><td>Resolución</td><td>Configurable en el panel (1920×1080, 1280×720, 800×600 según la pantalla LED)</td></tr>
+  </table>
+
+  <div class="alert alert-warn">
+    <b>⚠ Importante (según Colorlight):</b>
+    <ul style="margin:8px 0">
+      <li>El A40 corre Android 9.0 <b>simplificado</b> — algunos componentes del sistema no existen.</li>
+      <li>Colorlight <b>no garantiza</b> operación 7×24 con APKs de terceros. Nuestro APK ya incluye watchdog, reinicio nocturno y auto-recuperación de crash para mitigar esto.</li>
+      <li><b>Nunca</b> llenar el almacenamiento del A40. Nuestro APK limita la caché automáticamente.</li>
+      <li>El APK <b>no</b> debe modificar la hora ni la zona horaria del sistema, eso rompe la validación HTTPS.</li>
+    </ul>
+  </div>
+
+  <!-- ========================================================== -->
+  <h2 id="metodo-1">2. Método 1 — PlayerMaster <span class="pill pill-recommended">Recomendado</span></h2>
+  <p>Es el flujo oficial de Colorlight para instalar APKs custom en el A40. Permite distribuir el reproductor a varios A40 al mismo tiempo.</p>
+
+  <div class="card">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Descargar el APK</div>
+        <p>Click en <code>⬇ Descargar APK v2.2.0</code> arriba. Guarda <code>mediaview-player-v2.2.0.apk</code> en una carpeta accesible.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">Abrir PlayerMaster y descubrir el A40</div>
+        <p>1. Abre <b>PlayerMaster</b> en tu PC.<br>
+           2. Verifica que tu A40 esté encendido y conectado a la <b>misma red Wi-Fi</b>.<br>
+           3. En la pestaña <b>Terminal</b> → deberías ver tu A40 listado por su Serial Number (ej. <code>CLCA40002896</code>).</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Entrar al modo avanzado</div>
+        <p>1. Selecciona tu A40 en la lista de Terminales.<br>
+           2. Click en <b>Advanced</b> (o <b>Avanzado</b>).<br>
+           3. Introduce la contraseña: <code>168</code>.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <div class="step-title">Instalar el APK personalizado</div>
+        <p>1. En el menú avanzado, busca <b>Custom APK Installation</b> (o <b>Application Management → Install APK</b>).<br>
+           2. Click <b>Browse</b> → selecciona <code>mediaview-player-v2.2.0.apk</code>.<br>
+           3. Click <b>Install / Send to Terminal</b>.<br>
+           4. PlayerMaster transfiere el archivo y el A40 lo instala. Demora ~1–2 minutos.</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <div class="step-title">Definir MediAd View Player como Launcher</div>
+        <p>En el mismo menú <b>Advanced</b>:</p>
+        <p>1. Busca <b>Default Launcher</b> (o <b>Home Application / Boot App</b>).<br>
+           2. Selecciona <b>MediAd View Player</b> de la lista.<br>
+           3. <b>Apply</b> y <b>Reboot</b> el A40.</p>
+        <div class="alert alert-info" style="margin:10px 0 0">
+          🔁 Tras el reinicio, el A40 ya no muestra la app nativa de Colorlight — arranca directamente en MediAd View Player.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert alert-warn">
+    <b>Si PlayerMaster no tiene la opción "Custom APK Installation":</b> es porque tu firmware del A40 todavía no fue personalizado por Colorlight. Hay 2 alternativas: (a) escribir a Colorlight pidiendo el firmware con esa opción habilitada (suele tardar ~3 días); o (b) usar el <b>Método 2 (ADB)</b> que funciona sobre el firmware de fábrica porque el A40 ya viene con ADB habilitado por defecto.
+  </div>
+
+  <!-- ========================================================== -->
+  <h2 id="metodo-2">3. Método 2 — ADB sobre Wi-Fi <span class="pill pill-recommended">Funciona en el firmware de fábrica</span></h2>
+  <p>El A40 viene con ADB habilitado por defecto en el puerto <code>5555</code>. Este método funciona sin tocar firmware.</p>
+
+  <h3>3.1 Encontrar la IP del A40</h3>
+  <ol>
+    <li>En el A40 ve a <b>Settings → Network</b> y anota la IP (ej. <code>192.168.1.50</code>).</li>
+    <li>O en PlayerMaster, click sobre el A40 → la IP aparece en sus propiedades.</li>
+  </ol>
+
+  <h3>3.2 Instalar ADB en tu PC</h3>
+  <ul>
+    <li><b>Windows / Mac:</b> Descargar <a href="https://developer.android.com/tools/releases/platform-tools" target="_blank" style="color:#22d3ee">platform-tools de Android</a>.</li>
+    <li><b>Mac (Homebrew):</b> <code>brew install android-platform-tools</code></li>
+    <li><b>Linux:</b> <code>sudo apt install adb</code></li>
+  </ul>
+
+  <h3>3.3 Conectar e instalar</h3>
+  <p>Abre Terminal (Mac/Linux) o PowerShell (Windows) y ejecuta:</p>
+<pre><code># 1. Conectar al A40
+adb connect 192.168.1.50:5555
+
+# 2. Verificar conexión
+adb devices
+# debe aparecer: 192.168.1.50:5555  device
+
+# 3. Instalar el APK
+adb install -r mediaview-player-v2.2.0.apk
+
+# 4. Configurar MediAd View como launcher por defecto (auto-arranque)
+adb shell cmd package set-home-activity com.mediaview.player/.MainActivity
+
+# 5. Lanzar la app por primera vez
+adb shell am start -n com.mediaview.player/.MainActivity
+
+# 6. (Opcional) Pasar la URL del servidor y Screen ID por intent extras
+adb shell am start -n com.mediaview.player/.MainActivity \
+  --es server_url "https://api.mediadview.com" \
+  --es screen_id "TU_SCREEN_ID"
+
+# 7. Desactivar timeout de pantalla del sistema
+adb shell settings put system screen_off_timeout 2147483647
+adb shell settings put secure screensaver_enabled 0</code></pre>
+
+  <div class="alert alert-success">
+    Después del paso 4 el A40 ya arranca automáticamente en MediAd View al encender. No requiere PlayerMaster.
+  </div>
+
+  <!-- ========================================================== -->
+  <h2 id="metodo-3">4. Método 3 — USB con pendrive <span class="pill pill-advanced">Sin PC</span></h2>
+  <p>Si no tienes PlayerMaster ni ADB a mano y solo tienes el A40 + un mando + un pendrive.</p>
+  <ol>
+    <li>Descarga <code>mediaview-player-v2.2.0.apk</code> en un pendrive USB FAT32.</li>
+    <li>Conecta el pendrive al puerto USB del A40.</li>
+    <li>En el A40, abre <b>File Manager → USB</b>, busca el APK y dale <b>Install</b>.</li>
+    <li>Cuando termine, abre la app desde el menú de aplicaciones.</li>
+    <li>Para hacerlo launcher predeterminado, presiona el botón HOME del mando — Android te preguntará qué launcher usar → elige <b>MediAd View Player</b> + <b>Always</b>.</li>
+  </ol>
+
+  <!-- ========================================================== -->
+  <h2 id="emparejar">5. Emparejar el reproductor con MediAd View</h2>
+  <p>Una vez instalado, el APK arranca en la pantalla de activación y te muestra un código de 6 dígitos.</p>
+
+  <div class="card">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <div class="step-title">Anotar el código que aparece en la pantalla LED</div>
+        <p>Ejemplo: <code style="font-size:18px;letter-spacing:4px">428-915</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <div class="step-title">En MediAd View → Pantallas → Editar pantalla</div>
+        <p>Buscar la sección <b>Reproductor (APK)</b> → ingresa el código → click <b>Vincular</b>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <div class="step-title">Listo</div>
+        <p>El A40 detecta la activación en menos de 30 segundos y empieza a reproducir el contenido configurado para esa pantalla.</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Menú oculto de configuración (en el A40)</h3>
+  <p>Con un teclado USB o el mando IR conectado al A40:</p>
+  <ul>
+    <li>Presionar <span class="kbd">Menu</span> 5 veces seguidas (menos de 3 segundos).</li>
+    <li>O mantener <span class="kbd">OK / Enter</span> durante 5 segundos.</li>
+  </ul>
+  <p>Se abre un diálogo donde puedes cambiar:</p>
+  <ul>
+    <li><b>URL del servidor</b> — para apuntar a otro servidor de MediAd View.</li>
+    <li><b>Screen ID</b> — para vincular manualmente sin código.</li>
+    <li><b>Reset completo</b> — borra todo y vuelve a la pantalla de activación.</li>
+  </ul>
+
+  <!-- ========================================================== -->
+  <h2 id="auto-arranque">6. Auto-arranque al encender el A40</h2>
+  <p>El APK ya viene con todos los <code>BOOT_COMPLETED</code>, <code>HOME launcher</code>, <code>WakeLock</code>, watchdog cada 5 min y reinicio nocturno a las 3 AM listos. Solo hay que asegurarse que esté seleccionado como Launcher predeterminado:</p>
+
+  <table>
+    <tr><th>Método de instalación</th><th>Cómo activar auto-arranque</th></tr>
+    <tr><td>PlayerMaster</td><td><b>Advanced → Default Launcher → MediAd View Player → Apply → Reboot</b></td></tr>
+    <tr><td>ADB</td><td><code>adb shell cmd package set-home-activity com.mediaview.player/.MainActivity</code></td></tr>
+    <tr><td>Pendrive USB</td><td>Presionar HOME → seleccionar <b>MediAd View Player</b> + <b>Always</b></td></tr>
+  </table>
+
+  <!-- ========================================================== -->
+  <h2 id="mantenimiento">7. Buenas prácticas y mantenimiento</h2>
+  <ul>
+    <li><b>Reinicio automático:</b> el APK se reinicia internamente todos los días a las <b>3:00 AM</b> para liberar memoria. Adicionalmente puedes programar un reinicio físico del A40 cada 3-7 días (recomendado por Colorlight).</li>
+    <li><b>Horario Sleep / Wake automático:</b> ya implementado en MediAd View. Configurable desde Admin Panel → <b>LED Cloud → Editar pantalla → Schedule</b>. El backend evalúa el horario cada minuto y manda comando al A40.</li>
+    <li><b>Actualizaciones del APK:</b> cuando subamos una versión nueva al servidor, el reproductor la detecta en el próximo heartbeat (cada 5 min) y se actualiza solo. No requiere tu intervención.</li>
+    <li><b>Diagnóstico:</b> presiona la tecla <span class="kbd">I</span> en un teclado USB para mostrar el HUD con FPS, conexión, ID, caché.</li>
+    <li><b>Almacenamiento:</b> el caché máximo en disco está limitado a 2 GB. Cuando se llena, se borran los archivos más antiguos primero.</li>
+  </ul>
+
+  <!-- ========================================================== -->
+  <h2 id="problemas">8. Solución de problemas comunes</h2>
+  <table>
+    <tr><th>Problema</th><th>Solución</th></tr>
+    <tr><td>PlayerMaster no detecta el A40</td><td>Verifica que ambos estén en la misma red Wi-Fi. Reinicia el A40. Comprueba que el firewall del PC no bloquee el puerto 6000.</td></tr>
+    <tr><td>ADB dice <code>unable to connect</code></td><td>1) <code>adb kill-server && adb start-server</code><br>2) Verifica IP correcta<br>3) Confirma que el A40 tenga ADB habilitado (lo está por defecto)</td></tr>
+    <tr><td>APK se instala pero no se abre al boot</td><td>No está configurado como launcher por defecto. Ejecuta el comando del paso 4 o cambialo desde PlayerMaster.</td></tr>
+    <tr><td>Pantalla queda en negro o se duerme</td><td>Ejecuta el paso 7 del ADB (deshabilitar timeout). El APK ya activa WakeLock pero el sistema puede sobreescribirlo en algunos firmwares.</td></tr>
+    <tr><td>Video se corta o pixela</td><td>Recomienda recodificar a H.264 baseline @ 1080p 30fps. El A40 no soporta H.265.</td></tr>
+    <tr><td>"Sin conexión de red"</td><td>El A40 perdió Wi-Fi. El APK reintenta automáticamente cada 5–60 seg con backoff exponencial.</td></tr>
+    <tr><td>Menú oculto no aparece</td><td>Usar teclado USB físico — los mandos IR no siempre mandan el código Menu. Como alternativa: mantener OK presionado 5 segundos.</td></tr>
+    <tr><td>Quiero desinstalar el APK y volver al firmware Colorlight</td><td><code>adb uninstall com.mediaview.player</code> y luego en Settings → Default Launcher → seleccionar la app nativa de Colorlight.</td></tr>
+  </table>
+
+  <div class="alert alert-info">
+    <b>💡 ¿Necesitas firmware personalizado de Colorlight?</b><br>
+    Si quieres que Colorlight pre-instale el APK de fábrica en varias unidades, envía por email:
+    <ol style="margin:8px 0 0">
+      <li>El APK firmado.</li>
+      <li>Cuenta de prueba (email/password) para que ellos puedan probarlo.</li>
+      <li>Indicación de que se necesita auto-arranque y permisos de overlay.</li>
+    </ol>
+    Suele tardar ~3 días de desarrollo de su lado.
+  </div>
+
+  <div class="footer">
+    MediAd View Player v2.2.0 — Optimizado para Colorlight A40 · Android TV · Google TV<br>
+    © 2026 MediAd View LLC · Documentación técnica
+  </div>
+
+</div>
+</body>
+</html>

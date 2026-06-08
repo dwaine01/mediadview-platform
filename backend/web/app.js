@@ -1698,6 +1698,7 @@ async function loadColorlightPanel(){
       '<div style="width:42px;height:42px;border-radius:10px;background:rgba(34,211,238,.15);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px">⚡</div>'+
       '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--cyan)">Direct Mode — A40 ↔ MediAd View (no ColorlightCloud)</div>'+
         '<div style="font-size:11px;color:var(--t-4)">Devices configured to talk directly to YOUR server. Full control, zero dependency.</div></div>'+
+      '<a href="/api/web/apk-install-guide.html" target="_blank" style="font-size:11px;padding:7px 13px;border-radius:14px;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#0b1220;font-weight:700;text-decoration:none;margin-right:6px">📖 Cómo instalar APK</a>'+
       '<span style="font-size:11px;padding:6px 12px;border-radius:14px;background:rgba(34,211,238,.15);color:var(--cyan);font-weight:600">'+direct.total+' direct device(s)</span>'+
     '</div>'+
     (direct.total===0

@@ -3296,6 +3296,7 @@ from finance import create_finance_routes
 from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
+from colorlight_scheduler import start_colorlight_scheduler
 from colorlight import create_colorlight_routes
 from colorlight_player import create_player_routes
 app.include_router(create_finance_routes(db, get_current_user))
@@ -3329,6 +3330,10 @@ async def startup():
         start_scheduler(db)
     except Exception as e:
         logger.exception(f"Failed to start finance scheduler: {e}")
+    try:
+        start_colorlight_scheduler(db)
+    except Exception as e:
+        logger.exception(f"Failed to start colorlight scheduler: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
