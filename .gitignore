@@ -1,115 +1,171 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ═══════════════════════════════════════════════════════════════════
+# MediAd View — .gitignore
+# ═══════════════════════════════════════════════════════════════════
+# NEVER COMMIT SECRETS, KEYS, TOKENS, PASSWORDS, OR ENV VALUES.
 
-# IDE and editors
-.idea/
-.vscode/
+# ─── Secrets & environment ─────────────────────────────────────────
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+*.keystore
+credentials.json
+service-account.json
+firebase-adminsdk*.json
+google-services.json
 
-# Dependencies
+# ─── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.hypothesis/
+coverage.xml
+*.cover
+*.py,cover
+.pyre/
+.pytype/
+cython_debug/
+.venv/
+venv/
+env/
+ENV/
+
+# ─── Node / Frontend ───────────────────────────────────────────────
 node_modules/
 /node_modules
 /.pnp
 .pnp.js
+.pnp.cjs
 .yarn/install-state.gz
 .yarn/*
 !.yarn/patches
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
-# Testing
-/coverage
-
-# Next.js
-/.next/
-/out/
-next-env.d.ts
-*.tsbuildinfo
-
-# Production builds
-/build
-dist/
-dist
-
-# Environment files (comprehensive coverage)
-
-*token.json*
-*credentials.json*
-
-# Logs and debug files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-.pnpm-debug.log*
-dump.rdb
-
-# System files
-.DS_Store
-*.pem
-
-# Python
-__pycache__/
-*pyc*
-venv/
-.venv/
-
-# Development tools
-chainlit.md
-.chainlit
-.ipynb_checkpoints/
-.ac
-
-# Deployment
-.vercel
-
-# Data and databases
-agenthub/agents/youtube/db
-
-# Archive files and large assets
-**/*.zip
-**/*.tar.gz
-**/*.tar
-**/*.tgz
-*.pack
-*.deb
-*.dylib
-
-# Build caches
+lerna-debug.log*
+.next/
+out/
+.nuxt/
+.parcel-cache/
 .cache/
+.vite/
+.swc/
 
-# Mobile development
-android-sdk/ -e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
--e 
-# Environment files
-*.env
-*.env.*
+# ─── Expo / React Native ───────────────────────────────────────────
+.expo/
+.expo-shared/
+web-build/
+expo-env.d.ts
+
+# ─── Android Player build artifacts ───────────────────────────────
+android-player/.gradle/
+android-player/**/build/
+android-player/**/.idea/
+android-player/local.properties
+android-player/app/release/
+android-player/**/captures/
+*.iml
+*.hprof
+gradle-app.setting
+.gradletasknamecache
+
+# ─── APK / signed artifacts (kept only in /web) ────────────────────
+*.jks
+*.aab
+# Note: we DO commit the /app/backend/web/mediaview-player-*.apk files
+# because they are our distributable artefacts for the LED player.
+
+# ─── Testing / coverage ────────────────────────────────────────────
+coverage/
+.coverage/
+test-results/
+playwright-report/
+tests/__snapshots__/
+
+# ─── OS / IDE ──────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*~
+.project
+.classpath
+
+# ─── Logs ──────────────────────────────────────────────────────────
+*.log
+logs/
+supervisor.log
+uvicorn.log
+
+# ─── Locks (allow package-lock/yarn.lock, ignore build locks) ─────
+*.pid
+*.seed
+*.pid.lock
+# keep yarn.lock and package-lock.json (needed for reproducible installs)
+
+# ─── Media / uploads / user-generated files ────────────────────────
+/app/backend/media/uploads/
+/app/backend/media/tmp/
+/app/backend/media/cache/
+uploads/
+tmp/
+*.tmp
+
+# ─── DB dumps ──────────────────────────────────────────────────────
+*.bson
+dump/
+mongodump/
+
+# ─── Docker / cloud ────────────────────────────────────────────────
+.dockerignore.bak
+
+# ─── Emergent build outputs ────────────────────────────────────────
+.emergent/
+frontend/tsconfig.tsbuildinfo
+frontend/frontend.log
+
+# ─── Local memory / credentials tracking (contains dev passwords) ──
+memory/test_credentials.md
+!memory/test_credentials.md.example
+

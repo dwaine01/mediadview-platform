@@ -2,7 +2,7 @@
 # MediaView Digital Signage Platform - Backend API
 # =====================================================
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import Response, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,9 +28,19 @@ load_dotenv(ROOT_DIR / '.env')
 
 MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
 DB_NAME = os.environ.get('DB_NAME', 'mediaview_db')
-JWT_SECRET = os.environ.get('JWT_SECRET', 'mediaview-secure-jwt-secret-2026')
+ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
+IS_PROD = ENVIRONMENT == 'production'
+
+JWT_SECRET = os.environ.get('JWT_SECRET')
+if not JWT_SECRET:
+    if IS_PROD:
+        raise RuntimeError("JWT_SECRET must be set in production")
+    JWT_SECRET = 'mediaview-dev-only-secret-do-not-deploy'
+    logging.getLogger("server").warning("Using dev JWT_SECRET fallback — NOT for production")
 JWT_ALGORITHM = "HS256"
-JWT_EXPIRATION_HOURS = 48
+# Legacy tokens still accepted for a short grace period after deploy.
+JWT_EXPIRATION_HOURS = int(os.environ.get('JWT_LEGACY_EXPIRATION_HOURS', '48'))
+
 MEDIA_DIR = os.environ.get('MEDIA_DIR', str(ROOT_DIR / 'media'))
 
 Path(MEDIA_DIR).mkdir(parents=True, exist_ok=True)
@@ -45,6 +55,10 @@ db = client[DB_NAME]
 app = FastAPI(title="MediaView Digital Signage API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer()
+
+# Rate limiter (imported early because @_rl.limit decorators are evaluated
+# at module load time). LIMITS provides central rate-limit strings.
+from rate_limit import limiter as _rl, LIMITS as _LIMITS  # noqa: E402
 
 # ============ HELPERS ============
 
@@ -297,15 +311,22 @@ async def health():
 # ============ ROUTES: AUTH ============
 
 @api_router.post("/auth/register")
-async def register(req: RegisterRequest):
+@_rl.limit(_LIMITS.register)
+async def register(request: Request, response: Response, req: RegisterRequest):
+    """Legacy v1. New clients should use /api/auth/register (v2)."""
+    # Never reveal existence: return generic success either way.
     existing = await db.users.find_one({"email": req.email.lower()})
     if existing:
-        raise HTTPException(status_code=400, detail="Email already registered")
+        from auth_v2 import audit
+        try: await audit(db, user_id=None, action="register_duplicate_legacy", request=request, metadata={"email": req.email.lower()})
+        except Exception: pass
+        raise HTTPException(status_code=400, detail="Registration failed")
     user = {
         "id": gen_id(), "name": req.name, "email": req.email.lower(),
         "password_hash": hash_password(req.password), "role": "customer",
         "company_name": req.company_name, "phone": None,
-        "language": "en", "active": True, "created_at": datetime.utcnow()
+        "language": "en", "active": True, "session_epoch": 0,
+        "created_at": datetime.utcnow()
     }
     await db.users.insert_one(user)
     token = create_token(user["id"], user["role"])
@@ -317,12 +338,31 @@ async def register(req: RegisterRequest):
     }
 
 @api_router.post("/auth/login")
-async def login(req: LoginRequest):
-    user = await db.users.find_one({"email": req.email.lower()})
-    if not user or not verify_password(req.password, user.get("password_hash", "")):
+@_rl.limit(_LIMITS.login)
+async def login(request: Request, response: Response, req: LoginRequest):
+    """Legacy v1 login with brute-force protection + audit log added."""
+    from auth_v2 import is_locked_out, record_attempt, audit, _ip
+    email = req.email.lower().strip()
+    ip = _ip(request)
+
+    # Brute-force lockout
+    if await is_locked_out(db, email, ip):
+        try: await audit(db, user_id=None, action="login_blocked_bruteforce_legacy", request=request, metadata={"email": email})
+        except Exception: pass
+        raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
+
+    user = await db.users.find_one({"email": email})
+    ok = bool(user) and verify_password(req.password, user.get("password_hash", "")) and user.get("active", True)
+    if not ok:
+        await record_attempt(db, email, ip, success=False)
+        try: await audit(db, user_id=(user or {}).get("id"), action="login_failed_legacy", request=request, metadata={"email": email})
+        except Exception: pass
+        # Generic error — do NOT reveal whether the account exists or is deactivated
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not user.get("active", True):
-        raise HTTPException(status_code=401, detail="Account deactivated")
+
+    await record_attempt(db, email, ip, success=True)
+    try: await audit(db, user_id=user["id"], action="login_success_legacy", request=request)
+    except Exception: pass
     token = create_token(user["id"], user["role"])
     return {
         "access_token": token, "token_type": "bearer",
@@ -465,7 +505,8 @@ async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_cur
 # ============ ROUTES: MEDIA ============
 
 @api_router.post("/media/upload")
-async def upload_media(data: MediaUpload, current_user: dict = Depends(get_current_user)):
+@_rl.limit(_LIMITS.media_upload)
+async def upload_media(request: Request, response: Response, data: MediaUpload, current_user: dict = Depends(get_current_user)):
     allowed = ["image/jpeg", "image/png", "image/jpg", "video/mp4"]
     if data.content_type not in allowed:
         raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed)}")
@@ -552,7 +593,8 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
 @api_router.post("/payments")
-async def create_payment(data: PaymentCreate, current_user: dict = Depends(get_current_user)):
+@_rl.limit(_LIMITS.payment_create)
+async def create_payment(request: Request, response: Response, data: PaymentCreate, current_user: dict = Depends(get_current_user)):
     campaign = await db.campaigns.find_one({"id": data.campaign_id, "user_id": current_user["id"]})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
@@ -874,7 +916,8 @@ async def regenerate_pairing(screen_id: str, admin: dict = Depends(require_admin
 
 
 @api_router.get("/screens/{screen_id}/qr")
-async def screen_qr_code(screen_id: str, size: int = 8, kind: str = "public"):
+@_rl.limit(_LIMITS.qr_generate)
+async def screen_qr_code(request: Request, response: Response, screen_id: str, size: int = 8, kind: str = "public"):
     """Return a PNG QR code for the screen. kind=public → public marketplace URL,
     kind=pair → deep link ready to activate the APK player with the screen id."""
     import io
@@ -3447,12 +3490,55 @@ app.include_router(create_player_routes(db), prefix="/api")
 # Real-time WebSocket channels: /api/ws/menu/{id}, /api/ws/screen/{id}, /api/ws/device/{id}
 app.include_router(ws_router)
 
+# ────────────────────────────────────────────────────────────────────────
+# Auth v2 (refresh tokens, brute-force, audit, cookie flow) — mounted at
+# /api/auth/*. The legacy /api/auth/login|register|me routes above still
+# work for backwards compat during migration.
+# ────────────────────────────────────────────────────────────────────────
+from auth_v2 import (
+    build_deps as _build_auth_deps,
+    build_auth_router as _build_auth_router,
+    ensure_auth_indexes as _ensure_auth_indexes,
+)
+from rate_limit import install_rate_limiter as _install_rl
+
+_v2_get_current_user, _v2_require_admin, _v2_require_superadmin = _build_auth_deps(db)
+app.include_router(_build_auth_router(db, _v2_get_current_user))
+
+# Install rate-limiter middleware (must be added AFTER routers exist,
+# BEFORE CORS so 429 responses get proper CORS headers).
+_install_rl(app)
+
+# ────────────────────────────────────────────────────────────────────────
+# CORS — restrictive whitelist from env. Defaults for dev only.
+# ────────────────────────────────────────────────────────────────────────
+_cors_env = os.environ.get("CORS_ORIGINS", "").strip()
+if _cors_env and _cors_env != "*":
+    _cors_origins = [o.strip() for o in _cors_env.split(",") if o.strip()]
+else:
+    if IS_PROD:
+        raise RuntimeError(
+            "CORS_ORIGINS must be an explicit comma-separated list in production. "
+            "Example: https://mediadview.com,https://www.mediadview.com,https://panel.mediadview.com"
+        )
+    # Dev fallback: allow local preview + expo tunnel + wildcard for local emulator.
+    _cors_origins = [
+        "http://localhost:3000", "http://localhost:8001",
+        "http://localhost:8081", "http://127.0.0.1:3000",
+    ]
+    _tunnel = os.environ.get("EXPO_PACKAGER_PROXY_URL")
+    if _tunnel: _cors_origins.append(_tunnel)
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=_cors_origins,
     allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Requested-With",
+                   "X-CSRF-Token", "Accept", "Origin", "Cache-Control"],
+    expose_headers=["Content-Disposition", "X-RateLimit-Limit",
+                    "X-RateLimit-Remaining", "X-RateLimit-Reset"],
+    max_age=3600,
 )
 
 logging.basicConfig(
@@ -3473,6 +3559,11 @@ async def startup():
         start_colorlight_scheduler(db)
     except Exception as e:
         logger.exception(f"Failed to start colorlight scheduler: {e}")
+    try:
+        from auth_v2 import ensure_auth_indexes
+        await ensure_auth_indexes(db)
+    except Exception as e:
+        logger.exception(f"Failed to ensure auth indexes: {e}")
 
 @app.on_event("shutdown")
 async def shutdown():
