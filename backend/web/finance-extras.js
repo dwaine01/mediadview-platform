@@ -401,13 +401,14 @@
 
   // ============ EXPORTS ============
   window.exportFile = async function(type){
-    const tk = localStorage.getItem('mv_t');
     const map = {
       'invoices':'invoices.xlsx', 'payments':'payments.xlsx', 'expenses':'expenses.xlsx',
       'clients':'clients.xlsx', 'accounts-receivable':'accounts-receivable.xlsx',
     };
     const f = map[type] || type+'.xlsx';
-    const resp = await fetch('/api/finance/export/'+f, {headers:{Authorization:'Bearer '+tk}});
+    // Uses Auth.api.raw so it sends the memory access token, includes the
+    // refresh cookie, and silently refreshes on 401 — no localStorage access.
+    const resp = await window.Auth.api.raw('/finance/export/' + f);
     if (!resp.ok) { alert('Export failed'); return; }
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);

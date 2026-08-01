@@ -14,7 +14,7 @@
  *         - on 401, silently POST /api/auth/v2/refresh, retry once
  *         - on refresh failure, redirect to /login
  *
- * USAGE (drop-in replacement for the old fetch/localStorage pattern):
+ * USAGE (drop-in replacement for the old fetch pattern):
  *
  *     await Auth.login(email, password);            // sets memory + cookie
  *     const me    = await Auth.api.get('/auth/v2/me');
@@ -31,9 +31,6 @@
 
   // ── Config ────────────────────────────────────────────────────────
   const BASE = (global.EXPO_BACKEND_URL || '') + '/api';
-  // Legacy key still read by unmigrated code paths; we WRITE it as a
-  // one-way mirror so those code paths keep working during migration.
-  const LEGACY_KEY = 'mediadview_token';
 
   // ── State kept ONLY in JS memory ─────────────────────────────────
   let _accessToken = null;
@@ -42,6 +39,13 @@
 
   const listeners = new Set();
   function emit(evt, payload) { listeners.forEach(fn => { try { fn(evt, payload); } catch(_){} }); }
+
+  // Belt & suspenders: purge any leftover legacy tokens from previous versions.
+  try {
+    localStorage.removeItem('mv_t');
+    localStorage.removeItem('mv_u');
+    localStorage.removeItem('mediadview_token');
+  } catch (_) {}
 
   // ── Low-level helpers ────────────────────────────────────────────
   async function _postJSON(path, body, opts = {}) {
@@ -77,11 +81,6 @@
   function _setSession(access, user) {
     _accessToken = access || null;
     _user = user || null;
-    // Legacy mirror — remove after 100% of app.js is migrated.
-    try {
-      if (access) localStorage.setItem(LEGACY_KEY, access);
-      else localStorage.removeItem(LEGACY_KEY);
-    } catch (_) {}
     emit(access ? 'login' : 'logout', _user);
   }
 

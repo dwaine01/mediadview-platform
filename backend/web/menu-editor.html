@@ -94,19 +94,23 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-h
 <div id="app"></div>
 <div class="modal" id="modal"><div class="sheet" id="sheet"><div class="sheet-bar"></div><div id="sheet-content"></div></div></div>
 
+<script src="/api/web/auth-client.js?v=20260801-authv2"></script>
 <script>
 var API='/api';
-var token=localStorage.getItem('mv_t');
 var menuId=new URLSearchParams(location.search).get('id');
 var menu=null,currSym='$',templates=[];
 
+// Uses window.Auth.api.raw so it sends the memory token, sends the refresh
+// cookie, and silently refreshes on 401 — no localStorage access.
 async function api(p,o={}){
-  var h={'Content-Type':'application/json'};
-  if(token)h['Authorization']='Bearer '+token;
-  var r=await fetch(API+p,{...o,headers:h});
+  var opts={credentials:'include',method:o.method||'GET',headers:{'Content-Type':'application/json',...(o.headers||{})}};
+  if(o.body)opts.body=o.body;
+  var r=await window.Auth.api.raw(p,opts);
   if(r.status===401){window.location='/api/dashboard';return}
   if(!r.ok){var e=await r.json().catch(function(){return{}});throw new Error(e.detail||'Error')}
-  return r.json();
+  if(r.status===204)return null;
+  var ct=r.headers.get('content-type')||'';
+  return ct.includes('application/json')?r.json():r.text();
 }
 
 function closeModal(){document.getElementById('modal').classList.remove('on')}
@@ -115,7 +119,10 @@ document.getElementById('modal').addEventListener('click',function(e){if(e.targe
 
 // ========== ROUTER ==========
 async function init(){
-  if(!token){window.location='/api/dashboard';return}
+  // Try to rehydrate the session from the HttpOnly refresh cookie.
+  // If it fails, bounce to the dashboard for interactive login.
+  var authed = await window.Auth.bootstrap();
+  if(!authed){window.location='/api/dashboard';return}
   if(menuId){loadEditor()}else{loadList()}
 }
 
