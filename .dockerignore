@@ -1,0 +1,75 @@
+# ──────────────────────────────────────────────────────────────────────
+# .dockerignore — MediAd View
+# Keep the build context small and free of secrets.
+# ──────────────────────────────────────────────────────────────────────
+
+# Version control
+.git
+.gitignore
+.gitattributes
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key
+
+# Python
+__pycache__
+*.py[cod]
+*.pyc
+.venv
+venv/
+env/
+.pytest_cache
+.coverage
+htmlcov/
+*.egg-info/
+
+# Node / frontend
+node_modules
+npm-debug.log*
+yarn-debug.log*
+.next
+.expo
+.expo-shared
+web-build
+dist
+build
+
+# Android build
+android-player/.gradle
+android-player/**/build
+android-player/**/.idea
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Local media/uploads
+backend/media/uploads
+backend/media/tmp
+backend/media/cache
+
+# Documentation / tests (not needed at runtime)
+docs/
+tests/
+test_reports/
+*.md
+!README.md
+
+# Emergent build outputs
+.emergent
+frontend/tsconfig.tsbuildinfo
+frontend/frontend.log
+
+# Local dev credentials
+memory/

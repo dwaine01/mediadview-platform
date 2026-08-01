@@ -1,0 +1,103 @@
+# ══════════════════════════════════════════════════════════════════════
+# docker-compose.yml — MediAd View local development
+# Mirrors the Render production topology (web-api + worker + redis + mongo).
+# Usage:
+#   cp backend/.env.example backend/.env  &&  edit values
+#   docker compose up --build
+# ══════════════════════════════════════════════════════════════════════
+version: "3.9"
+
+x-backend-common: &backend_common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  env_file:
+    - ./backend/.env
+  environment:
+    ENVIRONMENT: development
+    MONGO_URL: mongodb://mongo:27017
+    DB_NAME: mediadview
+    REDIS_URL: redis://redis:6379
+  depends_on:
+    mongo: { condition: service_healthy }
+    redis: { condition: service_healthy }
+  volumes:
+    - ./backend:/app/backend:cached          # hot-reload dev only
+    - media_data:/app/backend/media/uploads
+  restart: unless-stopped
+
+services:
+
+  # ─────────── Web-API (FastAPI) ────────────────
+  web-api:
+    <<: *backend_common
+    container_name: mediadview_web
+    ports:
+      - "8001:8001"
+    command:
+      - uvicorn
+      - server:app
+      - --host
+      - "0.0.0.0"
+      - --port
+      - "8001"
+      - --reload
+      - --proxy-headers
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8001/api/livez"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
+
+  # ─────────── Background Worker (ARQ + cron) ───
+  worker:
+    <<: *backend_common
+    container_name: mediadview_worker
+    command: ["arq", "worker.WorkerSettings"]
+    # No ports exposed — pure background
+    healthcheck:
+      # Worker sets Redis key `mediadview:worker:heartbeat` every 30s.
+      test: ["CMD-SHELL", "python -c \"import os,redis,time; r=redis.from_url(os.getenv('REDIS_URL','redis://redis:6379')); v=r.get('mediadview:worker:heartbeat'); assert v and time.time()-int(v)<120\""]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+
+  # ─────────── Redis (rate-limit, cache, ARQ queue) ─
+  redis:
+    image: redis:7-alpine
+    container_name: mediadview_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"                          # only exposed in dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ─────────── MongoDB local ────────────────────
+  # In production we point to MongoDB Atlas via MONGO_URL — this service
+  # exists only for local dev / tests.
+  mongo:
+    image: mongo:7
+    container_name: mediadview_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  mongo_data:
+  media_data:

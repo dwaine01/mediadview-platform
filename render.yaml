@@ -1,0 +1,193 @@
+# ══════════════════════════════════════════════════════════════════════
+# render.yaml — MediAd View production topology
+# ══════════════════════════════════════════════════════════════════════
+# Blueprint that creates / updates every service, key-value store, and
+# environment group needed to run MediAd View on Render.
+#
+# Deploy:
+#   1. Push this repo to GitHub.
+#   2. Render → New → Blueprint → connect the repo. All services below
+#      get created in one shot.
+#   3. In each service, fill the secrets flagged `sync: false`
+#      (MONGO_URL from Atlas, STRIPE_SECRET_KEY, R2_*, SMTP_PASSWORD,
+#      SENTRY_DSN, JWT_SECRET). Everything else auto-wires.
+#   4. Point mediadview.com DNS at Render as described in docs/DEPLOY.md.
+#
+# Docs: https://render.com/docs/blueprint-spec
+# ══════════════════════════════════════════════════════════════════════
+
+services:
+
+  # ─── Web-API (FastAPI + WebSocket + static frontend) ────────────────
+  - type: web
+    name: mediadview-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter                              # ← bump to standard/pro when scaling
+    region: virginia                           # same region as Atlas cluster
+    autoDeploy: true
+    branch: main
+    healthCheckPath: /api/livez
+    numInstances: 1
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_NAME
+        value: MediAd View
+      - key: PORT
+        value: "8001"
+      # ── Rate-limit + cache shared with worker ─────────────────
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: mediadview-redis
+          property: connectionString
+      # ── Env group with SECRETS (define once, both services share) ─
+      - fromGroup: mediadview-secrets
+
+  # ─── Worker (ARQ background jobs + embedded cron) ───────────────────
+  - type: worker
+    name: mediadview-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerCommand: arq worker.WorkerSettings
+    plan: starter
+    region: virginia
+    autoDeploy: true
+    branch: main
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: APP_NAME
+        value: MediAd View
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: mediadview-redis
+          property: connectionString
+      - fromGroup: mediadview-secrets
+
+
+# ─── Managed Redis (rate-limit, cache, ARQ queue, worker heartbeat) ───
+# `type: keyvalue` is Render's new name; if your Render account still shows
+# `type: redis` in the dashboard, both are accepted.
+databases: []
+
+# Redis instance
+services_redis:
+  - type: keyvalue
+    name: mediadview-redis
+    plan: starter                              # 250 MB, LRU eviction
+    region: virginia
+    ipAllowList: []                            # accessible only from Render VPC
+
+
+# ─── Environment groups (shared secrets across api + worker) ──────────
+envVarGroups:
+  - name: mediadview-secrets
+    envVars:
+      # ── Mongo (Atlas SRV URI) — production ────────────────────
+      - key: MONGO_URL
+        sync: false
+      - key: DB_NAME
+        value: mediadview
+
+      # ── CORS / cookies / domains ──────────────────────────────
+      - key: CORS_ORIGINS
+        value: https://mediadview.com,https://www.mediadview.com,https://panel.mediadview.com
+      - key: PUBLIC_BASE_URL
+        value: https://www.mediadview.com
+      - key: PANEL_BASE_URL
+        value: https://panel.mediadview.com
+      - key: API_BASE_URL
+        value: https://api.mediadview.com
+      - key: COOKIE_DOMAIN
+        value: .mediadview.com
+      - key: COOKIE_SECURE
+        value: "true"
+      - key: COOKIE_SAMESITE
+        value: lax
+
+      # ── JWT ───────────────────────────────────────────────────
+      - key: JWT_SECRET
+        generateValue: true                    # Render auto-generates a strong secret
+      - key: JWT_ACCESS_TOKEN_MINUTES
+        value: "30"
+      - key: JWT_REFRESH_TOKEN_DAYS
+        value: "30"
+
+      # ── Stripe ────────────────────────────────────────────────
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+
+      # ── Cloudflare R2 (media storage) ─────────────────────────
+      - key: R2_ACCOUNT_ID
+        sync: false
+      - key: R2_ENDPOINT
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
+      - key: R2_BUCKET_NAME
+        value: mediadview-prod
+      - key: R2_PUBLIC_BASE_URL
+        value: https://media.mediadview.com
+      - key: R2_REGION
+        value: auto
+
+      # ── SMTP (Resend or SendGrid) ─────────────────────────────
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_PORT
+        value: "587"
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: SMTP_FROM_EMAIL
+        value: no-reply@mediadview.com
+      - key: SMTP_FROM_NAME
+        value: MediAd View
+
+      # ── Sentry ────────────────────────────────────────────────
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_TRACES_RATE
+        value: "0.1"
+
+      # ── Timezone + logging ────────────────────────────────────
+      - key: COLORLIGHT_TZ
+        value: America/New_York
+      - key: MENU_TZ
+        value: America/New_York
+      - key: LOG_LEVEL
+        value: INFO
+
+      # ── Rate limiter ──────────────────────────────────────────
+      - key: LOCKOUT_MAX_FAIL
+        value: "5"
+      - key: LOCKOUT_WINDOW_MIN
+        value: "15"
+
+      # ── Seed accounts (initial admin/superadmin) ──────────────
+      - key: SKIP_SEED
+        value: "false"
+      - key: SEED_ADMIN_EMAIL
+        value: admin@mediadview.com
+      - key: SEED_ADMIN_PASSWORD
+        sync: false
+      - key: SEED_SUPERADMIN_EMAIL
+        value: superadmin@mediadview.com
+      - key: SEED_SUPERADMIN_PASSWORD
+        sync: false
+
+      # ── Optional LLM (Emergent Universal Key) ─────────────────
+      - key: EMERGENT_LLM_KEY
+        sync: false

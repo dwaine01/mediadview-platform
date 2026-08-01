@@ -2026,32 +2026,56 @@ async def user_analytics(current_user: dict = Depends(get_current_user)):
 # ============ SEED DATA ============
 
 async def seed_data():
-    admin_exists = await db.users.find_one({"email": "admin@mediaviewads.com"})
-    if not admin_exists:
-        admin = {
-            "id": gen_id(), "name": "MediaView Admin",
-            "email": "admin@mediaviewads.com",
-            "password_hash": hash_password("MediaViewAdmin#2026"),
-            "role": "admin", "company_name": "MediaView Inc.",
-            "phone": None, "language": "en", "active": True,
-            "created_at": datetime.utcnow()
-        }
-        await db.users.insert_one(admin)
-        logger.info("Admin user created: admin@mediaviewads.com")
+    """Seed initial admin/superadmin/demo accounts.
+    
+    SECURITY: In production, credentials MUST come from env vars. Seeding is
+    skipped entirely when SKIP_SEED=true. Demo customers are ONLY seeded in
+    non-production or when SEED_DEMO=true.
+    """
+    if os.environ.get("SKIP_SEED", "").lower() == "true":
+        logger.info("seed_data skipped (SKIP_SEED=true)")
+        return
 
-    # Create Super Admin
-    sa_exists = await db.users.find_one({"email": "superadmin@mediadview.com"})
-    if not sa_exists:
-        sa = {
-            "id": gen_id(), "name": "Super Admin",
-            "email": "superadmin@mediadview.com",
-            "password_hash": hash_password("SuperAdmin#2026"),
-            "role": "superadmin", "company_name": "MediaView Platform",
-            "phone": None, "language": "en", "active": True,
-            "created_at": datetime.utcnow()
-        }
-        await db.users.insert_one(sa)
-        logger.info("Super Admin created: superadmin@mediadview.com")
+    is_prod = os.environ.get("ENVIRONMENT") == "production"
+
+    admin_email = os.environ.get("SEED_ADMIN_EMAIL", "admin@mediaviewads.com").lower()
+    admin_pass  = os.environ.get("SEED_ADMIN_PASSWORD") or ("MediaViewAdmin#2026" if not is_prod else None)
+    sa_email    = os.environ.get("SEED_SUPERADMIN_EMAIL", "superadmin@mediadview.com").lower()
+    sa_pass     = os.environ.get("SEED_SUPERADMIN_PASSWORD") or ("SuperAdmin#2026" if not is_prod else None)
+
+    if is_prod and (not admin_pass or not sa_pass):
+        logger.warning("Production seed skipped: SEED_ADMIN_PASSWORD / SEED_SUPERADMIN_PASSWORD not set")
+        return
+
+    if admin_pass:
+        admin_exists = await db.users.find_one({"email": admin_email})
+        if not admin_exists:
+            admin = {
+                "id": gen_id(), "name": "MediaView Admin",
+                "email": admin_email,
+                "password_hash": hash_password(admin_pass),
+                "role": "admin", "company_name": "MediaView Inc.",
+                "phone": None, "language": "en", "active": True,
+                "session_epoch": 0,
+                "created_at": datetime.utcnow()
+            }
+            await db.users.insert_one(admin)
+            logger.info("Admin user created: %s", admin_email)
+
+    if sa_pass:
+        sa_exists = await db.users.find_one({"email": sa_email})
+        if not sa_exists:
+            sa = {
+                "id": gen_id(), "name": "Super Admin",
+                "email": sa_email,
+                "password_hash": hash_password(sa_pass),
+                "role": "superadmin", "company_name": "MediaView Platform",
+                "phone": None, "language": "en", "active": True,
+                "session_epoch": 0,
+                "created_at": datetime.utcnow()
+            }
+            await db.users.insert_one(sa)
+            logger.info("Super Admin created: %s", sa_email)
 
     if await db.screens.count_documents({}) == 0:
         screens = [
@@ -3489,6 +3513,20 @@ app.include_router(create_colorlight_routes(db, get_current_user))
 app.include_router(create_player_routes(db), prefix="/api")
 # Real-time WebSocket channels: /api/ws/menu/{id}, /api/ws/screen/{id}, /api/ws/device/{id}
 app.include_router(ws_router)
+
+# ────────────────────────────────────────────────────────────────────────
+# Observability: structured logs, Sentry, request-id middleware
+# ────────────────────────────────────────────────────────────────────────
+from observability import setup_logging, init_sentry, install_request_id_middleware
+setup_logging()
+init_sentry()
+install_request_id_middleware(app)
+
+# ────────────────────────────────────────────────────────────────────────
+# Health + readiness probes (/api/health, /api/ready)
+# ────────────────────────────────────────────────────────────────────────
+from health import build_health_router
+app.include_router(build_health_router(db))
 
 # ────────────────────────────────────────────────────────────────────────
 # Auth v2 (refresh tokens, brute-force, audit, cookie flow) — mounted at
