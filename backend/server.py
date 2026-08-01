@@ -3768,6 +3768,13 @@ async def startup():
     except Exception as e:
         logger.exception(f"Failed to ensure auth indexes: {e}")
 
+    # Fase 5 · Sprint 1 · Etapa A — Stripe / Finance indexes
+    try:
+        from stripe_indexes import ensure_stripe_indexes
+        await ensure_stripe_indexes(db)
+    except Exception as e:
+        logger.exception(f"Failed to ensure Stripe indexes: {e}")
+
 @app.on_event("shutdown")
 async def shutdown():
     client.close()

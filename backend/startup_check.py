@@ -26,6 +26,14 @@ _RULES = [
     # Prod-only requirements
     ("REDIS_URL",              False, False, lambda v: v.startswith(("redis://","rediss://"))),
     ("SEED_SUPERADMIN_PASSWORD", False, False, lambda v: len(v) >= 12),
+    # Stripe (Fase 5). Never required in dev — safety switch lives in
+    # stripe_config.configure_stripe(); this table only rejects OBVIOUSLY
+    # wrong values (an invalid prefix). Mode consistency + prod-hardening
+    # are enforced in stripe_config so the errors are precise.
+    ("STRIPE_SECRET_KEY",      False, False, lambda v: v.startswith(("sk_test_", "sk_live_"))),
+    ("STRIPE_PUBLISHABLE_KEY", False, False, lambda v: v.startswith(("pk_test_", "pk_live_"))),
+    ("STRIPE_WEBHOOK_SECRET",  False, False, lambda v: v.startswith("whsec_")),
+    ("ORDER_LINK_SECRET",      False, False, lambda v: len(v) >= 32 and v != "mediaview-secure-jwt-secret-2026"),
 ]
 
 def _is_prod() -> bool:
@@ -85,6 +93,19 @@ def validate_environment():
               "env group and restart.", file=sys.stderr)
         sys.exit(2)
     log.info("✓ Environment validation passed (env=%s)", os.environ.get("ENVIRONMENT","development"))
+
+    # ── Fase 5: Stripe safety switch (test/live consistency, webhook secret
+    #    requirement, PCI-adjacent guardrails). Runs AFTER the generic env
+    #    checks so we already know MONGO_URL etc. are usable.
+    try:
+        from stripe_config import configure_stripe
+        configure_stripe()
+    except SystemExit:
+        raise
+    except Exception:
+        # Never abort on unexpected import errors — Stripe is an optional
+        # feature. Log and continue.
+        log.exception("Stripe config init failed; payment routes will 503")
 
 
 if __name__ == "__main__":
