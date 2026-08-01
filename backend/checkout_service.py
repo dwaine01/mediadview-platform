@@ -32,18 +32,17 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-import stripe
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from starlette.concurrency import run_in_threadpool
 
 from financial_audit import audit
 from order_state import STATE_AWAITING_PAYMENT, STATE_PAYMENT_PROCESSING
+from payments import get_provider, CardError, ProviderError
 from redis_client import redis_client
 from stripe_config import (
     ALLOWED_CURRENCIES,
     ALLOWED_PAYMENT_METHOD_TYPES,
     DEFAULT_CURRENCY,
-    is_configured as stripe_configured,
 )
 
 log = logging.getLogger("checkout_service")
@@ -379,7 +378,7 @@ async def _get_or_create_customer(
     phone: Optional[str],
     request_id: Optional[str],
 ) -> str:
-    """Return a stripe_customer_id, creating it once per email.
+    """Return a provider-native customer_id, creating it once per email.
 
     Guests are keyed by lower-cased email. If the email is later linked to
     an account (Sprint 2), we DO NOT create a duplicate — the account gets
@@ -389,11 +388,9 @@ async def _get_or_create_customer(
     if doc and doc.get("stripe_customer_id"):
         return doc["stripe_customer_id"]
 
-    cust = await run_in_threadpool(
-        stripe.Customer.create,
-        email=email,
-        name=name or None,
-        phone=phone or None,
+    provider = get_provider()
+    cust = await provider.create_customer(
+        email=email, name=name, phone=phone,
         metadata={"source": "guest_checkout", "sprint": "1"},
         idempotency_key=f"customer:guest:{email}",
     )
@@ -402,14 +399,15 @@ async def _get_or_create_customer(
         {"email": email},
         {"$set": {
             "email": email,
-            "stripe_customer_id": cust.id,
+            "stripe_customer_id": cust.id,     # legacy field name kept for compat
+            "provider": provider.name,
             "name": name,
             "phone": phone,
             "created_at": _utcnow(),
         }},
         upsert=True,
     )
-    await audit(db, action="stripe.customer.create", actor_kind="guest",
+    await audit(db, action=f"{provider.name}.customer.create", actor_kind="guest",
                 entity_type="customer", entity_id=cust.id,
                 request_id=request_id, metadata={"email": email})
     return cust.id
@@ -554,6 +552,16 @@ async def verify_order_token(
 # ─────────────────────────────────────────────────────────────────────
 # Public: create Payment Intent
 # ─────────────────────────────────────────────────────────────────────
+def stripe_configured_check() -> bool:
+    """Backwards-compat shim. Any provider (stripe or dev) means payments
+    are configured. Only fully-empty env yields False."""
+    try:
+        get_provider()
+        return True
+    except Exception:
+        return False
+
+
 async def create_intent(
     db: AsyncIOMotorDatabase,
     *,
@@ -581,8 +589,8 @@ async def create_intent(
       · The Stripe idempotency key is `order:{order_id}` so browser
         retries never double-charge.
     """
-    if not stripe_configured():
-        raise RuntimeError("Stripe is not configured on this instance")
+    if not stripe_configured_check():
+        raise RuntimeError("Payments are not configured on this instance")
 
     email = (email or "").strip().lower()
     if not EMAIL_RE.match(email):
@@ -693,14 +701,15 @@ async def create_intent(
                                              "updated_at": _utcnow()}})
         raise ValueError("checkout session already used")
 
-    # 7. Create/reuse Stripe Customer
+    # 7. Create/reuse Customer through the provider abstraction
+    provider = get_provider()
     try:
         stripe_customer_id = await _get_or_create_customer(
             db, email=email, name=name, phone=phone, request_id=request_id,
         )
-    except stripe.error.StripeError as e:
+    except (ProviderError, CardError) as e:
         await _release_slots(db, order_id=order_id)
-        raise RuntimeError(f"stripe error creating customer: {e.user_message or str(e)}") from e
+        raise RuntimeError(f"payment provider error creating customer: {e.user_message}") from e
 
     # 8. Move Order → payment_processing and create the PaymentIntent
     from order_state import assert_transition
@@ -709,13 +718,11 @@ async def create_intent(
 
     idempotency_key = f"order:{order_id}"
     try:
-        pi = await run_in_threadpool(
-            stripe.PaymentIntent.create,
-            amount=quote["total_cents"],
+        pi = await provider.create_payment_intent(
+            amount_cents=quote["total_cents"],
             currency=quote["currency"],
-            customer=stripe_customer_id,
+            customer_id=stripe_customer_id,
             payment_method_types=ALLOWED_PAYMENT_METHOD_TYPES,
-            capture_method="automatic",
             metadata={
                 "order_id": order_id,
                 "order_number": order_number,
@@ -729,7 +736,7 @@ async def create_intent(
             description=f"MediAd View — {order_number} — {order_doc['screen_name']}",
             idempotency_key=idempotency_key,
         )
-    except stripe.error.StripeError as e:
+    except (ProviderError, CardError) as e:
         await _release_slots(db, order_id=order_id)
         await db.orders.update_one({"_id": order_id},
                                    {"$set": {"status": "cancelled",
@@ -738,15 +745,15 @@ async def create_intent(
                                         "from": STATE_AWAITING_PAYMENT,
                                         "to": "cancelled",
                                         "at": _utcnow(), "by": "system",
-                                        "reason": f"stripe error: {e.user_message or str(e)}",
+                                        "reason": f"provider error: {e.user_message}",
                                     }}})
-        await audit(db, action="stripe.payment_intent.create.failed",
+        await audit(db, action=f"{provider.name}.payment_intent.create.failed",
                     actor_kind="guest", actor_ip=actor_ip, request_id=request_id,
                     idempotency_key=idempotency_key,
                     entity_type="order", entity_id=order_id,
                     amount_cents=quote["total_cents"], currency=quote["currency"],
                     reason=str(e)[:500])
-        raise RuntimeError(f"payment could not be initialised: {e.user_message or str(e)}") from e
+        raise RuntimeError(f"payment could not be initialised: {e.user_message}") from e
 
     # 9. Persist PaymentIntent id + new status on the Order
     await db.orders.update_one(
@@ -755,20 +762,21 @@ async def create_intent(
             "status": STATE_PAYMENT_PROCESSING,
             "stripe_customer_id": stripe_customer_id,
             "stripe_payment_intent_id": pi.id,
+            "payment_provider": provider.name,
             "updated_at": _utcnow(),
         },
          "$push": {"status_history": {
              "from": STATE_AWAITING_PAYMENT,
              "to": STATE_PAYMENT_PROCESSING,
              "at": _utcnow(), "by": "system",
-             "reason": f"PaymentIntent {pi.id} created",
+             "reason": f"PaymentIntent {pi.id} created via {provider.name}",
          }}}
     )
     # Attach media to the order permanently (so admin sees the exact file)
     await db.media.update_one({"id": media_id},
                               {"$set": {"attached_order_id": order_id}})
 
-    await audit(db, action="stripe.payment_intent.create",
+    await audit(db, action=f"{provider.name}.payment_intent.create",
                 actor_kind="guest", actor_ip=actor_ip, request_id=request_id,
                 idempotency_key=idempotency_key,
                 entity_type="order", entity_id=order_id,
@@ -784,4 +792,5 @@ async def create_intent(
         "payment_intent_id": pi.id,
         "amount_cents": quote["total_cents"],
         "currency": quote["currency"],
+        "provider": provider.name,
     }

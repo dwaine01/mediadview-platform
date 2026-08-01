@@ -22,17 +22,14 @@ from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 load_dotenv(Path(__file__).parent.parent / ".env")
-os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_smoke_only_" + "x" * 32
-os.environ["STRIPE_SECRET_KEY"] = "sk_test_smoke"
-os.environ["STRIPE_PUBLISHABLE_KEY"] = "pk_test_smoke"
 
-import stripe
-import stripe_config
-stripe_config._MODE = "test"
-stripe_config._CONFIGURED = True
-stripe_config._WEBHOOK_SECRET = os.environ["STRIPE_WEBHOOK_SECRET"]
-stripe_config._PUBLISHABLE_KEY = os.environ["STRIPE_PUBLISHABLE_KEY"]
-stripe.api_key = os.environ["STRIPE_SECRET_KEY"]
+# Force dev provider — no Stripe mocking needed. This tests the real
+# code path taken when Stripe credentials are absent.
+os.environ["PAYMENT_PROVIDER"] = "dev"
+os.environ.pop("STRIPE_SECRET_KEY", None)   # ensure factory picks dev
+
+import payments
+payments.reset_provider_for_tests()
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from stripe_indexes import ensure_stripe_indexes
@@ -159,43 +156,38 @@ async def main():
     print("  second upload same session rejected by unique index → OK")
 
     # ── 3. create_intent with the new flow ───────────────────────────
-    print("── create_intent (mocked Stripe) ──")
-    with patch("stripe.Customer.create", return_value=_FakeCustomer()) as pc, \
-         patch("stripe.PaymentIntent.create", return_value=_FakePI("pi_test_smoke_A")) as pi:
-        data = await create_intent(
-            db,
-            quote_id=q["quote_id"],
-            checkout_session=q["checkout_session"],
-            media_id=media_id,
-            email="buyer.smoke@example.com",
-            name="Smoke",
-        )
-        assert data["payment_intent_id"] == "pi_test_smoke_A"
-        assert pi.call_args.kwargs["amount"] == 3000
-        assert pi.call_args.kwargs["idempotency_key"].startswith("order:ord_")
-        assert pi.call_args.kwargs["metadata"]["media_id"] == media_id
+    print("── create_intent (via LocalDevProvider — no mocking) ──")
+    data = await create_intent(
+        db,
+        quote_id=q["quote_id"],
+        checkout_session=q["checkout_session"],
+        media_id=media_id,
+        email="buyer.smoke@example.com",
+        name="Smoke",
+    )
+    assert data["provider"] == "dev", data
+    assert data["payment_intent_id"].startswith("pi_dev_"), data
     order_id = data["order_id"]
     order = await db.orders.find_one({"_id": order_id})
     assert order["media_id"] == media_id
     assert order["status"] == "payment_processing"
+    assert order["payment_provider"] == "dev"
     slots = await db.slot_reservations.count_documents({"order_id": order_id})
     assert slots == 3, slots
-    print(f"  order created, {slots} slots reserved → OK")
+    print(f"  order created, {slots} slots reserved, provider=dev → OK")
 
     # ── 4. Session cannot be reused ──────────────────────────────────
     print("── session cannot be reused ──")
-    with patch("stripe.Customer.create", return_value=_FakeCustomer()), \
-         patch("stripe.PaymentIntent.create", return_value=_FakePI("pi_x")):
-        try:
-            await create_intent(
-                db, quote_id=q["quote_id"],
-                checkout_session=q["checkout_session"],
-                media_id=media_id,
-                email="buyer.smoke@example.com", name="Smoke")
-            raise AssertionError("reused session must fail")
-        except ValueError as e:
-            assert "session" in str(e).lower()
-            print(f"  reused session rejected → OK ({e})")
+    try:
+        await create_intent(
+            db, quote_id=q["quote_id"],
+            checkout_session=q["checkout_session"],
+            media_id=media_id,
+            email="buyer.smoke@example.com", name="Smoke")
+        raise AssertionError("reused session must fail")
+    except ValueError as e:
+        assert "session" in str(e).lower()
+        print(f"  reused session rejected → OK ({e})")
 
     # ── 5. Concurrency: two buyers, same slot, different quotes ──────
     print("── concurrency: two buyers for same slot ──")
@@ -213,16 +205,14 @@ async def main():
     m_a, m_b = ua["media_id"], ub["media_id"]
 
     async def _attempt(quote, media, email, tag):
-        with patch("stripe.Customer.create", return_value=_FakeCustomer("cus_"+tag)), \
-             patch("stripe.PaymentIntent.create", return_value=_FakePI("pi_"+tag)):
-            try:
-                res = await create_intent(
-                    db, quote_id=quote["quote_id"],
-                    checkout_session=quote["checkout_session"],
-                    media_id=media, email=email, name="C")
-                return {"ok": True, "order_id": res["order_id"]}
-            except Exception as e:
-                return {"ok": False, "err": str(e)}
+        try:
+            res = await create_intent(
+                db, quote_id=quote["quote_id"],
+                checkout_session=quote["checkout_session"],
+                media_id=media, email=email, name="C")
+            return {"ok": True, "order_id": res["order_id"]}
+        except Exception as e:
+            return {"ok": False, "err": str(e)}
 
     results = await asyncio.gather(
         _attempt(q_a, m_a, "buyer.smoke@example.com", "A"),

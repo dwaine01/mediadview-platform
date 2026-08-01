@@ -22,25 +22,24 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-import stripe
+import stripe   # only for the type of exception in webhook parse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pydantic import BaseModel, EmailStr, Field
+
+DEFAULT_CURRENCY = "usd"
 
 from checkout_service import (
     build_quote,
     create_intent,
     mint_order_token,
     verify_order_token,
+    stripe_configured_check,
 )
 from financial_audit import audit
-from stripe_config import (
-    DEFAULT_CURRENCY,
-    get_mode,
-    get_publishable_key,
-    is_configured as stripe_configured,
-    webhook_secret,
+from payments import (
+    get_provider, ProviderError, CardError, SignatureVerificationError,
 )
 from stripe_events import process_event
 
@@ -108,13 +107,25 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
     async def checkout_config():
         """Public config exposed to the browser. Contains the publishable
         key (safe to expose) and current mode. NEVER exposes secret keys."""
-        return {
-            "enabled": stripe_configured(),
-            "mode": get_mode(),
-            "publishable_key": get_publishable_key() or "",
-            "currency": DEFAULT_CURRENCY,
-            "payment_methods": ["card"],
-        }
+        try:
+            p = get_provider()
+            return {
+                "enabled": True,
+                "provider": p.name,
+                "mode": p.mode,
+                "publishable_key": p.publishable_key or "",
+                "currency": DEFAULT_CURRENCY,
+                "payment_methods": ["card"],
+                "supports_webhooks": p.supports_webhooks,
+                "supports_3ds": p.supports_3ds,
+            }
+        except Exception:
+            return {
+                "enabled": False, "provider": "none", "mode": "disabled",
+                "publishable_key": "", "currency": DEFAULT_CURRENCY,
+                "payment_methods": ["card"],
+                "supports_webhooks": False, "supports_3ds": False,
+            }
 
     # ══════════════════════════════════════════════════════════════════
     # POST /api/checkout/quote
@@ -236,7 +247,7 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
     # ══════════════════════════════════════════════════════════════════
     @router.post("/checkout/create-intent")
     async def checkout_create_intent(body: CreateIntentRequest, request: Request):
-        if not stripe_configured():
+        if not stripe_configured_check():
             raise HTTPException(503, "payments are temporarily unavailable")
         try:
             result = await create_intent(
@@ -309,30 +320,32 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
         if len(raw_body) > WEBHOOK_MAX_BODY:
             raise HTTPException(413, "payload too large")
 
-        # 2) Signature verification
-        sig_header = request.headers.get("stripe-signature", "")
-        secret = webhook_secret()
-        if not secret:
-            log.warning("stripe webhook received but no secret configured")
-            raise HTTPException(503, "webhook receiver is not configured")
+        # 2) Signature verification through the provider abstraction.
+        provider = get_provider()
+        if not provider.supports_webhooks:
+            raise HTTPException(503, "current payment provider does not accept webhooks")
 
+        sig_header = request.headers.get("stripe-signature", "")
         try:
-            event = stripe.Webhook.construct_event(raw_body, sig_header, secret)
-        except stripe.error.SignatureVerificationError as e:
-            log.warning("stripe webhook signature FAILED (%s)", e)
-            await audit(db, action="stripe.webhook.bad_signature",
+            event = provider.verify_webhook(raw_body=raw_body, signature=sig_header)
+        except SignatureVerificationError as e:
+            log.warning("webhook signature FAILED (%s)", e)
+            await audit(db, action=f"{provider.name}.webhook.bad_signature",
                         actor_kind="webhook", actor_ip=_client_ip(request),
                         reason=str(e)[:200])
             raise HTTPException(400, "invalid signature")
+        except ProviderError as e:
+            raise HTTPException(400, str(e))
         except Exception as e:
-            log.warning("stripe webhook parse failed: %s", e)
+            log.warning("webhook parse failed: %s", e)
             raise HTTPException(400, "invalid payload")
 
-        event_id = event.get("id")
-        etype = event.get("type", "")
+        event_id = event.id
+        etype = event.type
+        raw_event = event.raw
 
         # 3) Deduplicate: try to insert into stripe_events. If the unique
-        #    index rejects us, this is a Stripe retry we already processed.
+        #    index rejects us, this is a retry we already processed.
         try:
             await db.stripe_events.insert_one({
                 "event_id": event_id,
@@ -340,19 +353,19 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
                 "received_at": _utcnow(),
                 "processed_at": None,
                 "result": None,
-                "payload": event,   # keep the full event for auditability
+                "payload": raw_event,
+                "provider": provider.name,
             })
         except Exception as e:
             if "duplicate" in str(e).lower() or "E11000" in str(e):
-                # Already processed — ack.
                 return Response(status_code=200)
             log.exception("stripe_events insert failed")
             raise HTTPException(500, "storage error")
 
         # 4) Dispatch. If handler raises, mark the event failed and
-        #    return non-2xx so Stripe retries.
+        #    return non-2xx so the provider retries.
         try:
-            outcome = await process_event(db, event)
+            outcome = await process_event(db, raw_event)
             await db.stripe_events.update_one(
                 {"event_id": event_id},
                 {"$set": {"processed_at": _utcnow(),
