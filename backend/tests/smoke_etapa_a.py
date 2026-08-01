@@ -38,7 +38,7 @@ async def main():
     for coll, expected in [
         ("orders", ["ux_orders_pi", "ux_orders_number", "ix_orders_status_created"]),
         ("stripe_events", ["ux_stripe_events_event_id", "ttl_stripe_events_90d"]),
-        ("slot_reservations", ["ux_slot_reservations_confirmed", "ttl_slot_reservations"]),
+        ("slot_reservations", ["ux_slot_reservations_slot", "ttl_slot_reservations"]),
         ("refunds", ["ux_refunds_stripe", "ix_refunds_order"]),
         ("payment_methods", ["ux_pm_stripe"]),
         ("subscriptions", ["ux_sub_stripe"]),
@@ -62,41 +62,25 @@ async def main():
         print("  duplicate event_id rejected → OK")
     await db.stripe_events.delete_many({"event_id": "evt_smoke_A"})
 
-    print("── slot_reservations double-booking constraint (confirmed only) ──")
-    # Should reject a second CONFIRMED reservation for the same slot,
-    # but ALLOW multiple pending (confirmed=False) drafts.
+    print("── slot_reservations double-booking constraint ──")
+    # Now: full unique index on (screen_id, day, hour) — applies to BOTH
+    # pending AND confirmed docs. Two pending holds for same slot collide.
     from datetime import datetime, timedelta, timezone
     now = datetime.now(timezone.utc)
     await db.slot_reservations.delete_many({"screen_id": "scr_smoke"})
     await db.slot_reservations.insert_one({
         "screen_id": "scr_smoke", "day": "2999-12-31", "hour": 15,
-        "confirmed": True, "expires_at": now + timedelta(minutes=10),
+        "status": "pending", "expires_at": now + timedelta(minutes=10),
     })
     try:
         await db.slot_reservations.insert_one({
             "screen_id": "scr_smoke", "day": "2999-12-31", "hour": 15,
-            "confirmed": True, "expires_at": now + timedelta(minutes=10),
+            "status": "pending", "expires_at": now + timedelta(minutes=10),
         })
         raise AssertionError("double-booking should have been rejected")
     except Exception as e:
         assert "duplicate" in str(e).lower() or "E11000" in str(e), e
-        print("  confirmed double-booking rejected → OK")
-
-    # But two PENDING reservations coexist (pre-payment holds)
-    await db.slot_reservations.insert_one({
-        "screen_id": "scr_smoke", "day": "2999-12-31", "hour": 16,
-        "confirmed": False, "expires_at": now + timedelta(minutes=10),
-    })
-    await db.slot_reservations.insert_one({
-        "screen_id": "scr_smoke", "day": "2999-12-31", "hour": 16,
-        "confirmed": False, "expires_at": now + timedelta(minutes=10),
-    })
-    count = await db.slot_reservations.count_documents({
-        "screen_id": "scr_smoke", "day": "2999-12-31", "hour": 16
-    })
-    assert count == 2, f"pending reservations should coexist, got {count}"
-    print("  pending reservations coexist → OK")
-
+        print("  pending double-booking rejected → OK")
     # Clean up
     await db.slot_reservations.delete_many({"screen_id": "scr_smoke"})
     await db.financial_audit.delete_many({"action": "etapa_a.smoke"})

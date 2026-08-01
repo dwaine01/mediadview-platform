@@ -55,16 +55,25 @@ def _utcnow() -> datetime:
 class QuoteRequest(BaseModel):
     screen_id: str
     hours: int = Field(ge=1, le=720)
+    start_at: Optional[str] = None    # ISO-8601; default = next full hour UTC
     currency: str = DEFAULT_CURRENCY
+
+
+class GuestMediaUpload(BaseModel):
+    checkout_session: str
+    filename: str
+    content_type: str
+    data: str                          # base64
+    screen_id: str                     # must match session's screen
 
 
 class CreateIntentRequest(BaseModel):
     quote_id: str
+    checkout_session: str
+    media_id: str                      # REQUIRED — user brief §1
     email: EmailStr
     name: Optional[str] = None
     phone: Optional[str] = None
-    media_id: Optional[str] = None
-    schedule: Optional[dict] = None
 
 
 class TokenizedOrderView(BaseModel):
@@ -117,6 +126,7 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
                 db,
                 screen_id=body.screen_id,
                 hours=body.hours,
+                start_at=body.start_at,
                 currency=body.currency,
             )
         except ValueError as e:
@@ -126,8 +136,100 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
                     request_id=_request_id(request),
                     entity_type="screen", entity_id=body.screen_id,
                     amount_cents=quote["total_cents"], currency=quote["currency"],
-                    metadata={"hours": body.hours})
+                    metadata={"hours": body.hours, "start_at": quote["start_at"]})
         return quote
+
+    # ══════════════════════════════════════════════════════════════════
+    # POST /api/checkout/media  (guest upload, session-bound)
+    # ══════════════════════════════════════════════════════════════════
+    @router.post("/checkout/media")
+    async def checkout_media(body: GuestMediaUpload, request: Request):
+        """Upload a creative under an active checkout session.
+
+        Auth: presented `checkout_session` token instead of user auth.
+        The token binds the media to the ONE order that will eventually
+        consume this session — attempts to reuse the media across sessions
+        are rejected in `create-intent`.
+        """
+        from checkout_service import (
+            verify_checkout_session, ALLOWED_MEDIA_MIMES, MEDIA_MAX_BYTES,
+        )
+        session = await verify_checkout_session(
+            db, token=body.checkout_session, screen_id=body.screen_id)
+        if not session:
+            raise HTTPException(401, "checkout session invalid or expired")
+
+        # Type + size guardrails BEFORE decoding base64 (which allocates).
+        if body.content_type not in ALLOWED_MEDIA_MIMES:
+            raise HTTPException(400, f"media type {body.content_type!r} not allowed")
+        # base64 → 4/3 * n bytes; cheap upper bound.
+        est_bytes = int(len(body.data) * 3 / 4)
+        if est_bytes > MEDIA_MAX_BYTES:
+            raise HTTPException(413, "media exceeds size limit")
+
+        import base64 as _b64, uuid as _uuid
+        from datetime import datetime as _dt, timezone as _tz
+        try:
+            payload = _b64.b64decode(body.data, validate=True)
+        except Exception:
+            raise HTTPException(400, "invalid base64 payload")
+        if len(payload) > MEDIA_MAX_BYTES:
+            raise HTTPException(413, "media exceeds size limit")
+
+        # Write to R2 if enabled, otherwise legacy disk. Import from
+        # storage.py directly (server.py just re-exports these names).
+        from storage import R2_ENABLED, _ext_of, build_key, r2_put_bytes, public_url_for_key
+        import os
+        MEDIA_DIR = os.environ.get("MEDIA_DIR", "/app/backend/media")
+        media_id = _uuid.uuid4().hex
+        ext = _ext_of(body.filename, body.content_type)
+        kind = "image" if body.content_type.startswith("image/") else "video"
+
+        media_doc = {
+            "id": media_id,
+            "filename": body.filename,
+            "content_type": body.content_type,
+            "size": len(payload),
+            "type": kind,
+            "created_at": _dt.now(_tz.utc),
+            "checkout_session_jti": session["jti"],
+            "guest_email": None,       # populated at create-intent time
+            "status": "ready",
+        }
+        if R2_ENABLED:
+            key = build_key(tenant_id="guest", client_id=session["jti"],
+                            campaign_id="guest-checkout", ext=ext)
+            try:
+                info = await r2_put_bytes(key, payload, body.content_type)
+            except Exception:
+                raise HTTPException(502, "media storage temporarily unavailable")
+            media_doc.update({
+                "storage": "r2", "r2_key": key,
+                "r2_etag": info.get("etag"),
+                "public_url": public_url_for_key(key),
+            })
+        else:
+            os.makedirs(MEDIA_DIR, exist_ok=True)
+            stored_name = f"{media_id}{ext or '.bin'}"
+            with open(os.path.join(MEDIA_DIR, stored_name), "wb") as fh:
+                fh.write(payload)
+            media_doc.update({
+                "storage": "legacy",
+                "stored_filename": stored_name,
+                "data": body.data if kind == "image" else None,
+            })
+
+        await db.media.insert_one(media_doc)
+        await audit(db, action="checkout.media.upload",
+                    actor_kind="guest", actor_ip=_client_ip(request),
+                    request_id=_request_id(request),
+                    entity_type="media", entity_id=media_id,
+                    metadata={"size": len(payload),
+                              "content_type": body.content_type,
+                              "session_jti": session["jti"]})
+        return {"media_id": media_id, "filename": body.filename,
+                "size": len(payload), "type": kind,
+                "storage": media_doc["storage"]}
 
     # ══════════════════════════════════════════════════════════════════
     # POST /api/checkout/create-intent
@@ -140,11 +242,11 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
             result = await create_intent(
                 db,
                 quote_id=body.quote_id,
+                checkout_session=body.checkout_session,
+                media_id=body.media_id,
                 email=body.email,
                 name=body.name,
                 phone=body.phone,
-                media_id=body.media_id,
-                schedule=body.schedule,
                 request_id=_request_id(request),
                 actor_ip=_client_ip(request),
             )
@@ -156,10 +258,7 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
             log.exception("create_intent crashed")
             raise HTTPException(500, "internal error creating payment")
 
-        # Mint a magic-link token for post-checkout order view
         token = await mint_order_token(db, order_id=result["order_id"])
-        # Do not embed the token in the URL yet — the frontend will build
-        # it after payment confirmation, so it's returned in the body.
         result["order_view_token"] = token
         return result
 
@@ -189,10 +288,26 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
     # ══════════════════════════════════════════════════════════════════
     # POST /api/webhooks/stripe
     # ══════════════════════════════════════════════════════════════════
+    # Defense-in-depth for webhook (per user requirement, NO IP rate limit —
+    # Stripe uses many source IPs and blocking them would drop valid retries):
+    #   1. Body size cap (Stripe events are usually < 32 KB; we cap at 256 KB).
+    #   2. HMAC-SHA256 signature verification with WEBHOOK_SECRET.
+    #   3. Unique index on stripe_events.event_id → dedup.
+    #   4. Fast 2xx return; heavy work would move to ARQ in Sprint 2.
+    WEBHOOK_MAX_BODY = 256 * 1024   # bytes
+
     @router.post("/webhooks/stripe")
     async def stripe_webhook(request: Request):
+        # 0) Body size cap — reject before parsing anything expensive.
+        cl = request.headers.get("content-length")
+        if cl and cl.isdigit() and int(cl) > WEBHOOK_MAX_BODY:
+            log.warning("stripe webhook body too large: %s bytes", cl)
+            raise HTTPException(413, "payload too large")
+
         # 1) Read RAW bytes (Stripe signs raw bytes; parsing first breaks it)
         raw_body = await request.body()
+        if len(raw_body) > WEBHOOK_MAX_BODY:
+            raise HTTPException(413, "payload too large")
 
         # 2) Signature verification
         sig_header = request.headers.get("stripe-signature", "")

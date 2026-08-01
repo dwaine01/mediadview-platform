@@ -146,10 +146,17 @@ h1 { font-size:30px; font-weight:900; letter-spacing:-.5px; margin-bottom:4px }
             <button type="button" class="hbtn" onclick="setHours(12)"><div class="hv">12</div><div class="hl">hours</div></button>
             <button type="button" class="hbtn" onclick="setHours(24)"><div class="hv">24</div><div class="hl">hours</div></button>
           </div>
-          <div style="margin-top:14px">
-            <div class="lbl">Or custom hours</div>
-            <input id="hoursCustom" type="number" class="inp" min="1" max="720" placeholder="e.g. 6" oninput="setHours(this.value)">
+          <div style="margin-top:14px; display:grid; grid-template-columns:1fr 1fr; gap:10px">
+            <div>
+              <div class="lbl">Custom hours</div>
+              <input id="hoursCustom" type="number" class="inp" min="1" max="720" placeholder="e.g. 6" oninput="setHours(this.value)">
+            </div>
+            <div>
+              <div class="lbl">Start (optional)</div>
+              <input id="startAt" type="datetime-local" class="inp" onchange="setStartAt(this.value)">
+            </div>
           </div>
+          <div style="font-size:10px; color:#475569; margin-top:8px">Leave empty to start at the next full hour.</div>
         </div>
 
         <!-- Media upload -->
@@ -238,17 +245,18 @@ h1 { font-size:30px; font-weight:900; letter-spacing:-.5px; margin-bottom:4px }
 // ═════════════════════════════════════════════════════════════════════
 const state = {
   screens: [],
-  screen: null,          // currently selected screen
+  screen: null,
   hours: null,
-  quote: null,           // {quote_id, total_cents, currency, ...}
-  quotePending: false,
-  order: null,           // response from create-intent
-  stripe: null,          // Stripe.js instance
-  elements: null,        // Elements instance
-  paymentElement: null,  // mounted PaymentElement
+  startAt: null,          // ISO-8601 UTC hour
+  quote: null,            // {quote_id, checkout_session, total_cents, slots, ...}
+  order: null,
+  stripe: null,
+  elements: null,
+  paymentElement: null,
   publishableKey: null,
   currency: 'usd',
-  mediaData: null,       // { base64, name, type }
+  mediaId: null,          // set once /api/checkout/media returns
+  mediaUploading: false,
   submitting: false,
 };
 
@@ -393,7 +401,6 @@ async function setHours(h) {
   if (!Number.isFinite(h) || h < 1) return;
   state.hours = h;
   document.querySelectorAll('.hbtn').forEach(b => b.classList.remove('on'));
-  // Highlight preset if it matches
   ['1','4','12','24'].forEach(n => {
     if (parseInt(n) === h) {
       const btns = document.querySelectorAll('.hbtn');
@@ -403,33 +410,58 @@ async function setHours(h) {
   await refreshQuote();
 }
 
+async function setStartAt(v) {
+  // datetime-local yields "YYYY-MM-DDTHH:mm" in the browser's local time.
+  // Convert to UTC ISO-8601 for the server.
+  if (!v) { state.startAt = null; }
+  else {
+    const local = new Date(v);
+    if (!isNaN(local.getTime())) {
+      // Snap to top of the hour
+      local.setMinutes(0, 0, 0);
+      state.startAt = local.toISOString();
+    }
+  }
+  if (state.hours) await refreshQuote();
+}
+
 async function refreshQuote() {
   if (!state.screen || !state.hours) return;
-  if (state.quotePending) return;
-  state.quotePending = true;
   try {
+    const body = {
+      screen_id: state.screen.id,
+      hours: state.hours,
+      currency: state.currency,
+    };
+    if (state.startAt) body.start_at = state.startAt;
     const r = await fetch('/api/checkout/quote', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        screen_id: state.screen.id,
-        hours: state.hours,
-        currency: state.currency,
-      }),
+      body: JSON.stringify(body),
     });
     if (!r.ok) {
       const err = await r.json().catch(() => ({}));
       throw new Error(err.detail || 'Unable to price this campaign');
     }
     state.quote = await r.json();
+    // Reset any previously-uploaded media because a NEW quote means a
+    // NEW checkout_session. The old media is bound to the old session.
+    if (state.mediaId) {
+      state.mediaId = null;
+      document.getElementById('mediaName').classList.add('hidden');
+      document.getElementById('mediaInput').value = '';
+    }
+    // Reset payment section similarly.
+    state.order = null;
+    state.elements = null;
+    state.paymentElement = null;
+    document.getElementById('paySection').classList.add('hidden');
     renderSummary();
   } catch (e) {
     console.error('quote error', e);
     state.quote = null;
     document.getElementById('summary').innerHTML =
       `<div style="color:#f87171; font-size:12px">${escapeHtml(e.message)}</div>`;
-  } finally {
-    state.quotePending = false;
   }
 }
 
@@ -442,6 +474,9 @@ function renderSummary() {
   }
   const dollars = (state.quote.total_cents / 100).toFixed(2);
   const rateD = (state.quote.hourly_rate_cents / 100).toFixed(2);
+  const startsAt = state.quote.start_at
+    ? new Date(state.quote.start_at).toLocaleString('en-US', {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})
+    : '';
   el.innerHTML = `
     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
       <span style="color:#94a3b8">${escapeHtml(state.quote.screen_name)}</span>
@@ -449,6 +484,9 @@ function renderSummary() {
     </div>
     <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
       <span style="color:#94a3b8">Hours</span><span>${state.quote.hours}</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:6px; color:#64748b">
+      <span>Starts</span><span>${escapeHtml(startsAt)}</span>
     </div>
     <div style="height:1px; background:#1e293b; margin:12px 0"></div>
     <div style="display:flex; justify-content:space-between; font-size:22px; font-weight:800">
@@ -460,29 +498,68 @@ function renderSummary() {
 }
 
 // ═════════════════════════════════════════════════════════════════════
-// File upload (base64 for now — Sprint 2 will use R2 presign)
+// File upload — Sprint 1 uploads to /api/checkout/media (guest, session-bound)
 // ═════════════════════════════════════════════════════════════════════
-function handleFileUpload(input) {
+async function handleFileUpload(input) {
   const f = input.files[0];
   if (!f) return;
+  if (!state.quote) {
+    alert('Please select a duration first');
+    input.value = '';
+    return;
+  }
   if (f.size > 20 * 1024 * 1024) {
     alert('File too large (max 20 MB)');
     input.value = '';
     return;
   }
+
+  const allowed = ['image/jpeg','image/png','image/webp','image/gif',
+                   'video/mp4','video/webm','video/quicktime'];
+  if (!allowed.includes(f.type)) {
+    alert('Unsupported file type. Please upload JPG, PNG, WEBP, GIF, MP4, WEBM or MOV.');
+    input.value = '';
+    return;
+  }
+
   const label = document.getElementById('mediaName');
-  label.textContent = `📎 ${f.name} — ${(f.size / 1024 / 1024).toFixed(1)} MB`;
   label.classList.remove('hidden');
-  const reader = new FileReader();
-  reader.onload = () => {
-    state.mediaData = {
-      base64: reader.result.split(',')[1],
-      name: f.name,
-      type: f.type || 'application/octet-stream',
-    };
+  label.textContent = `⏳ Uploading ${f.name}…`;
+  state.mediaUploading = true;
+  state.mediaId = null;
+
+  try {
+    const b64 = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result.split(',')[1]);
+      r.onerror = () => reject(new Error('read error'));
+      r.readAsDataURL(f);
+    });
+    const r = await fetch('/api/checkout/media', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        checkout_session: state.quote.checkout_session,
+        screen_id: state.quote.screen_id,
+        filename: f.name,
+        content_type: f.type,
+        data: b64,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'upload failed');
+    }
+    const out = await r.json();
+    state.mediaId = out.media_id;
+    label.textContent = `📎 ${f.name} — ${(f.size/1024/1024).toFixed(1)} MB ✓`;
+  } catch (e) {
+    label.textContent = '❌ Upload failed: ' + e.message;
+    input.value = '';
+  } finally {
+    state.mediaUploading = false;
     maybeShowPayment();
-  };
-  reader.readAsDataURL(f);
+  }
 }
 
 // ═════════════════════════════════════════════════════════════════════
@@ -492,7 +569,7 @@ async function maybeShowPayment() {
   const email = document.getElementById('buyerEmail').value.trim();
   const name = document.getElementById('buyerName').value.trim();
   const tos = document.getElementById('acceptTos').checked;
-  const ready = state.quote && email && name && tos && state.mediaData;
+  const ready = state.quote && email && name && tos && state.mediaId && !state.mediaUploading;
 
   const pay = document.getElementById('paySection');
   if (!ready) {
@@ -501,17 +578,15 @@ async function maybeShowPayment() {
   }
   pay.classList.remove('hidden');
 
-  // Lazily create the PaymentIntent + mount the Payment Element only when
-  // the user has completed enough info. This avoids creating orphan
-  // PaymentIntents for browsers that just window-shop.
   if (!state.order) {
     try {
       const body = {
         quote_id: state.quote.quote_id,
+        checkout_session: state.quote.checkout_session,
+        media_id: state.mediaId,
         email,
         name,
         phone: document.getElementById('buyerPhone').value.trim() || undefined,
-        media_id: null,   // TODO Sprint 2: upload media first, pass media_id
       };
       const r = await fetch('/api/checkout/create-intent', {
         method: 'POST',

@@ -52,9 +52,16 @@ log = logging.getLogger("checkout_service")
 QUOTE_TTL_SECONDS = int(os.environ.get("CHECKOUT_QUOTE_TTL_SECONDS", "600"))          # 10 min
 SLOT_TTL_SECONDS = int(os.environ.get("CHECKOUT_SLOT_TTL_SECONDS", "600"))            # 10 min
 ORDER_TOKEN_TTL_DAYS = int(os.environ.get("ORDER_TOKEN_TTL_DAYS", "30"))
+CHECKOUT_SESSION_TTL_SECONDS = int(os.environ.get("CHECKOUT_SESSION_TTL_SECONDS", "1800"))  # 30 min
 DEFAULT_HOURLY_RATE_CENTS = int(os.environ.get("DEFAULT_HOURLY_RATE_CENTS", "1500"))  # $15/hr fallback
 MIN_CHARGE_CENTS = 50  # Stripe minimum for USD is $0.50
 MAX_HOURS_PER_CAMPAIGN = 24 * 30  # 720h cap — safety valve
+
+MEDIA_MAX_BYTES = int(os.environ.get("GUEST_MEDIA_MAX_BYTES", str(25 * 1024 * 1024)))  # 25 MB
+ALLOWED_MEDIA_MIMES = {
+    "image/jpeg", "image/png", "image/webp", "image/gif",
+    "video/mp4", "video/webm", "video/quicktime",
+}
 
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
@@ -146,20 +153,23 @@ async def build_quote(
     *,
     screen_id: str,
     hours: int,
+    start_at: Optional[str] = None,      # ISO-8601 UTC; defaults to the next full hour
     currency: str = DEFAULT_CURRENCY,
 ) -> dict:
-    """Produce a signed price quote.
+    """Produce a signed price quote AND a checkout_session token.
+
+    Args:
+        start_at: optional ISO-8601 UTC datetime. Snapped to the top of
+                  the hour. Defaults to now + 5 min ceilinged to the hour.
 
     Returns:
         {
-          quote_id:        opaque signed token,
-          total_cents:     int,
-          currency:        "usd",
-          hourly_rate_cents: int,
-          hours:           int,
-          screen_id:       str,
-          screen_name:     str,
-          expires_at:      ISO-8601 UTC
+          quote_id:            opaque signed token,
+          checkout_session:    opaque signed session token (30 min),
+          total_cents, currency, hourly_rate_cents, hours,
+          screen_id, screen_name,
+          start_at, end_at, slots:[{day, hour}, ...],
+          expires_at
         }
     """
     currency = (currency or DEFAULT_CURRENCY).lower()
@@ -179,49 +189,183 @@ async def build_quote(
     if total < MIN_CHARGE_CENTS:
         raise ValueError(f"total {total}¢ is below Stripe minimum {MIN_CHARGE_CENTS}¢")
 
+    # ── Compute the exact hour blocks (inventory keys) ──────────────
+    start_dt = _parse_start_at(start_at)
+    slot_specs = [_slot_spec(start_dt, i) for i in range(hours)]
+
+    # ── Pre-check availability (best-effort — a full atomic check runs
+    #    in create_intent when we insert the slot docs) ──────────────
+    day_hour_pairs = [{"screen_id": screen_id, "day": s["day"], "hour": s["hour"]}
+                      for s in slot_specs]
+    conflict = await db.slot_reservations.find_one({"$or": day_hour_pairs})
+    if conflict:
+        raise ValueError(f"slot already taken ({conflict['day']} {conflict['hour']:02d}:00); "
+                         "please pick a different start time")
+
     now = int(time.time())
-    payload = {
+    quote_payload = {
         "v": 1,
         "screen_id": screen_id,
         "hours": hours,
+        "start_at": start_dt.isoformat(),
         "currency": currency,
         "hourly_rate_cents": rate,
         "total_cents": total,
+        "slots": slot_specs,
         "iat": now,
         "exp": now + QUOTE_TTL_SECONDS,
         "nonce": uuid.uuid4().hex,
     }
+
+    # Checkout session — a longer-lived token that ties uploaded media to
+    # the same buyer/browser without needing an account. Media uploaded
+    # under this session can only be attached to an Order that presents
+    # THIS session token in create_intent.
+    session_jti = uuid.uuid4().hex
+    session_payload = {
+        "v": 1,
+        "jti": session_jti,
+        "screen_id": screen_id,
+        "purpose": "checkout",
+        "iat": now,
+        "exp": now + CHECKOUT_SESSION_TTL_SECONDS,
+    }
+
+    # Persist the session so we can revoke it. Insert BEFORE returning so
+    # a race between mint + first use always sees the row.
+    await db.checkout_sessions.insert_one({
+        "jti": session_jti,
+        "screen_id": screen_id,
+        "created_at": _utcnow(),
+        "expires_at": datetime.fromtimestamp(session_payload["exp"], tz=timezone.utc),
+        "used_for_order": None,
+        "revoked": False,
+    })
+
     return {
-        "quote_id": _sign_quote(payload),
+        "quote_id": _sign_quote(quote_payload),
+        "checkout_session": _sign_quote(session_payload),  # same HMAC scheme
         "total_cents": total,
         "currency": currency,
         "hourly_rate_cents": rate,
         "hours": hours,
         "screen_id": screen_id,
         "screen_name": screen.get("name") or screen.get("title") or "Screen",
-        "expires_at": datetime.fromtimestamp(payload["exp"], tz=timezone.utc).isoformat(),
+        "start_at": start_dt.isoformat(),
+        "end_at": (start_dt + timedelta(hours=hours)).isoformat(),
+        "slots": slot_specs,
+        "expires_at": datetime.fromtimestamp(quote_payload["exp"], tz=timezone.utc).isoformat(),
     }
 
 
+def _parse_start_at(raw: Optional[str]) -> datetime:
+    """Return a UTC datetime snapped to the top of the hour.
+
+    Rules:
+      · If `raw` is None → next full hour from now + 5 min buffer.
+      · If given → must be within 90 days in the future, else 400.
+      · Must NOT be in the past.
+    """
+    now = _utcnow()
+    if not raw:
+        # Snap "now + 5 min" up to the next hour.
+        candidate = now + timedelta(minutes=5)
+        candidate = candidate.replace(minute=0, second=0, microsecond=0)
+        if candidate <= now:
+            candidate += timedelta(hours=1)
+        return candidate
+    try:
+        # Accept both "…Z" and "+00:00" forms
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        raise ValueError("start_at must be a valid ISO-8601 UTC datetime")
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc).replace(minute=0, second=0, microsecond=0)
+    if dt < now - timedelta(minutes=5):
+        raise ValueError("start_at cannot be in the past")
+    if dt > now + timedelta(days=90):
+        raise ValueError("start_at cannot be more than 90 days in the future")
+    return dt
+
+
+def _slot_spec(start_dt: datetime, offset_hours: int) -> dict:
+    """Return {day: 'YYYY-MM-DD', hour: 0..23} for the Nth slot from start."""
+    d = start_dt + timedelta(hours=offset_hours)
+    return {"day": d.strftime("%Y-%m-%d"), "hour": d.hour}
+
+
 # ─────────────────────────────────────────────────────────────────────
-# Slot reservation (Redis SETNX)
+# Slot reservation — Mongo unique index is the SOURCE OF TRUTH.
+# Redis SETNX is a fast pre-filter for the happy path.
 # ─────────────────────────────────────────────────────────────────────
 def _slot_key(screen_id: str, nonce: str) -> str:
     return f"mediadview:slot:{screen_id}:{nonce}"
 
 
-async def _reserve_slot(screen_id: str, nonce: str, order_id: str) -> bool:
-    """Try to reserve the slot for this order. Returns True if we're the
-    first holder, False if another checkout already grabbed it."""
-    return await redis_client.setnx(
-        _slot_key(screen_id, nonce),
-        order_id,
-        ex=SLOT_TTL_SECONDS,
+async def _reserve_all_slots(
+    db: AsyncIOMotorDatabase,
+    *,
+    screen_id: str,
+    slot_specs: list[dict],
+    order_id: str,
+    quote_nonce: str,
+) -> tuple[bool, Optional[dict]]:
+    """Atomically try to lock every (screen_id, day, hour) tuple in `slot_specs`.
+
+    Uses `insert_many(ordered=True)` — the unique index on
+    (screen_id, day, hour) causes the whole insert to fail on the FIRST
+    conflict. On failure we roll back the docs already inserted.
+
+    Returns (True, None) on success or (False, conflict_info) on failure.
+    """
+    now = _utcnow()
+    expires = now + timedelta(seconds=SLOT_TTL_SECONDS)
+    docs = [{
+        "_id": str(uuid.uuid4()),
+        "screen_id": screen_id,
+        "day": s["day"],
+        "hour": s["hour"],
+        "order_id": order_id,
+        "quote_nonce": quote_nonce,
+        "status": "pending",       # → 'confirmed' on webhook, deleted on failure
+        "confirmed": False,
+        "created_at": now,
+        "expires_at": expires,     # TTL sweeps pending holds after 10 min
+    } for s in slot_specs]
+
+    try:
+        await db.slot_reservations.insert_many(docs, ordered=True)
+        return True, None
+    except Exception as e:
+        # Roll back the docs that DID insert before the conflict.
+        # motor raises `BulkWriteError` on partial success; find our
+        # order_id-tagged rows and remove them.
+        try:
+            await db.slot_reservations.delete_many(
+                {"order_id": order_id, "status": "pending"})
+        except Exception:
+            pass
+        conflict_msg = str(e)
+        # Extract the offending (day, hour) from the error message
+        # (best-effort — only used for the 409 body).
+        info = {"reason": "slot_conflict", "detail": conflict_msg[:200]}
+        return False, info
+
+
+async def _confirm_slots(db: AsyncIOMotorDatabase, *, order_id: str) -> None:
+    """Called from the webhook when payment succeeded: promote pending
+    reservations to confirmed and drop the TTL (expires_at=None)."""
+    await db.slot_reservations.update_many(
+        {"order_id": order_id, "status": "pending"},
+        {"$set": {"status": "confirmed", "confirmed": True, "expires_at": None}},
     )
 
 
-async def _release_slot(screen_id: str, nonce: str) -> None:
-    await redis_client.delete_raw(_slot_key(screen_id, nonce))
+async def _release_slots(db: AsyncIOMotorDatabase, *, order_id: str) -> None:
+    """Called on payment_failed / canceled — remove the pending holds so
+    a different buyer can grab them immediately."""
+    await db.slot_reservations.delete_many({"order_id": order_id})
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -272,8 +416,62 @@ async def _get_or_create_customer(
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Order number (INV-YYYY-NNNNNN, atomic via counters)
+# Checkout session verification (media binding)
 # ─────────────────────────────────────────────────────────────────────
+async def verify_checkout_session(db, *, token: str, screen_id: str) -> Optional[dict]:
+    """Return the session payload iff signature+DB row valid AND not
+    already consumed by another order AND for the same screen."""
+    payload = _verify_quote(token)   # same HMAC scheme
+    if not payload or payload.get("purpose") != "checkout":
+        return None
+    if payload.get("screen_id") != screen_id:
+        return None
+    row = await db.checkout_sessions.find_one({"jti": payload["jti"]})
+    if not row or row.get("revoked") or row.get("used_for_order"):
+        return None
+    return payload
+
+
+async def _validate_media_for_order(
+    db: AsyncIOMotorDatabase,
+    *,
+    media_id: str,
+    session_jti: str,
+    email: str,
+) -> dict:
+    """Load the media doc and enforce every rule from the user's brief."""
+    m = await db.media.find_one({"id": media_id})
+    if not m:
+        raise ValueError("media not found")
+    if m.get("deleted_at"):
+        raise ValueError("media was deleted")
+    if m.get("status") != "ready":
+        raise ValueError("media not ready yet")
+
+    # Ownership: the media must have been uploaded under THIS session
+    # (or by the same guest email as a fallback for legacy path).
+    if m.get("checkout_session_jti") != session_jti and m.get("guest_email") != email.lower():
+        raise ValueError("media does not belong to this checkout session")
+
+    if (m.get("content_type") or "") not in ALLOWED_MEDIA_MIMES:
+        raise ValueError(f"media type {m.get('content_type')!r} not allowed")
+    if int(m.get("size", 0)) > MEDIA_MAX_BYTES:
+        raise ValueError("media exceeds size limit")
+
+    conflicting = await db.orders.find_one({
+        "media_id": media_id,
+        "status": {"$in": [
+            "paid", "pending_review", "approved", "scheduled", "playing",
+            "completed", "refund_pending", "refunded",
+        ]},
+    })
+    if conflicting:
+        raise ValueError("media already used by another order")
+
+    return m
+
+
+# ─── Order number (INV-YYYY-NNNNNN, atomic via counters) ─────────────
 async def _next_order_number(db: AsyncIOMotorDatabase) -> str:
     year = _utcnow().year
     doc = await db.counters.find_one_and_update(
@@ -360,22 +558,28 @@ async def create_intent(
     db: AsyncIOMotorDatabase,
     *,
     quote_id: str,
+    checkout_session: str,
     email: str,
     name: Optional[str] = None,
     phone: Optional[str] = None,
-    media_id: Optional[str] = None,
-    schedule: Optional[dict] = None,
+    media_id: str,                            # REQUIRED — see user brief §1
     request_id: Optional[str] = None,
     actor_ip: Optional[str] = None,
 ) -> dict:
     """Create an Order draft + a Stripe PaymentIntent.
 
-    Returns:
-        {
-          order_id, order_number,
-          client_secret, payment_intent_id,
-          publishable_key (echoed for convenience),
-        }
+    Guarantees (each enforced below and covered by smoke tests):
+      · Amount is calculated by the SERVER from the signed quote — the
+        browser can never influence the price.
+      · The Order is inserted BEFORE the PaymentIntent, in
+        `awaiting_payment` state. It never transitions to `paid` here.
+      · Every hour block of the campaign is atomically inserted into
+        `slot_reservations`. A single collision on the unique index
+        aborts the whole thing and rolls back.
+      · The media_id must belong to the presented checkout_session AND
+        pass status/type/size/uniqueness checks.
+      · The Stripe idempotency key is `order:{order_id}` so browser
+        retries never double-charge.
     """
     if not stripe_configured():
         raise RuntimeError("Stripe is not configured on this instance")
@@ -393,25 +597,50 @@ async def create_intent(
     if not screen or not screen.get("active", True):
         raise ValueError("screen not available anymore")
 
-    # 2. Create the Order document up front — the order is the source of
-    #    truth, PaymentIntent is just an attempt to collect.
+    # 2. Validate the checkout session (must match this screen, not consumed)
+    session = await verify_checkout_session(
+        db, token=checkout_session, screen_id=quote["screen_id"])
+    if not session:
+        raise ValueError("checkout session expired or invalid — please refresh")
+
+    # 3. Validate media (exists, ready, right session, right size/type,
+    #    not attached to another paid order)
+    if not media_id:
+        raise ValueError("media is required — please upload a creative first")
+    media = await _validate_media_for_order(
+        db, media_id=media_id, session_jti=session["jti"], email=email)
+
+    # 4. Create the Order document (source of truth, before Stripe)
     order_id = f"ord_{uuid.uuid4().hex[:24]}"
     order_number = await _next_order_number(db)
     now = _utcnow()
+    slot_specs = list(quote.get("slots") or [])
 
     order_doc = {
-        "_id": order_id,           # Mongo _id AND our stable ID
+        "_id": order_id,
         "id": order_id,
         "order_number": order_number,
         "screen_id": quote["screen_id"],
         "screen_name": screen.get("name") or screen.get("title") or "Screen",
         "media_id": media_id,
-        "schedule": schedule or {},
+        "media_snapshot": {
+            "filename": media.get("filename"),
+            "content_type": media.get("content_type"),
+            "size": media.get("size"),
+            "public_url": media.get("public_url"),
+            "storage": media.get("storage"),
+        },
+        "schedule": {
+            "start_at": quote.get("start_at"),
+            "end_at":   (datetime.fromisoformat(quote["start_at"]) + timedelta(hours=quote["hours"])).isoformat(),
+            "slots":    slot_specs,
+        },
         "hours": quote["hours"],
         "guest_email": email,
         "guest_name": name,
         "guest_phone": phone,
-        "customer_id": None,       # linked in Sprint 2 if user creates account
+        "checkout_session_jti": session["jti"],
+        "customer_id": None,
         "stripe_customer_id": None,
         "stripe_payment_intent_id": None,
         "stripe_latest_charge_id": None,
@@ -420,10 +649,8 @@ async def create_intent(
         "hourly_rate_cents": quote["hourly_rate_cents"],
         "status": STATE_AWAITING_PAYMENT,
         "status_history": [{
-            "from": None,
-            "to": STATE_AWAITING_PAYMENT,
-            "at": now,
-            "by": "system",
+            "from": None, "to": STATE_AWAITING_PAYMENT,
+            "at": now, "by": "system",
             "reason": "order created from guest checkout",
         }],
         "quote_nonce": quote["nonce"],
@@ -435,11 +662,13 @@ async def create_intent(
     }
     await db.orders.insert_one(order_doc)
 
-    # 3. Reserve slot in Redis (atomic SETNX). We key by (screen_id, quote_nonce)
-    #    so retries with the same quote reuse the same reservation.
-    reserved = await _reserve_slot(quote["screen_id"], quote["nonce"], order_id)
-    if not reserved:
-        # Another buyer beat us to this quote nonce → refuse.
+    # 5. Atomically reserve every hour block. Mongo's unique index is the
+    #    single source of truth for inventory — Redis is optional pre-cache.
+    ok, conflict = await _reserve_all_slots(
+        db, screen_id=quote["screen_id"], slot_specs=slot_specs,
+        order_id=order_id, quote_nonce=quote["nonce"],
+    )
+    if not ok:
         await db.orders.update_one({"_id": order_id},
                                    {"$set": {"status": "cancelled",
                                              "updated_at": _utcnow()}})
@@ -447,19 +676,33 @@ async def create_intent(
                     actor_ip=actor_ip, request_id=request_id,
                     entity_type="order", entity_id=order_id,
                     state_before=STATE_AWAITING_PAYMENT, state_after="cancelled",
-                    reason="another buyer reserved this slot")
-        raise ValueError("this slot was just taken by another buyer — please refresh")
+                    reason="slot conflict", metadata=conflict or {})
+        raise ValueError("one or more requested time slots were just taken — please pick a new start time")
 
-    # 4. Create/reuse Stripe Customer for this email
+    # 6. Consume the checkout session (mark it as used-for-this-order,
+    #    so replaying it with a different media/email is impossible).
+    session_updated = await db.checkout_sessions.update_one(
+        {"jti": session["jti"], "used_for_order": None, "revoked": False},
+        {"$set": {"used_for_order": order_id, "used_at": _utcnow()}},
+    )
+    if session_updated.modified_count != 1:
+        # Race — another request grabbed the session first. Roll back.
+        await _release_slots(db, order_id=order_id)
+        await db.orders.update_one({"_id": order_id},
+                                   {"$set": {"status": "cancelled",
+                                             "updated_at": _utcnow()}})
+        raise ValueError("checkout session already used")
+
+    # 7. Create/reuse Stripe Customer
     try:
         stripe_customer_id = await _get_or_create_customer(
             db, email=email, name=name, phone=phone, request_id=request_id,
         )
     except stripe.error.StripeError as e:
-        await _release_slot(quote["screen_id"], quote["nonce"])
+        await _release_slots(db, order_id=order_id)
         raise RuntimeError(f"stripe error creating customer: {e.user_message or str(e)}") from e
 
-    # 5. Move Order → payment_processing and create the PaymentIntent
+    # 8. Move Order → payment_processing and create the PaymentIntent
     from order_state import assert_transition
     assert_transition(from_state=STATE_AWAITING_PAYMENT,
                       to_state=STATE_PAYMENT_PROCESSING, actor="system")
@@ -471,13 +714,14 @@ async def create_intent(
             amount=quote["total_cents"],
             currency=quote["currency"],
             customer=stripe_customer_id,
-            payment_method_types=ALLOWED_PAYMENT_METHOD_TYPES,  # ["card"] in Sprint 1
+            payment_method_types=ALLOWED_PAYMENT_METHOD_TYPES,
             capture_method="automatic",
             metadata={
                 "order_id": order_id,
                 "order_number": order_number,
                 "screen_id": quote["screen_id"],
                 "quote_nonce": quote["nonce"],
+                "media_id": media_id,
                 "flow": "guest_checkout",
                 "sprint": "1",
             },
@@ -486,8 +730,7 @@ async def create_intent(
             idempotency_key=idempotency_key,
         )
     except stripe.error.StripeError as e:
-        # Roll back the Order + slot on Stripe failure
-        await _release_slot(quote["screen_id"], quote["nonce"])
+        await _release_slots(db, order_id=order_id)
         await db.orders.update_one({"_id": order_id},
                                    {"$set": {"status": "cancelled",
                                              "updated_at": _utcnow()},
@@ -505,7 +748,7 @@ async def create_intent(
                     reason=str(e)[:500])
         raise RuntimeError(f"payment could not be initialised: {e.user_message or str(e)}") from e
 
-    # 6. Persist PaymentIntent id + new status on the Order
+    # 9. Persist PaymentIntent id + new status on the Order
     await db.orders.update_one(
         {"_id": order_id},
         {"$set": {
@@ -521,6 +764,10 @@ async def create_intent(
              "reason": f"PaymentIntent {pi.id} created",
          }}}
     )
+    # Attach media to the order permanently (so admin sees the exact file)
+    await db.media.update_one({"id": media_id},
+                              {"$set": {"attached_order_id": order_id}})
+
     await audit(db, action="stripe.payment_intent.create",
                 actor_kind="guest", actor_ip=actor_ip, request_id=request_id,
                 idempotency_key=idempotency_key,

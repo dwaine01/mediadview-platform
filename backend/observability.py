@@ -31,12 +31,19 @@ def clear_request():
 # ─── Redaction ────────────────────────────────────────────────────────
 _SECRET_KEYS = re.compile(
     r"^(?:password|passwd|secret|api[_-]?key|token|jwt|authorization|cookie|"
-    r"stripe.*key|.*webhook.*secret|refresh_token|access_token|card.*number|cvv|cvc)$",
+    r"stripe.*key|stripe[_-]?secret|stripe[_-]?webhook[_-]?secret|"
+    r"order[_-]?link[_-]?secret|client[_-]?secret|"
+    r".*webhook.*secret|refresh_token|access_token|card.*number|cvv|cvc|"
+    r"stripe[_-]?signature)$",
     re.IGNORECASE,
 )
 _CARD_RX  = re.compile(r"\b(?:\d[ -]*?){13,19}\b")
 _EMAIL_RX = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
 _JWT_RX   = re.compile(r"\beyJ[a-zA-Z0-9_\-]{5,}\.[a-zA-Z0-9_\-]{5,}\.[a-zA-Z0-9_\-]+\b")
+# Stripe keys: sk_test_/sk_live_/pk_test_/pk_live_/whsec_ followed by base62.
+_STRIPE_KEY_RX = re.compile(r"\b(?:sk|pk|rk)_(?:test|live)_[A-Za-z0-9]{16,}\b")
+_STRIPE_WHSEC_RX = re.compile(r"\bwhsec_[A-Za-z0-9]{16,}\b")
+_STRIPE_CS_RX = re.compile(r"\b(?:pi|seti|cs)_[A-Za-z0-9]{8,}_secret_[A-Za-z0-9]{16,}\b")
 
 
 def _redact(obj: Any, depth: int = 0) -> Any:
@@ -47,6 +54,9 @@ def _redact(obj: Any, depth: int = 0) -> Any:
     if isinstance(obj, str):
         s = _CARD_RX.sub("[CARD]", obj)
         s = _JWT_RX.sub("[JWT]", s)
+        s = _STRIPE_KEY_RX.sub("[STRIPE_KEY]", s)
+        s = _STRIPE_WHSEC_RX.sub("[STRIPE_WHSEC]", s)
+        s = _STRIPE_CS_RX.sub("[STRIPE_CLIENT_SECRET]", s)
         s = _EMAIL_RX.sub(lambda m: (m.group(0).split("@")[0][:2] + "***@" + m.group(0).split("@")[1]), s)
         return s
     if isinstance(obj, dict):
@@ -173,7 +183,8 @@ def init_sentry():
                 headers = req.get("headers") or {}
                 if isinstance(headers, dict):
                     for h in list(headers):
-                        if h.lower() in ("authorization","cookie","set-cookie","x-api-key"):
+                        if h.lower() in ("authorization","cookie","set-cookie","x-api-key",
+                                         "stripe-signature","x-csrf-token"):
                             headers[h] = "[REDACTED]"
                     req["headers"] = headers
                 if req.get("data"):

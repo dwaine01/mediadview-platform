@@ -20,6 +20,18 @@ log = logging.getLogger("stripe_indexes")
 
 
 async def ensure_stripe_indexes(db: AsyncIOMotorDatabase) -> None:
+    # ── Migration: drop the OLD partial-confirmed index if it exists.
+    # In Etapa B (Sprint 1) we tightened the semantics so pending holds
+    # also collide with confirmed reservations. See §6 of the blueprint
+    # revision after user feedback on concurrency.
+    try:
+        info = await db.slot_reservations.index_information()
+        if "ux_slot_reservations_confirmed" in info:
+            await db.slot_reservations.drop_index("ux_slot_reservations_confirmed")
+            log.info("dropped old ux_slot_reservations_confirmed (migrating to full unique)")
+    except Exception as e:
+        log.warning("could not inspect/drop old slot index: %s", e)
+
     # ── orders (new, source-of-truth) ────────────────────────────────
     await db.orders.create_index("stripe_payment_intent_id",
                                  unique=True,
@@ -40,11 +52,16 @@ async def ensure_stripe_indexes(db: AsyncIOMotorDatabase) -> None:
                                         name="ttl_stripe_events_90d")
 
     # ── slot_reservations (double-booking guard) ────────────────────
+    # Full unique on (screen_id, day, hour) — applies to BOTH pending and
+    # confirmed reservations, so two concurrent checkouts for the same slot
+    # cannot both win. Pending docs carry `expires_at` so the TTL sweeps
+    # them if the buyer abandons before paying; confirmed docs set
+    # `expires_at = null` so they persist.
     await db.slot_reservations.create_index(
         [("screen_id", 1), ("day", 1), ("hour", 1)],
         unique=True,
-        partialFilterExpression={"confirmed": True},
-        name="ux_slot_reservations_confirmed")
+        name="ux_slot_reservations_slot")
+    await db.slot_reservations.create_index("order_id", name="ix_slot_reservations_order")
     await db.slot_reservations.create_index("expires_at",
                                             expireAfterSeconds=0,
                                             name="ttl_slot_reservations")
@@ -74,6 +91,20 @@ async def ensure_stripe_indexes(db: AsyncIOMotorDatabase) -> None:
     await db.order_tokens.create_index("jti", unique=True, name="ux_order_tokens_jti")
     await db.order_tokens.create_index("order_id", name="ix_order_tokens_order")
     await db.order_tokens.create_index("expires_at", expireAfterSeconds=0, name="ttl_order_tokens")
+
+    # ── checkout_sessions (media session binding) ───────────────────
+    await db.checkout_sessions.create_index("jti", unique=True, name="ux_checkout_sessions_jti")
+    await db.checkout_sessions.create_index("expires_at",
+                                            expireAfterSeconds=0,
+                                            name="ttl_checkout_sessions")
+    await db.checkout_sessions.create_index("used_for_order",
+                                            sparse=True,
+                                            name="ix_checkout_sessions_order")
+    # media.checkout_session_jti — one media per session (Sprint 1 rule)
+    await db.media.create_index("checkout_session_jti",
+                                unique=True,
+                                partialFilterExpression={"checkout_session_jti": {"$type": "string"}},
+                                name="ux_media_session")
 
     # ── financial_audit (append-only ledger) ────────────────────────
     await db.financial_audit.create_index([("ts", -1)], name="ix_audit_ts")

@@ -161,6 +161,10 @@ async def _handle_payment_intent_succeeded(db, event: dict) -> str:
         event_id=event.get("id"),
         stripe_object_id=pi.get("id"),
     )
+
+    # Step 3: promote reserved slots to confirmed + drop TTL
+    from checkout_service import _confirm_slots
+    await _confirm_slots(db, order_id=order_id)
     return "ok"
 
 
@@ -175,6 +179,9 @@ async def _handle_payment_intent_failed(db, event: dict) -> str:
         actor="webhook", reason=f"payment_intent.payment_failed: {err}",
         event_id=event.get("id"), stripe_object_id=pi.get("id"),
     )
+    # Release slots so other buyers can grab them.
+    from checkout_service import _release_slots
+    await _release_slots(db, order_id=order_id)
     return "ok"
 
 
@@ -188,6 +195,8 @@ async def _handle_payment_intent_canceled(db, event: dict) -> str:
         actor="webhook", reason="payment_intent.canceled",
         event_id=event.get("id"), stripe_object_id=pi.get("id"),
     )
+    from checkout_service import _release_slots
+    await _release_slots(db, order_id=order_id)
     return "ok"
 
 
