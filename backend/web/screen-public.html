@@ -5,283 +5,636 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MediAd View — Advertise Your Business</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://js.stripe.com/dahlia/stripe.js"></script>
 <style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:100vh}
-.top{padding:14px 28px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(30,41,59,.3);background:rgba(2,6,23,.9);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px)}
-.top img{height:28px}.top span{font-size:9px;color:#22d3ee;letter-spacing:2.5px;font-weight:700}
-.wrap{max-width:1200px;margin:0 auto;padding:28px}
-h1{font-size:30px;font-weight:900;letter-spacing:-.5px;margin-bottom:4px}
-.sub{font-size:14px;color:#64748b}
-.steps{display:flex;align-items:center;gap:8px;margin:24px 0}
-.sdot{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700}
-.sdot.on{background:#6366f1;color:#fff}.sdot.off{background:#1e293b;color:#475569}.sdot.ok{background:#10b981;color:#fff}
-.sline{width:32px;height:2px;background:#1e293b}.sline.ok{background:#10b981}
-.slbl{font-size:12px;font-weight:600;margin-left:4px}.slbl.on{color:#e2e8f0}.slbl.off{color:#475569}
-.lbl{display:block;font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:5px}
-.inp{width:100%;padding:11px 14px;background:#0f172a;border:1.5px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit;transition:border .2s;color-scheme:dark}
-.inp:focus{border-color:#6366f1;outline:none}
-.inp::placeholder{color:#334155}
-.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;overflow:hidden}
-.btn-main{width:100%;padding:15px;border-radius:12px;font-size:15px;font-weight:700;border:none;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.3);transition:all .2s}
-.btn-main:hover{box-shadow:0 6px 22px rgba(99,102,241,.4);transform:translateY(-1px)}
-.btn-main:disabled{opacity:.5;cursor:not-allowed;transform:none}
-.btn-back{background:none;border:1px solid #1e293b;color:#64748b;padding:8px 18px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
+* { margin:0; padding:0; box-sizing:border-box }
+body { font-family:'Inter',sans-serif; background:#020617; color:#e2e8f0; min-height:100vh }
 
-/* Grid card */
-.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
-.scard{background:#0f172a;border:2px solid transparent;border-radius:14px;overflow:hidden;cursor:pointer;transition:all .2s}
-.scard:hover{border-color:rgba(99,102,241,.3);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
-.scard.on{border-color:#22d3ee}
-.scard .ban{height:80px;position:relative;display:flex;align-items:flex-end;padding:10px}
-.scard .tag{padding:3px 8px;border-radius:5px;font-size:9px;font-weight:700;background:rgba(0,0,0,.5);color:#fff}
-.scard .bd{padding:12px 14px}
-.scard .nm{font-size:14px;font-weight:700;margin-bottom:2px}
-.scard .lc{font-size:10px;color:#475569;margin-bottom:8px}
-.scard .ft{display:flex;justify-content:space-between;align-items:center}
-.scard .pr{font-size:17px;font-weight:800;color:#22d3ee}
-.scard .pr span{font-size:9px;color:#475569;font-weight:400}
-.scard .ck{position:absolute;top:8px;right:8px;width:24px;height:24px;border-radius:50%;border:2px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);z-index:2}
-.scard.on .ck{background:#22d3ee;border-color:#22d3ee}
+/* Top bar */
+.top { padding:14px 28px; display:flex; align-items:center; gap:10px; border-bottom:1px solid rgba(30,41,59,.3); background:rgba(2,6,23,.9); position:sticky; top:0; z-index:50; backdrop-filter:blur(12px) }
+.top img { height:28px }
+.top span { font-size:9px; color:#22d3ee; letter-spacing:2.5px; font-weight:700 }
+.wrap { max-width:1200px; margin:0 auto; padding:28px }
+.hidden { display:none !important }
 
-/* Month buttons */
-.mbtn{padding:14px;border-radius:10px;border:2px solid #1e293b;text-align:center;cursor:pointer;transition:all .15s;background:transparent}
-.mbtn:hover{border-color:rgba(34,211,238,.3)}
-.mbtn.on{border-color:#22d3ee;background:rgba(34,211,238,.06)}
-.mbtn .mv{font-size:22px;font-weight:800}.mbtn.on .mv{color:#22d3ee}
-.mbtn .ml{font-size:10px;color:#475569}.mbtn.on .ml{color:#22d3ee}
+/* Headings */
+h1 { font-size:30px; font-weight:900; letter-spacing:-.5px; margin-bottom:4px }
+.sub { font-size:14px; color:#64748b }
 
-/* Upload */
-.upl{border:2px dashed #1e293b;border-radius:12px;padding:28px;text-align:center;cursor:pointer;transition:all .15s}
-.upl:hover{border-color:rgba(99,102,241,.4);background:rgba(99,102,241,.02)}
+/* Steps */
+.steps { display:flex; align-items:center; gap:8px; margin:24px 0 32px }
+.sdot { width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700 }
+.sdot.on { background:#6366f1; color:#fff } .sdot.off { background:#1e293b; color:#475569 } .sdot.ok { background:#10b981; color:#fff }
+.sline { width:32px; height:2px; background:#1e293b } .sline.ok { background:#10b981 }
+.slbl { font-size:12px; font-weight:600; margin-left:4px } .slbl.on { color:#e2e8f0 } .slbl.off { color:#475569 }
 
-/* Floating bar */
-.fbar{position:fixed;bottom:0;left:0;right:0;background:rgba(2,6,23,.9);backdrop-filter:blur(12px);border-top:1px solid rgba(30,41,59,.4);padding:14px 28px;display:flex;align-items:center;justify-content:space-between;z-index:50;transform:translateY(100%);transition:transform .3s}
-.fbar.show{transform:translateY(0)}
+/* Forms */
+.lbl { display:block; font-size:9px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:1.5px; margin-bottom:5px }
+.inp { width:100%; padding:11px 14px; background:#0f172a; border:1.5px solid #1e293b; border-radius:10px; color:#f1f5f9; font-size:14px; font-family:inherit; transition:border .2s; color-scheme:dark }
+.inp:focus { border-color:#6366f1; outline:none }
+.inp::placeholder { color:#334155 }
 
-.ok-box{text-align:center;padding:48px;max-width:480px;margin:60px auto}
-.ok-box h2{font-size:26px;font-weight:800;color:#34d399;margin:16px 0 8px}
-.hidden{display:none}
+/* Card containers */
+.card { background:#0f172a; border:1px solid #1e293b; border-radius:14px; overflow:hidden }
+.btn-main { width:100%; padding:15px; border-radius:12px; font-size:15px; font-weight:700; border:none; cursor:pointer; font-family:inherit; background:linear-gradient(135deg,#6366f1,#4f46e5); color:#fff; box-shadow:0 4px 15px rgba(99,102,241,.3); transition:all .2s }
+.btn-main:hover:not(:disabled) { box-shadow:0 6px 22px rgba(99,102,241,.4); transform:translateY(-1px) }
+.btn-main:disabled { opacity:.5; cursor:not-allowed; transform:none }
+.btn-back { background:none; border:1px solid #1e293b; color:#64748b; padding:8px 18px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:inherit }
+.btn-back:hover { color:#e2e8f0; border-color:#334155 }
+
+/* Screen grid */
+.sgrid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px }
+.scard { background:#0f172a; border:1px solid #1e293b; border-radius:14px; overflow:hidden; cursor:pointer; transition:all .2s; text-align:left; padding:0 }
+.scard:hover { border-color:#6366f1; transform:translateY(-2px); box-shadow:0 8px 24px rgba(0,0,0,.3) }
+.scard .ban { height:120px; position:relative; display:flex; align-items:flex-end; padding:12px }
+.scard .tag { padding:3px 8px; border-radius:5px; font-size:9px; font-weight:700; background:rgba(0,0,0,.5); color:#fff }
+.scard .bd { padding:14px 16px }
+.scard .nm { font-size:16px; font-weight:800; margin-bottom:3px }
+.scard .lc { font-size:11px; color:#64748b; margin-bottom:12px }
+.scard .ft { display:flex; justify-content:space-between; align-items:center }
+.scard .pr { font-size:18px; font-weight:800; color:#22d3ee }
+.scard .pr small { font-size:10px; color:#475569; font-weight:400 }
+
+/* Hours picker */
+.hours-picker { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin-top:8px }
+.hbtn { padding:14px 8px; border-radius:10px; border:2px solid #1e293b; text-align:center; cursor:pointer; transition:all .15s; background:transparent; font-family:inherit; color:inherit }
+.hbtn:hover { border-color:rgba(99,102,241,.4) }
+.hbtn.on { border-color:#22d3ee; background:rgba(34,211,238,.06); color:#22d3ee }
+.hbtn .hv { font-size:22px; font-weight:800 }
+.hbtn .hl { font-size:10px; color:#64748b; margin-top:2px }
+.hbtn.on .hl { color:#22d3ee }
+
+/* Upload zone */
+.upl { border:2px dashed #1e293b; border-radius:12px; padding:28px; text-align:center; cursor:pointer; transition:all .15s }
+.upl:hover { border-color:#6366f1; background:rgba(99,102,241,.02) }
+.upl-name { font-size:12px; color:#22d3ee; margin-top:8px; font-weight:600 }
+
+/* Stripe Element container */
+#pay-element { padding:16px; background:#0f172a; border-radius:10px; border:1.5px solid #1e293b }
+.stripe-error { padding:10px 12px; border-radius:8px; background:rgba(239,68,68,.1); color:#f87171; font-size:12px; margin-top:10px }
+
+/* Success screen */
+.ok-box { background:linear-gradient(135deg,rgba(16,185,129,.08),rgba(34,211,238,.05)); border:1px solid rgba(16,185,129,.2); border-radius:20px; padding:44px; text-align:center; margin-top:40px }
+.ok-box h2 { font-size:26px; font-weight:900; margin:16px 0 6px }
+.ok-code { display:inline-block; padding:8px 16px; margin:12px 0; border-radius:8px; background:#0f172a; border:1px solid #1e293b; font-family:monospace; font-size:14px; color:#22d3ee; letter-spacing:1px }
+.ok-link { display:inline-block; padding:10px 20px; margin-top:16px; border-radius:10px; background:rgba(99,102,241,.15); color:#a5b4fc; text-decoration:none; font-size:13px; font-weight:600; border:1px solid rgba(99,102,241,.25) }
+
+/* Mode banner */
+.test-banner { background:rgba(251,191,36,.08); border:1px solid rgba(251,191,36,.2); color:#fbbf24; padding:10px 16px; border-radius:10px; font-size:12px; font-weight:600; margin-bottom:20px; display:flex; align-items:center; gap:8px }
+
+/* Responsive */
+@media (max-width:820px) {
+  .checkout-grid { grid-template-columns:1fr !important }
+  .hours-picker { grid-template-columns:repeat(2,1fr) }
+}
 </style>
 </head>
 <body>
-<div class="top"><img src="/api/web/logo.png" alt="MediAd View"><span>DIGITAL SIGNAGE PLATFORM</span></div>
+
+<!-- Top bar -->
+<div class="top">
+  <img src="/api/web/logo.png" alt="MediAd View" onerror="this.style.display='none'">
+  <span>MEDIAD VIEW — ADVERTISING</span>
+</div>
 
 <div class="wrap">
-  <!-- VIEW 1: MARKETPLACE -->
+  <!-- Test-mode banner (only shown when Stripe is in test mode) -->
+  <div id="test-banner" class="test-banner hidden">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z"/></svg>
+    <span>Test Mode — Use card <code>4242 4242 4242 4242</code>, any future date, any CVC.</span>
+  </div>
+
+  <!-- ═══════════════ VIEW 1: SCREEN MARKETPLACE ═══════════════ -->
   <div id="v1">
-    <div class="steps">
-      <div class="sdot on">1</div><span class="slbl on">Choose Screens</span>
-      <div class="sline"></div>
-      <div class="sdot off">2</div><span class="slbl off">Book & Pay</span>
-    </div>
-    <h1>Advertise Your Business</h1>
-    <p class="sub" style="margin-bottom:20px">Select screens to display your ad</p>
-    <div style="position:relative;margin-bottom:16px">
-      <svg style="position:absolute;left:14px;top:50%;transform:translateY(-50%)" width="16" height="16" fill="none" stroke="#475569" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
-      <input class="inp" id="q" placeholder="Search by city, address, or screen code..." oninput="fil()" style="padding-left:40px">
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="display:flex;gap:8px;align-items:center">
-        <button onclick="selAll()" style="padding:6px 14px;border-radius:8px;background:rgba(34,211,238,.08);color:#22d3ee;border:1px solid rgba(34,211,238,.15);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Select All</button>
-        <button onclick="clr()" style="padding:6px 14px;border-radius:8px;background:#0f172a;color:#64748b;border:1px solid #1e293b;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">Clear</button>
-        <span id="cnt" style="font-size:12px;color:#475569">0 selected</span>
+    <h1>Advertise on Premium LED Screens</h1>
+    <p class="sub">Pay-per-hour rentals · Secure Stripe checkout · Instant slot reservation</p>
+
+    <div style="display:flex; gap:14px; margin:24px 0 20px; align-items:center">
+      <div style="flex:1; position:relative">
+        <input id="q" class="inp" placeholder="🔍 Search by location or name…" oninput="filterScreens()">
       </div>
-      <span id="tot" style="font-size:12px;color:#475569"></span>
+      <div style="font-size:12px; color:#64748b" id="tot"></div>
     </div>
-    <div class="sgrid" id="gr"></div>
+
+    <div id="grid" class="sgrid"></div>
   </div>
 
-  <!-- VIEW 2: CHECKOUT -->
+  <!-- ═══════════════ VIEW 2: CHECKOUT ═══════════════ -->
   <div id="v2" class="hidden">
-    <div class="steps">
-      <div class="sdot ok">✓</div><span class="slbl on">Screens</span>
-      <div class="sline ok"></div>
-      <div class="sdot on">2</div><span class="slbl on">Book & Pay</span>
-    </div>
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">
-      <div><h1>Complete Your Booking</h1><p class="sub" id="ch-sub"></p></div>
-      <button class="btn-back" onclick="back()">← Change Screens</button>
+    <button class="btn-back" onclick="backToMarket()">← Back to screens</button>
+
+    <div class="steps" style="margin-top:20px">
+      <div class="sdot on">1</div><span class="slbl on">Configure</span>
+      <div class="sline"></div>
+      <div class="sdot off" id="s2">2</div><span class="slbl off" id="l2">Pay</span>
+      <div class="sline"></div>
+      <div class="sdot off" id="s3">3</div><span class="slbl off" id="l3">Approve</span>
     </div>
 
-    <div style="display:grid;grid-template-columns:3fr 2fr;gap:20px">
-      <!-- Left: Form -->
-      <div>
-        <!-- Selected screens -->
-        <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px">SELECTED SCREENS</div>
-          <div id="ch-list"></div>
-        </div>
+    <h1 id="ch-title">Book Screen</h1>
+    <p class="sub" id="ch-sub"></p>
 
+    <div class="checkout-grid" style="display:grid; grid-template-columns:1fr 400px; gap:24px; margin-top:24px">
+      <!-- Left column: configuration -->
+      <div style="display:flex; flex-direction:column; gap:16px">
         <!-- Duration -->
-        <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px">CAMPAIGN DURATION</div>
-          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px">
-            <div class="mbtn" onclick="setM(1)" id="m1"><div class="mv">1</div><div class="ml">Month</div></div>
-            <div class="mbtn" onclick="setM(3)" id="m3"><div class="mv">3</div><div class="ml">Months</div></div>
-            <div class="mbtn" onclick="setM(6)" id="m6"><div class="mv">6</div><div class="ml">Months</div></div>
-            <div class="mbtn" onclick="setM(12)" id="m12"><div class="mv">12</div><div class="ml">Months</div></div>
+        <div class="card" style="padding:20px">
+          <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:14px">CAMPAIGN DURATION</div>
+          <div class="hours-picker">
+            <button type="button" class="hbtn" onclick="setHours(1)"><div class="hv">1</div><div class="hl">hour</div></button>
+            <button type="button" class="hbtn" onclick="setHours(4)"><div class="hv">4</div><div class="hl">hours</div></button>
+            <button type="button" class="hbtn" onclick="setHours(12)"><div class="hv">12</div><div class="hl">hours</div></button>
+            <button type="button" class="hbtn" onclick="setHours(24)"><div class="hv">24</div><div class="hl">hours</div></button>
           </div>
-          <div style="font-size:10px;color:#334155;margin-bottom:8px">Or choose custom dates:</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div><div class="lbl">Start</div><input type="date" class="inp" id="b-s" onchange="calc()"></div>
-            <div><div class="lbl">End</div><input type="date" class="inp" id="b-e" onchange="calc()"></div>
+          <div style="margin-top:14px">
+            <div class="lbl">Or custom hours</div>
+            <input id="hoursCustom" type="number" class="inp" min="1" max="720" placeholder="e.g. 6" oninput="setHours(this.value)">
           </div>
         </div>
 
-        <!-- Upload -->
-        <div class="card" style="padding:16px;margin-bottom:14px">
-          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:6px">YOUR ADVERTISEMENT</div>
-          <div id="ori" style="display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:8px;background:rgba(34,211,238,.04);border:1px solid rgba(34,211,238,.08);margin-bottom:10px;font-size:11px;color:#22d3ee">
-            <span id="ori-i" style="display:inline-block;width:28px;height:18px;border:2px solid #22d3ee;border-radius:3px"></span>
-            <span id="ori-t">Landscape — Upload horizontal image (1920×1080)</span>
-          </div>
-          <div class="upl" onclick="document.getElementById('bf').click()">
-            <svg width="24" height="24" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <div style="font-size:12px;color:#475569;margin-top:6px">Click to upload image or video</div>
-            <div style="font-size:10px;color:#1e293b">JPG, PNG, MP4</div>
-          </div>
-          <input type="file" id="bf" accept="image/*,video/mp4" style="display:none" onchange="onF(this)">
-          <div id="pv" class="hidden" style="margin-top:10px;border-radius:10px;overflow:hidden;max-height:180px"><img id="pvimg" style="width:100%;object-fit:contain;max-height:180px"></div>
-          <div id="fn" style="font-size:11px;color:#22d3ee;margin-top:6px" class="hidden"></div>
+        <!-- Media upload -->
+        <div class="card" style="padding:20px">
+          <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:14px">YOUR CREATIVE</div>
+          <label class="upl">
+            <input type="file" id="mediaInput" accept="image/*,video/*" onchange="handleFileUpload(this)" style="display:none">
+            <svg width="34" height="34" fill="none" stroke="#334155" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto"><path d="M7 16a4 4 0 01-.88-7.9 5 5 0 019.9-1.1A4.5 4.5 0 0119 15.5m-7-8v9m0 0l-3-3m3 3l3-3"/></svg>
+            <div style="font-size:13px; color:#94a3b8; margin-top:8px">Click to upload image or video</div>
+            <div style="font-size:11px; color:#475569; margin-top:2px">JPG, PNG, MP4 — up to 20MB</div>
+            <div id="mediaName" class="upl-name hidden"></div>
+          </label>
         </div>
 
-        <!-- Contact -->
-        <div class="card" style="padding:16px">
-          <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:12px">YOUR INFORMATION</div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
-            <div><div class="lbl">Full Name</div><input class="inp" id="bn" placeholder="John Smith"></div>
-            <div><div class="lbl">Email</div><input class="inp" id="bm" type="email" placeholder="you@company.com"></div>
+        <!-- Buyer info -->
+        <div class="card" style="padding:20px">
+          <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:14px">YOUR INFO</div>
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px">
+            <div><span class="lbl">Full Name</span><input class="inp" id="buyerName" placeholder="John Smith" onchange="maybeShowPayment()"></div>
+            <div><span class="lbl">Email</span><input class="inp" id="buyerEmail" type="email" placeholder="you@company.com" onchange="maybeShowPayment()"></div>
           </div>
-          <div><div class="lbl">Phone (optional)</div><input class="inp" id="bp" placeholder="+1 (555) 000-0000"></div>
+          <div><span class="lbl">Phone (optional)</span><input class="inp" id="buyerPhone" placeholder="+1 (555) 000-0000"></div>
+        </div>
+
+        <!-- Payment (Stripe Payment Element mounts here) -->
+        <div class="card hidden" id="paySection" style="padding:20px">
+          <div style="font-size:12px; font-weight:700; color:#64748b; margin-bottom:14px">PAYMENT</div>
+          <div id="pay-element"></div>
+          <div id="stripeError" class="stripe-error hidden"></div>
+          <button class="btn-main" id="payBtn" onclick="submitPayment()" style="margin-top:14px" disabled>
+            Continue to payment
+          </button>
         </div>
       </div>
 
-      <!-- Right: Summary (sticky) -->
+      <!-- Right column: sticky summary -->
       <div>
-        <div style="position:sticky;top:70px">
-          <div class="card" style="padding:18px;border-color:rgba(34,211,238,.12)">
-            <div style="font-size:14px;font-weight:700;margin-bottom:14px">Order Summary</div>
-            <div id="prc"><div style="color:#334155;font-size:12px">Select duration to see pricing</div></div>
-            <div style="height:1px;background:#1e293b;margin:14px 0"></div>
-            <div style="max-height:80px;overflow-y:auto;margin-bottom:12px;font-size:10px;color:#334155;line-height:1.7">By submitting, you agree: All content must comply with advertising laws. MediAd View may reject content without notice. No offensive or illegal content. Payment required before going live.</div>
-            <label style="display:flex;align-items:flex-start;gap:8px;margin-bottom:14px;cursor:pointer">
-              <input type="checkbox" id="bt" style="margin-top:2px;accent-color:#6366f1;width:15px;height:15px;flex-shrink:0">
-              <span style="font-size:11px;color:#475569">I accept the Terms & Conditions</span>
+        <div style="position:sticky; top:80px">
+          <div class="card" style="padding:22px">
+            <div style="font-size:14px; font-weight:800; margin-bottom:16px">Order Summary</div>
+            <div id="summary" style="min-height:100px">
+              <div style="color:#334155; font-size:12px">Select a duration to see pricing</div>
+            </div>
+            <div style="height:1px; background:#1e293b; margin:16px 0"></div>
+            <div style="font-size:10px; color:#334155; line-height:1.7">
+              By continuing you agree that all content must comply with advertising laws. MediAd View may
+              reject content that is offensive, illegal, or inappropriate. Payment is captured immediately;
+              the ad goes live after admin approval.
+            </div>
+            <label style="display:flex; align-items:flex-start; gap:8px; margin-top:14px; cursor:pointer">
+              <input type="checkbox" id="acceptTos" onchange="maybeShowPayment()" style="margin-top:2px; accent-color:#6366f1; width:15px; height:15px; flex-shrink:0">
+              <span style="font-size:12px; color:#94a3b8">I accept the Terms &amp; Conditions</span>
             </label>
-            <button class="btn-main" id="bbtn" onclick="book()">Submit & Pay</button>
-            <div id="bmsg" class="hidden" style="padding:8px;border-radius:6px;font-size:12px;text-align:center;margin-top:8px;background:rgba(239,68,68,.1);color:#f87171"></div>
-            <div style="display:flex;align-items:center;justify-content:center;gap:6px;margin-top:10px"><svg width="12" height="12" fill="none" stroke="#1e293b" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span style="font-size:9px;color:#1e293b">Secure payment</span></div>
+            <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:16px">
+              <svg width="12" height="12" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              <span style="font-size:10px; color:#334155; letter-spacing:.5px">Secured by Stripe · PCI-DSS</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- VIEW 3: SUCCESS -->
+  <!-- ═══════════════ VIEW 3: SUCCESS ═══════════════ -->
   <div id="v3" class="hidden">
     <div class="ok-box">
       <svg width="56" height="56" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24" style="margin:0 auto"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <h2>Ad Submitted!</h2>
-      <p style="color:#64748b;font-size:14px" id="okd"></p>
-      <button onclick="location.reload()" style="margin-top:20px;padding:10px 24px;border-radius:10px;background:rgba(34,211,238,.08);color:#22d3ee;border:1px solid rgba(34,211,238,.15);font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Book More Screens</button>
+      <h2>Payment received!</h2>
+      <p style="color:#94a3b8; font-size:14px; margin-bottom:6px" id="okMsg"></p>
+      <div class="ok-code" id="okOrderNumber"></div>
+      <p style="color:#64748b; font-size:12px; max-width:520px; margin:14px auto 0; line-height:1.6">
+        Your creative is now in our admin review queue. As soon as it's approved, it will go live on the LED
+        display. We've emailed you a magic link to track this order — no account or password required.
+      </p>
+      <a href="#" id="okViewOrder" class="ok-link">View my order status →</a>
+      <div style="margin-top:22px">
+        <button onclick="location.reload()" style="padding:10px 24px; border-radius:10px; background:rgba(34,211,238,.08); color:#22d3ee; border:1px solid rgba(34,211,238,.15); font-size:13px; font-weight:600; cursor:pointer; font-family:inherit">Book another screen</button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Floating next bar -->
-<div class="fbar" id="fbar">
-  <div style="font-size:14px;font-weight:600"><span id="fc" style="color:#22d3ee">0</span> screens selected</div>
-  <button onclick="goCheckout()" style="padding:10px 28px;border-radius:10px;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;font-weight:700;font-size:14px;border:none;cursor:pointer;font-family:inherit;box-shadow:0 4px 15px rgba(99,102,241,.3)">Next: Book & Pay →</button>
-</div>
-
 <script>
-var S=[],sel=new Set(),fb=null,fn2='',ft='',months=0;
-var G=['linear-gradient(135deg,#1e40af,#60a5fa)','linear-gradient(135deg,#c2410c,#fb923c)','linear-gradient(135deg,#0f766e,#5eead4)','linear-gradient(135deg,#6d28d9,#c4b5fd)','linear-gradient(135deg,#b45309,#fbbf24)','linear-gradient(135deg,#be185d,#f9a8d4)','linear-gradient(135deg,#047857,#6ee7b7)','linear-gradient(135deg,#4338ca,#a5b4fc)','linear-gradient(135deg,#0e7490,#67e8f9)','linear-gradient(135deg,#be123c,#fda4af)'];
+// ═════════════════════════════════════════════════════════════════════
+// State
+// ═════════════════════════════════════════════════════════════════════
+const state = {
+  screens: [],
+  screen: null,          // currently selected screen
+  hours: null,
+  quote: null,           // {quote_id, total_cents, currency, ...}
+  quotePending: false,
+  order: null,           // response from create-intent
+  stripe: null,          // Stripe.js instance
+  elements: null,        // Elements instance
+  paymentElement: null,  // mounted PaymentElement
+  publishableKey: null,
+  currency: 'usd',
+  mediaData: null,       // { base64, name, type }
+  submitting: false,
+};
 
-async function init(){
-  var r=await fetch('/api/screens');S=await r.json();
-  S.forEach(function(s,i){s.ref=String(1001+i);s._g=G[i%G.length]});
-  document.getElementById('tot').textContent=S.length+' screens available';
-  fil();
-  var t=new Date().toISOString().split('T')[0];
-  document.getElementById('b-s').min=t;document.getElementById('b-e').min=t;
+const GRADIENTS = [
+  'linear-gradient(135deg,#1e40af,#60a5fa)',
+  'linear-gradient(135deg,#c2410c,#fb923c)',
+  'linear-gradient(135deg,#0f766e,#5eead4)',
+  'linear-gradient(135deg,#6d28d9,#c4b5fd)',
+  'linear-gradient(135deg,#b45309,#fbbf24)',
+  'linear-gradient(135deg,#be185d,#f9a8d4)',
+  'linear-gradient(135deg,#047857,#6ee7b7)',
+  'linear-gradient(135deg,#4338ca,#a5b4fc)',
+];
+
+// ═════════════════════════════════════════════════════════════════════
+// Init
+// ═════════════════════════════════════════════════════════════════════
+async function init() {
+  try {
+    // 1. Fetch Stripe config (publishable key, mode)
+    const cfg = await fetch('/api/checkout/config').then(r => r.json());
+    if (!cfg.enabled) {
+      showBanner('Payments are temporarily disabled. Please try again later.', 'error');
+    } else {
+      state.publishableKey = cfg.publishable_key;
+      state.currency = cfg.currency || 'usd';
+      if (cfg.mode === 'test') document.getElementById('test-banner').classList.remove('hidden');
+      if (state.publishableKey) state.stripe = Stripe(state.publishableKey);
+    }
+
+    // 2. Fetch screens
+    const list = await fetch('/api/screens').then(r => r.json());
+    state.screens = Array.isArray(list) ? list : [];
+    state.screens.forEach((s, i) => { s._g = GRADIENTS[i % GRADIENTS.length]; });
+    document.getElementById('tot').textContent = state.screens.length + ' screens available';
+    renderScreens(state.screens);
+  } catch (e) {
+    console.error(e);
+    showBanner('Failed to load. Please refresh.', 'error');
+  }
 }
 
-function fil(){
-  var q=(document.getElementById('q')?.value||'').toLowerCase();
-  var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||s.location.address.toLowerCase().includes(q)||(s.location_code||'').toLowerCase().includes(q)||s.ref.includes(q)}):S;
-  document.getElementById('gr').innerHTML=list.map(function(s){
-    var on=sel.has(s.id);
-    return '<div class="scard'+(on?' on':'')+'" onclick="tog(\''+s.id+'\')"><div class="ck">'+(on?'<svg width="12" height="12" fill="none" stroke="#020617" stroke-width="3" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>':'')+'</div><div class="ban" style="background:'+s._g+'"><span class="tag">'+(s.location_code||'#'+s.ref)+'</span></div><div class="bd"><div class="nm">'+s.name+'</div><div class="lc">'+s.location.address+', '+s.location.city+'</div><div class="ft"><span style="font-size:10px;color:#475569">'+s.specs.size+' · '+(s.specs.orientation==='portrait'?'↕':'↔')+'</span><span class="pr">$'+(s.pricing.per_month||0).toLocaleString()+'<span>/mo</span></span></div></div></div>';
+function showBanner(msg, kind) {
+  const b = document.getElementById('test-banner');
+  b.textContent = msg;
+  b.classList.remove('hidden');
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// View 1: screen marketplace
+// ═════════════════════════════════════════════════════════════════════
+function renderScreens(list) {
+  const g = document.getElementById('grid');
+  if (!list.length) {
+    g.innerHTML = '<div style="color:#64748b; font-size:14px; padding:40px 0; text-align:center; grid-column:1/-1">No screens available right now.</div>';
+    return;
+  }
+  g.innerHTML = list.map(s => {
+    const address = (s.location && s.location.address) ? s.location.address : '';
+    const city = (s.location && s.location.city) ? s.location.city : '';
+    const size = (s.specs && s.specs.size) ? s.specs.size : '';
+    const rate = hourlyRateDollars(s);
+    return `
+      <button class="scard" onclick="selectScreen('${s.id}')">
+        <div class="ban" style="background:${s._g}"><span class="tag">${escapeHtml(s.location_code || '#' + s.id.slice(0,6))}</span></div>
+        <div class="bd">
+          <div class="nm">${escapeHtml(s.name || 'Screen')}</div>
+          <div class="lc">${escapeHtml(address)}${city ? ', ' + escapeHtml(city) : ''}</div>
+          <div class="ft">
+            <span style="font-size:10px; color:#64748b">${escapeHtml(size)}</span>
+            <span class="pr">$${rate.toFixed(2)} <small>/hour</small></span>
+          </div>
+        </div>
+      </button>
+    `;
   }).join('');
 }
 
-function tog(id){if(sel.has(id))sel.delete(id);else sel.add(id);upd()}
-function selAll(){var q=(document.getElementById('q')?.value||'').toLowerCase();var list=q?S.filter(function(s){return s.name.toLowerCase().includes(q)||s.location.city.toLowerCase().includes(q)||(s.location_code||'').toLowerCase().includes(q)}):S;list.forEach(function(s){sel.add(s.id)});upd()}
-function clr(){sel.clear();upd()}
-function upd(){fil();document.getElementById('cnt').textContent=sel.size+' selected';document.getElementById('fc').textContent=sel.size;document.getElementById('fbar').classList.toggle('show',sel.size>0)}
-
-function goCheckout(){
-  document.getElementById('v1').classList.add('hidden');document.getElementById('v2').classList.remove('hidden');
-  var ss=S.filter(function(s){return sel.has(s.id)});
-  document.getElementById('ch-sub').textContent=ss.length+' screen'+(ss.length>1?'s':'')+' selected';
-  document.getElementById('ch-list').innerHTML=ss.map(function(s){return '<div style="display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1e293b"><div style="width:32px;height:20px;border-radius:4px;background:'+s._g+';flex-shrink:0"></div><span style="flex:1;font-size:12px;font-weight:600">'+s.name+'</span><span style="font-size:12px;font-weight:700;color:#22d3ee">$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'}).join('');
-  document.getElementById('fbar').classList.remove('show');
-  window.scrollTo(0,0);
+function hourlyRateDollars(s) {
+  // Match server-side normalisation in checkout_service._hourly_rate_cents
+  const raw = (s.hourly_rate ?? s.price_per_hour ?? s.rate_hour ?? s.hourly_rate_cents);
+  if (raw == null) return 15;
+  const f = parseFloat(raw);
+  if (isNaN(f)) return 15;
+  return f >= 1000 ? f / 100 : f;
 }
 
-function back(){document.getElementById('v2').classList.add('hidden');document.getElementById('v1').classList.remove('hidden');upd();window.scrollTo(0,0)}
-
-function setM(m){
-  months=m;
-  document.querySelectorAll('.mbtn').forEach(function(b){b.classList.remove('on')});
-  document.getElementById('m'+m)?.classList.add('on');
-  var today=new Date();var end=new Date(today);end.setMonth(end.getMonth()+m);
-  document.getElementById('b-s').value=today.toISOString().split('T')[0];
-  document.getElementById('b-e').value=end.toISOString().split('T')[0];
-  calc();
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-function calc(){
-  var sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
-  if(!sd||!ed||sel.size===0){document.getElementById('prc').innerHTML='<div style="color:#334155;font-size:12px">Select duration to see pricing</div>';return}
-  var ms=months||Math.max(Math.round((new Date(ed)-new Date(sd))/(30*86400000)),1);
-  var ss=S.filter(function(s){return sel.has(s.id)});
-  var h='';
-  ss.forEach(function(s){h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span style="color:#94a3b8">'+s.name+'</span><span>$'+(s.pricing.per_month||0).toLocaleString()+'/mo</span></div>'});
-  if(ms>1)h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;color:#475569"><span>× '+ms+' months</span></div>';
-  var sub=ss.reduce(function(a,s){return a+(s.pricing.per_month||0)*ms},0);
-  var tax=Math.round(sub*0.075*100)/100;var tot=sub+tax;
-  h+='<div style="height:1px;background:#1e293b;margin:8px 0"></div>';
-  h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#94a3b8">Subtotal</span><span style="font-weight:600">$'+sub.toLocaleString()+'</span></div>';
-  h+='<div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px"><span style="color:#94a3b8">Tax (7.5%)</span><span>$'+tax.toLocaleString()+'</span></div>';
-  h+='<div style="display:flex;justify-content:space-between;font-size:20px;font-weight:800;margin-top:8px"><span>Total</span><span style="color:#22d3ee">$'+tot.toLocaleString()+'</span></div>';
-  document.getElementById('prc').innerHTML=h;
-  document.getElementById('bbtn').textContent='Submit & Pay — $'+tot.toLocaleString();
+function filterScreens() {
+  const q = (document.getElementById('q').value || '').toLowerCase().trim();
+  if (!q) return renderScreens(state.screens);
+  const list = state.screens.filter(s =>
+    (s.name || '').toLowerCase().includes(q) ||
+    (s.location?.city || '').toLowerCase().includes(q) ||
+    (s.location?.address || '').toLowerCase().includes(q) ||
+    (s.location_code || '').toLowerCase().includes(q)
+  );
+  renderScreens(list);
 }
 
-function onF(i){var f=i.files[0];if(!f)return;fn2=f.name;ft=f.type||'image/jpeg';
-  document.getElementById('fn').textContent=f.name+' ('+((f.size/1024/1024).toFixed(1))+' MB)';document.getElementById('fn').classList.remove('hidden');
-  var r=new FileReader();r.onload=function(){fb=r.result.split(',')[1];if(f.type.startsWith('image/')){document.getElementById('pvimg').src=r.result;document.getElementById('pv').classList.remove('hidden')}};r.readAsDataURL(f)}
-
-async function book(){
-  var msg=document.getElementById('bmsg');msg.classList.add('hidden');
-  if(!document.getElementById('bt')?.checked){msg.textContent='Please accept the Terms';msg.classList.remove('hidden');return}
-  var nm=document.getElementById('bn').value,em=document.getElementById('bm').value,sd=document.getElementById('b-s').value,ed=document.getElementById('b-e').value;
-  if(!nm||!em||!sd||!ed||!fb||sel.size===0){msg.textContent='Please complete all fields and upload media';msg.classList.remove('hidden');return}
-  var btn=document.getElementById('bbtn');btn.disabled=true;btn.textContent='Processing...';
-  try{
-    var au;try{var r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:em,password:'cl_'+em})});if(!r.ok)throw 0;au=await r.json()}catch(e){au=await(await fetch('/api/auth/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:nm,email:em,password:'cl_'+em})})).json()}
-    var h={'Content-Type':'application/json','Authorization':'Bearer '+au.access_token};
-    var m=await(await fetch('/api/media/upload',{method:'POST',headers:h,body:JSON.stringify({filename:fn2,content_type:ft,data:fb})})).json();
-    var ss=S.filter(function(s){return sel.has(s.id)});
-    for(var s of ss){var c=await(await fetch('/api/campaigns',{method:'POST',headers:h,body:JSON.stringify({name:nm+' — '+s.name,screen_id:s.id,schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5},media_ids:[m.id]})})).json();await fetch('/api/payments',{method:'POST',headers:h,body:JSON.stringify({campaign_id:c.id,method:'card',card_last4:'4242'})})}
-    document.getElementById('v2').classList.add('hidden');document.getElementById('v3').classList.remove('hidden');
-    document.getElementById('okd').textContent='Your ad was submitted to '+ss.length+' screen'+(ss.length>1?'s':'')+'. It will go live once approved by our team.';
-  }catch(e){msg.textContent='Error: '+e.message;msg.classList.remove('hidden');btn.disabled=false;btn.textContent='Submit & Pay'}
+// ═════════════════════════════════════════════════════════════════════
+// Transition to checkout (view 2)
+// ═════════════════════════════════════════════════════════════════════
+function selectScreen(id) {
+  const s = state.screens.find(x => x.id === id);
+  if (!s) return;
+  state.screen = s;
+  state.hours = null;
+  state.quote = null;
+  state.order = null;
+  document.getElementById('v1').classList.add('hidden');
+  document.getElementById('v2').classList.remove('hidden');
+  document.getElementById('ch-title').textContent = 'Book: ' + (s.name || 'Screen');
+  document.getElementById('ch-sub').textContent = (s.location?.address || '') +
+    (s.location?.city ? ', ' + s.location.city : '');
+  // Reset selections
+  document.querySelectorAll('.hbtn').forEach(b => b.classList.remove('on'));
+  document.getElementById('hoursCustom').value = '';
+  document.getElementById('mediaName').classList.add('hidden');
+  document.getElementById('mediaInput').value = '';
+  document.getElementById('paySection').classList.add('hidden');
+  document.getElementById('acceptTos').checked = false;
+  state.mediaData = null;
+  renderSummary();
+  window.scrollTo(0, 0);
 }
 
+function backToMarket() {
+  document.getElementById('v2').classList.add('hidden');
+  document.getElementById('v1').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Hours selection & server-side quote refresh
+// ═════════════════════════════════════════════════════════════════════
+async function setHours(h) {
+  h = parseInt(h, 10);
+  if (!Number.isFinite(h) || h < 1) return;
+  state.hours = h;
+  document.querySelectorAll('.hbtn').forEach(b => b.classList.remove('on'));
+  // Highlight preset if it matches
+  ['1','4','12','24'].forEach(n => {
+    if (parseInt(n) === h) {
+      const btns = document.querySelectorAll('.hbtn');
+      btns.forEach(b => { if (b.querySelector('.hv')?.textContent === n) b.classList.add('on'); });
+    }
+  });
+  await refreshQuote();
+}
+
+async function refreshQuote() {
+  if (!state.screen || !state.hours) return;
+  if (state.quotePending) return;
+  state.quotePending = true;
+  try {
+    const r = await fetch('/api/checkout/quote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        screen_id: state.screen.id,
+        hours: state.hours,
+        currency: state.currency,
+      }),
+    });
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.detail || 'Unable to price this campaign');
+    }
+    state.quote = await r.json();
+    renderSummary();
+  } catch (e) {
+    console.error('quote error', e);
+    state.quote = null;
+    document.getElementById('summary').innerHTML =
+      `<div style="color:#f87171; font-size:12px">${escapeHtml(e.message)}</div>`;
+  } finally {
+    state.quotePending = false;
+  }
+}
+
+function renderSummary() {
+  const el = document.getElementById('summary');
+  if (!state.quote) {
+    el.innerHTML = '<div style="color:#334155; font-size:12px">Select a duration to see pricing</div>';
+    document.getElementById('payBtn').disabled = true;
+    return;
+  }
+  const dollars = (state.quote.total_cents / 100).toFixed(2);
+  const rateD = (state.quote.hourly_rate_cents / 100).toFixed(2);
+  el.innerHTML = `
+    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
+      <span style="color:#94a3b8">${escapeHtml(state.quote.screen_name)}</span>
+      <span>$${rateD}/hr</span>
+    </div>
+    <div style="display:flex; justify-content:space-between; font-size:12px; margin-bottom:6px">
+      <span style="color:#94a3b8">Hours</span><span>${state.quote.hours}</span>
+    </div>
+    <div style="height:1px; background:#1e293b; margin:12px 0"></div>
+    <div style="display:flex; justify-content:space-between; font-size:22px; font-weight:800">
+      <span>Total</span><span style="color:#22d3ee">$${dollars}</span>
+    </div>
+    <div style="font-size:10px; color:#334155; margin-top:6px; text-align:right">${state.quote.currency.toUpperCase()} · valid 10 min</div>
+  `;
+  maybeShowPayment();
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// File upload (base64 for now — Sprint 2 will use R2 presign)
+// ═════════════════════════════════════════════════════════════════════
+function handleFileUpload(input) {
+  const f = input.files[0];
+  if (!f) return;
+  if (f.size > 20 * 1024 * 1024) {
+    alert('File too large (max 20 MB)');
+    input.value = '';
+    return;
+  }
+  const label = document.getElementById('mediaName');
+  label.textContent = `📎 ${f.name} — ${(f.size / 1024 / 1024).toFixed(1)} MB`;
+  label.classList.remove('hidden');
+  const reader = new FileReader();
+  reader.onload = () => {
+    state.mediaData = {
+      base64: reader.result.split(',')[1],
+      name: f.name,
+      type: f.type || 'application/octet-stream',
+    };
+    maybeShowPayment();
+  };
+  reader.readAsDataURL(f);
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Reveal payment section once quote + form + tos are ready
+// ═════════════════════════════════════════════════════════════════════
+async function maybeShowPayment() {
+  const email = document.getElementById('buyerEmail').value.trim();
+  const name = document.getElementById('buyerName').value.trim();
+  const tos = document.getElementById('acceptTos').checked;
+  const ready = state.quote && email && name && tos && state.mediaData;
+
+  const pay = document.getElementById('paySection');
+  if (!ready) {
+    pay.classList.add('hidden');
+    return;
+  }
+  pay.classList.remove('hidden');
+
+  // Lazily create the PaymentIntent + mount the Payment Element only when
+  // the user has completed enough info. This avoids creating orphan
+  // PaymentIntents for browsers that just window-shop.
+  if (!state.order) {
+    try {
+      const body = {
+        quote_id: state.quote.quote_id,
+        email,
+        name,
+        phone: document.getElementById('buyerPhone').value.trim() || undefined,
+        media_id: null,   // TODO Sprint 2: upload media first, pass media_id
+      };
+      const r = await fetch('/api/checkout/create-intent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!r.ok) {
+        const err = await r.json().catch(() => ({}));
+        throw new Error(err.detail || 'Unable to initialise payment');
+      }
+      state.order = await r.json();
+    } catch (e) {
+      showStripeError(e.message);
+      return;
+    }
+  }
+
+  // Mount Payment Element
+  if (state.stripe && state.order && !state.paymentElement) {
+    try {
+      state.elements = state.stripe.elements({
+        clientSecret: state.order.client_secret,
+        appearance: {
+          theme: 'night',
+          variables: {
+            colorPrimary: '#6366f1',
+            colorBackground: '#0f172a',
+            colorText: '#e2e8f0',
+            colorDanger: '#f87171',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            borderRadius: '10px',
+            spacingUnit: '4px',
+          },
+        },
+      });
+      state.paymentElement = state.elements.create('payment', {
+        layout: { type: 'tabs', defaultCollapsed: false },
+      });
+      state.paymentElement.mount('#pay-element');
+      state.paymentElement.on('ready', () => {
+        document.getElementById('payBtn').disabled = false;
+        document.getElementById('payBtn').textContent =
+          `Pay $${(state.order.amount_cents / 100).toFixed(2)}`;
+      });
+      state.paymentElement.on('change', (ev) => {
+        if (ev.error) showStripeError(ev.error.message);
+        else clearStripeError();
+      });
+    } catch (e) {
+      showStripeError('Failed to load payment form: ' + e.message);
+    }
+  }
+}
+
+function showStripeError(msg) {
+  const el = document.getElementById('stripeError');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function clearStripeError() {
+  document.getElementById('stripeError').classList.add('hidden');
+}
+
+// ═════════════════════════════════════════════════════════════════════
+// Submit payment — Stripe handles 3DS, we wait for webhook to confirm
+// ═════════════════════════════════════════════════════════════════════
+async function submitPayment() {
+  if (state.submitting || !state.stripe || !state.elements || !state.order) return;
+  state.submitting = true;
+  clearStripeError();
+
+  const btn = document.getElementById('payBtn');
+  btn.disabled = true;
+  btn.textContent = 'Processing…';
+
+  try {
+    // Trigger form validation first
+    const { error: submitError } = await state.elements.submit();
+    if (submitError) throw submitError;
+
+    // Confirm payment. We use `redirect: 'if_required'` so we stay on-page
+    // for the common (non-3DS) path and only redirect for 3DS/off-session methods.
+    const { error } = await state.stripe.confirmPayment({
+      elements: state.elements,
+      clientSecret: state.order.client_secret,
+      confirmParams: {
+        // Not strictly required for card-only, but Stripe recommends supplying
+        // it — falls back to this URL if a redirect method is chosen.
+        return_url: window.location.origin + '/api/screen',
+      },
+      redirect: 'if_required',
+    });
+
+    if (error) throw error;
+
+    // ─── Success path (no redirect happened) ──────────────────────
+    // NOTE: we DO NOT trust this signal to mark the order paid. The
+    // webhook is the sole authority. We just move the UI forward and
+    // show the user the order-view magic link.
+    goSuccess();
+  } catch (e) {
+    showStripeError(e.message || 'Payment failed. Please try another card.');
+    btn.disabled = false;
+    btn.textContent = `Pay $${(state.order.amount_cents / 100).toFixed(2)}`;
+    state.submitting = false;
+  }
+}
+
+function goSuccess() {
+  document.getElementById('v2').classList.add('hidden');
+  document.getElementById('v3').classList.remove('hidden');
+  document.getElementById('okMsg').textContent =
+    `Thanks ${document.getElementById('buyerName').value || ''}! Order created for ${state.screen.name}.`;
+  document.getElementById('okOrderNumber').textContent = state.order.order_number;
+  const orderUrl = `/o/${state.order.order_view_token}`;
+  const link = document.getElementById('okViewOrder');
+  link.href = orderUrl;
+  link.setAttribute('data-token', state.order.order_view_token);
+  window.scrollTo(0, 0);
+}
+
+// ═════════════════════════════════════════════════════════════════════
 init();
 </script>
 </body>

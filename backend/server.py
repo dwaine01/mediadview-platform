@@ -3623,6 +3623,12 @@ async def serve_player_activate():
 async def serve_screen_public():
     return FileResponse(os.path.join(WEB_DIR, 'screen-public.html'), media_type='text/html')
 
+@api_router.get("/o/{token}")
+async def serve_order_view(token: str):
+    """Guest magic-link landing. The token is validated by the JS side
+    against /api/orders/{token}; this endpoint just serves the HTML."""
+    return FileResponse(os.path.join(WEB_DIR, 'order-view.html'), media_type='text/html')
+
 @api_router.get("/landing")
 async def serve_landing():
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
@@ -3663,6 +3669,10 @@ app.include_router(create_colorlight_routes(db, get_current_user))
 app.include_router(create_player_routes(db), prefix="/api")
 # Real-time WebSocket channels: /api/ws/menu/{id}, /api/ws/screen/{id}, /api/ws/device/{id}
 app.include_router(ws_router)
+
+# Fase 5 · Sprint 1 · Etapa B — Stripe guest checkout + webhook
+from stripe_routes import build_stripe_router
+app.include_router(build_stripe_router(db))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware

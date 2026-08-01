@@ -56,13 +56,16 @@ class _MemoryFallback:
             v = self._store.get(k)
             return v.encode() if isinstance(v, str) else v
 
-    async def set(self, k: str, v, ex: Optional[int] = None):
+    async def set(self, k: str, v, ex: Optional[int] = None, nx: bool = False):
         async with self._lock:
+            if nx and k in self._store and not self._expired(k):
+                return None
             self._store[k] = v
             if ex:
                 self._expires[k] = time.time() + int(ex)
             else:
                 self._expires.pop(k, None)
+            return True
 
     async def delete(self, *keys):
         async with self._lock:
@@ -131,6 +134,21 @@ class RedisClient:
             await self._client.set(k, v, ex=ex)
         except Exception as e:
             log.warning("redis SET %s failed: %s", k, e)
+
+    async def setnx(self, k: str, v, ex: Optional[int] = None) -> bool:
+        """Atomic SET-if-Not-eXists with optional TTL. Returns True iff the
+        key was newly created. Used for slot reservations and webhook dedup.
+
+        On network failure returns False (i.e. "the lock is already held")
+        so the caller must handle the rejection path defensively — a false
+        negative here is safer than a false positive (double-reserve)."""
+        await self._connect()
+        try:
+            result = await self._client.set(k, v, ex=ex, nx=True)
+            return bool(result)
+        except Exception as e:
+            log.warning("redis SETNX %s failed: %s", k, e)
+            return False
 
     async def delete_raw(self, *keys):
         await self._connect()
