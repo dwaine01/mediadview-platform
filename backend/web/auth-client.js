@@ -81,6 +81,13 @@
   function _setSession(access, user) {
     _accessToken = access || null;
     _user = user || null;
+    // Expose to window for cross-page utilities (admin panels served
+    // from separate HTML files that don't share this closure).
+    // Non-persistent: cleared on tab close and on logout.
+    try {
+      if (access) { window.__mv_token = access; }
+      else { delete window.__mv_token; }
+    } catch (e) { /* ignore */ }
     emit(access ? 'login' : 'logout', _user);
   }
 

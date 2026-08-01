@@ -3629,6 +3629,12 @@ async def serve_order_view(token: str):
     against /api/orders/{token}; this endpoint just serves the HTML."""
     return FileResponse(os.path.join(WEB_DIR, 'order-view.html'), media_type='text/html')
 
+@api_router.get("/admin/orders-view")
+async def serve_admin_orders_page():
+    """Admin approval panel (HTML). Auth is checked by the JS after load
+    via the standard /api/auth/v2/me endpoint."""
+    return FileResponse(os.path.join(WEB_DIR, 'admin-orders.html'), media_type='text/html')
+
 @api_router.get("/landing")
 async def serve_landing():
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
@@ -3673,6 +3679,10 @@ app.include_router(ws_router)
 # Fase 5 · Sprint 1 · Etapa B — Stripe guest checkout + webhook
 from stripe_routes import build_stripe_router
 app.include_router(build_stripe_router(db))
+
+# Sprint 1 · Etapa C1 — Admin Orders (approve / reject / request-changes)
+from admin_orders_routes import build_admin_orders_router
+app.include_router(build_admin_orders_router(db, require_admin))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware

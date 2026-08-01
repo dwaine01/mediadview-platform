@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediAd View — Admin Orders</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:100vh}
+.top{padding:14px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(30,41,59,.4);background:rgba(2,6,23,.9);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px)}
+.top img{height:26px}
+.top .brand{font-size:9px;color:#22d3ee;letter-spacing:2.5px;font-weight:700}
+.top .who{margin-left:auto;font-size:11px;color:#64748b}
+.wrap{max-width:1400px;margin:0 auto;padding:24px}
+h1{font-size:22px;font-weight:900;letter-spacing:-.3px}
+.sub{color:#64748b;font-size:12px;margin-bottom:20px}
+.hidden{display:none !important}
+
+/* Provider banner */
+.pbanner{padding:10px 14px;border-radius:10px;font-size:12px;font-weight:600;margin-bottom:18px;display:flex;align-items:center;gap:8px}
+.pb-dev{background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);color:#fbbf24}
+.pb-stripe-test{background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.25);color:#a5b4fc}
+.pb-stripe-live{background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);color:#34d399}
+
+/* Filters */
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+.fbtn{padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid #1e293b;background:transparent;color:#94a3b8;cursor:pointer;font-family:inherit;transition:all .15s}
+.fbtn:hover{border-color:#334155;color:#e2e8f0}
+.fbtn.on{background:#6366f1;color:#fff;border-color:#6366f1}
+.fbtn .badge{margin-left:6px;background:rgba(0,0,0,.25);padding:1px 6px;border-radius:8px;font-size:10px}
+
+/* Table */
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+th,td{padding:12px 14px;text-align:left;font-size:13px;border-bottom:1px solid rgba(30,41,59,.5)}
+th{background:rgba(2,6,23,.5);font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px}
+tr.row{cursor:pointer;transition:background .1s}
+tr.row:hover{background:rgba(30,41,59,.35)}
+.empty{padding:60px 20px;text-align:center;color:#475569;font-size:13px}
+.badge{display:inline-block;padding:3px 8px;border-radius:5px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
+.b-paid,.b-approved{background:rgba(16,185,129,.12);color:#34d399}
+.b-pending_review{background:rgba(251,191,36,.15);color:#fbbf24}
+.b-scheduled,.b-playing{background:rgba(34,211,238,.12);color:#22d3ee}
+.b-completed{background:rgba(148,163,184,.12);color:#94a3b8}
+.b-cancelled,.b-rejected,.b-payment_failed{background:rgba(239,68,68,.12);color:#f87171}
+.b-changes_requested{background:rgba(217,70,239,.12);color:#e879f9}
+.b-payment_processing,.b-awaiting_payment{background:rgba(148,163,184,.12);color:#94a3b8}
+.b-refunded,.b-refund_pending{background:rgba(217,70,239,.12);color:#e879f9}
+.mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:#64748b}
+
+/* Detail modal */
+.overlay{position:fixed;inset:0;background:rgba(2,6,23,.85);backdrop-filter:blur(6px);z-index:100;display:flex;justify-content:flex-end;padding:20px}
+.drawer{background:#0f172a;border:1px solid #1e293b;border-radius:16px;width:min(920px,95vw);height:100%;overflow:auto;padding:24px}
+.drawer h2{font-size:20px;font-weight:900;margin-bottom:4px}
+.drawer .cls{position:absolute;top:24px;right:32px;background:none;border:1px solid #1e293b;color:#94a3b8;padding:6px 10px;border-radius:8px;font-family:inherit;font-size:12px;cursor:pointer}
+.drawer .cls:hover{color:#f87171;border-color:#f87171}
+.sec{margin-top:22px}
+.sec h3{font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 24px}
+.kv{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px dashed #1e293b;font-size:13px}
+.kv .k{color:#64748b}
+.kv .v{color:#e2e8f0;font-weight:500}
+.total{font-size:22px;font-weight:900;color:#22d3ee}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}
+.act{padding:12px 20px;border-radius:10px;font-size:13px;font-weight:700;border:none;cursor:pointer;font-family:inherit;transition:all .15s}
+.act:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.3)}
+.act:disabled{opacity:.4;cursor:not-allowed}
+.act-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
+.act-danger{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff}
+.act-warn{background:linear-gradient(135deg,#d97706,#92400e);color:#fff}
+.act-dev{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:1px dashed #a78bfa}
+
+.media-preview{margin-top:10px;max-width:100%;max-height:360px;border-radius:10px;border:1px solid #1e293b;background:#020617;display:block}
+.audit-item{padding:8px 10px;background:rgba(2,6,23,.5);border-radius:6px;margin-bottom:6px;font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace}
+.audit-item .ts{color:#475569;font-size:10px}
+.audit-item .act{background:rgba(99,102,241,.15);color:#a5b4fc;padding:2px 6px;border-radius:4px;font-size:10px;display:inline-block;margin:2px 4px 2px 0}
+
+.history-item{display:flex;align-items:center;gap:8px;font-size:12px;padding:6px 0;border-bottom:1px dashed rgba(30,41,59,.5)}
+.history-item .from{color:#475569}
+.history-item .to{color:#a5b4fc;font-weight:600}
+.history-item .by{margin-left:auto;color:#64748b;font-size:10px}
+.history-item .reason{color:#94a3b8;font-size:11px;padding-left:16px}
+
+/* Reason prompt */
+.prompt{position:fixed;inset:0;background:rgba(2,6,23,.9);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.prompt-box{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:24px;width:min(500px,95vw)}
+.prompt-box h3{margin-bottom:8px;font-size:16px}
+.prompt-box textarea{width:100%;min-height:100px;background:#020617;border:1.5px solid #1e293b;border-radius:8px;color:#e2e8f0;padding:10px;font-family:inherit;font-size:13px;margin-top:10px;resize:vertical}
+.prompt-box textarea:focus{border-color:#6366f1;outline:none}
+.prompt-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <img src="/api/web/logo.png" alt="MediAd View" onerror="this.style.display='none'">
+  <span class="brand">MEDIAD VIEW — ADMIN</span>
+  <span style="color:#334155">/</span>
+  <span style="font-size:12px;color:#e2e8f0;font-weight:600">Orders</span>
+  <a href="/api/dashboard" style="color:#64748b;font-size:11px;text-decoration:none;margin-left:16px">← Back to dashboard</a>
+  <span class="who" id="who">…</span>
+</div>
+
+<div class="wrap">
+  <h1>Order Approval Queue</h1>
+  <p class="sub">Guest checkout orders from the public QR marketplace. Approve to publish on LED screens.</p>
+
+  <div id="providerBanner" class="pbanner hidden"></div>
+
+  <div class="filters" id="filters"></div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th><th>Screen</th><th>Client</th>
+          <th>Amount</th><th>Status</th><th>Provider</th><th>Created</th>
+        </tr>
+      </thead>
+      <tbody id="rows">
+        <tr><td colspan="7" class="empty">Loading…</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div id="drawer" class="overlay hidden">
+  <div class="drawer" id="drawerContent"></div>
+</div>
+
+<div id="prompt" class="prompt hidden">
+  <div class="prompt-box">
+    <h3 id="promptTitle">Reason</h3>
+    <p style="color:#64748b;font-size:12px" id="promptSubtitle">Please explain</p>
+    <textarea id="promptText" placeholder="Type the reason (visible to the client)…"></textarea>
+    <div class="prompt-actions">
+      <button class="act" style="background:transparent;border:1px solid #1e293b;color:#94a3b8" onclick="closePrompt()">Cancel</button>
+      <button class="act act-primary" onclick="submitPrompt()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATUSES = [
+  {v:'', label:'All'},
+  {v:'pending_review', label:'Pending Review'},
+  {v:'changes_requested', label:'Changes Requested'},
+  {v:'approved', label:'Approved'},
+  {v:'scheduled', label:'Scheduled'},
+  {v:'playing', label:'Live'},
+  {v:'completed', label:'Completed'},
+  {v:'payment_processing', label:'Awaiting Payment'},
+  {v:'payment_failed', label:'Payment Failed'},
+  {v:'rejected', label:'Rejected'},
+  {v:'cancelled', label:'Cancelled'},
+];
+const STATUS_LABELS = Object.fromEntries(STATUSES.map(s=>[s.v||'_all',s.label]));
+
+const state = { filter:'pending_review', counts:{}, config:{}, order:null, promptResolve:null };
+
+async function api(path, opts={}) {
+  const r = await fetch(path, {
+    ...opts,
+    credentials:'include',
+    headers: {
+      'Content-Type':'application/json',
+      ...(getToken() ? {'Authorization':'Bearer '+getToken()} : {}),
+      ...(opts.headers||{}),
+    },
+  });
+  if (r.status === 401 || r.status === 403) {
+    alert('Session expired — please log in from the dashboard.');
+    location.href = '/api/dashboard';
+    throw new Error('unauth');
+  }
+  if (!r.ok) {
+    const err = await r.json().catch(()=>({detail:'Request failed'}));
+    throw new Error(err.detail || 'Request failed');
+  }
+  if (r.status === 204) return null;
+  return r.json();
+}
+
+function getToken() {
+  // The dashboard uses auth-client.js which keeps the access token in a
+  // module-scoped variable — expose it if present, else fall back to
+  // window scope (auth-client sets window.__mv_token).
+  return (window.__mv_token || sessionStorage.getItem('mv_access_token') || '');
+}
+
+function fmtDollars(cents) {
+  if (cents == null) return '—';
+  return '$' + (cents/100).toFixed(2);
+}
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }
+  catch { return iso; }
+}
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function init() {
+  // Try to prime token from auth-client
+  try {
+    const meRes = await fetch('/api/auth/v2/me', {credentials:'include', headers: getToken() ? {'Authorization':'Bearer '+getToken()} : {}});
+    if (meRes.ok) {
+      const me = await meRes.json();
+      document.getElementById('who').textContent = `${me.email} · ${me.role}`;
+    } else {
+      document.getElementById('who').textContent = 'Not authenticated';
+      alert('Please log in from the dashboard first.');
+      location.href = '/api/dashboard';
+      return;
+    }
+  } catch (e) {
+    console.error(e);
+    location.href = '/api/dashboard';
+    return;
+  }
+
+  try {
+    state.config = await api('/api/checkout/config');
+    const b = document.getElementById('providerBanner');
+    b.classList.remove('hidden');
+    if (state.config.provider === 'dev') {
+      b.className = 'pbanner pb-dev';
+      b.innerHTML = '⚠️ Payment provider = <b>dev (LocalDevProvider)</b>. Orders can be marked paid manually. This mode is disabled automatically once Stripe credentials are injected.';
+    } else if (state.config.mode === 'test') {
+      b.className = 'pbanner pb-stripe-test';
+      b.innerHTML = 'Payment provider = <b>Stripe (Test mode)</b>. Real Stripe API — no real money moves.';
+    } else if (state.config.mode === 'live') {
+      b.className = 'pbanner pb-stripe-live';
+      b.innerHTML = '✓ Payment provider = <b>Stripe (LIVE)</b>. Real payments in production.';
+    }
+  } catch (e) {
+    console.error('checkout config failed:', e);
+  }
+
+  await reload();
+}
+
+function renderFilters() {
+  const el = document.getElementById('filters');
+  el.innerHTML = STATUSES.map(s => {
+    const count = s.v === '' ? Object.values(state.counts).reduce((a,b)=>a+b,0) : (state.counts[s.v] || 0);
+    return `<button class="fbtn ${state.filter === s.v ? 'on':''}" onclick="setFilter('${s.v}')">${s.label} <span class="badge">${count}</span></button>`;
+  }).join('');
+}
+
+async function setFilter(v) {
+  state.filter = v;
+  await reload();
+}
+
+async function reload() {
+  const params = new URLSearchParams();
+  if (state.filter) params.set('status', state.filter);
+  params.set('limit', '100');
+
+  try {
+    const data = await api('/api/admin/orders?' + params);
+    state.counts = data.counts_by_status || {};
+    renderFilters();
+    renderRows(data.items);
+  } catch (e) {
+    document.getElementById('rows').innerHTML = `<tr><td colspan="7" class="empty">${escapeHtml(e.message)}</td></tr>`;
+  }
+}
+
+function renderRows(items) {
+  const tbody = document.getElementById('rows');
+  if (!items.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No orders match the current filter.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = items.map(o => `
+    <tr class="row" onclick="openDetail('${o.id}')">
+      <td>
+        <div style="font-weight:700">${escapeHtml(o.order_number || o.id.slice(0,10))}</div>
+        <div class="mono">${escapeHtml(o.id)}</div>
+      </td>
+      <td>${escapeHtml(o.screen_name || '—')}</td>
+      <td>
+        <div>${escapeHtml(o.guest_name || '—')}</div>
+        <div class="mono">${escapeHtml(o.guest_email || '')}</div>
+      </td>
+      <td style="font-weight:700">${fmtDollars(o.amount_cents)} <span class="mono">${(o.currency||'').toUpperCase()}</span></td>
+      <td><span class="badge b-${o.status}">${escapeHtml(STATUS_LABELS[o.status] || o.status)}</span></td>
+      <td>
+        <span class="mono">${escapeHtml(o.payment_provider || '—')}</span>
+        ${o.payment_intent_id ? `<div class="mono">${escapeHtml(o.payment_intent_id.slice(0,22))}…</div>`:''}
+      </td>
+      <td class="mono">${fmtDate(o.created_at)}</td>
+    </tr>
+  `).join('');
+}
+
+async function openDetail(orderId) {
+  const drawer = document.getElementById('drawer');
+  const content = document.getElementById('drawerContent');
+  drawer.classList.remove('hidden');
+  content.innerHTML = '<div style="padding:40px;text-align:center;color:#64748b">Loading…</div>';
+  try {
+    const d = await api(`/api/admin/orders/${orderId}`);
+    state.order = d.order;
+    content.innerHTML = renderDetail(d);
+    // Async media load
+    if (d.order.media_id) loadMediaPreview(orderId);
+  } catch (e) {
+    content.innerHTML = `<div style="padding:40px;text-align:center;color:#f87171">Failed to load order: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function closeDrawer() { document.getElementById('drawer').classList.add('hidden'); state.order=null; }
+
+function renderDetail(d) {
+  const o = d.order;
+  const s = d.screen;
+  const canApprove = o.status === 'pending_review';
+  const isDev = state.config.provider === 'dev';
+  const canDevMark = isDev && o.status === 'payment_processing';
+  const paidLabel = o.paid_at ? fmtDate(o.paid_at) : '—';
+
+  const scheduleHtml = o.schedule ? `
+    <div class="kv"><span class="k">Start</span><span class="v">${fmtDate(o.schedule.start_at)}</span></div>
+    <div class="kv"><span class="k">End</span><span class="v">${fmtDate(o.schedule.end_at)}</span></div>
+    <div class="kv"><span class="k">Hours</span><span class="v">${o.hours}</span></div>
+    <div class="kv"><span class="k">Slots</span><span class="v mono">${(o.schedule.slots||[]).length}</span></div>
+  ` : '<div class="kv"><span class="k">Schedule</span><span class="v">—</span></div>';
+
+  return `
+    <button class="cls" onclick="closeDrawer()">✕ Close</button>
+    <h2>${escapeHtml(o.order_number || o.id)}</h2>
+    <p class="sub"><span class="badge b-${o.status}">${escapeHtml(STATUS_LABELS[o.status] || o.status)}</span></p>
+
+    <div class="sec">
+      <h3>Client</h3>
+      <div class="grid2">
+        <div class="kv"><span class="k">Name</span><span class="v">${escapeHtml(o.guest_name || '—')}</span></div>
+        <div class="kv"><span class="k">Email</span><span class="v">${escapeHtml(o.guest_email || '—')}</span></div>
+        <div class="kv"><span class="k">Phone</span><span class="v">${escapeHtml(o.guest_phone || '—')}</span></div>
+        <div class="kv"><span class="k">Customer ID</span><span class="v mono">${escapeHtml(o.customer_id || '—')}</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Screen</h3>
+      <div class="grid2">
+        <div class="kv"><span class="k">Name</span><span class="v">${escapeHtml(s?.name || '—')}</span></div>
+        <div class="kv"><span class="k">Location</span><span class="v">${escapeHtml((s?.location?.address || '') + (s?.location?.city ? ', ' + s.location.city : '') || '—')}</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Schedule</h3>
+      <div class="grid2">${scheduleHtml}</div>
+    </div>
+
+    <div class="sec">
+      <h3>Payment</h3>
+      <div class="grid2">
+        <div class="kv"><span class="k">Amount</span><span class="v total">${fmtDollars(o.amount_cents)} ${(o.currency||'').toUpperCase()}</span></div>
+        <div class="kv"><span class="k">Rate</span><span class="v">${fmtDollars(o.hourly_rate_cents)}/hr</span></div>
+        <div class="kv"><span class="k">Provider</span><span class="v mono">${escapeHtml(o.payment_provider || '—')}</span></div>
+        <div class="kv"><span class="k">Paid at</span><span class="v">${paidLabel}</span></div>
+        <div class="kv"><span class="k">Payment Intent</span><span class="v mono">${escapeHtml(o.payment_intent_id || '—')}</span></div>
+        <div class="kv"><span class="k">Charge</span><span class="v mono">${escapeHtml(o.charge_id || '—')}</span></div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Creative</h3>
+      <div id="mediaPreview" style="color:#475569;font-size:12px">Loading media…</div>
+      ${o.media_snapshot ? `
+        <div class="grid2" style="margin-top:10px">
+          <div class="kv"><span class="k">File</span><span class="v mono">${escapeHtml(o.media_snapshot.filename || '—')}</span></div>
+          <div class="kv"><span class="k">Type</span><span class="v mono">${escapeHtml(o.media_snapshot.content_type || '—')}</span></div>
+          <div class="kv"><span class="k">Size</span><span class="v mono">${o.media_snapshot.size ? (o.media_snapshot.size/1024).toFixed(1)+' KB' : '—'}</span></div>
+          <div class="kv"><span class="k">Storage</span><span class="v mono">${escapeHtml(o.media_snapshot.storage || '—')}</span></div>
+        </div>
+      ` : ''}
+    </div>
+
+    <div class="sec">
+      <h3>Status History (${(o.status_history || []).length})</h3>
+      <div>
+        ${(o.status_history || []).slice().reverse().map(h => `
+          <div class="history-item">
+            <span class="from">${escapeHtml(h.from || '(new)')}</span>
+            <span>→</span>
+            <span class="to">${escapeHtml(h.to)}</span>
+            <span class="by">${escapeHtml(h.by || '')}${h.actor_email ? ' · ' + escapeHtml(h.actor_email) : ''} · ${fmtDate(h.at)}</span>
+          </div>
+          ${h.reason ? `<div class="reason">${escapeHtml(h.reason)}</div>` : ''}
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="sec">
+      <h3>Audit Trail (${d.audit.length})</h3>
+      <div style="max-height:250px;overflow:auto">
+        ${d.audit.map(a => `
+          <div class="audit-item">
+            <span class="ts">${fmtDate(a.ts)}</span>
+            <span class="act">${escapeHtml(a.action)}</span>
+            ${a.state_before ? `${escapeHtml(a.state_before)} → ${escapeHtml(a.state_after)}` : ''}
+            ${a.reason ? ` · ${escapeHtml(a.reason)}` : ''}
+          </div>
+        `).join('') || '<div style="color:#475569;font-size:11px">No entries yet.</div>'}
+      </div>
+    </div>
+
+    <div class="actions">
+      ${canDevMark ? `<button class="act act-dev" onclick="doDevMarkPaid()">💳 Simulate Payment Success (Dev Only)</button>` : ''}
+      <button class="act act-primary" onclick="doApprove()" ${canApprove?'':'disabled'}>✓ Approve</button>
+      <button class="act act-warn" onclick="doRequestChanges()" ${canApprove?'':'disabled'}>↻ Request Changes</button>
+      <button class="act act-danger" onclick="doReject()" ${canApprove?'':'disabled'}>✕ Reject</button>
+    </div>
+
+    ${!canApprove && !canDevMark ? `<p style="margin-top:14px;font-size:12px;color:#64748b">
+      Actions are only available when the order is in <b>pending_review</b>${isDev?' or <b>payment_processing</b> (dev mode)':''}.
+    </p>`:''}
+  `;
+}
+
+async function loadMediaPreview(orderId) {
+  try {
+    const m = await api(`/api/admin/orders/${orderId}/media`);
+    const div = document.getElementById('mediaPreview');
+    if (m.kind === 'url' && m.url) {
+      if ((m.content_type||'').startsWith('image/')) {
+        div.innerHTML = `<img src="${m.url}" class="media-preview" alt="creative">`;
+      } else {
+        div.innerHTML = `<video src="${m.url}" class="media-preview" controls></video>`;
+      }
+    } else if (m.kind === 'inline' && m.data) {
+      if ((m.content_type||'').startsWith('image/')) {
+        div.innerHTML = `<img src="data:${m.content_type};base64,${m.data}" class="media-preview" alt="creative">`;
+      } else {
+        div.innerHTML = `<video src="data:${m.content_type};base64,${m.data}" class="media-preview" controls></video>`;
+      }
+    } else {
+      div.innerHTML = '<div style="color:#475569;font-size:12px">No preview available.</div>';
+    }
+  } catch (e) {
+    document.getElementById('mediaPreview').innerHTML = `<div style="color:#f87171;font-size:12px">Failed to load: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+// ── Actions ──
+async function doApprove() {
+  if (!state.order) return;
+  if (!confirm('Approve this ad? The client will be notified and the campaign will move to the scheduling queue.')) return;
+  try {
+    await api(`/api/admin/orders/${state.order.id}/approve`, {method:'POST', body:'{}'});
+    closeDrawer();
+    await reload();
+    alert('Order approved ✓');
+  } catch (e) { alert('Approve failed: ' + e.message); }
+}
+
+async function doReject() {
+  const reason = await askReason('Reject order', 'This will refund the customer per policy. Please provide a clear reason (they will receive this).');
+  if (!reason) return;
+  try {
+    await api(`/api/admin/orders/${state.order.id}/reject`, {method:'POST', body:JSON.stringify({reason})});
+    closeDrawer();
+    await reload();
+  } catch (e) { alert('Reject failed: ' + e.message); }
+}
+
+async function doRequestChanges() {
+  const reason = await askReason('Request changes', 'What should the client change or fix?');
+  if (!reason) return;
+  try {
+    await api(`/api/admin/orders/${state.order.id}/request-changes`, {method:'POST', body:JSON.stringify({reason})});
+    closeDrawer();
+    await reload();
+  } catch (e) { alert('Request failed: ' + e.message); }
+}
+
+async function doDevMarkPaid() {
+  if (!confirm('DEV MODE ONLY:\n\nSimulate a successful payment for this order?\n\nIn production this button is not shown — the real Stripe webhook does this automatically.')) return;
+  try {
+    const r = await api(`/api/admin/orders/${state.order.id}/dev-mark-paid`, {method:'POST', body:'{}'});
+    closeDrawer();
+    await reload();
+    alert(`Payment simulated · order is now ${r.status}`);
+  } catch (e) { alert('Simulation failed: ' + e.message); }
+}
+
+// ── Reason prompt (returns a Promise<string|null>) ──
+function askReason(title, subtitle) {
+  return new Promise(resolve => {
+    document.getElementById('promptTitle').textContent = title;
+    document.getElementById('promptSubtitle').textContent = subtitle;
+    document.getElementById('promptText').value = '';
+    document.getElementById('prompt').classList.remove('hidden');
+    state.promptResolve = resolve;
+  });
+}
+function closePrompt() {
+  document.getElementById('prompt').classList.add('hidden');
+  if (state.promptResolve) { state.promptResolve(null); state.promptResolve = null; }
+}
+function submitPrompt() {
+  const v = document.getElementById('promptText').value.trim();
+  if (v.length < 3) { alert('Please provide at least 3 characters.'); return; }
+  document.getElementById('prompt').classList.add('hidden');
+  if (state.promptResolve) { state.promptResolve(v); state.promptResolve = null; }
+}
+
+init();
+</script>
+</body>
+</html>
