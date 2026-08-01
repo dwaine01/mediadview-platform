@@ -3589,14 +3589,29 @@ logger = logging.getLogger(__name__)
 async def startup():
     await seed_data()
     logger.info("MediaView Digital Signage API started")
-    try:
-        start_scheduler(db)
-    except Exception as e:
-        logger.exception(f"Failed to start finance scheduler: {e}")
-    try:
-        start_colorlight_scheduler(db)
-    except Exception as e:
-        logger.exception(f"Failed to start colorlight scheduler: {e}")
+    # SCHEDULER_MODE controls where cron jobs run:
+    #   "apscheduler" (default): jobs live inside the web-api process
+    #   "arq"                  : jobs live in the ARQ worker; web-api DOES NOT
+    #                            schedule (avoids duplicate execution once the
+    #                            worker is deployed to Render)
+    #   "both"                 : useful only in dev, runs both (jobs are
+    #                            idempotent by design)
+    scheduler_mode = os.environ.get("SCHEDULER_MODE", "apscheduler").lower()
+    run_apscheduler = scheduler_mode in ("apscheduler", "both")
+
+    if run_apscheduler:
+        try:
+            start_scheduler(db)
+        except Exception as e:
+            logger.exception(f"Failed to start finance scheduler: {e}")
+        try:
+            start_colorlight_scheduler(db)
+        except Exception as e:
+            logger.exception(f"Failed to start colorlight scheduler: {e}")
+    else:
+        logger.info("SCHEDULER_MODE=%s → in-process APScheduler skipped "
+                    "(ARQ worker owns cron jobs)", scheduler_mode)
+
     try:
         from auth_v2 import ensure_auth_indexes
         await ensure_auth_indexes(db)

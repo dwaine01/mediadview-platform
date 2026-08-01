@@ -176,6 +176,12 @@ envVarGroups:
       - key: LOCKOUT_WINDOW_MIN
         value: "15"
 
+      # ── Scheduler ownership ───────────────────────────────────
+      # web-api: skip in-process APScheduler (worker owns crons)
+      # worker : ARQ cron_jobs run there
+      - key: SCHEDULER_MODE
+        value: "arq"
+
       # ── Seed accounts (initial admin/superadmin) ──────────────
       - key: SKIP_SEED
         value: "false"

@@ -1,10 +1,16 @@
 // MediAd View Dashboard v2 — Complete SPA
-const API='/api';let token=localStorage.getItem('mv_t'),user=JSON.parse(localStorage.getItem('mv_u')||'null');
+// AUTH v2: refresh token lives in HttpOnly cookie (server-set), access token
+// lives in JS memory via window.Auth (see auth-client.js). We no longer read
+// tokens from localStorage — the wrapper handles Authorization + refresh.
+const API='/api';let token=null,user=null;
 let wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,pricing:null};
 
-async function api(p,o={}){const h={'Content-Type':'application/json',...(o.headers||{})};if(token)h['Authorization']='Bearer '+token;const r=await fetch(API+p,{...o,headers:h});if(r.status===401){doLogout();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}return r.json()}
-async function doLogin(){const e=document.getElementById('in-email').value,p=document.getElementById('in-pwd').value,err=document.getElementById('login-err');err.style.display='none';try{const d=await api('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;localStorage.setItem('mv_t',token);localStorage.setItem('mv_u',JSON.stringify(user));enterApp()}catch(x){err.textContent=x.message;err.style.display='block'}}
-function doLogout(){token=null;user=null;localStorage.removeItem('mv_t');localStorage.removeItem('mv_u');document.getElementById('view-login').classList.remove('off');document.getElementById('view-app').classList.remove('on')}
+// Universal API wrapper: uses Auth.api.raw so cookies travel and 401 → silent refresh.
+async function api(p,o={}){const body=o.body;const opts={method:o.method||'GET',credentials:'include',headers:{'Content-Type':'application/json',...(o.headers||{})}};if(body)opts.body=body;const r=await window.Auth.api.raw(p,opts);if(r.status===401){doLogout();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}if(r.status===204)return null;const ct=r.headers.get('content-type')||'';return ct.includes('application/json')?r.json():r.text()}
+async function doLogin(){const e=document.getElementById('in-email').value,p=document.getElementById('in-pwd').value,err=document.getElementById('login-err');err.style.display='none';try{const u=await window.Auth.login(e,p);user=u;token=null;enterApp()}catch(x){err.textContent=x.message;err.style.display='block'}}
+async function doLogout(){try{await window.Auth.logout()}catch(_){}token=null;user=null;document.getElementById('view-login').classList.remove('off');document.getElementById('view-app').classList.remove('on')}
+// On page load, if the refresh cookie is still valid, hydrate the session silently.
+window.addEventListener('DOMContentLoaded',async function(){const ok=await window.Auth.bootstrap();if(ok){user=window.Auth.user();enterApp()}});
 function enterApp(){
   document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
   document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
