@@ -14,6 +14,7 @@ import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
 from typing import List, Optional
+import re
 import uuid
 from datetime import datetime, timedelta
 import jwt
@@ -247,9 +248,23 @@ def create_token(user_id: str, role: str) -> str:
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    """Legacy decoder that ALSO accepts Auth v2 tokens (aud/iss/typ) for compat.
+    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss)."""
     try:
         token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        try:
+            # v2 tokens carry aud/iss and must be verified — do that first.
+            payload = jwt.decode(
+                token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+                audience=os.environ.get("JWT_AUDIENCE", "mediadview-frontend"),
+                issuer=os.environ.get("JWT_ISSUER", "mediadview-api"),
+            )
+        except jwt.InvalidTokenError:
+            # v1 legacy tokens: no aud/iss claims → decode without verification of those.
+            payload = jwt.decode(
+                token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
+                options={"verify_aud": False, "verify_iss": False},
+            )
         user_id = payload.get("sub")
         user = await db.users.find_one({"id": user_id})
         if not user:
@@ -503,69 +518,197 @@ async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_cur
     return {"message": "Campaign deleted"}
 
 # ============ ROUTES: MEDIA ============
+# Fase 4 (Cloudflare R2):
+#   - New uploads → R2 when configured, legacy base64+disk otherwise.
+#   - Reads       → open_media_for_response() picks r2 URL / bytes automatically.
+#   - Big files   → POST /media/presign + PUT to R2 + POST /media/finalize.
+from storage import (
+    R2_ENABLED, R2_BUCKET, validate_upload, build_key, public_url_for_key,
+    r2_put_bytes, r2_presign_put, r2_head, r2_delete,
+    open_media_for_response, _ext_of,
+)
 
 @api_router.post("/media/upload")
 @_rl.limit(_LIMITS.media_upload)
-async def upload_media(request: Request, response: Response, data: MediaUpload, current_user: dict = Depends(get_current_user)):
-    allowed = ["image/jpeg", "image/png", "image/jpg", "video/mp4"]
-    if data.content_type not in allowed:
-        raise HTTPException(status_code=400, detail=f"Unsupported format. Allowed: {', '.join(allowed)}")
+async def upload_media(request: Request, response: Response, data: MediaUpload,
+                       current_user: dict = Depends(get_current_user)):
+    """Legacy small-file upload. Accepts base64 JSON; stores in R2 if configured,
+    otherwise writes to legacy disk + base64 (backwards-compat). Big files should
+    use /media/presign instead."""
     try:
         file_bytes = base64.b64decode(data.data)
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid base64 data")
-    file_ext = data.filename.rsplit(".", 1)[-1] if "." in data.filename else "bin"
+        raise HTTPException(400, "Invalid base64 data")
+    size = len(file_bytes)
+
+    # Validation — MIME + size + (video duration bypass here since we don't
+    # know it in a base64 upload; presign flow enforces it).
+    kind = validate_upload(filename=data.filename, mime=data.content_type,
+                           size=size, duration_seconds=(1 if data.content_type.startswith("video/") else None))
+
     file_id = gen_id()
-    stored_name = f"{file_id}.{file_ext}"
-    file_path = os.path.join(MEDIA_DIR, stored_name)
-    with open(file_path, "wb") as f:
-        f.write(file_bytes)
-    is_image = data.content_type.startswith("image/")
-    media_doc = {
+    ext = _ext_of(data.filename, data.content_type)
+    tenant_id = current_user.get("company_name") or current_user["id"]
+    tenant = re.sub(r"[^a-zA-Z0-9_-]", "_", str(tenant_id))[:40] or "default"
+
+    media_doc: dict = {
         "id": file_id, "user_id": current_user["id"],
-        "filename": data.filename, "stored_filename": stored_name,
-        "content_type": data.content_type, "size": len(file_bytes),
-        "type": "image" if is_image else "video",
-        "data": data.data if is_image else None,
-        "created_at": datetime.utcnow()
+        "filename": data.filename, "content_type": data.content_type,
+        "size": size, "type": kind,
+        "created_at": datetime.utcnow(),
     }
+
+    if R2_ENABLED:
+        # ── Modern path: put in R2, keep only metadata in Mongo ──────
+        key = build_key(tenant_id=tenant, client_id=current_user["id"],
+                        campaign_id="unassigned", ext=ext)
+        try:
+            info = await r2_put_bytes(key, file_bytes, data.content_type)
+        except Exception as e:
+            logger.exception("R2 upload failed: %s", e)
+            raise HTTPException(502, "Media storage temporarily unavailable")
+        media_doc.update({
+            "storage":    "r2",
+            "r2_key":     key,
+            "r2_etag":    info.get("etag"),
+            "public_url": public_url_for_key(key),
+            "status":     "ready",
+        })
+    else:
+        # ── Legacy path (dev / no R2 configured): disk + base64 mirror ─
+        stored_name = f"{file_id}{ext or '.bin'}"
+        file_path = os.path.join(MEDIA_DIR, stored_name)
+        with open(file_path, "wb") as f:
+            f.write(file_bytes)
+        media_doc.update({
+            "storage":         "legacy",
+            "stored_filename": stored_name,
+            "data":            data.data if kind == "image" else None,
+            "status":          "ready",
+        })
+
     await db.media.insert_one(media_doc)
-    return {"id": file_id, "filename": data.filename,
-            "content_type": data.content_type, "size": len(file_bytes),
-            "type": media_doc["type"]}
+    return {"id": file_id, "filename": data.filename, "size": size,
+            "content_type": data.content_type, "type": kind,
+            "storage": media_doc["storage"],
+            "public_url": media_doc.get("public_url")}
+
+
+class MediaPresignRequest(BaseModel):
+    filename: str
+    content_type: str
+    size_bytes: int
+    duration_seconds: Optional[float] = None
+    campaign_id: Optional[str] = None
+    screen_id:   Optional[str] = None
+
+
+@api_router.post("/media/presign")
+@_rl.limit(_LIMITS.media_upload)
+async def presign_media(request: Request, response: Response, body: MediaPresignRequest,
+                        current_user: dict = Depends(get_current_user)):
+    """Return a short-lived (10 min) presigned PUT URL. Client uploads directly
+    to R2, then calls /media/finalize to attach it to a campaign/screen."""
+    if not R2_ENABLED:
+        raise HTTPException(503, "Direct uploads not available — use /media/upload")
+    kind = validate_upload(filename=body.filename, mime=body.content_type,
+                           size=body.size_bytes, duration_seconds=body.duration_seconds)
+    ext = _ext_of(body.filename, body.content_type)
+    tenant = re.sub(r"[^a-zA-Z0-9_-]", "_",
+                    str(current_user.get("company_name") or current_user["id"]))[:40] or "default"
+    key = build_key(tenant_id=tenant, client_id=current_user["id"],
+                    campaign_id=body.campaign_id or "unassigned",
+                    screen_id=body.screen_id, ext=ext)
+    upload_id = gen_id()
+    await db.media.insert_one({
+        "id": upload_id, "user_id": current_user["id"],
+        "filename": body.filename, "content_type": body.content_type,
+        "size": body.size_bytes, "type": kind,
+        "duration_seconds": body.duration_seconds,
+        "campaign_id": body.campaign_id, "screen_id": body.screen_id,
+        "storage": "pending", "r2_key": key,
+        "status": "pending", "created_at": datetime.utcnow(),
+    })
+    signed = await r2_presign_put(key, body.content_type)
+    return {"upload_id": upload_id, "key": key, **signed}
+
+
+class MediaFinalizeRequest(BaseModel):
+    upload_id: str
+
+
+@api_router.post("/media/finalize")
+async def finalize_media(request: Request, body: MediaFinalizeRequest,
+                         current_user: dict = Depends(get_current_user)):
+    """Verify the object landed in R2, then mark media as ready."""
+    doc = await db.media.find_one({"id": body.upload_id, "user_id": current_user["id"]})
+    if not doc or doc.get("status") != "pending":
+        raise HTTPException(404, "Upload not found or already finalized")
+    head = await r2_head(doc["r2_key"])
+    if not head:
+        raise HTTPException(400, "R2 object not found — did the upload complete?")
+    # Server-side verification: MIME + size within declared bounds
+    got_size = int(head.get("ContentLength") or 0)
+    got_mime = head.get("ContentType") or doc["content_type"]
+    if got_size > doc["size"] * 1.05 + 1024:      # allow ~5% slack for streaming
+        await r2_delete(doc["r2_key"])
+        raise HTTPException(400, "Uploaded size does not match declared")
+    if got_mime != doc["content_type"]:
+        await r2_delete(doc["r2_key"])
+        raise HTTPException(400, "Uploaded MIME does not match declared")
+    public_url = public_url_for_key(doc["r2_key"])
+    await db.media.update_one({"id": doc["id"]}, {"$set": {
+        "storage": "r2", "status": "ready",
+        "r2_etag": (head.get("ETag") or "").strip('"'),
+        "size":    got_size,
+        "public_url": public_url,
+    }})
+    return {"id": doc["id"], "public_url": public_url, "status": "ready"}
+
 
 @api_router.get("/media")
 async def list_media(current_user: dict = Depends(get_current_user)):
-    media = await db.media.find({"user_id": current_user["id"]}, {"data": 0}).sort("created_at", -1).to_list(100)
+    media = await db.media.find(
+        {"user_id": current_user["id"], "status": {"$ne": "pending"}},
+        {"data": 0}   # never send base64 in listings
+    ).sort("created_at", -1).to_list(100)
     return serialize_doc(media)
 
 @api_router.get("/media/{media_id}")
 async def get_media(media_id: str):
     media = await db.media.find_one({"id": media_id})
     if not media:
-        raise HTTPException(status_code=404, detail="Media not found")
+        raise HTTPException(404, "Media not found")
+    # Strip base64 payload from metadata responses
+    media.pop("data", None)
     return serialize_doc(media)
 
 @api_router.get("/media/{media_id}/file")
 async def get_media_file(media_id: str):
+    """Universal read — returns 302 to Cloudflare when in R2, or raw bytes otherwise."""
     media = await db.media.find_one({"id": media_id})
     if not media:
-        raise HTTPException(status_code=404, detail="Media not found")
-    file_path = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
-    if not os.path.exists(file_path):
-        raise HTTPException(status_code=404, detail="File not found")
-    with open(file_path, "rb") as f:
-        content = f.read()
-    return Response(content=content, media_type=media.get("content_type", "application/octet-stream"))
+        raise HTTPException(404, "Media not found")
+    result = open_media_for_response(media, media_dir=MEDIA_DIR)
+    if result["type"] == "url":
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=result["value"], status_code=302)
+    return Response(content=result["value"], media_type=result["mime"])
 
 @api_router.delete("/media/{media_id}")
 async def delete_media(media_id: str, current_user: dict = Depends(get_current_user)):
     media = await db.media.find_one({"id": media_id, "user_id": current_user["id"]})
     if not media:
-        raise HTTPException(status_code=404, detail="Media not found")
-    file_path = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
-    if os.path.exists(file_path):
-        os.remove(file_path)
+        raise HTTPException(404, "Media not found")
+    # Remove R2 object if present
+    if media.get("r2_key"):
+        await r2_delete(media["r2_key"])
+    # Remove legacy disk copy if present
+    if media.get("stored_filename"):
+        file_path = os.path.join(MEDIA_DIR, media["stored_filename"])
+        if os.path.exists(file_path):
+            try: os.remove(file_path)
+            except Exception: pass
     await db.media.delete_one({"id": media_id})
     return {"message": "Media deleted"}
 
