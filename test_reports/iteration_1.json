@@ -1,0 +1,53 @@
+{
+  "summary": "Backend regression tests for FASE 4 JWT_SECRET fix executed. 18/20 tests PASSED (90%). CRITICAL FIX VERIFIED: JWT_SECRET now loads correctly from /app/backend/.env with proper newlines, tokens issued pre-restart remain valid post-restart (confirmed with sudo supervisorctl restart backend), same secret used across restarts. Auth v2 web cookie flow, refresh rotation, logout revocation, brute-force lockout (429 after 5 fails), /api/health, /api/livez, /api/ready, menu HTML render with WebSocket auto-reload, media upload (legacy fallback), presign 503, .exe rejection, startup_check.py fail-fast exit 2 on glued .env vars, A40 Basic Auth on /api/wp-json/wp/v2/comments, and audit_log ingestion (login_success/login_failed/logout) all PASS. TWO real backend bugs found that main agent should fix: (1) POST /api/auth/v2/login with client_type='native' does NOT return refresh_token in body — response_model=TokenResp strips it. (2) X-RateLimit-* headers absent on /api/auth/v2/login — @limiter.limit decorator not applied to any auth_v2 route; slowapi rules only cover /api/media/upload.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/auth/v2/login (client_type='native')",
+        "issue": "refresh_token is NEVER returned in the JSON body for native clients. RCA: @router.post('/login', response_model=TokenResp) — the TokenResp Pydantic model (auth_v2.py line 320) declares only {access_token, token_type, expires_in, user}, so FastAPI strips the refresh_token key even though the handler correctly puts it in payload_out (auth_v2.py line 375). This breaks the mobile/Expo refresh flow entirely (the mobile app has no way to receive its refresh token). Fix: add `refresh_token: Optional[str] = None` to TokenResp, or remove response_model on /login.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "POST /api/auth/v2/login (rate-limit headers)",
+        "issue": "X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset headers are ABSENT on /api/auth/v2/login. RCA: none of the endpoints in build_auth_router (auth_v2.py) are decorated with @limiter.limit(LIMITS.login/register/refresh/change_pass). The LIMITS class in rate_limit.py is only wired into /api/media/upload (server.py line 539). SlowAPIMiddleware is installed but has no rules to emit headers for auth routes. Brute-force still works (DB-based counter) but the per-IP slowapi soft-rate-limit contract required by FASE 2 is not enforced. Fix: apply @limiter.limit(LIMITS.login) on /login, LIMITS.register on /register, LIMITS.refresh on /refresh, LIMITS.change_pass on /change-password (import limiter from rate_limit).",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fase4_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Fix TokenResp model: add `refresh_token: Optional[str] = None` (or drop response_model on /login) so native clients receive their refresh token.",
+    "Wire slowapi @limiter.limit decorators on every /api/auth/v2/* endpoint (login/register/refresh/change-password) so X-RateLimit-* headers are emitted and per-IP soft protection is active.",
+    "Consider also decorating /api/auth/v2/logout with an appropriate limit."
+  ],
+  "critical_code_review_comments": [
+    "server.py is 3774 lines — exceeds the 700-line soft threshold; splitting into modules (routers/*.py) would help maintainability.",
+    "auth_v2.py hardcodes cookie name 'mediadview_refresh' string in two places (line 60 fallback + test); consider a single constant already exported.",
+    "auth_v2.py: `from auth_v2 import audit` is imported inside legacy /api/auth/login handler (server.py line 366) — fine, but circular-import risk if refactored. Move to top-level.",
+    "startup_check.py is imported but NOT invoked during backend startup (only when run directly). Recommend calling validate_environment() at the top of server.py so fail-fast triggers on `supervisorctl restart backend` too, not just manual runs."
+  ],
+  "updated_files": [
+    "/app/backend/tests/conftest.py (created)",
+    "/app/backend/tests/test_fase4_backend.py (created)"
+  ],
+  "success_rate": {
+    "backend": "90% (18/20)",
+    "frontend": "not tested (per review request: backend only)"
+  },
+  "seed_data_creation": "None. Used existing seeded users (superadmin@mediadview.com, admin.demo@mediadview.com) and A40 terminal (4h7QNZL5tnAY). Test-created media docs and audit_log entries are prefixed TEST_ where applicable; login_attempts for IP 127.0.0.1 cleared between tests via autouse fixture.",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Re-run `pytest /app/backend/tests/test_fase4_backend.py -v --junitxml=/app/test_reports/pytest/pytest_results.xml` after the main agent fixes the two auth_v2 issues. The two failing tests are TestAuthV2Flow::test_login_native_returns_refresh_in_body and TestBruteForceAndRateLimit::test_rate_limit_headers_present. The suite includes a real backend restart (test_token_survives_backend_restart) which takes ~5s — reserve up to 60s wall-clock. The autouse _reset_bruteforce fixture wipes login_attempts for 127.0.0.1 between tests. .env is backed up and restored inside test_startup_check_exits_2_on_broken_env — verified intact after the run. R2 remains unconfigured (expected).",
+  "rca_of_issue": "FASE 4 primary fix (JWT_SECRET loading from .env) is VERIFIED WORKING. Reproduction of the original bug is now impossible: .env ends every line with '\\n' (cat -A confirms trailing $), python-dotenv loads JWT_SECRET='YoOwfivqxhTHNBvlvmRauwnkK5X7ExIrA0HpK-logCJvbBHim56vPuI2Yj6Z8X0-' correctly, and a token issued before `sudo supervisorctl restart backend` continues to authenticate afterwards (test_token_survives_backend_restart PASSED). No random secret is generated on startup — auth_v2.py only falls back to a random dev secret if JWT_SECRET is empty or equals the placeholder, neither of which is the case. startup_check.py correctly exits 2 when the exact original bug (KEY1=\"foo\"KEY2=bar glued together) is reintroduced. The two remaining failures are pre-existing issues in FASE 2 wiring, not regressions of the FASE 4 fix."
+}
