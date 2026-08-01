@@ -330,7 +330,7 @@ def build_auth_router(db, get_current_user_dep):
     from rate_limit import limiter as _rl, LIMITS as _LIMITS
     router = APIRouter(prefix="/api/auth/v2", tags=["auth-v2"])
 
-    @router.post("/login", response_model=TokenResp)
+    @router.post("/login", response_model=TokenResp, response_model_exclude_none=True)
     @_rl.limit(_LIMITS.login)
     async def login(body: LoginReq, request: Request, response: Response):
         ip = _ip(request)
