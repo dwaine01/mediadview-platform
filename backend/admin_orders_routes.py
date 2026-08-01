@@ -136,6 +136,12 @@ async def _transition(
 
 
 def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRouter:
+    # NEW: prefer permission-based deps. Keep `require_admin` in the
+    # signature for backwards compat with server.py wiring.
+    from permissions import require_permission
+    read_dep     = require_permission("orders:read")
+    approve_dep  = require_permission("orders:approve")
+    dev_dep      = require_permission("orders:dev_mark_paid")
     router = APIRouter(prefix="/api/admin/orders", tags=["admin_orders"])
 
     # ══════════════════════════════════════════════════════════════
@@ -149,7 +155,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
         provider: Optional[str] = None,
         limit: int = Query(default=50, ge=1, le=500),
         offset: int = Query(default=0, ge=0),
-        admin: dict = Depends(require_admin),
+        admin: dict = Depends(read_dep),
     ):
         q: dict = {}
         if status:      q["status"] = status
@@ -189,7 +195,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
     # GET /api/admin/orders/{id} — detail
     # ══════════════════════════════════════════════════════════════
     @router.get("/{order_id}")
-    async def get_order(order_id: str, admin: dict = Depends(require_admin)):
+    async def get_order(order_id: str, admin: dict = Depends(read_dep)):
         order = await _load_order_or_404(db, order_id)
         media = None
         if order.get("media_id"):
@@ -252,7 +258,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
 
     # ── Media preview passthrough (public_url or inline data) ──
     @router.get("/{order_id}/media")
-    async def get_order_media(order_id: str, admin: dict = Depends(require_admin)):
+    async def get_order_media(order_id: str, admin: dict = Depends(read_dep)):
         order = await _load_order_or_404(db, order_id)
         if not order.get("media_id"):
             raise HTTPException(404, "no media")
@@ -272,21 +278,32 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
     # POST /api/admin/orders/{id}/approve
     # ══════════════════════════════════════════════════════════════
     @router.post("/{order_id}/approve")
-    async def approve_order(order_id: str, admin: dict = Depends(require_admin)):
+    async def approve_order(order_id: str, admin: dict = Depends(approve_dep)):
         order = await _transition(
             db, order_id=order_id, to_state=STATE_APPROVED,
             actor="admin", actor_email=admin.get("email", "unknown"),
             reason="approved by admin",
             notification_kind="order.approved",
         )
-        return {"ok": True, "status": order["status"], "order_id": order_id}
+        # C2: auto-emit invoice at approval (idempotent — unique index
+        # on fin_invoices.order_id makes retries safe).
+        try:
+            from invoices_service import issue_invoice_for_order
+            inv = await issue_invoice_for_order(
+                db, order_id=order_id, actor_email=admin.get("email", "unknown"))
+            invoice_number = inv["number"]
+        except Exception as e:
+            log.exception("auto-invoice emission failed for %s", order_id)
+            invoice_number = None
+        return {"ok": True, "status": order["status"], "order_id": order_id,
+                "invoice_number": invoice_number}
 
     # ══════════════════════════════════════════════════════════════
     # POST /api/admin/orders/{id}/reject
     # ══════════════════════════════════════════════════════════════
     @router.post("/{order_id}/reject")
     async def reject_order(order_id: str, body: RejectRequest,
-                            admin: dict = Depends(require_admin)):
+                            admin: dict = Depends(approve_dep)):
         order = await _transition(
             db, order_id=order_id, to_state=STATE_REJECTED,
             actor="admin", actor_email=admin.get("email", "unknown"),
@@ -301,7 +318,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
     # ══════════════════════════════════════════════════════════════
     @router.post("/{order_id}/request-changes")
     async def request_changes(order_id: str, body: ChangesRequest,
-                               admin: dict = Depends(require_admin)):
+                               admin: dict = Depends(approve_dep)):
         order = await _transition(
             db, order_id=order_id, to_state=STATE_CHANGES_REQUESTED,
             actor="admin", actor_email=admin.get("email", "unknown"),
@@ -315,7 +332,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
     # POST /api/admin/orders/{id}/dev-mark-paid — DEV-ONLY
     # ══════════════════════════════════════════════════════════════
     @router.post("/{order_id}/dev-mark-paid")
-    async def dev_mark_paid(order_id: str, admin: dict = Depends(require_admin)):
+    async def dev_mark_paid(order_id: str, admin: dict = Depends(dev_dep)):
         """Only usable when the active provider is LocalDevProvider.
         Calls provider.simulate_event('payment_intent.succeeded') which
         internally routes through the SAME `stripe_events.process_event`

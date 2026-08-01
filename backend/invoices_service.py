@@ -1,0 +1,253 @@
+"""
+MediAd View — Invoicing module (Sprint 1 · Etapa C2).
+
+Design: invoicing is a first-class financial module, NOT a PDF utility.
+    · State machine: draft → issued → paid → void|credited
+    · Immutable numbering: INV-YYYY-NNNNNN via `next_invoice_number()`
+    · PDF is regenerable without changing the invoice number
+    · Every state change audited
+    · Prepared for Sprint 2 credit notes (fields `credited_by`, `voided_at`)
+
+Public API:
+    · issue_invoice_for_order(db, order_id, actor)         → dict (auto on approval)
+    · regenerate_invoice_pdf(db, invoice_id)               → bytes
+"""
+from __future__ import annotations
+
+import io
+import hashlib
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from reportlab.lib.pagesizes import LETTER
+from reportlab.lib.units import cm
+from reportlab.pdfgen import canvas
+
+from financial_audit import audit, next_invoice_number
+
+log = logging.getLogger("invoices")
+
+INV_DRAFT    = "draft"
+INV_ISSUED   = "issued"
+INV_PAID     = "paid"
+INV_VOID     = "void"
+INV_CREDITED = "credited"
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+# ─────────────────────────────────────────────────────────────
+# Service functions
+# ─────────────────────────────────────────────────────────────
+async def issue_invoice_for_order(
+    db: AsyncIOMotorDatabase,
+    *,
+    order_id: str,
+    actor_email: str,
+) -> dict:
+    """Emit an invoice for an approved order. IDEMPOTENT — repeat calls
+    return the existing invoice (unique index on fin_invoices.order_id)."""
+    existing = await db.fin_invoices.find_one({"order_id": order_id})
+    if existing:
+        return existing
+
+    order = await db.orders.find_one({"_id": order_id})
+    if not order:
+        raise ValueError("order not found")
+    if order.get("status") not in ("approved", "scheduled", "playing", "completed", "paid", "pending_review"):
+        raise ValueError(f"cannot invoice order in state {order.get('status')!r}")
+
+    number = await next_invoice_number(db)
+    now = _utcnow()
+
+    inv = {
+        "_id": number,
+        "id": number,
+        "number": number,
+        "order_id": order_id,
+        "order_number": order.get("order_number"),
+        "status": INV_ISSUED,
+        "customer": {
+            "email": order.get("guest_email"),
+            "name": order.get("guest_name"),
+            "phone": order.get("guest_phone"),
+            "stripe_customer_id": order.get("stripe_customer_id"),
+        },
+        "screen": {
+            "id": order.get("screen_id"),
+            "name": order.get("screen_name"),
+        },
+        "lines": [{
+            "description": f"Advertising campaign — {order.get('screen_name','Screen')}",
+            "quantity": int(order.get("hours", 0)),
+            "unit": "hour",
+            "unit_price_cents": int(order.get("hourly_rate_cents", 0)),
+            "total_cents": int(order.get("amount_cents", 0)),
+        }],
+        "subtotal_cents": int(order.get("amount_cents", 0)),
+        "tax_cents": 0,                                # Sprint 2 will fill this
+        "total_cents": int(order.get("amount_cents", 0)),
+        "currency": order.get("currency", "usd"),
+        "issued_at": now,
+        "issued_by": actor_email,
+        "due_at": now,
+        "paid_at": order.get("paid_at"),
+        "voided_at": None,
+        "voided_by": None,
+        "credited_by": None,          # id of a future credit-note (Sprint 2)
+        "payment_provider": order.get("payment_provider"),
+        "payment_intent_id": order.get("stripe_payment_intent_id"),
+        "pdf_generated_at": None,
+        "pdf_hash_sha256": None,
+        "pdf_bytes_size": None,
+        "created_at": now,
+        "updated_at": now,
+    }
+    # If the order was already paid (Stripe webhook fired), mark the
+    # invoice as paid too — same DB event.
+    if order.get("paid_at"):
+        inv["status"] = INV_PAID
+    await db.fin_invoices.insert_one(inv)
+
+    # Update order pointer
+    await db.orders.update_one({"_id": order_id},
+                               {"$set": {"invoice_number": number,
+                                         "updated_at": now}})
+
+    await audit(db, action="invoice.issued", actor_kind="admin",
+                actor_id=actor_email, entity_type="invoice", entity_id=number,
+                amount_cents=inv["total_cents"], currency=inv["currency"],
+                state_before=None, state_after=inv["status"],
+                metadata={"order_id": order_id})
+    log.info("invoice %s issued for order %s (%s cents)",
+             number, order_id, inv["total_cents"])
+    return inv
+
+
+async def regenerate_invoice_pdf(
+    db: AsyncIOMotorDatabase, *, invoice_id: str, actor_email: str,
+) -> bytes:
+    """Regenerate the PDF from the invoice's persisted data. Does NOT
+    change the invoice number or status. Bumps `pdf_generated_at` and
+    stores the sha256 of the generated bytes for tamper detection."""
+    inv = await db.fin_invoices.find_one({"_id": invoice_id})
+    if not inv:
+        raise ValueError("invoice not found")
+    pdf_bytes = _render_pdf(inv)
+    h = hashlib.sha256(pdf_bytes).hexdigest()
+    await db.fin_invoices.update_one(
+        {"_id": invoice_id},
+        {"$set": {
+            "pdf_generated_at": _utcnow(),
+            "pdf_hash_sha256": h,
+            "pdf_bytes_size": len(pdf_bytes),
+            "updated_at": _utcnow(),
+        }}
+    )
+    await audit(db, action="invoice.pdf_regenerated", actor_kind="admin",
+                actor_id=actor_email, entity_type="invoice", entity_id=invoice_id,
+                metadata={"sha256": h, "size": len(pdf_bytes)})
+    return pdf_bytes
+
+
+# ─────────────────────────────────────────────────────────────
+# PDF renderer (pure function; same input → same output structure)
+# ─────────────────────────────────────────────────────────────
+def _render_pdf(inv: dict) -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf, pagesize=LETTER)
+    W, H = LETTER
+
+    # Header
+    c.setFillColorRGB(0.10, 0.10, 0.14)
+    c.rect(0, H - 3*cm, W, 3*cm, fill=1, stroke=0)
+    c.setFillColorRGB(1, 1, 1)
+    c.setFont("Helvetica-Bold", 20)
+    c.drawString(2*cm, H - 1.7*cm, "MEDIAD VIEW")
+    c.setFont("Helvetica", 9)
+    c.drawString(2*cm, H - 2.3*cm, "Premium LED Advertising Platform")
+    c.setFont("Helvetica-Bold", 14)
+    c.drawRightString(W - 2*cm, H - 1.7*cm, "INVOICE")
+    c.setFont("Helvetica", 10)
+    c.drawRightString(W - 2*cm, H - 2.3*cm, inv["number"])
+
+    y = H - 4.5*cm
+    c.setFillColorRGB(0.15, 0.15, 0.2)
+
+    # Customer + Meta
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(2*cm, y, "BILL TO")
+    c.drawString(W/2, y, "INVOICE DETAILS")
+    y -= 0.5*cm
+    c.setFont("Helvetica", 10)
+    cu = inv.get("customer") or {}
+    c.drawString(2*cm, y, cu.get("name") or "—"); y0 = y
+    c.drawString(W/2, y, f"Number:  {inv['number']}"); y -= 0.5*cm
+    c.drawString(2*cm, y, cu.get("email") or "")
+    c.drawString(W/2, y, f"Issued:  {inv['issued_at'].strftime('%Y-%m-%d')}" if inv.get('issued_at') else ""); y -= 0.5*cm
+    c.drawString(2*cm, y, cu.get("phone") or "")
+    status_str = inv.get("status","").upper()
+    c.drawString(W/2, y, f"Status:  {status_str}")
+    y -= 1.2*cm
+
+    # Line items header
+    c.setFillColorRGB(0.94, 0.94, 0.98)
+    c.rect(2*cm, y, W - 4*cm, 0.7*cm, fill=1, stroke=0)
+    c.setFillColorRGB(0.20, 0.20, 0.28)
+    c.setFont("Helvetica-Bold", 9)
+    c.drawString(2.2*cm, y + 0.22*cm, "DESCRIPTION")
+    c.drawRightString(W - 8*cm, y + 0.22*cm, "QTY")
+    c.drawRightString(W - 5*cm, y + 0.22*cm, "UNIT PRICE")
+    c.drawRightString(W - 2.2*cm, y + 0.22*cm, "AMOUNT")
+    y -= 0.9*cm
+
+    c.setFont("Helvetica", 10)
+    c.setFillColorRGB(0.15, 0.15, 0.2)
+    for line in inv.get("lines", []):
+        c.drawString(2.2*cm, y, line.get("description","")[:60])
+        c.drawRightString(W - 8*cm, y, f"{line.get('quantity',0)} {line.get('unit','')}")
+        c.drawRightString(W - 5*cm, y, f"${line.get('unit_price_cents',0)/100:,.2f}")
+        c.drawRightString(W - 2.2*cm, y, f"${line.get('total_cents',0)/100:,.2f}")
+        y -= 0.6*cm
+
+    y -= 0.8*cm
+    c.line(W - 8*cm, y, W - 2*cm, y)
+    y -= 0.6*cm
+    c.setFont("Helvetica", 10)
+    c.drawRightString(W - 5*cm, y, "Subtotal")
+    c.drawRightString(W - 2.2*cm, y, f"${inv.get('subtotal_cents',0)/100:,.2f}")
+    y -= 0.5*cm
+    c.drawRightString(W - 5*cm, y, "Tax")
+    c.drawRightString(W - 2.2*cm, y, f"${inv.get('tax_cents',0)/100:,.2f}")
+    y -= 0.7*cm
+    c.setFont("Helvetica-Bold", 12)
+    c.drawRightString(W - 5*cm, y, "TOTAL")
+    c.drawRightString(W - 2.2*cm, y,
+                       f"${inv.get('total_cents',0)/100:,.2f} {inv.get('currency','usd').upper()}")
+
+    # Payment info
+    y -= 2*cm
+    c.setFont("Helvetica-Bold", 9)
+    c.setFillColorRGB(0.40, 0.40, 0.48)
+    c.drawString(2*cm, y, "PAYMENT")
+    y -= 0.4*cm
+    c.setFont("Helvetica", 9)
+    c.drawString(2*cm, y, f"Provider: {inv.get('payment_provider','—')}")
+    y -= 0.35*cm
+    if inv.get("payment_intent_id"):
+        c.drawString(2*cm, y, f"Reference: {inv['payment_intent_id']}")
+
+    # Footer
+    c.setFont("Helvetica", 8)
+    c.setFillColorRGB(0.55, 0.55, 0.6)
+    c.drawCentredString(W/2, 1.2*cm,
+        "This invoice is issued electronically by MediAd View. All amounts are shown in "
+        f"{inv.get('currency','usd').upper()}. Thank you for your business.")
+
+    c.showPage()
+    c.save()
+    return buf.getvalue()

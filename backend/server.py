@@ -3684,6 +3684,10 @@ app.include_router(build_stripe_router(db))
 from admin_orders_routes import build_admin_orders_router
 app.include_router(build_admin_orders_router(db, require_admin))
 
+# Sprint 1 · Etapa C2 — Admin Invoices (list / detail / PDF / reissue)
+from admin_invoices_routes import build_admin_invoices_router
+app.include_router(build_admin_invoices_router(db))
+
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
 # ────────────────────────────────────────────────────────────────────────
