@@ -322,13 +322,16 @@ class TokenResp(BaseModel):
     token_type: str = "bearer"
     expires_in: int
     user: dict
+    refresh_token: Optional[str] = None   # Only present for client_type="native"
 
 
 def build_auth_router(db, get_current_user_dep):
     """Return the /api/auth/v2 router bound to the given db + auth dep."""
+    from rate_limit import limiter as _rl, LIMITS as _LIMITS
     router = APIRouter(prefix="/api/auth/v2", tags=["auth-v2"])
 
     @router.post("/login", response_model=TokenResp)
+    @_rl.limit(_LIMITS.login)
     async def login(body: LoginReq, request: Request, response: Response):
         ip = _ip(request)
         email = body.email.lower().strip()

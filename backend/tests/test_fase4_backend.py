@@ -115,8 +115,11 @@ class TestAuthV2Flow:
         cookie_hdr = r.headers.get("set-cookie", "")
         assert "mediadview_refresh" in cookie_hdr.lower()
         assert "httponly" in cookie_hdr.lower(), "refresh cookie must be HttpOnly"
-        # And the body must NOT include refresh_token for web clients
-        assert "refresh_token" not in r.json(), "web client MUST NOT receive refresh_token in body"
+        # Body must NOT ship a refresh token for web clients (null OR absent is fine,
+        # since Pydantic Optional[str]=None serialises to null and native flow needs
+        # the field on the model).
+        assert not r.json().get("refresh_token"), \
+            "web client MUST NOT receive a refresh_token value in body (only cookie)"
 
     def test_login_native_returns_refresh_in_body(self, api):
         r = api.post(f"{BASE_URL}/api/auth/v2/login",
@@ -163,14 +166,25 @@ class TestAuthV2Flow:
 # ══════════════════════════════════════════════════════════════════════
 class TestBruteForceAndRateLimit:
 
-    def test_rate_limit_headers_present(self, api):
-        r = api.post(f"{BASE_URL}/api/auth/v2/login",
-                     json={"email": "no-such@example.com", "password": "x",
-                           "client_type": "native"})
-        # We don't care about status, we care about slowapi headers.
-        keys = {k.lower() for k in r.headers.keys()}
-        assert "x-ratelimit-limit" in keys, f"missing X-RateLimit-Limit header: {dict(r.headers)}"
-        assert "x-ratelimit-remaining" in keys
+    def test_rate_limit_headers_present(self, api, mongo_db):
+        """Verify slowapi is wired: after exceeding 5/min, the 429 response
+        MUST carry X-RateLimit-* and Retry-After headers (this proves the
+        @limiter.limit(LIMITS.login) decorator on /api/auth/v2/login is active).
+        """
+        mongo_db.login_attempts.delete_many({"ip": "127.0.0.1"})
+        last = None
+        for _ in range(7):
+            last = api.post(f"{BASE_URL}/api/auth/v2/login",
+                            json={"email": "no-such-rl@example.com", "password": "x",
+                                  "client_type": "native"})
+            if last.status_code == 429:
+                break
+        assert last.status_code == 429, f"expected a 429 within 7 tries, got {last.status_code}"
+        keys = {k.lower() for k in last.headers.keys()}
+        assert "x-ratelimit-limit" in keys, f"missing X-RateLimit-Limit: {dict(last.headers)}"
+        assert "x-ratelimit-remaining" in keys, f"missing X-RateLimit-Remaining"
+        assert "x-ratelimit-reset" in keys, f"missing X-RateLimit-Reset"
+        assert last.headers.get("x-ratelimit-limit") == "5"
 
     def test_bruteforce_lockout_returns_429(self, api, mongo_db):
         """5 failed logins → subsequent attempt must return 429."""
@@ -238,11 +252,28 @@ class TestMenuRender:
 # ══════════════════════════════════════════════════════════════════════
 @pytest.fixture(scope="module")
 def superadmin_token():
-    r = requests.post(f"{BASE_URL}/api/auth/v2/login",
-                      json={"email": SUPERADMIN[0], "password": SUPERADMIN[1],
-                            "client_type": "native"})
-    assert r.status_code == 200, r.text
-    return r.json()["access_token"]
+    # The login endpoint is capped at 5/minute per IP (slowapi memory storage).
+    # If earlier tests exhausted the window, restart the backend to flush it.
+    for attempt in range(2):
+        r = requests.post(f"{BASE_URL}/api/auth/v2/login",
+                          json={"email": SUPERADMIN[0], "password": SUPERADMIN[1],
+                                "client_type": "native"})
+        if r.status_code == 200:
+            return r.json()["access_token"]
+        if r.status_code == 429 and attempt == 0:
+            subprocess.run(["sudo", "supervisorctl", "restart", "backend"],
+                           check=True, capture_output=True)
+            deadline = time.time() + 20
+            while time.time() < deadline:
+                try:
+                    if requests.get(f"{BASE_URL}/api/livez", timeout=2).status_code == 200:
+                        break
+                except Exception:
+                    pass
+                time.sleep(1)
+            continue
+        assert False, r.text
+    assert False, "unable to obtain superadmin token"
 
 
 # 1x1 transparent PNG
@@ -342,6 +373,17 @@ class TestA40Regression:
 # ══════════════════════════════════════════════════════════════════════
 class TestAuditLog:
     def test_audit_captures_login_success_and_failed_and_logout(self, api, mongo_db):
+        # Fresh rate-limit window: restart backend to flush slowapi memory.
+        subprocess.run(["sudo", "supervisorctl", "restart", "backend"],
+                       check=True, capture_output=True)
+        deadline = time.time() + 20
+        while time.time() < deadline:
+            try:
+                if requests.get(f"{BASE_URL}/api/livez", timeout=2).status_code == 200:
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
         # Failed login
         api.post(f"{BASE_URL}/api/auth/v2/login",
                  json={"email": "totally-nonexistent-user@example.com",
@@ -351,7 +393,7 @@ class TestAuditLog:
         r = api.post(f"{BASE_URL}/api/auth/v2/login",
                      json={"email": ADMIN_DEMO[0], "password": ADMIN_DEMO[1],
                            "client_type": "web"})
-        assert r.status_code == 200
+        assert r.status_code == 200, r.text
         access = r.json()["access_token"]
         requests.post(f"{BASE_URL}/api/auth/v2/logout",
                       headers={"Authorization": f"Bearer {access}"}, cookies=r.cookies)

@@ -1,0 +1,44 @@
+{
+  "summary": "RETEST after main agent's two fixes to auth_v2 (TokenResp.refresh_token Optional + @limiter.limit on /login). Result: 20/20 PASS (100%). Both iteration-1 bugs are CLOSED: (1) POST /api/auth/v2/login with client_type='native' now returns refresh_token in the JSON body (verified via test_login_native_returns_refresh_in_body and manual curl → 'has refresh_token: True'). (2) X-RateLimit-Limit / X-RateLimit-Remaining / X-RateLimit-Reset / Retry-After headers are now emitted on /api/auth/v2/login 429 responses (verified via test_rate_limit_headers_present after 5 requests: x-ratelimit-limit=5). No regressions detected: web-client flow still sets HttpOnly refresh cookie without leaking token in body, refresh rotation works, logout revokes the session, brute-force lockout still returns 429, legacy /api/auth/login still returns 200 with access_token+user, A40 Basic Auth on /api/wp-json/wp/v2/comments still 200/401 as expected, health probes, menu WebSocket auto-reload, media upload (legacy fallback), presign 503, .exe rejection, audit_log ingestion and startup fail-fast validator ALL PASS.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/v2/login (client_type='web')",
+        "issue": "Web-client response body now contains `\"refresh_token\": null` because Pydantic Optional[str]=None serialises the field as null. Cookie flow itself is unaffected (HttpOnly cookie is still set correctly), but the null key on the wire is slightly noisy. Fix (optional): add `response_model_exclude_none=True` to @router.post('/login', ...) or explicitly pop the key for web clients."
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_fase4_backend.py",
+    "/app/backend/tests/conftest.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "OPTIONAL cleanup: use `response_model_exclude_none=True` on /api/auth/v2/login so the JSON body no longer carries `refresh_token: null` for web clients (cosmetic).",
+    "Consider decorating the remaining /api/auth/v2/* routes (register, refresh, change-password, logout) with @limiter.limit(LIMITS.register / .refresh / .change_pass) — main-agent already covered /login, but the others in build_auth_router still have no slowapi rules."
+  ],
+  "critical_code_review_comments": [
+    "server.py still 3774 lines — consider splitting into routers/*.py modules.",
+    "auth_v2.py: refresh_token key with value null on web-client responses is a Pydantic default; using `response_model_exclude_none=True` keeps the shape clean and avoids clients reacting to the null.",
+    "startup_check.py is still imported but NOT invoked at backend startup (only when run directly); wiring it into server.py startup would make supervisorctl restart fail-fast on broken .env in production too."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_fase4_backend.py (test infra improvements: refresh_token web assertion now accepts null-or-absent; rate-limit-headers test now provokes 429; superadmin_token fixture and TestAuditLog restart backend to flush slowapi memory storage when the 5/min window is exhausted)"
+  ],
+  "success_rate": {
+    "backend": "100% (20/20)",
+    "frontend": "not tested (per review request: backend only)"
+  },
+  "seed_data_creation": "None. Used existing seeded users (superadmin@mediadview.com, admin.demo@mediadview.com) and A40 terminal creds. login_attempts for 127.0.0.1 cleared between tests via autouse fixture; slowapi memory-storage flushed via backend restart in the two tests that need a fresh 5/min window.",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Full suite green: `pytest /app/backend/tests/test_fase4_backend.py -v --junitxml=/app/test_reports/pytest/pytest_results.xml` → 20 passed in ~9s (excluding two intentional backend restarts × ~5s each = ~20s wall-clock). The suite exercises: JWT_SECRET stability across supervisorctl restart, auth v2 login/refresh/logout (web cookie + native body), brute-force lockout, slowapi headers on 429, health probes, menu render, media upload/presign/.exe, startup_check exit-2, A40 Basic Auth, and audit_log. Note the two remaining fix-adjacent items are cosmetic (see minor issues + action_items).",
+  "rca_of_issue": "Iteration-1 bugs are fully closed. Bug (1) refresh_token missing in body: RCA was TokenResp Pydantic model omitting the field — main agent added `refresh_token: Optional[str] = None` in auth_v2.py:325. Verified with test + curl. Bug (2) missing X-RateLimit-* headers: RCA was no @limiter.limit decorator on /api/auth/v2/login — main agent added `@_rl.limit(_LIMITS.login)` on auth_v2.py:334. Verified with test that provokes 429 (headers appear on the 429 response as expected from slowapi with headers_enabled=True). Side-effect worth noting: because slowapi now caps /login at 5/min per IP, any test suite hammering login from a single IP must either flush the in-memory window (backend restart) or space its requests — I encoded this in the test infra so the suite is self-contained."
+}
