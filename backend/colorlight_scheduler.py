@@ -49,7 +49,7 @@ async def _queue_command(db, device_id: str, author_url: str):
     now_ms = int(datetime.utcnow().timestamp() * 1000)
     cmd_id = now_ms % 1_000_000_000
     doc = {
-        "command_id":  cmd_id,
+        "cmd_id":      cmd_id,
         "device_id":   device_id,
         "post_id":     0,
         "author_url":  author_url,

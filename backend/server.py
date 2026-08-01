@@ -872,6 +872,44 @@ async def regenerate_pairing(screen_id: str, admin: dict = Depends(require_admin
     }})
     return {"pairing_code": new_code, "pairing_secret": new_secret}
 
+
+@api_router.get("/screens/{screen_id}/qr")
+async def screen_qr_code(screen_id: str, size: int = 8, kind: str = "public"):
+    """Return a PNG QR code for the screen. kind=public → public marketplace URL,
+    kind=pair → deep link ready to activate the APK player with the screen id."""
+    import io
+    import qrcode
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(404, "Screen not found")
+    base = os.getenv("PUBLIC_BASE_URL", "https://mediadview.com").rstrip("/")
+    if kind == "pair":
+        # Player-facing activation URL
+        url = f"{base}/api/player-activate?screen_id={screen_id}"
+    else:
+        url = f"{base}/api/s/{screen.get('pairing_code') or screen_id}"
+    q = qrcode.QRCode(box_size=max(4, min(int(size), 20)), border=2)
+    q.add_data(url); q.make(fit=True)
+    img = q.make_image(fill_color="#0b1220", back_color="#ffffff")
+    buf = io.BytesIO(); img.save(buf, format="PNG")
+    return Response(content=buf.getvalue(), media_type="image/png",
+                    headers={"Cache-Control": "no-store"})
+
+
+@api_router.get("/s/{pairing_code}", response_class=HTMLResponse)
+async def screen_by_pairing_code(pairing_code: str):
+    """Chat #2 style: public entrypoint to view a screen via its short pairing_code."""
+    screen = await db.screens.find_one({"pairing_code": pairing_code.upper()})
+    if not screen:
+        raise HTTPException(404, "Screen not found")
+    # Redirect to the existing public screen page
+    return HTMLResponse(
+        f'<script>location.replace("/api/screen?id={screen["id"]}")</script>'
+        f'<a href="/api/screen?id={screen["id"]}">Ver pantalla</a>',
+        status_code=200,
+    )
+
+
 @api_router.put("/admin/screens/{screen_id}")
 async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = Depends(require_admin)):
     screen = await db.screens.find_one({"id": screen_id})
@@ -2766,12 +2804,20 @@ async def update_menu(menu_id: str, data: dict, current_user: dict = Depends(get
         raise HTTPException(status_code=403, detail="Access denied")
     
     update = {"updated_at": datetime.utcnow()}
-    for field in ["name", "template_id", "restaurant_name", "restaurant_logo", "subtitle", "currency", "currency_symbol", "status", "categories"]:
+    for field in ["name", "template_id", "restaurant_name", "restaurant_logo", "subtitle",
+                  "currency", "currency_symbol", "status", "categories",
+                  "slideshow_enabled", "slideshow_interval",
+                  "split_screen_enabled", "split_screen_layout",
+                  "split_promo_media", "split_widget_id"]:
         if field in data:
             update[field] = data[field]
     
     await db.menus.update_one({"id": menu_id}, {"$set": update})
     updated = await db.menus.find_one({"id": menu_id})
+    try:
+        await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception:
+        pass
     return serialize_doc(updated)
 
 @api_router.delete("/menus/{menu_id}")
@@ -2801,11 +2847,14 @@ async def add_menu_category(menu_id: str, data: dict, current_user: dict = Depen
         "name": data.get("name", "Category"),
         "description": data.get("description", ""),
         "items": [],
-        "order": len(menu.get("categories", []))
+        "order": len(menu.get("categories", [])),
+        "active_hours": data.get("active_hours", None),  # {"start":"HH:MM","end":"HH:MM","days":[1,1,1,1,1,1,1]}
     }
     
     await db.menus.update_one({"id": menu_id}, {"$push": {"categories": category}, "$set": {"updated_at": datetime.utcnow()}})
     updated = await db.menus.find_one({"id": menu_id})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     return serialize_doc(updated)
 
 @api_router.put("/menus/{menu_id}/categories/{category_id}")
@@ -2825,6 +2874,8 @@ async def update_menu_category(menu_id: str, category_id: str, data: dict, curre
             break
     
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -2839,6 +2890,8 @@ async def delete_menu_category(menu_id: str, category_id: str, current_user: dic
     
     categories = [c for c in menu.get("categories", []) if c["id"] != category_id]
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     return {"message": "Category deleted"}
 
 # --- Menu Item Management ---
@@ -2871,6 +2924,8 @@ async def add_menu_item(menu_id: str, category_id: str, data: dict, current_user
             break
     
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -2894,6 +2949,8 @@ async def update_menu_item(menu_id: str, category_id: str, item_id: str, data: d
             break
     
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -2913,6 +2970,8 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
             break
     
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
+    try: await ws_manager.broadcast_menu(menu_id, "updated")
+    except Exception: pass
     return {"message": "Item deleted"}
 
 # --- Menu Render (for player/screen display) ---
@@ -3047,6 +3106,49 @@ async def render_menu(menu_id: str):
     
     is_grid = t.get('grid', False)
     
+    # -------- Time-based category filtering (Chat #2 feature) --------
+    # Categories can define active_hours: {"start":"HH:MM","end":"HH:MM","days":[1,1,1,1,1,1,1]}
+    # Filter out categories that shouldn't be shown at this hour on this weekday.
+    try:
+        import pytz as _pytz
+        _tz = _pytz.timezone(os.getenv("MENU_TZ", "America/New_York"))
+        _now = datetime.now(_tz)
+        _hm = _now.hour * 60 + _now.minute
+        _wd = _now.weekday()  # 0=Mon .. 6=Sun
+        _filtered = []
+        for _cat in categories:
+            _ah = _cat.get("active_hours")
+            if not _ah:
+                _filtered.append(_cat); continue
+            _days = _ah.get("days") or [1]*7
+            if len(_days) < 7:
+                _days = (_days + [1]*7)[:7]
+            if not _days[_wd]:
+                continue
+            _s = _ah.get("start", "00:00"); _e = _ah.get("end", "23:59")
+            try:
+                _sh, _sm = map(int, _s.split(":")); _eh, _em = map(int, _e.split(":"))
+                _sm_ = _sh*60+_sm; _em_ = _eh*60+_em
+                # Overnight support: end < start means it wraps midnight
+                if _em_ < _sm_:
+                    _ok = (_hm >= _sm_) or (_hm <= _em_)
+                else:
+                    _ok = _sm_ <= _hm <= _em_
+            except Exception:
+                _ok = True
+            if _ok:
+                _filtered.append(_cat)
+        # If schedule wipes everything, keep the first category to avoid an empty screen.
+        if not _filtered and categories:
+            _filtered = [categories[0]]
+        categories = _filtered
+    except Exception:
+        pass
+    
+    # -------- Slideshow settings (menu-level override) --------
+    slideshow_enabled = menu.get("slideshow_enabled", True)
+    slideshow_interval = int(menu.get("slideshow_interval") or 12)
+    
     # Split categories into slides of 3
     slides = []
     for i in range(0, len(categories), 3):
@@ -3055,7 +3157,7 @@ async def render_menu(menu_id: str):
         slides = [[]]
     
     num_slides = len(slides)
-    slide_duration = 12
+    slide_duration = slideshow_interval if slideshow_enabled else 999999
     
     has_promo = len(promo_media) > 0
     menu_height = "75%" if has_promo else "calc(100% - 80px)"
@@ -3241,7 +3343,41 @@ if(total>1){{setInterval(function(){{current=(current+1)%total;showSlide(current
 // Promo scroll animation
 var ps=document.getElementById('promo-scroll');
 if(ps){{ps.style.animationDuration='{scroll_speed}s'}}
+// Fallback: reload every 5 min (in case WebSocket dies). Also re-runs the hour-based filter.
 setTimeout(function(){{location.reload()}},300000);
+// -------- Live sync via WebSocket (Chat #2 real-time feature) --------
+(function(){{
+  var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  var wsUrl = proto + '//' + location.host + '/api/ws/menu/{menu_id}';
+  var ws, retry = 0, keepalive;
+  function connect(){{
+    try {{ ws = new WebSocket(wsUrl); }} catch(e){{ scheduleReconnect(); return; }}
+    ws.onopen = function(){{ retry = 0;
+      keepalive = setInterval(function(){{ try{{ ws.send('ping'); }}catch(e){{}} }}, 30000);
+    }};
+    ws.onmessage = function(ev){{
+      try {{ var m = JSON.parse(ev.data); }} catch(e){{ return; }}
+      if(m.type === 'menu' && (m.event === 'updated' || m.event === 'reload')){{
+        // Immediate reload — instant price/menu change on TV
+        location.reload();
+      }}
+    }};
+    ws.onclose = function(){{ clearInterval(keepalive); scheduleReconnect(); }};
+    ws.onerror = function(){{ try {{ ws.close(); }} catch(e){{}} }};
+  }}
+  function scheduleReconnect(){{
+    retry = Math.min(retry+1, 6);
+    var delay = Math.pow(2, retry) * 1000; // 2s..64s
+    setTimeout(connect, delay);
+  }}
+  connect();
+  // Also re-run the hour filter every full minute (client-side hint)
+  var lastMin = new Date().getMinutes();
+  setInterval(function(){{
+    var m = new Date().getMinutes();
+    if(m !== lastMin){{ lastMin = m; }}
+  }}, 15000);
+}})();
 </script>"""
     
     html += '</body></html>'
@@ -3299,6 +3435,7 @@ from finance_scheduler import start_scheduler
 from colorlight_scheduler import start_colorlight_scheduler
 from colorlight import create_colorlight_routes
 from colorlight_player import create_player_routes
+from realtime import ws_router, manager as ws_manager
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
 app.include_router(create_finance_print_routes(db, get_current_user))
@@ -3307,6 +3444,8 @@ app.include_router(create_colorlight_routes(db, get_current_user))
 # Public device-facing routes are at /api/wp-json/... and /api/wp-content/...
 # (mounted under /api because k8s ingress routes only /api/* to backend port 8001).
 app.include_router(create_player_routes(db), prefix="/api")
+# Real-time WebSocket channels: /api/ws/menu/{id}, /api/ws/screen/{id}, /api/ws/device/{id}
+app.include_router(ws_router)
 
 app.add_middleware(
     CORSMiddleware,
