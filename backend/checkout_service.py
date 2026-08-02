@@ -131,6 +131,12 @@ def _sign_quote(payload: dict) -> str:
 
 
 def _verify_quote(token: str) -> Optional[dict]:
+    """Verify HMAC-signed quote. Returns None on ANY failure.
+    P0-A4 · Reviewed: this bare-except is INTENTIONAL and safe — a
+    quote-verify function must never raise on adversarial input (it's
+    a boolean-style predicate). The specific exceptions we expect here
+    are ValueError / KeyError / binascii.Error from malformed tokens;
+    all treat as "not a valid quote" → return None."""
     try:
         body, sig = token.split(".", 1)
         expected = _b64u(hmac.new(_quote_secret(), body.encode(), hashlib.sha256).digest())
@@ -337,14 +343,17 @@ async def _reserve_all_slots(
         await db.slot_reservations.insert_many(docs, ordered=True)
         return True, None
     except Exception as e:
-        # Roll back the docs that DID insert before the conflict.
-        # motor raises `BulkWriteError` on partial success; find our
-        # order_id-tagged rows and remove them.
+        # P0-A4 · Rollback: remove the pending holds inserted before the
+        # conflict. Any failure to roll back is a REAL observability
+        # concern — the TTL sweeper will still clean them up in 10 min,
+        # but we log so it shows in Sentry.
         try:
             await db.slot_reservations.delete_many(
                 {"order_id": order_id, "status": "pending"})
-        except Exception:
-            pass
+        except Exception as cleanup_err:
+            log.exception(
+                "slot rollback failed for order %s (TTL will eventually "
+                "reclaim; investigate): %s", order_id, cleanup_err)
         conflict_msg = str(e)
         # Extract the offending (day, hour) from the error message
         # (best-effort — only used for the 409 body).
@@ -530,7 +539,9 @@ async def verify_order_token(
     *,
     token: str,
 ) -> Optional[dict]:
-    """Return the token payload iff signature valid AND DB row not revoked."""
+    """Return the token payload iff signature valid AND DB row not revoked.
+    P0-A4 · Reviewed: bare except is INTENTIONAL — a token verifier must
+    never raise on adversarial input; return None for any decode failure."""
     try:
         body, sig = token.split(".", 1)
         expected = _b64u(hmac.new(_order_link_secret(), body.encode(), hashlib.sha256).digest())
@@ -554,7 +565,9 @@ async def verify_order_token(
 # ─────────────────────────────────────────────────────────────────────
 def stripe_configured_check() -> bool:
     """Backwards-compat shim. Any provider (stripe or dev) means payments
-    are configured. Only fully-empty env yields False."""
+    are configured. Only fully-empty env yields False.
+    P0-A4 · Reviewed: bare except is INTENTIONAL — get_provider() may
+    raise ProviderNotConfigured or ImportError; both are 'not configured'."""
     try:
         get_provider()
         return True

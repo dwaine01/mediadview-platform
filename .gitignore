@@ -169,3 +169,11 @@ frontend/frontend.log
 memory/test_credentials.md
 !memory/test_credentials.md.example
 
+
+# ─── P0-A5 test artefacts (Playwright + reports) ─────────────────
+test_reports/
+playwright-report/
+.playwright/
+pw-browsers/
+tests/screenshots/
+*.har

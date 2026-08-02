@@ -100,6 +100,9 @@ var API='/api';
 var menuId=new URLSearchParams(location.search).get('id');
 var menu=null,currSym='$',templates=[];
 
+// P0-A2: HTML escape helper to prevent XSS via error messages / API data.
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
 // Uses window.Auth.api.raw so it sends the memory token, sends the refresh
 // cookie, and silently refreshes on 401 — no localStorage access.
 async function api(p,o={}){
@@ -147,7 +150,7 @@ async function loadList(){
       html+='<div class="menu-card-arrow">›</div></div>';
     });
     document.getElementById('app').innerHTML=html;
-  }catch(e){document.getElementById('app').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">'+e.message+'</p>'}
+  }catch(e){document.getElementById('app').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">'+esc(e.message)+'</p>'}
 }
 
 // ========== CREATE MENU ==========
@@ -196,7 +199,7 @@ async function loadEditor(){
     menu=await api('/menus/'+menuId);
     currSym=menu.currency_symbol||'$';
     renderEditor();
-  }catch(e){document.getElementById('app').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">'+e.message+'</p>'}
+  }catch(e){document.getElementById('app').innerHTML='<p style="text-align:center;padding:40px;color:var(--red)">'+esc(e.message)+'</p>'}
 }
 
 function renderEditor(){
@@ -258,7 +261,7 @@ function showAddItem(cid){
   openModal('<h3>New Item</h3><div class="field"><label>Name</label><input id="in" placeholder="e.g. Caesar Salad"></div><div class="field-row"><div class="field"><label>Price ('+currSym+')</label><input id="ip" type="number" step="0.01" placeholder="12.99" inputmode="decimal"></div><div class="field" style="flex:0 0 auto"><label>Featured</label><div class="toggle-switch" id="if" onclick="this.classList.toggle(\'on\')"></div></div></div><div class="field"><label>Description</label><textarea id="id" placeholder="Short description..."></textarea></div><div class="field"><label>Photo</label><input type="file" accept="image/*" id="ii" onchange="prvImg(this)" style="font-size:13px;color:var(--text3)"><div id="ipr" style="margin-top:6px"></div><input type="hidden" id="iid"></div><button class="btn-full btn-save" onclick="saveNewItem(\''+cid+'\')">Add Item</button>');
   setTimeout(function(){document.getElementById('in').focus()},100);
 }
-function prvImg(el){if(!el.files||!el.files[0])return;var r=new FileReader();r.onload=function(e){document.getElementById('iid').value=e.target.result;document.getElementById('ipr').innerHTML='<img src="'+e.target.result+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover">'};r.readAsDataURL(el.files[0])}
+function prvImg(el){if(!el.files||!el.files[0])return;var f=el.files[0];if(f.type&&f.type.indexOf('image/')!==0){alert('Only image files allowed');el.value='';return}var r=new FileReader();r.onload=function(e){var d=e.target.result;document.getElementById('iid').value=d;document.getElementById('ipr').innerHTML='<img src="'+esc(d)+'" style="width:60px;height:60px;border-radius:8px;object-fit:cover">'};r.readAsDataURL(f)}
 async function saveNewItem(cid){var n=document.getElementById('in').value.trim(),p=parseFloat(document.getElementById('ip').value)||0,d=document.getElementById('id').value.trim(),img=document.getElementById('iid').value||'',f=document.getElementById('if').classList.contains('on');if(!n){alert('Enter name');return}try{await api('/menus/'+menuId+'/categories/'+cid+'/items',{method:'POST',body:JSON.stringify({name:n,price:p,description:d,image:img,featured:f})});closeModal();menu=await api('/menus/'+menuId);renderEditor()}catch(e){alert(e.message)}}
 
 function editItem(cid,iid){

@@ -152,8 +152,21 @@ def setup_logging():
 # ─── Sentry integration ──────────────────────────────────────────────
 def init_sentry():
     dsn = os.environ.get("SENTRY_DSN", "").strip()
+    env = (os.environ.get("ENVIRONMENT") or "development").lower()
     if not dsn:
-        logging.getLogger("sentry").info("SENTRY_DSN not set — Sentry disabled")
+        # P0-A6: In production, missing SENTRY_DSN is a WARNING loud enough
+        # to be seen in Render logs on startup. We do not raise, to avoid
+        # locking out an operator who is deploying urgently, but the log
+        # is triple-emphasized so it can be caught by any log alerting.
+        if env == "production":
+            logging.getLogger("sentry").warning(
+                "★★★ CRITICAL: SENTRY_DSN is not set in PRODUCTION. "
+                "Errors will be invisible outside Render logs (7d retention). "
+                "Set SENTRY_DSN in the Render environment tab and redeploy. "
+                "See docs/RUNBOOK.md §9 for setup. ★★★"
+            )
+        else:
+            logging.getLogger("sentry").info("SENTRY_DSN not set — Sentry disabled")
         return False
     try:
         import sentry_sdk

@@ -548,6 +548,18 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         raise HTTPException(400, "Invalid base64 data")
     size = len(file_bytes)
 
+    # P0-A3: MAGIC-NUMBER validation — verify the actual bytes match the
+    # declared content_type. Rejects MIME-spoofed uploads (e.g. .exe
+    # pretending to be image/jpeg, or SVG with <script>).
+    from media_validator import validate_magic_bytes
+    try:
+        trusted_mime = validate_magic_bytes(
+            file_bytes, declared_mime=data.content_type, filename=data.filename)
+    except ValueError as e:
+        raise HTTPException(415, f"Upload rejected: {e}")
+    # Overwrite declared type with the SERVER-TRUSTED one.
+    data.content_type = trusted_mime
+
     # Validation — MIME + size + (video duration bypass here since we don't
     # know it in a base64 upload; presign flow enforces it).
     kind = validate_upload(filename=data.filename, mime=data.content_type,
@@ -3765,6 +3777,10 @@ app.add_middleware(
                     "X-RateLimit-Remaining", "X-RateLimit-Reset"],
     max_age=3600,
 )
+
+# ── P0-A1: HTTP Security Headers (HSTS/CSP/XFO/etc) ─────────────
+from security_headers import install as install_security_headers
+install_security_headers(app)
 
 logging.basicConfig(
     level=logging.INFO,

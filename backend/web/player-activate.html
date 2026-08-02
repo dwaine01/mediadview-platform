@@ -51,6 +51,10 @@ video::-webkit-media-controls-overlay-play-button{display:none!important}
 <div id="player"></div>
 
 <script>
+// P0-A2: HTML escape helper — used on ALL innerHTML paths that inject
+// server-controlled data (widget URLs, media URLs, codes) to prevent XSS.
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+
 // ===== CONFIG =====
 var AB = location.origin;
 var deviceId = localStorage.getItem('mv_did');
@@ -93,7 +97,7 @@ async function register() {
 function showCode(c) {
   document.getElementById('spinner').style.display = 'none';
   document.getElementById('code-box').style.display = 'flex';
-  document.getElementById('code-box').innerHTML = c.split('').map(function(ch) { return '<div class="code-char">' + ch + '</div>'; }).join('');
+  document.getElementById('code-box').innerHTML = String(c==null?'':c).split('').map(function(ch) { return '<div class="code-char">' + esc(ch) + '</div>'; }).join('');
   document.getElementById('status').textContent = 'Enter this code in the Admin Panel';
   document.getElementById('steps').style.display = 'block';
 }
@@ -165,7 +169,7 @@ function playItem() {
   // Handle widgets
   if (item.content_type === 'widget') {
     var widgetUrl = AB + item.download_url;
-    document.getElementById('player').innerHTML = '<iframe src="' + widgetUrl + '" style="width:100vw;height:100vh;border:none;background:#000" allowfullscreen></iframe>';
+    document.getElementById('player').innerHTML = '<iframe src="' + esc(widgetUrl) + '" style="width:100vw;height:100vh;border:none;background:#000" allowfullscreen></iframe>';
     logPlay(item);
     playTimer = setTimeout(nextItem, (item.duration || 30) * 1000);
     return;
@@ -179,10 +183,10 @@ function playItem() {
   if (isImg) {
     var anim = item.animation || 'fade';
     var animClass = anim !== 'none' ? 'anim-' + anim : '';
-    document.getElementById('player').innerHTML = '<div class="' + animClass + '" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="' + url + '" style="' + rotStyle + '"></div>';
+    document.getElementById('player').innerHTML = '<div class="' + esc(animClass) + '" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="' + esc(url) + '" style="' + esc(rotStyle) + '"></div>';
   } else {
     // Video: use direct video element with muted+playsinline
-    document.getElementById('player').innerHTML = '<video id="vid" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="' + rotStyle + 'background:#000" src="' + url + '"></video>';
+    document.getElementById('player').innerHTML = '<video id="vid" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="' + esc(rotStyle) + 'background:#000" src="' + esc(url) + '"></video>';
     var v = document.getElementById('vid');
     if (v) {
       v.onended = function() { nextItem(); };

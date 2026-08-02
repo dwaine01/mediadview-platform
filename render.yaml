@@ -116,6 +116,12 @@ envVarGroups:
       - key: JWT_REFRESH_TOKEN_DAYS
         value: "30"
 
+      # ── Extra crypto secrets (P0-A6 · rotated every 6 months) ──
+      - key: FERNET_KEY
+        sync: false                            # Fernet.generate_key() — cannot be regenerated w/o invalidating tokens
+      - key: ORDER_LINK_SECRET
+        generateValue: true                    # HMAC secret for magic-links
+
       # ── Stripe ────────────────────────────────────────────────
       - key: STRIPE_SECRET_KEY
         sync: false
