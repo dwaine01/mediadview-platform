@@ -382,6 +382,7 @@ async def revenue_by_screen(
     for r in rows:
         s = screen_map.get(r["screen_id"]) or {}
         r["screen_name"] = s.get("name") or "(unknown)"
+        r["data_quality_issue"] = None if s else "screen_missing"   # D-03 flag
         r["city"] = (s.get("location") or {}).get("city")
         r["country"] = (s.get("location") or {}).get("country")
     return rows
@@ -518,11 +519,23 @@ async def screen_occupancy(
 
     for r in rows:
         s = screen_map.get(r["screen_id"]) or {}
-        hpd = int(s.get("operating_hours_per_day") or 14)
+        # D-02: transparent about default hours source
+        configured_hpd = s.get("operating_hours_per_day")
+        if configured_hpd is not None:
+            hpd = int(configured_hpd)
+            hpd_source = "configured"
+        elif not s:
+            hpd = 14
+            hpd_source = "unknown_screen"       # screen record missing entirely (D-03)
+        else:
+            hpd = 14
+            hpd_source = "default_14h"          # screen exists but no operating hours field
         available = hpd * days
         r["screen_name"] = s.get("name") or "(unknown)"
+        r["data_quality_issue"] = None if s else "screen_missing"   # D-03 flag
         r["city"] = (s.get("location") or {}).get("city")
         r["operating_hours_per_day"] = hpd
+        r["operating_hours_source"] = hpd_source
         r["days_in_period"] = days
         r["hours_available"] = available
         r["occupancy_pct"] = round((r["hours_sold"] / available) * 100, 2) if available else 0
@@ -581,7 +594,7 @@ async def sla_metrics(
     def stats(arr: list[float]) -> dict:
         if not arr:
             return {"count": 0, "avg_sec": None, "p50_sec": None, "p95_sec": None,
-                    "min_sec": None, "max_sec": None}
+                    "min_sec": None, "max_sec": None, "insufficient_data": True}
         return {
             "count":   len(arr),
             "avg_sec": round(statistics.mean(arr), 2),
@@ -589,6 +602,7 @@ async def sla_metrics(
             "p95_sec": round(sorted(arr)[max(0, int(len(arr) * 0.95) - 1)], 2),
             "min_sec": round(min(arr), 2),
             "max_sec": round(max(arr), 2),
+            "insufficient_data": False,
         }
     return {
         "time_to_approve": stats(time_to_approve_sec),

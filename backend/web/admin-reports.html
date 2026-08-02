@@ -309,7 +309,7 @@ function fmtMoney(cents, ccy=state.currency) {
 }
 function fmtInt(n) { if (n==null) return '—'; return Number(n).toLocaleString('en-US'); }
 function fmtDur(sec) {
-  if (sec==null) return '—';
+  if (sec == null) return 'N/A';
   if (sec < 60) return sec.toFixed(0)+'s';
   if (sec < 3600) return (sec/60).toFixed(1)+' min';
   if (sec < 86400) return (sec/3600).toFixed(1)+' h';
@@ -515,16 +515,20 @@ function renderTopScreens(items) {
   const t = document.getElementById('topScreens');
   if (!items.length) { t.innerHTML = '<tr><td colspan="4" class="empty">No revenue data.</td></tr>'; return; }
   const max = Math.max(...items.map(x=>x.revenue_cents));
-  t.innerHTML = items.map(x => `
+  t.innerHTML = items.map(x => {
+    const dqBadge = x.data_quality_issue
+      ? `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,.12);color:#f87171;font-size:9px;font-weight:700" title="Screen record faltante (${x.data_quality_issue})">⚠ DATA</span>`
+      : '';
+    return `
     <tr>
-      <td><b>${esc(x.screen_name)}</b><div class="mono" style="color:#64748b">${esc(x.screen_id||'')}</div></td>
+      <td><b>${esc(x.screen_name)}</b>${dqBadge}<div class="mono" style="color:#64748b">${esc(x.screen_id||'')}</div></td>
       <td>${esc(x.city||'—')}</td>
       <td>${fmtInt(x.orders_count)}</td>
       <td class="amt">${fmtMoney(x.revenue_cents, x.currency)}
         <span class="bar-inline" style="width:${Math.max(6, x.revenue_cents/max*60)}px"></span>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 function renderTopClients(items) {
@@ -548,12 +552,19 @@ function renderOccupancy(items) {
   document.getElementById('occBadge').textContent = items[0] ? `${items[0].days_in_period}d window` : '—';
   t.innerHTML = items.slice(0, 15).map(x => {
     const color = x.occupancy_pct > 70 ? '#34d399' : x.occupancy_pct > 30 ? '#fbbf24' : '#94a3b8';
+    let hoursBadge = '';
+    if (x.operating_hours_source === 'default_14h') {
+      hoursBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:rgba(251,191,36,.15);color:#fbbf24;font-size:9px;font-weight:700" title="La pantalla no tiene operating_hours_per_day configurado. Se usa 14h como default.">DEFAULT 14h</span>`;
+    } else if (x.operating_hours_source === 'unknown_screen') {
+      hoursBadge = `<span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,.15);color:#f87171;font-size:9px;font-weight:700" title="Screen record no encontrado — data quality issue">SCREEN FALTANTE</span>`;
+    }
+    const dqBadge = x.data_quality_issue ? `<span style="display:inline-block;padding:1px 6px;border-radius:4px;background:rgba(239,68,68,.12);color:#f87171;font-size:9px;font-weight:700;margin-left:6px">⚠ DATA</span>` : '';
     return `
     <tr>
-      <td><b>${esc(x.screen_name)}</b></td>
+      <td><b>${esc(x.screen_name)}</b>${dqBadge}</td>
       <td>${esc(x.city||'—')}</td>
       <td>${fmtInt(x.hours_sold)} h</td>
-      <td>${fmtInt(x.hours_available)} h</td>
+      <td>${fmtInt(x.hours_available)} h${hoursBadge}</td>
       <td><span style="color:${color};font-weight:800">${x.occupancy_pct}%</span></td>
       <td class="amt">${fmtMoney(x.revenue_cents, x.currency)}</td>
     </tr>`;
@@ -567,7 +578,20 @@ function renderSLA(sla) {
     { title:'Time to PUBLISH', data: sla.time_to_publish, hint:'From approval → scheduled/playing' },
     { title:'Admin RESPONSE',  data: sla.admin_response, hint:'End-to-end admin turnaround' },
   ];
-  document.getElementById('slaGrid').innerHTML = cards.map(c => `
+  document.getElementById('slaGrid').innerHTML = cards.map(c => {
+    const noData = c.data.insufficient_data || c.data.count === 0;
+    if (noData) {
+      return `
+        <div class="sla-card">
+          <h3>${esc(c.title)}</h3>
+          <div style="padding:24px 6px;text-align:center;color:#64748b">
+            <div style="font-size:22px;font-weight:800;letter-spacing:1.5px;color:#475569">N/A</div>
+            <div style="font-size:11px;margin-top:6px">Sin datos suficientes</div>
+            <div style="font-size:10px;margin-top:12px;color:#334155;font-style:italic">${esc(c.hint)}</div>
+          </div>
+        </div>`;
+    }
+    return `
     <div class="sla-card">
       <h3>${esc(c.title)}</h3>
       <div class="metric"><span class="k">Sample</span><span class="v">${fmtInt(c.data.count)}</span></div>
@@ -576,8 +600,8 @@ function renderSLA(sla) {
       <div class="metric"><span class="k">p95</span><span class="v">${fmtDur(c.data.p95_sec)}</span></div>
       <div class="metric"><span class="k">Min → Max</span><span class="v">${fmtDur(c.data.min_sec)} → ${fmtDur(c.data.max_sec)}</span></div>
       <div style="color:#64748b;font-size:10px;margin-top:8px;font-style:italic">${esc(c.hint)}</div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 // ── Exports ─────────────────────────────────────────────────────
