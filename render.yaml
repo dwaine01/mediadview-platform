@@ -67,19 +67,18 @@ services:
           property: connectionString
       - fromGroup: mediadview-secrets
 
-
-# ─── Managed Redis (rate-limit, cache, ARQ queue, worker heartbeat) ───
-# `type: keyvalue` is Render's new name; if your Render account still shows
-# `type: redis` in the dashboard, both are accepted.
-databases: []
-
-# Redis instance
-services_redis:
+  # ─── Managed Redis (rate-limit, cache, ARQ queue, worker heartbeat) ─
+  # `type: keyvalue` is Render's current name; `type: redis` (deprecated
+  # alias) is still accepted in the `fromService` references above.
   - type: keyvalue
     name: mediadview-redis
     plan: starter                              # 250 MB, LRU eviction
     region: virginia
     ipAllowList: []                            # accessible only from Render VPC
+
+
+# ─── No PostgreSQL databases — MediaDView uses MongoDB Atlas ──────────
+databases: []
 
 
 # ─── Environment groups (shared secrets across api + worker) ──────────
