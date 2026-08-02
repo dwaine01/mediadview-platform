@@ -94,8 +94,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         headers = response.headers
 
-        # Frame options — always deny (we don't embed the app in iframes)
-        headers.setdefault("X-Frame-Options", "DENY")
+        # Frame options — DENY globally, except PDF endpoints which are
+        # embedded in same-origin iframes by the admin panel (preview view).
+        path = request.url.path or ""
+        is_pdf_preview = path.endswith("/pdf") or "/pdf?" in str(request.url) or path.endswith(".pdf")
+        if is_pdf_preview:
+            headers["X-Frame-Options"] = "SAMEORIGIN"
+        else:
+            headers.setdefault("X-Frame-Options", "DENY")
         # MIME sniffing defense
         headers.setdefault("X-Content-Type-Options", "nosniff")
         # Referrer policy — do not leak paths cross-origin
