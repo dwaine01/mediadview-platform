@@ -89,6 +89,16 @@ class ConnectionManager:
                               {"type": "device", "event": event, "device_id": device_id,
                                "data": data or {}})
 
+    async def broadcast_dashboard(self, event: str, data: dict | None = None, scope: str = "global"):
+        """Broadcast a finance/business event to admin dashboard subscribers.
+
+        `event` examples: 'order.created', 'order.approved', 'payment.captured',
+        'refund.executed', 'invoice.issued'.
+        `scope` allows narrowing (e.g. 'global', 'finance', 'admin')."""
+        await self._broadcast(self._key("dashboard", scope),
+                              {"type": "dashboard", "event": event,
+                               "scope": scope, "data": data or {}})
+
     def room_size(self, channel: str, rid: str) -> int:
         return len(self._rooms.get(self._key(channel, rid), set()))
 
@@ -103,7 +113,7 @@ ws_router = APIRouter(prefix="/api")
 @ws_router.websocket("/ws/{channel}/{rid}")
 async def ws_endpoint(ws: WebSocket, channel: str, rid: str):
     """Generic subscribe endpoint. channel ∈ {menu, screen, device}."""
-    if channel not in ("menu", "screen", "device"):
+    if channel not in ("menu", "screen", "device", "dashboard"):
         await ws.close(code=1008, reason="invalid channel")
         return
 

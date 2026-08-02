@@ -623,6 +623,23 @@ async def _execute_refund(
                   "requester": rf.get("requested_by"),
                   "approver": rf.get("approved_by")})
 
+    # Real-time broadcast for admin dashboard
+    try:
+        from realtime import manager
+        cn = await db["fin_credit_notes"].find_one({"refund_id": refund_id})
+        await manager.broadcast_dashboard("refund.executed", {
+            "refund_id": refund_id,
+            "order_id": order_id,
+            "amount_cents": amount_cents,
+            "currency": currency,
+            "refund_type": rf.get("refund_type"),
+            "policy": rf.get("policy"),
+            "credit_note_number": (cn or {}).get("number"),
+            "actor_email": actor_email,
+        })
+    except Exception:
+        log.exception("dashboard broadcast (refund.executed) failed")
+
     log.info("refund %s executed (%s cents %s) order=%s cn=%s",
              refund_id, amount_cents, currency, order_id,
              (await db["fin_credit_notes"].find_one({"refund_id": refund_id}) or {}).get("number"))

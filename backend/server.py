@@ -3635,6 +3635,11 @@ async def serve_admin_orders_page():
     via the standard /api/auth/v2/me endpoint."""
     return FileResponse(os.path.join(WEB_DIR, 'admin-orders.html'), media_type='text/html')
 
+@api_router.get("/admin/reports-view")
+async def serve_admin_reports_page():
+    """Executive reports dashboard (HTML). Auth is checked by JS via /api/auth/v2/me."""
+    return FileResponse(os.path.join(WEB_DIR, 'admin-reports.html'), media_type='text/html')
+
 @api_router.get("/landing")
 async def serve_landing():
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
@@ -3691,6 +3696,10 @@ app.include_router(build_admin_invoices_router(db))
 # Sprint 1 · Etapa C3 — Admin Refunds / Credit Notes / Ledger
 from admin_refunds_routes import build_admin_refunds_router
 app.include_router(build_admin_refunds_router(db))
+
+# Sprint 1 · Etapa C4 — Reports / Dashboard / Exports / BI
+from reports_routes import build_reports_router
+app.include_router(build_reports_router(db))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware

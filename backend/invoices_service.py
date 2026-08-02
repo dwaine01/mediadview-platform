@@ -123,6 +123,20 @@ async def issue_invoice_for_order(
                 amount_cents=inv["total_cents"], currency=inv["currency"],
                 state_before=None, state_after=inv["status"],
                 metadata={"order_id": order_id})
+
+    # Real-time broadcast to admin dashboards (best-effort)
+    try:
+        from realtime import manager
+        await manager.broadcast_dashboard("invoice.issued", {
+            "invoice_number": number,
+            "order_id": order_id,
+            "amount_cents": inv["total_cents"],
+            "currency": inv["currency"],
+            "actor_email": actor_email,
+        })
+    except Exception:
+        log.exception("dashboard broadcast (invoice.issued) failed")
+
     log.info("invoice %s issued for order %s (%s cents)",
              number, order_id, inv["total_cents"])
     return inv

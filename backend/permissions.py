@@ -44,6 +44,10 @@ PERMISSIONS = {
     # Ledger (Sprint 1 C3)
     "ledger:read",
 
+    # Reports & analytics (Sprint 1 C4)
+    "reports:read",
+    "reports:export",
+
     # Finance (CRM)
     "finance:read",
     "finance:write",
@@ -65,7 +69,7 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
         "invoices:read", "invoices:issue", "invoices:reissue_pdf",
         "refunds:read", "refunds:create", "refunds:approve", "refunds:reject",
         "credit_notes:read", "credit_notes:reissue_pdf",
-        "ledger:read",
+        "ledger:read", "reports:read", "reports:export",
         "finance:read", "finance:write",
         "screens:write", "media:write", "audit:read",
     },
@@ -75,13 +79,13 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
                          "invoices:void", "refunds:read", "refunds:create",
                          "refunds:approve", "refunds:reject",
                          "credit_notes:read", "credit_notes:reissue_pdf",
-                         "ledger:read",
+                         "ledger:read", "reports:read", "reports:export",
                          "finance:read", "finance:write", "audit:read"},
-    "sales":            {"orders:read", "finance:read"},
+    "sales":            {"orders:read", "reports:read", "finance:read"},
     "content_reviewer": {"orders:read", "orders:approve", "media:write"},
-    "operations":       {"orders:read", "screens:write", "media:write"},
+    "operations":       {"orders:read", "screens:write", "media:write", "reports:read"},
     "read_only":        {"orders:read", "invoices:read", "refunds:read",
-                         "credit_notes:read", "ledger:read",
+                         "credit_notes:read", "ledger:read", "reports:read",
                          "finance:read", "audit:read"},
     "client":           set(),                   # public site users
 }

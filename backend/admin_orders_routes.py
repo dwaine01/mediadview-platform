@@ -132,6 +132,24 @@ async def _transition(
     if notification_kind:
         await _emit_notification(db, kind=notification_kind, order=order,
                                  extra={"reason": reason})
+
+    # Real-time broadcast: order.<newstate>
+    try:
+        from realtime import manager
+        await manager.broadcast_dashboard(f"order.{to_state}", {
+            "order_id": order_id,
+            "order_number": order.get("order_number"),
+            "screen_id": order.get("screen_id"),
+            "amount_cents": order.get("amount_cents"),
+            "currency": order.get("currency"),
+            "guest_email": order.get("guest_email"),
+            "actor_email": actor_email,
+            "from_state": from_state,
+            "to_state": to_state,
+        })
+    except Exception:
+        log.exception("dashboard broadcast (order.%s) failed", to_state)
+
     return order
 
 

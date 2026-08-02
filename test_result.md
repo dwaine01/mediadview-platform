@@ -350,7 +350,19 @@ frontend:
     status_history:
       - working: true
         agent: "main"
-        comment: "C3 completo. Implementado: (1) Libro Mayor Financiero append-only con hash chain, multi-moneda (USD/DOP/EUR/MXN/BRL/CAD/ARS), tax_breakdown genérico y numeración por moneda. (2) Servicio de reembolsos con las 4 políticas del state machine, doble aprobación obligatoria en órdenes 'completed' con segregación de funciones (requester ≠ approver), motivo obligatorio (>=10 chars), tracking completo de IP/User-Agent/actor. (3) Notas de crédito automáticas con numeración propia CN-YYYY-000001, PDF regenerable sin cambiar número, vinculadas a orden/factura/reembolso/PI/ledger. (4) Endpoints RBAC: POST /api/admin/orders/{id}/refund, POST /api/admin/refunds/{id}/approve|reject, GET /api/admin/refunds, /api/admin/credit-notes (+PDF), /api/admin/orders/{id}/ledger, /api/admin/ledger, /api/admin/ledger/verify. (5) UI en admin-orders.html: botón 'Issue Refund' con modal (tipo/monto/razón/policy hint), timeline de reembolsos con acciones de aprobación 2do admin, timeline del ledger. (6) Concurrencia protegida via $expr atómico en orders.refunded_cents. (7) Smoke test /app/backend/tests/smoke_c3_refunds.py con 18 aserciones (todos pasan): integrity chain, reason enforcement, pre_approval auto, dual approval, segregación de funciones, concurrency guard, multi-currency DOP, idempotency, rejection. HTTP e2e verificado con curl (admin, PDF válido, 403 para clientes)."
+        comment: "C3 completo. 18/18 smoke tests OK. Ver /app/backend/tests/smoke_c3_refunds.py"
+
+  - task: "Fase 5 · Sprint 1 · C4 — Reportes Financieros + Dashboard Ejecutivo + Exports + BI + Real-time"
+    implemented: true
+    working: true
+    file: "/app/backend/reports_service.py, /app/backend/reports_exports.py, /app/backend/reports_routes.py, /app/backend/web/admin-reports.html, /app/backend/realtime.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "C4 completo. Implementado: (1) Dashboard ejecutivo con 12+ KPI cards (Revenue today/MTD/YTD/all-time, Net income, Invoices total/paid/issued/void, Refunds today/MTD, Credit MTD, Avg ticket, Screens, Active/Pending campaigns) leídos del ledger append-only como fuente única de verdad. (2) Charts con Chart.js: revenue timeseries línea + revenue by city barras horizontales. (3) Tablas: Top screens, Top clients, Screen occupancy con % coloreado, SLA cards (avg/p50/p95/min/max para time-to-approve, time-to-publish, admin-response). (4) Exports en CSV/XLSX/PDF para 8 tipos de reporte: orders, invoices, refunds, ledger, occupancy, revenue_by_screen, revenue_by_city, revenue_by_client (24 combinaciones export). (5) BI-ready flat endpoints /api/admin/reports/bi/{orders,invoices,refunds,ledger} para conectar Power BI/Tableau/Looker Studio via JSON. (6) Filtros globales: date_from, date_to, screen_id, guest_email, city, country, currency, order_status, invoice_status, refund_status, provider. (7) Real-time via WebSocket canal `dashboard/global`: se dispara auto-refresh en la UI cuando ocurren order.approved, order.rejected, payment.captured (via broadcast), refund.executed, invoice.issued. Indicador LIVE en el header. (8) Multi-moneda: dashboard trabaja en una moneda a la vez (seleccionable), pero la agregación devuelve breakdown por moneda. (9) RBAC: nuevos permisos reports:read (todos los admin/finance/sales/operations/read_only) y reports:export (admin/finance). 44/44 smoke tests OK en /app/backend/tests/smoke_c4_reports.py."
 
 metadata:
   created_by: "main_agent"
