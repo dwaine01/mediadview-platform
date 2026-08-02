@@ -4,7 +4,7 @@
 
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import Response, HTMLResponse, FileResponse
+from fastapi.responses import Response, HTMLResponse, FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from dotenv import load_dotenv
 from pathlib import Path
@@ -3672,6 +3672,12 @@ async def serve_design_studio():
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
 app.include_router(api_router)
+
+
+# Root redirect: "/" → "/api/dashboard" (login page)
+@app.get("/", include_in_schema=False)
+async def _root_redirect():
+    return RedirectResponse(url="/api/dashboard", status_code=302)
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
