@@ -340,6 +340,18 @@ frontend:
         agent: "main"
         comment: "Complete Phase 1 of finance module built. Backend: /api/finance/* endpoints for clients (CRM), contracts (auto-deposit creation), invoices (manual + monthly auto-generation), deposits, payments, expenses, financial dashboard with cashflow chart. HTML document templates matching the original PDFs: LED Display Rental Agreement (22 clauses), Security Deposit Receipt, Monthly Invoice (with line items, payment info CHASE Bank, branding). Sequential numbering OH##### starting at 5571009. Frontend: /finance tab with 7 sub-tabs (Dashboard, Clients/CRM, Contracts, Invoices, Deposits, Payments, Expenses), client detail view with full history (contracts/invoices/deposits/payments + balance), generate-monthly button, manual invoice creator with line items, payment recorder, expense logger. All flows tested end-to-end via API. Documents render correctly with print/save-PDF action."
 
+  - task: "Fase 5 · Sprint 1 · C3 — Reembolsos manuales + Libro Mayor + Notas de Crédito"
+    implemented: true
+    working: true
+    file: "/app/backend/financial_ledger.py, /app/backend/refunds_service.py, /app/backend/credit_notes_service.py, /app/backend/admin_refunds_routes.py, /app/backend/web/admin-orders.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "C3 completo. Implementado: (1) Libro Mayor Financiero append-only con hash chain, multi-moneda (USD/DOP/EUR/MXN/BRL/CAD/ARS), tax_breakdown genérico y numeración por moneda. (2) Servicio de reembolsos con las 4 políticas del state machine, doble aprobación obligatoria en órdenes 'completed' con segregación de funciones (requester ≠ approver), motivo obligatorio (>=10 chars), tracking completo de IP/User-Agent/actor. (3) Notas de crédito automáticas con numeración propia CN-YYYY-000001, PDF regenerable sin cambiar número, vinculadas a orden/factura/reembolso/PI/ledger. (4) Endpoints RBAC: POST /api/admin/orders/{id}/refund, POST /api/admin/refunds/{id}/approve|reject, GET /api/admin/refunds, /api/admin/credit-notes (+PDF), /api/admin/orders/{id}/ledger, /api/admin/ledger, /api/admin/ledger/verify. (5) UI en admin-orders.html: botón 'Issue Refund' con modal (tipo/monto/razón/policy hint), timeline de reembolsos con acciones de aprobación 2do admin, timeline del ledger. (6) Concurrencia protegida via $expr atómico en orders.refunded_cents. (7) Smoke test /app/backend/tests/smoke_c3_refunds.py con 18 aserciones (todos pasan): integrity chain, reason enforcement, pre_approval auto, dual approval, segregación de funciones, concurrency guard, multi-currency DOP, idempotency, rejection. HTTP e2e verificado con curl (admin, PDF válido, 403 para clientes)."
+
 metadata:
   created_by: "main_agent"
   version: "2.0"

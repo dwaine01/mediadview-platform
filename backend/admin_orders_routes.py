@@ -236,6 +236,7 @@ def build_admin_orders_router(db: AsyncIOMotorDatabase, require_admin) -> APIRou
                 "approved_at": order.get("approved_at"),
                 "completed_at": order.get("completed_at"),
                 "amount_cents": order.get("amount_cents"),
+                "refunded_cents": int(order.get("refunded_cents") or 0),
                 "currency": order.get("currency"),
                 "hours": order.get("hours"),
                 "hourly_rate_cents": order.get("hourly_rate_cents"),

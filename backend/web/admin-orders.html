@@ -69,7 +69,38 @@ tr.row:hover{background:rgba(30,41,59,.35)}
 .act-primary{background:linear-gradient(135deg,#10b981,#059669);color:#fff}
 .act-danger{background:linear-gradient(135deg,#dc2626,#991b1b);color:#fff}
 .act-warn{background:linear-gradient(135deg,#d97706,#92400e);color:#fff}
-.act-dev{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff;border:1px dashed #a78bfa}
+.act-refund{background:linear-gradient(135deg,#e11d48,#9f1239);color:#fff}
+.act-secondary{background:linear-gradient(135deg,#334155,#1e293b);color:#e2e8f0;border:1px solid #475569}
+
+.refund-item{padding:10px 12px;background:rgba(2,6,23,.5);border-radius:8px;margin-bottom:8px;border-left:3px solid #475569}
+.refund-item.st-succeeded{border-left-color:#10b981}
+.refund-item.st-pending_dual_approval{border-left-color:#fbbf24}
+.refund-item.st-failed,.refund-item.st-rejected{border-left-color:#ef4444}
+.refund-item .top{display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:4px}
+.refund-item .amt{font-weight:700;color:#e2e8f0}
+.refund-item .cn{margin-left:auto;font-family:'JetBrains Mono',monospace;font-size:10px;color:#64748b}
+.refund-item .reason{color:#94a3b8;font-size:11px;margin-top:4px;line-height:1.5}
+.refund-item .who{color:#64748b;font-size:10px;margin-top:6px;font-family:'JetBrains Mono',monospace}
+.refund-item .who .sep{color:#334155;margin:0 6px}
+.refund-item .approve-row{display:flex;gap:8px;margin-top:10px}
+.mini-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;border:none;cursor:pointer;font-family:inherit}
+.mini-approve{background:#10b981;color:#fff}
+.mini-reject{background:#ef4444;color:#fff}
+.mini-cn{background:transparent;color:#a5b4fc;border:1px solid #6366f1}
+
+/* Refund modal */
+.rmodal{position:fixed;inset:0;background:rgba(2,6,23,.9);z-index:200;display:flex;align-items:center;justify-content:center;padding:20px}
+.rmodal-box{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:24px;width:min(560px,95vw)}
+.rmodal-box h3{margin-bottom:8px;font-size:18px;font-weight:900}
+.rmodal-box .rmsub{color:#64748b;font-size:12px;margin-bottom:14px}
+.rmodal-box .rmrow{margin-bottom:12px}
+.rmodal-box .rmrow label{display:block;font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}
+.rmodal-box input,.rmodal-box select,.rmodal-box textarea{width:100%;background:#020617;border:1.5px solid #1e293b;border-radius:8px;color:#e2e8f0;padding:10px;font-family:inherit;font-size:13px}
+.rmodal-box input:focus,.rmodal-box textarea:focus,.rmodal-box select:focus{border-color:#6366f1;outline:none}
+.rmodal-box textarea{min-height:100px;resize:vertical}
+.rmodal-box .rmpolicy{padding:10px 12px;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.25);border-radius:8px;font-size:12px;color:#fbbf24;margin-bottom:14px}
+.rmodal-box .rmpolicy.dual{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.25);color:#f87171}
+.rmodal-actions{display:flex;gap:8px;margin-top:14px;justify-content:flex-end}
 
 .media-preview{margin-top:10px;max-width:100%;max-height:360px;border-radius:10px;border:1px solid #1e293b;background:#020617;display:block}
 .audit-item{padding:8px 10px;background:rgba(2,6,23,.5);border-radius:6px;margin-bottom:6px;font-size:11px;color:#94a3b8;font-family:'JetBrains Mono',monospace}
@@ -137,6 +168,41 @@ tr.row:hover{background:rgba(30,41,59,.35)}
     <div class="prompt-actions">
       <button class="act" style="background:transparent;border:1px solid #1e293b;color:#94a3b8" onclick="closePrompt()">Cancel</button>
       <button class="act act-primary" onclick="submitPrompt()">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════════ Refund Modal ═════════════════════════ -->
+<div id="refundModal" class="rmodal hidden">
+  <div class="rmodal-box">
+    <h3>Issue Refund</h3>
+    <p class="rmsub" id="refundOrderMeta">—</p>
+
+    <div class="rmpolicy" id="refundPolicyBox">Policy: —</div>
+
+    <div class="rmrow">
+      <label>Refund Type</label>
+      <select id="refundType" onchange="onRefundTypeChange()">
+        <option value="full">Full refund</option>
+        <option value="partial" selected>Partial refund</option>
+      </select>
+    </div>
+    <div class="rmrow" id="refundAmountRow">
+      <label>Amount (cents) — Available: <span id="refundAvail" style="color:#22d3ee">—</span></label>
+      <input type="number" id="refundAmount" min="1" placeholder="e.g. 2500 for $25.00">
+    </div>
+    <div class="rmrow">
+      <label>Currency</label>
+      <input type="text" id="refundCurrency" readonly>
+    </div>
+    <div class="rmrow">
+      <label>Reason (mandatory, min 10 chars) *</label>
+      <textarea id="refundReason" placeholder="Explain why this refund is being issued. This is stored in the ledger and audit trail…"></textarea>
+    </div>
+
+    <div class="rmodal-actions">
+      <button class="act act-secondary" onclick="closeRefundModal()">Cancel</button>
+      <button class="act act-refund" onclick="submitRefund()">Issue Refund</button>
     </div>
   </div>
 </div>
@@ -307,8 +373,9 @@ async function openDetail(orderId) {
     const d = await api(`/api/admin/orders/${orderId}`);
     state.order = d.order;
     content.innerHTML = renderDetail(d);
-    // Async media load
+    // Async panels
     if (d.order.media_id) loadMediaPreview(orderId);
+    loadRefundsAndLedger(orderId);
   } catch (e) {
     content.innerHTML = `<div style="padding:40px;text-align:center;color:#f87171">Failed to load order: ${escapeHtml(e.message)}</div>`;
   }
@@ -322,6 +389,8 @@ function renderDetail(d) {
   const canApprove = o.status === 'pending_review';
   const isDev = state.config.provider === 'dev';
   const canDevMark = isDev && o.status === 'payment_processing';
+  const availableRefund = (o.amount_cents || 0) - (o.refunded_cents || 0);
+  const canRefund = REFUNDABLE_STATES.has(o.status) && availableRefund > 0;
   const paidLabel = o.paid_at ? fmtDate(o.paid_at) : '—';
 
   const scheduleHtml = o.schedule ? `
@@ -366,9 +435,23 @@ function renderDetail(d) {
         <div class="kv"><span class="k">Rate</span><span class="v">${fmtDollars(o.hourly_rate_cents)}/hr</span></div>
         <div class="kv"><span class="k">Provider</span><span class="v mono">${escapeHtml(o.payment_provider || '—')}</span></div>
         <div class="kv"><span class="k">Paid at</span><span class="v">${paidLabel}</span></div>
+        <div class="kv"><span class="k">Refunded</span><span class="v" style="color:${o.refunded_cents?'#f472b6':'#94a3b8'}">${fmtDollars(o.refunded_cents || 0)}</span></div>
+        <div class="kv"><span class="k">Available to refund</span><span class="v" style="color:#22d3ee">${fmtDollars((o.amount_cents||0)-(o.refunded_cents||0))}</span></div>
         <div class="kv"><span class="k">Payment Intent</span><span class="v mono">${escapeHtml(o.payment_intent_id || '—')}</span></div>
         <div class="kv"><span class="k">Charge</span><span class="v mono">${escapeHtml(o.charge_id || '—')}</span></div>
       </div>
+    </div>
+
+    <!-- Refunds & Credit Notes section -->
+    <div class="sec">
+      <h3>Refunds &amp; Credit Notes <span id="refundBadge" style="color:#64748b;font-weight:400">(loading…)</span></h3>
+      <div id="refundList" style="color:#475569;font-size:12px">Loading refunds…</div>
+    </div>
+
+    <!-- Financial Ledger timeline -->
+    <div class="sec">
+      <h3>Financial Ledger <span id="ledgerBadge" style="color:#64748b;font-weight:400">(loading…)</span></h3>
+      <div id="ledgerList" style="color:#475569;font-size:12px;max-height:200px;overflow:auto">Loading ledger…</div>
     </div>
 
     <div class="sec">
@@ -418,12 +501,24 @@ function renderDetail(d) {
       <button class="act act-primary" onclick="doApprove()" ${canApprove?'':'disabled'}>✓ Approve</button>
       <button class="act act-warn" onclick="doRequestChanges()" ${canApprove?'':'disabled'}>↻ Request Changes</button>
       <button class="act act-danger" onclick="doReject()" ${canApprove?'':'disabled'}>✕ Reject</button>
+      ${canRefund ? `<button class="act act-refund" onclick="openRefundModal()">💸 Issue Refund</button>` : ''}
     </div>
 
-    ${!canApprove && !canDevMark ? `<p style="margin-top:14px;font-size:12px;color:#64748b">
-      Actions are only available when the order is in <b>pending_review</b>${isDev?' or <b>payment_processing</b> (dev mode)':''}.
+    ${!canApprove && !canDevMark && !canRefund ? `<p style="margin-top:14px;font-size:12px;color:#64748b">
+      Actions are only available when the order is in <b>pending_review</b>${isDev?', <b>payment_processing</b> (dev mode)':''} or a refundable state.
     </p>`:''}
   `;
+}
+
+// Refund policy → state mapping (matches order_state.refund_policy on backend)
+const REFUNDABLE_STATES = new Set(['paid','pending_review','approved','scheduled','playing','completed']);
+
+function policyForState(s) {
+  if (s === 'paid' || s === 'pending_review') return {label:'Pre-approval — 100% automatic', kind:'pre_approval', dual:false};
+  if (s === 'approved' || s === 'scheduled')  return {label:'Pre-play — 100%, admin required', kind:'pre_play', dual:false};
+  if (s === 'playing')                        return {label:'Playing — partial refund allowed, single admin', kind:'partial_by_unused', dual:false};
+  if (s === 'completed')                      return {label:'Completed — DUAL APPROVAL required (2 admins)', kind:'manual_admin_override', dual:true};
+  return {label:'—', kind:'', dual:false};
 }
 
 async function loadMediaPreview(orderId) {
@@ -491,6 +586,200 @@ async function doDevMarkPaid() {
     alert(`Payment simulated · order is now ${r.status}`);
   } catch (e) { alert('Simulation failed: ' + e.message); }
 }
+
+// ══════════════════════════════════════════════════════════════════
+// Refunds (C3)
+// ══════════════════════════════════════════════════════════════════
+async function loadRefundsAndLedger(orderId) {
+  // Refunds list
+  try {
+    const data = await api(`/api/admin/refunds?order_id=${encodeURIComponent(orderId)}&limit=50`);
+    const box = document.getElementById('refundList');
+    const badge = document.getElementById('refundBadge');
+    if (!data.items.length) {
+      box.innerHTML = '<div style="color:#475569;font-size:12px">No refunds issued yet.</div>';
+      badge.textContent = '(0)';
+    } else {
+      badge.textContent = `(${data.items.length})`;
+      box.innerHTML = data.items.map(rf => renderRefundItem(rf)).join('');
+    }
+  } catch (e) {
+    document.getElementById('refundList').innerHTML =
+      `<div style="color:#f87171;font-size:12px">Failed to load refunds: ${escapeHtml(e.message)}</div>`;
+  }
+
+  // Ledger timeline
+  try {
+    const l = await api(`/api/admin/orders/${orderId}/ledger`);
+    const box = document.getElementById('ledgerList');
+    const badge = document.getElementById('ledgerBadge');
+    badge.textContent = `(${l.count} · paid ${fmtDollars(l.total_paid_cents)} · refunded ${fmtDollars(l.total_refunded_cents)} ${(l.currency||'').toUpperCase()})`;
+    if (!l.entries.length) {
+      box.innerHTML = '<div style="color:#475569;font-size:12px">No ledger entries.</div>';
+      return;
+    }
+    box.innerHTML = l.entries.map(e => `
+      <div class="audit-item">
+        <span class="ts">#${e.entry_number} · ${fmtDate(e.ts)}</span>
+        <span class="act" style="background:${dirColor(e.direction)};color:#fff">${escapeHtml(e.entry_type)}</span>
+        <span style="color:${e.direction==='CREDIT'?'#34d399':'#f472b6'};font-weight:700">
+          ${e.direction==='DEBIT'?'-':'+'}${fmtDollars(e.amount_cents)} ${(e.currency||'').toUpperCase()}
+        </span>
+        ${e.reason ? `· <span style="color:#94a3b8">${escapeHtml(e.reason.slice(0,90))}</span>`:''}
+        ${e.actor_email ? ` · <span style="color:#64748b">${escapeHtml(e.actor_email)}</span>`:''}
+      </div>
+    `).join('');
+  } catch (e) {
+    document.getElementById('ledgerList').innerHTML =
+      `<div style="color:#f87171;font-size:12px">Failed to load ledger: ${escapeHtml(e.message)}</div>`;
+  }
+}
+
+function dirColor(dir) {
+  if (dir === 'CREDIT') return 'rgba(16,185,129,.35)';
+  if (dir === 'DEBIT')  return 'rgba(239,68,68,.35)';
+  return 'rgba(99,102,241,.35)';
+}
+
+function renderRefundItem(rf) {
+  const canApprove = rf.status === 'pending_dual_approval';
+  const st = rf.status || 'unknown';
+  return `
+    <div class="refund-item st-${st}">
+      <div class="top">
+        <span style="font-family:'JetBrains Mono',monospace;font-size:11px;color:#a5b4fc">${escapeHtml(rf.number || rf.id)}</span>
+        <span class="badge b-${st}">${escapeHtml(st.replace(/_/g,' '))}</span>
+        <span class="amt">${fmtDollars(rf.amount_cents)} ${(rf.currency||'').toUpperCase()}</span>
+        <span style="color:#64748b;font-size:10px">· ${escapeHtml(rf.refund_type || '')} · ${escapeHtml(rf.policy || '')}</span>
+        ${rf.credit_note_number ? `<span class="cn"><a href="/api/admin/credit-notes/${rf.credit_note_number}/pdf" target="_blank" style="color:#a5b4fc;text-decoration:none">${escapeHtml(rf.credit_note_number)} ↓</a></span>`:''}
+      </div>
+      <div class="reason">${escapeHtml(rf.reason || '—')}</div>
+      <div class="who">
+        <span>requested by ${escapeHtml(rf.requested_by || '?')}</span>
+        <span class="sep">·</span>
+        <span>${fmtDate(rf.requested_at)}</span>
+        ${rf.approved_by ? `<span class="sep">·</span><span>approved by ${escapeHtml(rf.approved_by)}</span>` : ''}
+        ${rf.executed_at ? `<span class="sep">·</span><span>executed ${fmtDate(rf.executed_at)}</span>` : ''}
+        ${rf.failure_message ? `<div style="color:#f87171;margin-top:4px">Error: ${escapeHtml(rf.failure_message)}</div>`:''}
+        ${rf.rejected_reason ? `<div style="color:#f87171;margin-top:4px">Rejected: ${escapeHtml(rf.rejected_reason)}</div>`:''}
+      </div>
+      ${canApprove ? `
+        <div class="approve-row">
+          <button class="mini-btn mini-approve" onclick="doApproveRefund('${rf.id}')">✓ Approve (2nd admin)</button>
+          <button class="mini-btn mini-reject" onclick="doRejectRefund('${rf.id}')">✕ Reject</button>
+        </div>
+        <div style="color:#64748b;font-size:10px;margin-top:6px;font-style:italic">
+          Segregation of duties: the requester (${escapeHtml(rf.requested_by||'')}) cannot approve their own refund.
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+function openRefundModal() {
+  if (!state.order) return;
+  const o = state.order;
+  const p = policyForState(o.status);
+  const available = (o.amount_cents || 0) - (o.refunded_cents || 0);
+  document.getElementById('refundOrderMeta').textContent =
+    `${o.order_number || o.id} · Paid ${fmtDollars(o.amount_cents)} · Refunded ${fmtDollars(o.refunded_cents||0)} · Available ${fmtDollars(available)}`;
+  const policyBox = document.getElementById('refundPolicyBox');
+  policyBox.textContent = `Policy: ${p.label}`;
+  policyBox.className = 'rmpolicy' + (p.dual ? ' dual' : '');
+  document.getElementById('refundCurrency').value = (o.currency || 'usd').toUpperCase();
+  document.getElementById('refundAvail').textContent = fmtDollars(available);
+  document.getElementById('refundAmount').value = available;
+  document.getElementById('refundType').value = 'full';
+  onRefundTypeChange();
+  document.getElementById('refundReason').value = '';
+  document.getElementById('refundModal').classList.remove('hidden');
+}
+
+function closeRefundModal() {
+  document.getElementById('refundModal').classList.add('hidden');
+}
+
+function onRefundTypeChange() {
+  const t = document.getElementById('refundType').value;
+  const row = document.getElementById('refundAmountRow');
+  const o = state.order;
+  const available = (o.amount_cents || 0) - (o.refunded_cents || 0);
+  if (t === 'full') {
+    row.style.opacity = '0.5';
+    document.getElementById('refundAmount').value = available;
+    document.getElementById('refundAmount').readOnly = true;
+  } else {
+    row.style.opacity = '1';
+    document.getElementById('refundAmount').readOnly = false;
+  }
+}
+
+async function submitRefund() {
+  if (!state.order) return;
+  const type = document.getElementById('refundType').value;
+  const amount = parseInt(document.getElementById('refundAmount').value, 10) || 0;
+  const reason = document.getElementById('refundReason').value.trim();
+  if (reason.length < 10) {
+    alert('The reason is mandatory and must be at least 10 characters. This is stored in the audit trail.');
+    return;
+  }
+  if (type === 'partial' && (amount <= 0 || !amount)) {
+    alert('Please enter a positive amount in cents (e.g. 2500 = $25.00).');
+    return;
+  }
+  try {
+    const r = await api(`/api/admin/orders/${state.order.id}/refund`, {
+      method:'POST',
+      body: JSON.stringify({
+        amount_cents: type === 'full' ? null : amount,
+        refund_type: type,
+        reason,
+      }),
+    });
+    closeRefundModal();
+    if (r.requires_dual_approval && r.status === 'pending_dual_approval') {
+      alert(`Refund created and awaiting SECOND ADMIN approval.\n\nRefund ID: ${r.refund_id}\nAmount: ${fmtDollars(r.amount_cents)} ${(r.currency||'').toUpperCase()}\n\nA different admin must approve it before it executes.`);
+    } else if (r.status === 'succeeded') {
+      alert(`✓ Refund executed successfully.\n\nRefund: ${r.refund_id}\nCredit Note: ${r.credit_note_number || '—'}`);
+    } else if (r.status === 'failed') {
+      alert(`✗ Refund failed: ${r.failure_message || 'unknown error'}`);
+    } else {
+      alert(`Refund status: ${r.status}`);
+    }
+    await openDetail(state.order.id);
+    await reload();
+  } catch (e) {
+    alert('Refund failed: ' + e.message);
+  }
+}
+
+async function doApproveRefund(refundId) {
+  if (!confirm('Approve this refund as the second admin?\n\nThis will immediately execute the refund and issue a credit note.')) return;
+  try {
+    const r = await api(`/api/admin/refunds/${refundId}/approve`, {method:'POST', body:'{}'});
+    if (r.status === 'succeeded') {
+      alert(`✓ Refund executed. Credit note: ${r.credit_note_number || '—'}`);
+    } else {
+      alert(`Status: ${r.status} — ${r.failure_message || ''}`);
+    }
+    await openDetail(state.order.id);
+    await reload();
+  } catch (e) { alert('Approve failed: ' + e.message); }
+}
+
+async function doRejectRefund(refundId) {
+  const reason = await askReason('Reject Refund', 'Explain why this refund is being rejected (visible in audit trail, min 10 chars).');
+  if (!reason) return;
+  if (reason.length < 10) { alert('Reason too short (min 10 chars).'); return; }
+  try {
+    await api(`/api/admin/refunds/${refundId}/reject`, {
+      method:'POST', body:JSON.stringify({reason}),
+    });
+    await openDetail(state.order.id);
+    await reload();
+  } catch (e) { alert('Reject failed: ' + e.message); }
+}
+
 
 // ── Reason prompt (returns a Promise<string|null>) ──
 function askReason(title, subtitle) {

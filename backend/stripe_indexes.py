@@ -106,11 +106,52 @@ async def ensure_stripe_indexes(db: AsyncIOMotorDatabase) -> None:
                                 partialFilterExpression={"checkout_session_jti": {"$type": "string"}},
                                 name="ux_media_session")
 
-    # ── financial_audit (append-only ledger) ────────────────────────
+    # ── financial_audit (append-only ledger — LEGACY audit) ─────────
     await db.financial_audit.create_index([("ts", -1)], name="ix_audit_ts")
     await db.financial_audit.create_index("entity_id", sparse=True, name="ix_audit_entity")
     await db.financial_audit.create_index("stripe_event_id", sparse=True, name="ix_audit_event")
     await db.financial_audit.create_index("action", name="ix_audit_action")
+
+    # ── fin_ledger (append-only FINANCIAL LEDGER — Sprint 1 C3) ─────
+    # Sole source of financial truth. Only inserts allowed.
+    await db.fin_ledger.create_index([("currency", 1), ("entry_number", 1)],
+                                     unique=True,
+                                     name="ux_fin_ledger_seq")
+    await db.fin_ledger.create_index([("ts", -1)], name="ix_fin_ledger_ts")
+    await db.fin_ledger.create_index("order_id",         sparse=True, name="ix_fin_ledger_order")
+    await db.fin_ledger.create_index("invoice_id",       sparse=True, name="ix_fin_ledger_invoice")
+    await db.fin_ledger.create_index("refund_id",        sparse=True, name="ix_fin_ledger_refund")
+    await db.fin_ledger.create_index("credit_note_id",   sparse=True, name="ix_fin_ledger_credit_note")
+    await db.fin_ledger.create_index("payment_intent_id", sparse=True, name="ix_fin_ledger_pi")
+    await db.fin_ledger.create_index("entry_type",       name="ix_fin_ledger_type")
+    await db.fin_ledger.create_index("idempotency_key",  unique=True,
+                                     partialFilterExpression={"idempotency_key": {"$type": "string"}},
+                                     name="ux_fin_ledger_idem")
+
+    # ── refunds (Sprint 1 C3) ───────────────────────────────────────
+    # NOTE: extends the legacy `refunds` collection. The old
+    # stripe-only unique index remains for Stripe references; we add
+    # new indices for the C3 refund lifecycle.
+    await db.refunds.create_index("idempotency_key", unique=True,
+                                  partialFilterExpression={"idempotency_key": {"$type": "string"}},
+                                  name="ux_refunds_idem_c3")
+    await db.refunds.create_index("status", name="ix_refunds_status")
+    await db.refunds.create_index([("order_id", 1), ("created_at", -1)],
+                                  name="ix_refunds_order_created")
+    await db.refunds.create_index("provider_ref", sparse=True,
+                                  name="ix_refunds_provider_ref")
+
+    # ── fin_credit_notes (Sprint 1 C3) ──────────────────────────────
+    # Own numbering CN-YYYY-000001. UNIQUE on refund_id ensures
+    # idempotent credit-note-per-refund issuance.
+    await db.fin_credit_notes.create_index("refund_id",
+                                           unique=True,
+                                           partialFilterExpression={"refund_id": {"$type": "string"}},
+                                           name="ux_fin_credit_notes_refund")
+    await db.fin_credit_notes.create_index("order_id",   sparse=True, name="ix_fin_credit_notes_order")
+    await db.fin_credit_notes.create_index("invoice_id", sparse=True, name="ix_fin_credit_notes_invoice")
+    await db.fin_credit_notes.create_index([("issued_at", -1)], name="ix_fin_credit_notes_issued")
+    await db.fin_credit_notes.create_index("status", name="ix_fin_credit_notes_status")
 
     # ── counters (invoice numbering, order numbering) ───────────────
     #   _id is naturally unique; no extra index needed. Keep for reference.

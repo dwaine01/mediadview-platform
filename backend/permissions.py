@@ -34,6 +34,15 @@ PERMISSIONS = {
     # Refunds (Sprint 1 C3)
     "refunds:read",
     "refunds:create",
+    "refunds:approve",           # dual-approval second admin
+    "refunds:reject",            # reject a pending refund
+
+    # Credit Notes (Sprint 1 C3)
+    "credit_notes:read",
+    "credit_notes:reissue_pdf",
+
+    # Ledger (Sprint 1 C3)
+    "ledger:read",
 
     # Finance (CRM)
     "finance:read",
@@ -54,7 +63,9 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "admin": {                                   # today's "admin" = broad
         "orders:read", "orders:approve", "orders:dev_mark_paid",
         "invoices:read", "invoices:issue", "invoices:reissue_pdf",
-        "refunds:read", "refunds:create",
+        "refunds:read", "refunds:create", "refunds:approve", "refunds:reject",
+        "credit_notes:read", "credit_notes:reissue_pdf",
+        "ledger:read",
         "finance:read", "finance:write",
         "screens:write", "media:write", "audit:read",
     },
@@ -62,11 +73,15 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     # without any code change later.
     "finance":          {"invoices:read", "invoices:issue", "invoices:reissue_pdf",
                          "invoices:void", "refunds:read", "refunds:create",
+                         "refunds:approve", "refunds:reject",
+                         "credit_notes:read", "credit_notes:reissue_pdf",
+                         "ledger:read",
                          "finance:read", "finance:write", "audit:read"},
     "sales":            {"orders:read", "finance:read"},
     "content_reviewer": {"orders:read", "orders:approve", "media:write"},
     "operations":       {"orders:read", "screens:write", "media:write"},
     "read_only":        {"orders:read", "invoices:read", "refunds:read",
+                         "credit_notes:read", "ledger:read",
                          "finance:read", "audit:read"},
     "client":           set(),                   # public site users
 }

@@ -3688,6 +3688,10 @@ app.include_router(build_admin_orders_router(db, require_admin))
 from admin_invoices_routes import build_admin_invoices_router
 app.include_router(build_admin_invoices_router(db))
 
+# Sprint 1 · Etapa C3 — Admin Refunds / Credit Notes / Ledger
+from admin_refunds_routes import build_admin_refunds_router
+app.include_router(build_admin_refunds_router(db))
+
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
 # ────────────────────────────────────────────────────────────────────────
