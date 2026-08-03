@@ -3674,10 +3674,15 @@ app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 app.include_router(api_router)
 
 
-# Root redirect: "/" → "/api/dashboard" (login page)
+# Root redirect: host-aware
+#   - panel.mediadview.com/  → /api/dashboard (login/admin panel)
+#   - mediadview.com/, www.mediadview.com/, onrender.com/ → /api/landing
 @app.get("/", include_in_schema=False)
-async def _root_redirect():
-    return RedirectResponse(url="/api/dashboard", status_code=302)
+async def _root_redirect(request: Request):
+    host = (request.headers.get("host") or "").lower()
+    if host.startswith("panel."):
+        return RedirectResponse(url="/api/dashboard", status_code=302)
+    return RedirectResponse(url="/api/landing", status_code=302)
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes

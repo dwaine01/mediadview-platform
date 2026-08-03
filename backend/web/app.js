@@ -213,9 +213,12 @@ const loaders={
   async analytics(){
     const el=document.getElementById('pg-analytics');
     try{
-      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin')try{a=await api('/admin/analytics')}catch(e){}
+      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){}
       const rev=a?.total_revenue||d.total_spent||0;const monthly=a?.monthly_revenue||{};
       const months=Object.keys(monthly).sort().slice(-6);const maxVal=Math.max(...Object.values(monthly).map(Number),1);
+      const activeC=a?.active_campaigns??d.active_campaigns??0;
+      const pendingC=a?.pending_campaigns??d.pending_campaigns??0;
+      const totalC=a?.total_campaigns??d.total_campaigns??0;
       el.innerHTML=`
         <div class="ph"><div><h1>Analytics</h1><p>Platform performance &amp; revenue insights</p></div></div>
         <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
@@ -228,7 +231,7 @@ const loaders={
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:16px">Campaign Status</h2>
             <div class="card" style="padding:24px">
-              ${[{l:'Active',v:d.active_campaigns||0,c:'var(--green)'},{l:'Pending',v:d.pending_campaigns||0,c:'var(--amber)'},{l:'Total',v:d.total_campaigns||0,c:'var(--brand-l)'}].map(s=>`
+              ${[{l:'Active',v:activeC,c:'var(--green)'},{l:'Pending',v:pendingC,c:'var(--amber)'},{l:'Total',v:totalC,c:'var(--brand-l)'}].map(s=>`
                 <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)">
                   <div style="display:flex;align-items:center;gap:8px"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div><span style="font-size:13px;color:var(--t-2)">${s.l}</span></div>
                   <span style="font-size:18px;font-weight:800;color:${s.c}">${s.v}</span>
@@ -358,9 +361,9 @@ const loaders={
           <div>
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Create New Admin</h2>
             <div class="card" style="padding:20px">
-              <div style="margin-bottom:12px"><label class="inp-label">Name</label><input class="inp" id="sa-name" placeholder="Admin name"></div>
-              <div style="margin-bottom:12px"><label class="inp-label">Email</label><input class="inp" id="sa-email" placeholder="admin@company.com"></div>
-              <div style="margin-bottom:12px"><label class="inp-label">Password</label><input class="inp" id="sa-pwd" type="password" placeholder="Min 6 characters"></div>
+              <div style="margin-bottom:12px"><label class="inp-label">Name</label><input class="inp" id="sa-name" placeholder="Admin name" autocomplete="off"></div>
+              <div style="margin-bottom:12px"><label class="inp-label">Email</label><input class="inp" id="sa-email" placeholder="admin@company.com" autocomplete="off" name="sa-new-admin-email"></div>
+              <div style="margin-bottom:12px"><label class="inp-label">Password</label><input class="inp" id="sa-pwd" type="password" placeholder="Min 6 characters" autocomplete="new-password" name="sa-new-admin-password"></div>
               <div style="margin-bottom:16px"><label class="inp-label">Company</label><input class="inp" id="sa-company" placeholder="Company name (optional)"></div>
               <button class="btn-p" onclick="createAdmin()" style="width:100%;justify-content:center">Create Admin Account</button>
               <p id="sa-msg" style="font-size:12px;text-align:center;margin-top:12px;display:none"></p>
@@ -1851,3 +1854,8 @@ async function pushToColorlight(){
   }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)'}
   finally{btn.disabled=false;btn.style.opacity='1'}
 }
+
+ Claude is active in this tab group  
+Open chat
+ 
+Dismiss
