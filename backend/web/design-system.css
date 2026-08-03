@@ -1030,3 +1030,103 @@ button:focus-visible { box-shadow: var(--ds-sh-focus); }
   .ph { flex-direction: column; align-items: flex-start; }
 }
 
+
+/* ============================================================
+   MOBILE PANEL FIX (2026-06 responsiveness)
+   Forces a clean layout for the admin panel on phones/tablets.
+   Uses !important to override the older mobile snippets scattered
+   in styles.css + design-system.css that were compounding into a
+   broken layout (sidebar overlapping main content).
+   ============================================================ */
+@media (max-width: 900px) {
+  /* Take the sidebar OUT of the flow entirely on mobile. */
+  .sb {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    height: 100vh !important;
+    width: 84vw !important;
+    max-width: 300px !important;
+    transform: translateX(-100%) !important;
+    transition: transform .22s ease-out !important;
+    z-index: 120 !important;
+    box-shadow: 0 20px 40px rgba(0,0,0,.35) !important;
+    overflow-y: auto !important;
+    background: var(--bg-sidebar, #ffffff) !important;
+  }
+  .sb.open { transform: translateX(0) !important; }
+  /* Ensure all labels are visible when open (some rules hide them on collapse). */
+  .sb.open .name-full,
+  .sb.open .ni span,
+  .sb.open .sb-section,
+  .sb.open .sb-user > div,
+  .sb.open .sb-user button { display: block !important; }
+  .sb.open .ni { justify-content: flex-start !important; padding: 10px 14px !important; }
+
+  /* Main content fills the whole viewport. */
+  .main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+  .main, .pg, .content {
+    padding-left: 14px !important;
+    padding-right: 14px !important;
+  }
+  /* Kill any residual horizontal overflow. */
+  html, body { overflow-x: hidden !important; }
+  body { min-width: 0 !important; }
+
+  /* Ensure #view-app switches to single-column flow on mobile. */
+  #view-app {
+    display: block !important;
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  /* Backdrop when sidebar is open so it's obvious it's a drawer. */
+  .sb-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(2,6,23,.55);
+    z-index: 110;
+    animation: sbFadeIn .18s ease-out;
+  }
+  .sb.open ~ .sb-backdrop,
+  .sb-backdrop.on { display: block; }
+  @keyframes sbFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+  /* Mobile menu button always visible on small screens. */
+  .mobile-menu { display: inline-flex !important; }
+
+  /* Topbar tightening. */
+  .tb, .topbar {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    height: 56px !important;
+  }
+  .tb-search { flex: 1 !important; max-width: none !important; }
+
+  /* Common tables / stat grids collapse to single column. */
+  .row2, .row3, .row4, .st-grid { grid-template-columns: 1fr !important; }
+
+  /* Buttons in headers wrap. */
+  .ph { flex-direction: column !important; align-items: flex-start !important; gap: 12px !important; }
+  .ph > * { width: 100% !important; }
+
+  /* Any card content is not allowed to burst its container. */
+  .card, .stat, .cell {
+    max-width: 100% !important;
+    overflow-x: auto !important;
+  }
+  /* Break long words if needed to avoid horizontal scroll. */
+  .card, .cell, .val, h1, h2, h3, p { overflow-wrap: anywhere !important; word-break: break-word !important; }
+}
+
+@media (max-width: 480px) {
+  h1 { font-size: 22px !important; letter-spacing: -.4px !important; }
+  h2 { font-size: 17px !important; }
+  .stat-value, .val, .st-value { font-size: 22px !important; }
+  .pg { padding: 12px !important; }
+}

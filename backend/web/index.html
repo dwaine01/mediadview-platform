@@ -40,6 +40,9 @@
 <!-- ========== APP ========== -->
 <div id="view-app">
 
+  <!-- Mobile backdrop for the sliding sidebar -->
+  <div class="sb-backdrop" onclick="document.querySelector('.sb').classList.remove('open');this.classList.remove('on')"></div>
+
   <!-- =========== SIDEBAR =========== -->
   <aside class="sb">
     <div class="sb-brand">
@@ -118,7 +121,7 @@
 
     <!-- TOPBAR -->
     <header class="tb">
-      <button class="btn-icon mobile-menu" onclick="document.querySelector('.sb').classList.toggle('open')" title="Menu">
+      <button class="btn-icon mobile-menu" onclick="var sb=document.querySelector('.sb');sb.classList.toggle('open');var bd=document.querySelector('.sb-backdrop');if(bd){bd.classList.toggle('on',sb.classList.contains('open'))}" title="Menu">
         <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M4 6h16M4 12h16M4 18h16"/></svg>
       </button>
       <div class="tb-search">
