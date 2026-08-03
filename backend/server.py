@@ -3674,15 +3674,20 @@ app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 app.include_router(api_router)
 
 
-# Root redirect: host-aware
-#   - panel.mediadview.com/  → /api/dashboard (login/admin panel)
-#   - mediadview.com/, www.mediadview.com/, onrender.com/ → /api/landing
+# Root route: host-aware direct serve (no redirect, keeps URL clean).
+#   - panel.mediadview.com/       → serves web/index.html (admin panel / login)
+#   - mediadview.com/, www.*, onrender.com/ → serves web/landing.html (public)
 @app.get("/", include_in_schema=False)
-async def _root_redirect(request: Request):
+async def root(request: Request):
     host = (request.headers.get("host") or "").lower()
     if host.startswith("panel."):
-        return RedirectResponse(url="/api/dashboard", status_code=302)
-    return RedirectResponse(url="/api/landing", status_code=302)
+        return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
+
+# Clean public URLs at the apex domain (no /api prefix visible in the browser).
+@app.get("/about", include_in_schema=False)
+async def about():
+    return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
