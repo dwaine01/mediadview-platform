@@ -606,6 +606,139 @@ async def update_screen_advertising(screen_id: str, payload: ScreenAdvertisingUp
     await db.screens.update_one({"id": screen_id}, {"$set": {"advertising": current, "updated_at": datetime.utcnow()}})
     return {"screen_id": screen_id, "advertising": current}
 
+# ============ CUSTOMER ORDER SUBMISSION (Phase C.6) ============
+# The transient customer signs up, browses the catalog, builds a cart,
+# uploads a creative, and submits an order. Until Stripe LIVE is enabled
+# (currently ENVIRONMENT=staging), payment is coordinated manually by the
+# admin who is notified through the new customer-orders panel.
+
+class CartItem(BaseModel):
+    screen_id: str
+    num_ads: int = 1
+    months: int = 1
+
+class CustomerOrderSubmit(BaseModel):
+    items: List[CartItem]
+    media_data_url: Optional[str] = None   # data:image/... or data:video/...
+    media_kind: Optional[str] = None       # 'image' | 'video'
+    notes: Optional[str] = None
+
+@api_router.post("/customer/orders/from-cart")
+async def customer_order_from_cart(payload: CustomerOrderSubmit,
+                                   current_user: dict = Depends(get_current_user)):
+    """Customer submits their cart + creative. We revalidate the quote server-side
+    (never trust client totals), persist the order, and return a reference."""
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+
+    # Recompute the quote from scratch — same rules as /customer/quote
+    lines = []
+    grand_total = 0.0
+    for it in payload.items:
+        if it.num_ads < 1 or it.months < 1:
+            raise HTTPException(status_code=400, detail="num_ads and months must be >= 1")
+        screen = await db.screens.find_one({"id": it.screen_id})
+        if not screen:
+            raise HTTPException(status_code=404, detail=f"Screen {it.screen_id} not found")
+        adv = screen.get("advertising") or {}
+        price = adv.get("price_per_ad_per_month")
+        if not price or price <= 0:
+            raise HTTPException(status_code=400, detail=f"Screen {screen.get('name')} has no advertising price set")
+        subtotal = it.num_ads * it.months * float(price)
+        discount = _apply_discount(it.months)
+        line_total = round(subtotal * (1 - discount), 2)
+        grand_total += line_total
+        lines.append({
+            "screen_id": it.screen_id,
+            "screen_name": screen.get("name"),
+            "screen_location": screen.get("location"),
+            "num_ads": it.num_ads,
+            "months": it.months,
+            "price_per_ad_per_month": price,
+            "subtotal": round(subtotal, 2),
+            "discount_pct": round(discount * 100),
+            "line_total": line_total,
+        })
+
+    # Human-readable ref like CUST-YYMMDD-HHMMSS-XXXX
+    now = datetime.utcnow()
+    short = uuid.uuid4().hex[:4].upper()
+    order_ref = f"CUST-{now.strftime('%y%m%d-%H%M%S')}-{short}"
+
+    doc = {
+        "id": gen_id(),
+        "ref": order_ref,
+        "customer_id": current_user.get("id"),
+        "customer_email": current_user.get("email"),
+        "customer_name": current_user.get("name"),
+        "customer_phone": current_user.get("phone"),
+        "lines": lines,
+        "grand_total": round(grand_total, 2),
+        "currency": "USD",
+        "status": "pending_payment",   # pending_payment -> paid -> approved -> live
+        "media_data_url": payload.media_data_url,
+        "media_kind": payload.media_kind,
+        "notes": (payload.notes or "").strip() or None,
+        "created_at": now,
+        "updated_at": now,
+    }
+    await db.customer_orders.insert_one(doc)
+    return {
+        "id": doc["id"],
+        "ref": order_ref,
+        "grand_total": doc["grand_total"],
+        "currency": doc["currency"],
+        "status": doc["status"],
+        "message": "Order received. Our team will contact you shortly to arrange payment and activation.",
+    }
+
+@api_router.get("/customer/orders/mine")
+async def customer_my_orders(current_user: dict = Depends(get_current_user)):
+    cur = db.customer_orders.find({"customer_id": current_user.get("id")}).sort("created_at", -1)
+    docs = await cur.to_list(100)
+    out = []
+    for d in docs:
+        d.pop("_id", None)
+        d.pop("media_data_url", None)  # drop the heavy field from list view
+        out.append(d)
+    return out
+
+@api_router.get("/admin/customer-orders")
+async def admin_customer_orders(status: Optional[str] = None, admin=Depends(require_admin)):
+    q = {"status": status} if status else {}
+    cur = db.customer_orders.find(q).sort("created_at", -1)
+    docs = await cur.to_list(500)
+    for d in docs:
+        d.pop("_id", None)
+        # Keep media_data_url — admin needs to preview it. If too heavy,
+        # frontend can request the detail endpoint per row instead.
+    return docs
+
+@api_router.get("/admin/customer-orders/{oid}")
+async def admin_customer_order_detail(oid: str, admin=Depends(require_admin)):
+    d = await db.customer_orders.find_one({"id": oid})
+    if not d:
+        raise HTTPException(status_code=404, detail="Order not found")
+    d.pop("_id", None)
+    return d
+
+class CustomerOrderStatusUpdate(BaseModel):
+    status: str  # 'paid' | 'approved' | 'live' | 'rejected' | 'cancelled'
+    admin_note: Optional[str] = None
+
+@api_router.put("/admin/customer-orders/{oid}/status")
+async def admin_customer_order_status(oid: str, payload: CustomerOrderStatusUpdate, admin=Depends(require_admin)):
+    allowed = {"pending_payment", "paid", "approved", "live", "rejected", "cancelled"}
+    if payload.status not in allowed:
+        raise HTTPException(status_code=400, detail=f"status must be one of {sorted(allowed)}")
+    update = {"status": payload.status, "updated_at": datetime.utcnow()}
+    if payload.admin_note is not None:
+        update["admin_note"] = payload.admin_note
+    r = await db.customer_orders.update_one({"id": oid}, {"$set": update})
+    if r.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return {"id": oid, "status": payload.status}
+
 # ============ ROUTES: CAMPAIGNS ============
 
 @api_router.post("/campaigns")
