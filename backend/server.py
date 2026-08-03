@@ -447,6 +447,155 @@ async def calc_price(screen_id: str, schedule: CampaignSchedule):
         raise HTTPException(status_code=404, detail="Screen not found")
     return calculate_campaign_price(screen.get("pricing", {}), schedule.dict())
 
+# ============ PUBLIC / TRANSIENT CUSTOMER FLOW ============
+# Discount scale for month-based advertising commitments (public buyers).
+# Applied on top of (num_ads × months × price_per_ad_per_month).
+PUBLIC_DISCOUNT_SCALE = {1: 0.00, 3: 0.10, 6: 0.20, 12: 0.30}
+
+def _public_screen_view(screen: dict) -> dict:
+    """Strip sensitive fields — safe for unauthenticated visitors.
+    Includes photo (so the catalog is visual) but hides price and internals."""
+    adv = screen.get("advertising") or {}
+    return {
+        "id": screen.get("id"),
+        "name": screen.get("name"),
+        "description": screen.get("description"),
+        "location": screen.get("location"),
+        "pairing_code": screen.get("pairing_code"),
+        "photo_base64": adv.get("photo_base64"),
+        "is_public": adv.get("is_public", True),
+        "status": screen.get("status", "active"),
+    }
+
+def _customer_screen_view(screen: dict) -> dict:
+    """Same as public but includes price_per_ad_per_month for authenticated customers."""
+    view = _public_screen_view(screen)
+    adv = screen.get("advertising") or {}
+    view["price_per_ad_per_month"] = adv.get("price_per_ad_per_month")
+    return view
+
+def _apply_discount(months: int) -> float:
+    """Return discount FRACTION (0.10 = 10% off) for a given commitment length.
+    Non-listed lengths are interpolated to the nearest lower tier."""
+    tiers = sorted(PUBLIC_DISCOUNT_SCALE.keys())
+    disc = 0.0
+    for t in tiers:
+        if months >= t:
+            disc = PUBLIC_DISCOUNT_SCALE[t]
+    return disc
+
+@api_router.get("/public/screens")
+async def public_screens(city: Optional[str] = None):
+    """Public screen catalog for the transient QR-scanning customer.
+    No auth, no prices, only marketing-safe fields."""
+    query: dict = {"status": "active", "advertising.is_public": {"$ne": False}}
+    if city:
+        query["location.city"] = {"$regex": city, "$options": "i"}
+    screens = await db.screens.find(query).to_list(200)
+    return [_public_screen_view(s) for s in screens]
+
+@api_router.get("/public/screens/by-code/{code}")
+async def public_screen_by_code(code: str):
+    """Look up a screen by its short pairing code (printed under the QR).
+    Case-insensitive so 'mv-kd6k-twtu' == 'MV-KD6K-TWTU'."""
+    screen = await db.screens.find_one({"pairing_code": {"$regex": f"^{code}$", "$options": "i"}})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen code not found")
+    if (screen.get("advertising") or {}).get("is_public") is False:
+        raise HTTPException(status_code=404, detail="Screen not available for public advertising")
+    return _public_screen_view(screen)
+
+@api_router.get("/customer/screens")
+async def customer_screens(city: Optional[str] = None, current_user: dict = Depends(get_current_user)):
+    """Screen catalog visible AFTER signup — includes pricing."""
+    query: dict = {"status": "active", "advertising.is_public": {"$ne": False}}
+    if city:
+        query["location.city"] = {"$regex": city, "$options": "i"}
+    screens = await db.screens.find(query).to_list(200)
+    return [_customer_screen_view(s) for s in screens]
+
+@api_router.get("/customer/screens/{screen_id}")
+async def customer_screen_detail(screen_id: str, current_user: dict = Depends(get_current_user)):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return _customer_screen_view(screen)
+
+@api_router.get("/customer/discount-scale")
+async def customer_discount_scale(current_user: dict = Depends(get_current_user)):
+    """Publishes the discount tiers so the frontend cart can render them."""
+    return {"scale": PUBLIC_DISCOUNT_SCALE, "unit_days": 30}
+
+class QuoteItem(BaseModel):
+    screen_id: str
+    num_ads: int = 1     # how many ad slots on this screen
+    months: int = 1      # commitment length in 30-day units
+
+class QuoteRequest(BaseModel):
+    items: List[QuoteItem]
+
+@api_router.post("/customer/quote")
+async def customer_quote(payload: QuoteRequest, current_user: dict = Depends(get_current_user)):
+    """Calculate total for a cart of (screen × num_ads × months).
+    Returns per-line detail + grand total after applying the month-based
+    scale discount separately to each line (each line can have its own term)."""
+    if not payload.items:
+        raise HTTPException(status_code=400, detail="Cart is empty")
+    lines = []
+    grand_total = 0.0
+    for it in payload.items:
+        if it.num_ads < 1 or it.months < 1:
+            raise HTTPException(status_code=400, detail="num_ads and months must be >= 1")
+        screen = await db.screens.find_one({"id": it.screen_id})
+        if not screen:
+            raise HTTPException(status_code=404, detail=f"Screen {it.screen_id} not found")
+        adv = screen.get("advertising") or {}
+        price = adv.get("price_per_ad_per_month")
+        if not price or price <= 0:
+            raise HTTPException(status_code=400, detail=f"Screen {screen.get('name')} has no advertising price set")
+        subtotal = it.num_ads * it.months * float(price)
+        discount_pct = _apply_discount(it.months)
+        line_total = round(subtotal * (1 - discount_pct), 2)
+        grand_total += line_total
+        lines.append({
+            "screen_id": it.screen_id,
+            "screen_name": screen.get("name"),
+            "num_ads": it.num_ads,
+            "months": it.months,
+            "price_per_ad_per_month": price,
+            "subtotal": round(subtotal, 2),
+            "discount_pct": round(discount_pct * 100),
+            "line_total": line_total,
+        })
+    return {"lines": lines, "grand_total": round(grand_total, 2), "currency": "USD"}
+
+class ScreenAdvertisingUpdate(BaseModel):
+    price_per_ad_per_month: Optional[float] = None
+    is_public: Optional[bool] = None
+    photo_base64: Optional[str] = None   # data URL or raw base64
+
+@api_router.put("/admin/screens/{screen_id}/advertising")
+async def update_screen_advertising(screen_id: str, payload: ScreenAdvertisingUpdate, admin=Depends(require_admin)):
+    """Admin updates the public-advertising settings for a screen:
+      - photo shown in the marketplace
+      - price per ad per month
+      - whether it appears in the public catalog at all"""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    current = screen.get("advertising") or {}
+    if payload.price_per_ad_per_month is not None:
+        if payload.price_per_ad_per_month < 0:
+            raise HTTPException(status_code=400, detail="Price cannot be negative")
+        current["price_per_ad_per_month"] = float(payload.price_per_ad_per_month)
+    if payload.is_public is not None:
+        current["is_public"] = bool(payload.is_public)
+    if payload.photo_base64 is not None:
+        # accept both data URLs and raw base64
+        current["photo_base64"] = payload.photo_base64
+    await db.screens.update_one({"id": screen_id}, {"$set": {"advertising": current, "updated_at": datetime.utcnow()}})
+    return {"screen_id": screen_id, "advertising": current}
+
 # ============ ROUTES: CAMPAIGNS ============
 
 @api_router.post("/campaigns")
