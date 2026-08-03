@@ -35,16 +35,24 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
   nav .nav-inner{padding:8px 16px!important}
   nav .nav-logo img{height:48px!important;margin-left:0!important}
   nav .nav-cta{padding:8px 14px!important;font-size:13px!important}
-  /* Josue portrait: full-width aspect-ratio block on top, text below.
-     Show the WHOLE face — center the crop, cap the height so scrolling
-     the bio does not require a full-screen photo. */
-  .hero-grid > div:first-child{
-    background-position:center top !important;
-    background-size:cover !important;
-    height:52vh !important;
-    min-height:340px !important;
-    max-height:480px !important;
+  /* Josue portrait: show FULL photo (hand-on-desk visible) using object-fit
+     contain on portrait viewports. Landscape/desktop keeps 'cover' framing. */
+  .hero-grid > .ceo-photo-wrap{
+    height:auto !important;
+    min-height:auto !important;
+    max-height:none !important;
     width:100% !important;
+    background:#020617 !important;
+    padding:12px 0 !important;
+  }
+  .hero-grid > .ceo-photo-wrap .ceo-photo-img{
+    width:100% !important;
+    height:auto !important;
+    max-height:70vh !important;
+    object-fit:contain !important;
+    object-position:center !important;
+    display:block !important;
+    margin:0 auto !important;
   }
   .hero-grid > div:last-child{padding:26px 20px 40px!important}
   .hero-grid h1{font-size:32px!important}
@@ -62,19 +70,21 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 </head>
 <body>
 
-<nav><div class="nav-inner"><a href="/" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a><div class="nav-links"><a href="/">Home</a><a href="/#services">Services</a><a href="/#menus">Digital Menus</a><a href="/#contact">Contact</a><a href="https://panel.mediadview.com" class="nav-cta">Dashboard Login</a></div></div></nav>
+<nav><div class="nav-inner"><a href="/" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a><div class="nav-links"><a href="/" data-i18n="nav.home">Home</a><a href="/#services" data-i18n="nav.services">Services</a><a href="/#menus" data-i18n="nav.menus">Digital Menus</a><a href="/#contact" data-i18n="nav.contact">Contact</a><a href="https://panel.mediadview.com" class="nav-cta" data-i18n="nav.dashboard">Dashboard Login</a><button id="lang-toggle" aria-label="Change language" style="background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;margin-left:8px;font-family:inherit">ES</button></div></div></nav>
 
 <!-- HERO -->
 <section style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:56px" class="hero-grid">
-  <div style="background:url('/api/web/ceo-photo.png') center 15%/cover no-repeat"></div>
+  <div class="ceo-photo-wrap" style="background:#020617;position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden">
+    <img src="/api/web/ceo-photo.png" alt="Josue Tejada" style="width:100%;height:100%;object-fit:cover;object-position:center 15%" class="ceo-photo-img">
+  </div>
   <div style="display:flex;flex-direction:column;justify-content:center;padding:60px">
-    <div class="badge">Meet The Founder</div>
+    <div class="badge" data-i18n="about.badge">Meet The Founder</div>
     <h1 style="font-size:46px;font-weight:900;letter-spacing:-1.5px;line-height:1.1;margin-bottom:16px">Josue <span style="color:#22d3ee">Tejada</span></h1>
-    <div style="font-size:16px;color:#6366f1;font-weight:700;margin-bottom:20px">CEO & Founder — MediAd View LLC</div>
+    <div style="font-size:16px;color:#6366f1;font-weight:700;margin-bottom:20px" data-i18n="about.role">CEO &amp; Founder — MediAd View LLC</div>
     <div class="line"></div>
-    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px">MediAd View is a digital display company offering professional LED solutions for indoor, outdoor, and storefront window applications.</p>
-    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px">With installations nationwide, our displays are designed for high ambient light environments — with brightness levels up to 5,500 nits for direct sunlight visibility.</p>
-    <p style="font-size:15px;color:#94a3b8;line-height:1.8">We provide end-to-end solutions: hardware, installation, cloud management, and ongoing support.</p>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px" data-i18n="about.p1">MediAd View is a digital display company offering professional LED solutions for indoor, outdoor, and storefront window applications.</p>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8;margin-bottom:14px" data-i18n="about.p2">With installations nationwide, our displays are designed for high ambient light environments — with brightness levels up to 5,500 nits for direct sunlight visibility.</p>
+    <p style="font-size:15px;color:#94a3b8;line-height:1.8" data-i18n="about.p3">We provide end-to-end solutions: hardware, installation, cloud management, and ongoing support.</p>
   </div>
 </section>
 
@@ -235,5 +245,6 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 
 <footer style="padding:20px 40px;text-align:center;font-size:11px;color:#475569;border-top:1px solid #1e293b">© 2026 MediAd View LLC. All rights reserved.</footer>
 
+<script src="/api/web/i18n.js"></script>
 </body>
 </html>
