@@ -38,6 +38,67 @@ nav.scrolled{background:rgba(10,15,26,.95);backdrop-filter:blur(20px);border-bot
 .hero h1 span{background:linear-gradient(135deg,var(--cyan),var(--brand));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .hero p{font-size:18px;color:var(--text2);line-height:1.7;margin-bottom:32px;max-width:520px}
 .hero-btns{display:flex;gap:16px}
+
+/* Unified 'Publica tu anuncio' hero card — one full-width block that
+   contains title + sub + both CTAs so there is a single obvious next step. */
+.hero-anuncia-card{
+  margin-top:8px;
+  padding:22px 24px 24px;
+  background:linear-gradient(135deg,rgba(99,102,241,.16),rgba(34,211,238,.10));
+  border:1px solid rgba(99,102,241,.35);
+  border-radius:18px;
+  box-shadow:0 20px 50px rgba(99,102,241,.15);
+  position:relative;
+  overflow:hidden;
+}
+.hero-anuncia-card::before{
+  content:"";
+  position:absolute; inset:0;
+  background:radial-gradient(circle at 90% 10%, rgba(34,211,238,.18), transparent 55%);
+  pointer-events:none;
+}
+.hero-anuncia-title{
+  font-size:22px;
+  font-weight:800;
+  letter-spacing:-.3px;
+  margin-bottom:8px;
+  color:#f8fafc;
+}
+.hero-anuncia-sub{
+  font-size:14px;
+  color:#cbd5e1;
+  line-height:1.55;
+  margin-bottom:18px;
+}
+.hero-anuncia-actions{
+  display:flex; gap:12px; flex-wrap:wrap;
+}
+.hero-anuncia-btn{
+  padding:15px 26px !important;
+  font-size:15px !important;
+  font-weight:800 !important;
+  background:#ffffff !important;
+  color:#0f172a !important;
+  border:2px solid #ffffff !important;
+  box-shadow:0 8px 22px rgba(255,255,255,.20) !important;
+}
+.hero-anuncia-btn:hover{
+  background:#22d3ee !important;
+  border-color:#22d3ee !important;
+  color:#0a0f1a !important;
+  box-shadow:0 10px 28px rgba(34,211,238,.45) !important;
+  transform:translateY(-1px) !important;
+}
+.hero-anuncia-btn2{
+  padding:15px 22px !important;
+  font-size:14px !important;
+  border-color:rgba(255,255,255,.35) !important;
+  color:#e2e8f0 !important;
+}
+.hero-anuncia-btn2:hover{
+  border-color:#22d3ee !important;
+  color:#22d3ee !important;
+}
 .btn-primary{background:var(--brand);color:var(--white);padding:14px 32px;border-radius:10px;font-size:15px;font-weight:700;transition:all .2s;border:none;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
 .btn-primary:hover{background:#4f46e5;transform:translateY(-2px);box-shadow:0 10px 40px rgba(99,102,241,.3)}
 .btn-secondary{background:transparent;color:var(--text);padding:14px 32px;border-radius:10px;font-size:15px;font-weight:600;border:1px solid var(--dark3);transition:all .2s;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
@@ -204,7 +265,7 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
     <a href="#platform">Platform</a>
     <a href="/about">About</a>
     <a href="#contact">Contact</a>
-    <a href="/marketplace" class="nav-anuncia">📢 Publica tu Anuncio</a>
+    <a href="/marketplace" class="nav-anuncia">Publica tu anuncio aquí</a>
     <a href="https://panel.mediadview.com" class="nav-cta">Dashboard Login</a>
   </div>
 </div>
@@ -214,16 +275,17 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 <section class="hero">
 <div class="hero-inner">
   <div>
-    <div class="hero-badge">Specialists in Window & Indoor Displays</div>
+    <div class="hero-badge">Specialists in Window &amp; Indoor Displays</div>
     <h1>Your Storefront Window Is Your <span>Best Billboard</span></h1>
     <p>We install high-brightness LED displays on storefront windows, churches, and outdoor walls. Attract customers 24/7 with eye-catching digital content — managed from our cloud platform.</p>
-    <div class="hero-btns">
-      <a href="/marketplace" class="btn-primary" style="font-size:17px;padding:16px 30px;box-shadow:0 12px 32px rgba(99,102,241,.4)">📢 Publica tu Anuncio →</a>
-      <a href="#contact" class="btn-secondary">Consulta comercial</a>
-    </div>
-    <div style="margin-top:14px;font-size:12px;color:var(--text2);display:flex;align-items:center;gap:6px">
-      <span style="color:var(--green);font-size:13px">●</span>
-      <span>Anúnciate en pantallas LED por 1, 3, 6 o 12 meses · Múltiples ciudades</span>
+
+    <div class="hero-anuncia-card">
+      <div class="hero-anuncia-title">Publica tu anuncio tú mismo — hoy</div>
+      <div class="hero-anuncia-sub">Anúnciate en pantallas LED por 1, 3, 6 o 12 meses · Múltiples ciudades y localidades</div>
+      <div class="hero-anuncia-actions">
+        <a href="/marketplace" class="btn-primary hero-anuncia-btn">Publica tu anuncio aquí</a>
+        <a href="#contact" class="btn-secondary hero-anuncia-btn2">Consulta comercial</a>
+      </div>
     </div>
   </div>
   <div class="hero-visual">

@@ -24,7 +24,40 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 .sub{font-size:15px;color:#94a3b8;line-height:1.7;max-width:600px}
 .center{text-align:center}.center .sub{margin:0 auto}
 .line{width:50px;height:3px;background:linear-gradient(90deg,#6366f1,#22d3ee);border-radius:2px;margin:20px 0}
-@media(max-width:768px){.hero-grid{grid-template-columns:1fr!important}.g3{grid-template-columns:1fr!important}.g4{grid-template-columns:repeat(2,1fr)!important}}
+@media(max-width:768px){
+  .hero-grid{grid-template-columns:1fr!important;min-height:auto!important;padding-top:70px!important}
+  .g3{grid-template-columns:1fr!important}
+  .g4{grid-template-columns:repeat(2,1fr)!important}
+  /* Nav: hide the horizontal links row (there's no hamburger on this page,
+     so we keep it simple: logo + primary CTA only, other links reachable
+     from the corporate landing). */
+  nav .nav-links a:not(.nav-cta){display:none!important}
+  nav .nav-inner{padding:8px 16px!important}
+  nav .nav-logo img{height:48px!important;margin-left:0!important}
+  nav .nav-cta{padding:8px 14px!important;font-size:13px!important}
+  /* Josue portrait: full-width aspect-ratio block on top, text below.
+     Show the WHOLE face — center the crop, cap the height so scrolling
+     the bio does not require a full-screen photo. */
+  .hero-grid > div:first-child{
+    background-position:center top !important;
+    background-size:cover !important;
+    height:52vh !important;
+    min-height:340px !important;
+    max-height:480px !important;
+    width:100% !important;
+  }
+  .hero-grid > div:last-child{padding:26px 20px 40px!important}
+  .hero-grid h1{font-size:32px!important}
+  .hero-grid p, .hero-grid .badge{font-size:13.5px!important}
+  /* Section paddings tighter on mobile */
+  .sec{padding:60px 20px!important}
+  .inner{padding:0!important}
+  .title{font-size:26px!important}
+  .sub{font-size:14px!important}
+}
+@media(max-width:420px){
+  .g4{grid-template-columns:1fr!important}
+}
 </style>
 </head>
 <body>
