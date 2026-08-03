@@ -113,15 +113,75 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 .footer-col a:hover{color:var(--cyan)}
 .footer-bottom{border-top:1px solid var(--dark3);padding-top:24px;display:flex;justify-content:space-between;font-size:12px;color:var(--text3)}
 
+/* MOBILE NAV — hamburger button (hidden on desktop) */
+.nav-toggle{display:none;background:none;border:none;cursor:pointer;padding:8px;flex-direction:column;gap:5px;width:40px;height:40px;justify-content:center;align-items:center;z-index:101}
+.nav-toggle span{display:block;width:24px;height:2px;background:var(--white);border-radius:2px;transition:transform .2s,opacity .2s}
+.nav-toggle.open span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle.open span:nth-child(2){opacity:0}
+.nav-toggle.open span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+
 @media(max-width:768px){
   .hero-inner,.menus-grid{grid-template-columns:1fr}
   .hero h1{font-size:36px}
-  .services-grid{grid-template-columns:repeat(2,1fr)}
-  .stats-inner{grid-template-columns:repeat(2,1fr)}
-  .steps{grid-template-columns:1fr}
-  .platform-grid{grid-template-columns:repeat(2,1fr)}
-  .footer-top{grid-template-columns:1fr 1fr}
+  .hero p{font-size:16px}
+  .services-grid{grid-template-columns:repeat(2,1fr);gap:14px}
+  .service-card{padding:20px}
+  .service-card h3{font-size:15px}
+  .stats-inner{grid-template-columns:repeat(2,1fr);gap:20px}
+  .stat-num{font-size:32px}
+  .steps{grid-template-columns:1fr;gap:24px}
+  .platform-grid{grid-template-columns:repeat(2,1fr);gap:14px}
+  .plat-card{padding:18px}
+  .footer-top{grid-template-columns:1fr 1fr;gap:24px}
   .nav-links{display:none}
+
+  /* Show hamburger + expand menu when open */
+  .nav-toggle{display:flex}
+  .nav-inner.mobile-open .nav-links{
+    display:flex!important;flex-direction:column;position:absolute;top:100%;left:0;right:0;
+    background:rgba(10,15,26,.98);backdrop-filter:blur(20px);
+    padding:18px 20px 24px;gap:14px;align-items:stretch;
+    border-bottom:1px solid rgba(99,102,241,.15);
+    box-shadow:0 10px 30px rgba(0,0,0,.5);
+  }
+  .nav-inner.mobile-open .nav-links a{padding:6px 0;font-size:15px;text-align:center}
+  .nav-inner.mobile-open .nav-cta{padding:14px 24px;text-align:center;margin-top:8px}
+
+  /* Kill horizontal overflow: hide decorative floating badges */
+  .hero-float{display:none}
+
+  /* Tighter side padding on mobile — 40px x2 was eating 80px of a 390px screen */
+  .hero{padding:100px 20px 60px}
+  .nav-inner{padding:0 20px}
+  .stats-inner{padding:0 20px}
+  .section{padding:60px 20px}
+  .section-inner{padding:0}
+  .footer-inner{padding:0}
+  footer{padding:40px 20px 24px}
+
+  /* Video showcase — force single column and reasonable text sizes */
+  .video-showcase-grid{grid-template-columns:1fr!important;gap:24px!important}
+  .video-showcase-grid h2,.video-showcase-grid div[style*="font-size:36px"]{font-size:28px!important}
+  .video-showcase-grid div[style*="font-size:17px"]{font-size:15px!important}
+  .video-showcase-grid span[style*="font-size:17px"]{font-size:14px!important}
+
+  /* Hero buttons wrap and become full-width */
+  .hero-btns{flex-wrap:wrap;gap:10px}
+  .hero-btns .btn-primary,.hero-btns .btn-secondary{flex:1;min-width:140px;justify-content:center;padding:12px 16px;font-size:14px}
+
+  /* CTA row (Call / Sales@) — stack vertically, buttons full-width */
+  .cta-actions{flex-direction:column!important;gap:10px!important}
+  .cta-actions .btn-primary,.cta-actions .btn-secondary{width:100%;box-sizing:border-box;justify-content:center;font-size:15px!important;padding:14px 20px!important;word-break:break-word}
+
+  /* Footer bottom: stack rows */
+  .footer-bottom{flex-direction:column;gap:8px;text-align:center}
+
+  /* Nav logo: remove negative margin (was overflowing) and cap height */
+  .nav-logo img{height:56px!important;margin-left:0!important}
+
+  /* Section titles slightly smaller on mobile so they don't wrap awkwardly */
+  .section-title{font-size:28px;letter-spacing:-1px}
+  .cta h2{font-size:30px;letter-spacing:-1px}
 }
 </style>
 </head>
@@ -129,8 +189,11 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 
 <!-- NAV -->
 <nav id="nav">
-<div class="nav-inner">
+<div class="nav-inner" id="nav-inner">
   <a href="#" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a>
+  <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
   <div class="nav-links">
     <a href="#services">Services</a>
     <a href="#how">How It Works</a>
@@ -181,7 +244,7 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 
 <!-- VIDEO SHOWCASE -->
 <section style="padding:0 40px 20px;background:var(--dark)">
-<div style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center">
+<div class="video-showcase-grid" style="max-width:1280px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center">
   <div>
     <video id="promo-video" autoplay muted loop playsinline style="width:100%;display:block;border-radius:12px">
       <source src="/api/web/promo-video.mp4" type="video/mp4">
@@ -367,7 +430,7 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <div class="section-badge">Get Started Today</div>
   <h2>Ready to Go Digital?</h2>
   <p>Join hundreds of businesses already using MediAd View to attract more customers and increase revenue.</p>
-  <div style="display:flex;gap:16px;justify-content:center;margin-bottom:48px">
+  <div class="cta-actions" style="display:flex;gap:16px;justify-content:center;margin-bottom:48px">
     <a href="tel:18772028181" class="btn-primary" style="font-size:18px;padding:16px 36px">Call 1-877-202-8181</a>
     <a href="mailto:Sales@mediadview.com" class="btn-secondary" style="font-size:18px;padding:16px 36px">Sales@mediadview.com</a>
   </div>
@@ -422,6 +485,26 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
 window.addEventListener('scroll',function(){
   document.getElementById('nav').classList.toggle('scrolled',window.scrollY>50);
 });
+
+// Mobile hamburger menu
+(function(){
+  var btn=document.getElementById('nav-toggle');
+  var inner=document.getElementById('nav-inner');
+  if(!btn||!inner)return;
+  btn.addEventListener('click',function(){
+    var open=inner.classList.toggle('mobile-open');
+    btn.classList.toggle('open',open);
+    btn.setAttribute('aria-expanded',open?'true':'false');
+  });
+  // Close menu when any link inside is tapped
+  inner.querySelectorAll('.nav-links a').forEach(function(a){
+    a.addEventListener('click',function(){
+      inner.classList.remove('mobile-open');
+      btn.classList.remove('open');
+      btn.setAttribute('aria-expanded','false');
+    });
+  });
+})();
 
 // Menu slideshow
 var menuCurrent=0;
