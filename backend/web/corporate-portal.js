@@ -117,6 +117,58 @@
       .cp-warn{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;color:#78350f;padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
       .cp-warn a{color:#78350f;font-weight:700;text-decoration:underline}
 
+      /* Media grid (D.1.b — My Content) */
+      .cp-media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+      .cp-media-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:all .15s}
+      .cp-media-card:hover{box-shadow:0 10px 24px rgba(15,23,42,.08);transform:translateY(-2px);border-color:#c7d2fe}
+      .cp-media-preview{position:relative;aspect-ratio:16/9;background:#020617;overflow:hidden}
+      .cp-media-preview img,.cp-media-preview video{width:100%;height:100%;object-fit:cover}
+      .cp-media-kind{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:.5px}
+      .cp-media-status{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:5px;letter-spacing:.5px;background:rgba(16,185,129,.9);color:#fff}
+      .cp-media-status.paused{background:rgba(148,163,184,.9)}
+      .cp-media-body{padding:12px 14px}
+      .cp-media-name{font-size:13.5px;font-weight:800;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .cp-media-meta{display:flex;justify-content:space-between;font-size:11px;color:#64748b;margin-top:4px;gap:8px}
+      .cp-media-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      .cp-media-actions{display:flex;gap:6px;margin-top:12px}
+      .cp-media-actions .cp-btn{flex:1;padding:7px 8px;font-size:11.5px}
+
+      /* Schedule tab (D.1.c) */
+      .cp-sched-list{display:flex;flex-direction:column;gap:12px}
+      .cp-sched-card{display:grid;grid-template-columns:120px 1fr;gap:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px}
+      .cp-sched-thumb{aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#020617}
+      .cp-sched-thumb img,.cp-sched-thumb video{width:100%;height:100%;object-fit:cover}
+      .cp-sched-name{font-size:15px;font-weight:800;color:#0f172a}
+      .cp-sched-kind{font-size:12px;color:#64748b;margin-top:2px}
+      .cp-days{display:flex;gap:6px;flex-wrap:wrap}
+      .cp-day{padding:6px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:transparent;color:#64748b;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .12s;font-family:inherit}
+      .cp-day:hover{border-color:#94a3b8;color:#0f172a}
+      .cp-day.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-color:transparent}
+      .cp-times{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;flex-wrap:wrap}
+      .cp-times label{color:#64748b;font-weight:600;margin-right:2px}
+      .cp-times input[type="time"]{border:1.5px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:13px}
+      .cp-times input[type="time"]:focus{outline:none;border-color:#6366f1}
+      .cp-toggle{display:inline-flex;align-items:center;gap:6px;margin-left:auto;cursor:pointer;color:#475569;font-weight:600}
+      .cp-toggle input{width:16px;height:16px;cursor:pointer;accent-color:#6366f1}
+      .cp-sched-status{margin-top:6px;font-size:11px;font-weight:600;min-height:14px}
+      .cp-sched-status.ok{color:#059669}
+      .cp-sched-status.err{color:#dc2626}
+
+      /* Upload modal */
+      .cp-upload-drop{border:2px dashed #cbd5e1;border-radius:12px;padding:36px 20px;text-align:center;background:#f8fafc;cursor:pointer;transition:all .15s;margin-top:12px}
+      .cp-upload-drop:hover,.cp-upload-drop.hover{border-color:#6366f1;background:rgba(99,102,241,.04)}
+      .cp-upload-drop .ico{width:44px;height:44px;margin:0 auto 10px;border-radius:12px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center}
+      .cp-upload-drop .ico svg{width:24px;height:24px;color:#6366f1}
+      .cp-upload-drop .prim{font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px}
+      .cp-upload-drop .sec{font-size:12px;color:#64748b}
+      .cp-upload-preview{margin-top:14px;border-radius:10px;overflow:hidden;background:#020617;aspect-ratio:16/9;position:relative}
+      .cp-upload-preview img,.cp-upload-preview video{width:100%;height:100%;object-fit:contain}
+      .cp-screen-list{max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:6px;margin-top:6px;background:#fafafa}
+      .cp-screen-list label{display:flex!important;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500!important;color:#0f172a!important;text-transform:none!important;letter-spacing:0!important;margin:0!important;transition:background .1s}
+      .cp-screen-list label:hover{background:#fff}
+      .cp-screen-list input{accent-color:#6366f1;width:16px;height:16px}
+      .cp-screen-list .loc{color:#64748b;font-size:11.5px;margin-left:auto}
+
       /* Modal */
       .cp-modal-ov{position:fixed;inset:0;background:rgba(2,6,23,.55);z-index:900;display:flex;justify-content:center;align-items:center;padding:20px}
       .cp-modal{background:#fff;border-radius:14px;padding:24px 26px;max-width:460px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25)}
@@ -143,6 +195,8 @@
         .cp-screens{grid-template-columns:repeat(2,1fr)}
         .cp-list .row{grid-template-columns:1fr auto;font-size:12.5px;padding:12px 14px}
         .cp-list .row .stat{display:none}
+        .cp-media-grid{grid-template-columns:1fr 1fr;gap:10px}
+        .cp-sched-card{grid-template-columns:1fr;gap:10px}
       }
     `;
     document.head.appendChild(st);
@@ -235,21 +289,134 @@
   }
 
   async function renderContent(root){
-    root.innerHTML = `<div class="cp-placeholder">
-      <div class="ico"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg></div>
-      <h3>My Content</h3>
-      <p>Upload images, videos, and menus that display on your screens. Manage what your customers see 24/7.</p>
-      <div class="soon">Coming soon</div>
-    </div>`;
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#64748b">Loading your content…</div>`;
+    try{
+      const [media, screens] = await Promise.all([
+        window.Auth.api.raw('/corporate/media',{credentials:'include'}).then(r=>r.json()),
+        window.Auth.api.raw('/corporate/screens',{credentials:'include'}).then(r=>r.json()),
+      ]);
+      state.screens = screens;
+      state.media = media;
+
+      const grid = media.length ? media.map(m => mediaCard(m, screens)).join('') : '';
+      root.innerHTML = `
+        <div class="cp-section-title">
+          <div>
+            <h2>My Content (${media.length})</h2>
+            <p>Upload images and videos that display on your screens.</p>
+          </div>
+          <button class="cp-btn primary" onclick="window.corpUploadOpen()">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24" style="vertical-align:-2px;margin-right:4px"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>Upload Content
+          </button>
+        </div>
+        ${media.length===0
+          ? `<div class="cp-empty">
+              <h3>No content uploaded yet</h3>
+              <p>Upload your first image or video — it will start showing on your screens as soon as you assign it and set a schedule.</p>
+            </div>`
+          : `<div class="cp-media-grid">${grid}</div>`}
+      `;
+    }catch(e){
+      root.innerHTML = `<div class="cp-empty"><h3>Unable to load content</h3><p>${esc(e.message||'Unknown error')}</p></div>`;
+    }
+  }
+
+  function mediaCard(m, screens){
+    const isVideo = m.kind === 'video';
+    const kb = m.size_bytes ? (m.size_bytes/1024).toFixed(0)+' KB' : '';
+    const scNames = (m.screen_ids||[])
+      .map(id => (screens||[]).find(s=>s.id===id))
+      .filter(Boolean)
+      .map(s => (s.location_name||'')+' ('+s.model+')');
+    const scLabel = scNames.length===0 ? 'Not assigned yet' :
+                    scNames.length===1 ? scNames[0] :
+                    scNames.length+' screens';
+    const preview = isVideo
+      ? `<video muted playsinline src="${m.data_url}" style="width:100%;height:100%;object-fit:cover"></video>`
+      : `<img src="${m.data_url}" alt="${esc(m.name)}" style="width:100%;height:100%;object-fit:cover">`;
+    return `
+      <div class="cp-media-card">
+        <div class="cp-media-preview">
+          ${preview}
+          <div class="cp-media-kind">${isVideo?'🎬 VIDEO':'🖼 IMAGE'}</div>
+          <div class="cp-media-status ${m.status==='paused'?'paused':'active'}">${m.status==='paused'?'PAUSED':'ACTIVE'}</div>
+        </div>
+        <div class="cp-media-body">
+          <div class="cp-media-name">${esc(m.name)}</div>
+          <div class="cp-media-meta">
+            <span title="${esc(scNames.join(', ')||'')}">📺 ${esc(scLabel)}</span>
+            ${kb?`<span>${kb}</span>`:''}
+          </div>
+          <div class="cp-media-actions">
+            <button class="cp-btn ghost" onclick="window.corpMediaEdit('${m.id}')">Edit</button>
+            <button class="cp-btn ghost" style="color:#dc2626;border-color:#fca5a5" onclick="window.corpMediaDelete('${m.id}')">Delete</button>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   async function renderSchedule(root){
-    root.innerHTML = `<div class="cp-placeholder">
-      <div class="ico"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/></svg></div>
-      <h3>Content Scheduling</h3>
-      <p>Program what shows on each screen by day of the week and hour. Different content for lunch, dinner, or weekends.</p>
-      <div class="soon">Coming soon</div>
-    </div>`;
+    root.innerHTML = `<div style="text-align:center;padding:40px;color:#64748b">Loading schedule…</div>`;
+    try{
+      const [media, screens] = await Promise.all([
+        window.Auth.api.raw('/corporate/media',{credentials:'include'}).then(r=>r.json()),
+        window.Auth.api.raw('/corporate/screens',{credentials:'include'}).then(r=>r.json()),
+      ]);
+      state.screens = screens;
+      state.media = media;
+      if(media.length === 0){
+        root.innerHTML = `<div class="cp-empty">
+          <h3>No content to schedule yet</h3>
+          <p>Upload your first image or video in the <a href="#" onclick="event.preventDefault();window.corpGo('content')" style="color:#6366f1;font-weight:700">My Content</a> tab, then come back to set when it should show.</p>
+        </div>`;
+        return;
+      }
+      root.innerHTML = `
+        <div class="cp-section-title">
+          <div><h2>Content Schedule</h2><p>Choose when each piece of content plays. Days of the week and hours.</p></div>
+        </div>
+        <div class="cp-sched-list">${media.map(scheduleCard).join('')}</div>
+      `;
+    }catch(e){
+      root.innerHTML = `<div class="cp-empty"><h3>Unable to load schedule</h3><p>${esc(e.message||'Unknown error')}</p></div>`;
+    }
+  }
+
+  const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+  function scheduleCard(m){
+    const s = m.schedule || {enabled:true, days:[0,1,2,3,4,5,6], start_time:'00:00', end_time:'23:59', priority:1};
+    const dayBtns = DAYS.map((d, i) => {
+      const on = (s.days||[]).includes(i);
+      return `<button class="cp-day ${on?'on':''}" onclick="window.corpToggleDay('${m.id}',${i})">${d}</button>`;
+    }).join('');
+    const isVideo = m.kind === 'video';
+    return `
+      <div class="cp-sched-card" data-media-id="${m.id}">
+        <div class="cp-sched-thumb">
+          ${isVideo
+            ? `<video muted playsinline src="${m.data_url}"></video>`
+            : `<img src="${m.data_url}" alt="${esc(m.name)}">`}
+        </div>
+        <div class="cp-sched-info">
+          <div class="cp-sched-name">${esc(m.name)}</div>
+          <div class="cp-sched-kind">${isVideo?'🎬 Video':'🖼 Image'} · ${m.status==='paused'?'⏸ Paused':'▶ Active'}</div>
+          <div class="cp-days" style="margin-top:10px">${dayBtns}</div>
+          <div class="cp-times">
+            <label>From</label>
+            <input type="time" value="${esc(s.start_time||'00:00')}" onchange="window.corpSchedSet('${m.id}','start_time',this.value)">
+            <label>To</label>
+            <input type="time" value="${esc(s.end_time||'23:59')}" onchange="window.corpSchedSet('${m.id}','end_time',this.value)">
+            <label class="cp-toggle">
+              <input type="checkbox" ${s.enabled?'checked':''} onchange="window.corpSchedSet('${m.id}','enabled',this.checked)">
+              <span>Schedule enabled</span>
+            </label>
+          </div>
+          <div class="cp-sched-status" id="ss-${m.id}"></div>
+        </div>
+      </div>
+    `;
   }
 
   async function renderBilling(root){
@@ -407,6 +574,240 @@
   window.corpGo = function(tab){ state.tab=tab; renderShell(); };
   window.corpLogout = async function(){ try{await window.Auth.logout()}catch(_){}; location.reload(); };
   window.corpChangePw = function(){ openChangePasswordModal(false); };
+
+  // ---------- D.1.b — Upload / edit / delete media ----------
+  function fileToDataUrl(file){
+    return new Promise((resolve, reject)=>{
+      const r = new FileReader();
+      r.onload = ()=>resolve(r.result);
+      r.onerror = ()=>reject(new Error('Failed to read file'));
+      r.readAsDataURL(file);
+    });
+  }
+
+  function screenChecklist(selectedIds){
+    const scr = state.screens || [];
+    if(scr.length === 0)return '<div style="color:#94a3b8;font-size:12px;padding:8px">No screens available yet.</div>';
+    // Group by location
+    const groups = {};
+    scr.forEach(s => {
+      const k = s.location_id || 'default';
+      groups[k] = groups[k] || {name: s.location_name || 'Location', items: []};
+      groups[k].items.push(s);
+    });
+    return Object.values(groups).map(g => `
+      <div style="padding:4px 8px;font-size:10.5px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-top:4px">${esc(g.name)}</div>
+      ${g.items.map(s => `
+        <label>
+          <input type="checkbox" name="cp-scr" value="${s.id}" ${(selectedIds||[]).includes(s.id)?'checked':''}>
+          <span>${esc(s.model)} · ${s.units} unit${s.units===1?'':'s'}</span>
+        </label>
+      `).join('')}
+    `).join('');
+  }
+
+  function openMediaModal({title, item}){
+    // Common form for upload + edit. When `item` is passed, edit mode.
+    const isEdit = !!item;
+    // Load screens if not already loaded
+    const loadScreens = async () => {
+      if(state.screens)return;
+      const r = await window.Auth.api.raw('/corporate/screens',{credentials:'include'});
+      state.screens = await r.json();
+    };
+
+    document.querySelectorAll('.cp-modal-ov').forEach(x=>x.remove());
+    const ov=document.createElement('div');
+    ov.className='cp-modal-ov';
+    ov.innerHTML=`
+      <div class="cp-modal" style="max-width:520px">
+        <h3>${title}</h3>
+        <p class="sub">${isEdit?'Update name, screens or status. To change the file itself, delete this and upload again.':'Choose an image or video (max 6 MB), give it a name, and pick which screens should show it.'}</p>
+
+        ${isEdit ? '' : `
+        <div class="cp-upload-drop" id="cp-drop">
+          <div class="ico"><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.9A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg></div>
+          <div class="prim">Drop file here or click to browse</div>
+          <div class="sec">JPG, PNG, WebP · MP4, WebM · up to 6 MB</div>
+        </div>
+        <input type="file" id="cp-file" accept="image/*,video/*" style="display:none">
+        <div id="cp-preview-holder"></div>
+        `}
+
+        <label>Name</label>
+        <input type="text" id="cp-name" placeholder="e.g. Summer promo" value="${esc((item&&item.name)||'')}">
+
+        <label>Show on these screens</label>
+        <div class="cp-screen-list" id="cp-screens-list">Loading screens…</div>
+
+        ${isEdit ? `
+        <label>Status</label>
+        <select id="cp-status" style="width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit">
+          <option value="active"${item.status==='active'?' selected':''}>Active — playing</option>
+          <option value="paused"${item.status==='paused'?' selected':''}>Paused — stop showing</option>
+        </select>
+        ` : ''}
+
+        <div id="cp-modal-err" class="cp-err" style="display:none"></div>
+        <div class="actions">
+          <button class="cp-btn ghost" onclick="document.querySelector('.cp-modal-ov')?.remove()">Cancel</button>
+          <button class="cp-btn primary" id="cp-modal-save">${isEdit?'Save changes':'Upload'}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(ov);
+
+    // Load screens then render checklist
+    loadScreens().then(()=>{
+      const list = document.getElementById('cp-screens-list');
+      if(list) list.innerHTML = screenChecklist(item?item.screen_ids:[]);
+    }).catch(e=>{
+      const list = document.getElementById('cp-screens-list');
+      if(list) list.innerHTML = '<div style="color:#dc2626;font-size:12px;padding:8px">Failed to load screens: '+esc(e.message)+'</div>';
+    });
+
+    // Upload flow (only for new)
+    let dataUrl = null;
+    if(!isEdit){
+      const drop = document.getElementById('cp-drop');
+      const fileInput = document.getElementById('cp-file');
+      const preview = document.getElementById('cp-preview-holder');
+      drop.onclick = ()=>fileInput.click();
+      drop.ondragover = e=>{e.preventDefault();drop.classList.add('hover')};
+      drop.ondragleave = ()=>drop.classList.remove('hover');
+      drop.ondrop = async e=>{
+        e.preventDefault();drop.classList.remove('hover');
+        const f = e.dataTransfer.files[0]; if(f) await handleFile(f);
+      };
+      fileInput.onchange = async e=>{const f=e.target.files[0]; if(f) await handleFile(f);};
+      async function handleFile(f){
+        if(f.size > 6*1024*1024){
+          document.getElementById('cp-modal-err').textContent='File is too large. Maximum is 6 MB.';
+          document.getElementById('cp-modal-err').style.display='block';
+          return;
+        }
+        document.getElementById('cp-modal-err').style.display='none';
+        try{
+          dataUrl = await fileToDataUrl(f);
+          const isVid = /^video\//.test(f.type);
+          preview.innerHTML = `<div class="cp-upload-preview">${isVid?`<video controls muted playsinline src="${dataUrl}"></video>`:`<img src="${dataUrl}" alt="preview">`}</div>
+          <div style="font-size:11.5px;color:#64748b;margin-top:6px">${esc(f.name)} · ${(f.size/1024).toFixed(0)} KB · ${esc(f.type)}</div>`;
+          // Auto-fill name if empty
+          const nm = document.getElementById('cp-name');
+          if(nm && !nm.value) nm.value = f.name.replace(/\.[^/.]+$/,'').slice(0,60);
+        }catch(err){
+          document.getElementById('cp-modal-err').textContent = err.message;
+          document.getElementById('cp-modal-err').style.display = 'block';
+        }
+      }
+    }
+
+    // Save
+    document.getElementById('cp-modal-save').onclick = async () => {
+      const err = document.getElementById('cp-modal-err');
+      err.style.display = 'none';
+      const nm = (document.getElementById('cp-name').value||'').trim();
+      if(!nm){ err.textContent='Please enter a name.'; err.style.display='block'; return; }
+      const selectedIds = Array.from(document.querySelectorAll('input[name="cp-scr"]:checked')).map(x=>x.value);
+
+      const btn = document.getElementById('cp-modal-save');
+      btn.disabled = true;
+      const originalTxt = btn.textContent;
+      btn.textContent = 'Saving…';
+
+      try{
+        if(isEdit){
+          const payload = { name: nm, screen_ids: selectedIds };
+          const stEl = document.getElementById('cp-status');
+          if(stEl) payload.status = stEl.value;
+          const r = await window.Auth.api.raw('/corporate/media/'+encodeURIComponent(item.id),{
+            method:'PUT', credentials:'include',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload)
+          });
+          if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Failed to save')}
+        }else{
+          if(!dataUrl){ throw new Error('Please select a file to upload.'); }
+          const r = await window.Auth.api.raw('/corporate/media',{
+            method:'POST', credentials:'include',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({data_url: dataUrl, name: nm, screen_ids: selectedIds})
+          });
+          if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Failed to upload')}
+        }
+        document.querySelector('.cp-modal-ov')?.remove();
+        renderTab(); // refresh the current tab
+      }catch(e){
+        err.textContent = e.message;
+        err.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = originalTxt;
+      }
+    };
+  }
+
+  window.corpUploadOpen = function(){ openMediaModal({title:'Upload Content', item:null}); };
+  window.corpMediaEdit = function(id){
+    const item = (state.media||[]).find(m=>m.id===id);
+    if(!item) return;
+    openMediaModal({title:'Edit '+item.name, item});
+  };
+  window.corpMediaDelete = async function(id){
+    const item = (state.media||[]).find(m=>m.id===id);
+    if(!confirm(`Delete "${item?item.name:'this content'}"? This cannot be undone.`))return;
+    try{
+      const r = await window.Auth.api.raw('/corporate/media/'+encodeURIComponent(id),{method:'DELETE',credentials:'include'});
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Failed to delete')}
+      renderTab();
+    }catch(e){ alert('Failed to delete: '+e.message); }
+  };
+
+  // ---------- D.1.c — Schedule handlers ----------
+  // Debounce all schedule updates by 500ms so quick toggling batches into one PUT.
+  const _saveTimers = {};
+  function _saveSchedule(mediaId){
+    clearTimeout(_saveTimers[mediaId]);
+    _saveTimers[mediaId] = setTimeout(async ()=>{
+      const item = (state.media||[]).find(m=>m.id===mediaId);
+      if(!item)return;
+      const statusEl = document.getElementById('ss-'+mediaId);
+      if(statusEl){ statusEl.textContent='Saving…'; statusEl.className='cp-sched-status'; }
+      try{
+        const r = await window.Auth.api.raw('/corporate/media/'+encodeURIComponent(mediaId),{
+          method:'PUT', credentials:'include',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({schedule: item.schedule})
+        });
+        if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Failed')}
+        if(statusEl){ statusEl.textContent='✓ Saved'; statusEl.className='cp-sched-status ok'; }
+        setTimeout(()=>{if(statusEl && statusEl.textContent==='✓ Saved')statusEl.textContent=''},1800);
+      }catch(e){
+        if(statusEl){ statusEl.textContent='✗ '+e.message; statusEl.className='cp-sched-status err'; }
+      }
+    }, 500);
+  }
+
+  window.corpToggleDay = function(mediaId, dayIdx){
+    const item = (state.media||[]).find(m=>m.id===mediaId);
+    if(!item) return;
+    item.schedule = item.schedule || {enabled:true, days:[], start_time:'00:00', end_time:'23:59', priority:1};
+    const s = item.schedule;
+    s.days = Array.isArray(s.days)?s.days.slice():[];
+    const i = s.days.indexOf(dayIdx);
+    if(i>=0) s.days.splice(i,1); else s.days.push(dayIdx);
+    // Toggle the button UI
+    const btns = document.querySelectorAll(`[data-media-id="${mediaId}"] .cp-day`);
+    if(btns[dayIdx]) btns[dayIdx].classList.toggle('on');
+    _saveSchedule(mediaId);
+  };
+
+  window.corpSchedSet = function(mediaId, key, value){
+    const item = (state.media||[]).find(m=>m.id===mediaId);
+    if(!item) return;
+    item.schedule = item.schedule || {enabled:true, days:[0,1,2,3,4,5,6], start_time:'00:00', end_time:'23:59', priority:1};
+    item.schedule[key] = value;
+    _saveSchedule(mediaId);
+  };
 
   // ---------- Entry point ----------
   window.renderCorporatePortal = async function(user){

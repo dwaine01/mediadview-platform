@@ -14,9 +14,10 @@ Two responsibilities:
   2. Portal-side endpoints under /api/corporate/* consumed by the
      corporate-portal.js SPA piece.
 """
-from fastapi import APIRouter, Depends, HTTPException
-from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Body
+from typing import Optional, List
 from datetime import datetime
+import uuid
 
 
 corporate_router = APIRouter(prefix="/api/corporate")
@@ -123,5 +124,145 @@ def create_corporate_routes(db, get_current_user):
         if not inv:
             raise HTTPException(404, "Invoice not found")
         return _strip(inv)
+
+    # ============ D.1.b — MY CONTENT (media library) ============
+    #
+    # Media is stored inline as a base64 data URL — matches the existing
+    # pattern used by screens.photo_base64 and customer_orders.media_data_url,
+    # so we don't need to introduce S3 or Cloudflare R2 for the MVP.
+    # A single client_media doc looks like:
+    #   { id, client_id, kind: 'image'|'video', name, mime, size_bytes,
+    #     data_url, screen_ids: [...], status: 'active'|'paused',
+    #     schedule: { enabled, days: [0..6], start_time, end_time, priority },
+    #     created_at, updated_at }
+
+    def _all_screen_ids(client: dict) -> List[str]:
+        ids = []
+        for loc in client.get("locations", []):
+            for sc in loc.get("screens", []):
+                if sc.get("id"):
+                    ids.append(sc["id"])
+        return ids
+
+    async def _get_own_client(user: dict) -> dict:
+        cl = await db.fin_clients.find_one({"id": user["client_id"]})
+        if not cl:
+            raise HTTPException(404, "Business profile not found")
+        return cl
+
+    @corporate_router.get("/screens")
+    async def corporate_screens(user: dict = Depends(require_corporate)):
+        """Flat list of the client's screens with their location for use in
+        multi-select checkboxes (upload / schedule)."""
+        cl = await _get_own_client(user)
+        out = []
+        for loc in cl.get("locations", []):
+            for sc in loc.get("screens", []):
+                out.append({
+                    "id": sc.get("id"),
+                    "model": sc.get("model", "MAV-30540S"),
+                    "units": int(sc.get("units", 1)),
+                    "location_id": loc.get("id"),
+                    "location_name": loc.get("name") or "Location",
+                    "status": loc.get("status", "active"),
+                })
+        return out
+
+    @corporate_router.get("/media")
+    async def list_media(user: dict = Depends(require_corporate)):
+        cursor = db.client_media.find({"client_id": user["client_id"]}).sort("created_at", -1)
+        return [_strip(m) async for m in cursor]
+
+    @corporate_router.post("/media")
+    async def create_media(payload: dict = Body(...), user: dict = Depends(require_corporate)):
+        # Validate mandatory fields
+        data_url = (payload.get("data_url") or "").strip()
+        if not data_url.startswith("data:"):
+            raise HTTPException(400, "Missing or invalid data_url (must be a data:image/... or data:video/... URL)")
+
+        # Size guard — 8 MB base64 ≈ 6 MB actual media
+        if len(data_url) > 12 * 1024 * 1024:  # 12MB base64 buffer
+            raise HTTPException(413, "File is too large. Maximum 6 MB per upload.")
+
+        mime = data_url.split(";", 1)[0].removeprefix("data:").strip() or "application/octet-stream"
+        if mime.startswith("image/"):
+            kind = "image"
+        elif mime.startswith("video/"):
+            kind = "video"
+        else:
+            raise HTTPException(400, "Unsupported media type. Only images and videos are allowed.")
+
+        cl = await _get_own_client(user)
+        # Validate that any screen_ids belong to this client
+        allowed = set(_all_screen_ids(cl))
+        screen_ids = [s for s in (payload.get("screen_ids") or []) if s in allowed]
+
+        # Sanitise schedule (all optional)
+        sch_in = payload.get("schedule") or {}
+        schedule = {
+            "enabled": bool(sch_in.get("enabled", True)),
+            "days": [int(d) for d in (sch_in.get("days") or [0, 1, 2, 3, 4, 5, 6]) if 0 <= int(d) <= 6],
+            "start_time": (sch_in.get("start_time") or "00:00")[:5],
+            "end_time": (sch_in.get("end_time") or "23:59")[:5],
+            "priority": int(sch_in.get("priority") or 1),
+        }
+
+        doc = {
+            "id": str(uuid.uuid4()),
+            "client_id": user["client_id"],
+            "kind": kind,
+            "mime": mime,
+            "name": (payload.get("name") or "Untitled").strip()[:80],
+            "size_bytes": int(len(data_url) * 0.75),  # rough decoded size
+            "data_url": data_url,
+            "screen_ids": screen_ids,
+            "status": "active",
+            "schedule": schedule,
+            "duration_sec": int(payload.get("duration_sec") or 0),
+            "created_by": user.get("email"),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow(),
+        }
+        await db.client_media.insert_one(doc)
+        return _strip(doc)
+
+    @corporate_router.put("/media/{media_id}")
+    async def update_media(media_id: str, payload: dict = Body(...), user: dict = Depends(require_corporate)):
+        m = await db.client_media.find_one({"id": media_id, "client_id": user["client_id"]})
+        if not m:
+            raise HTTPException(404, "Media not found")
+        cl = await _get_own_client(user)
+        allowed_screens = set(_all_screen_ids(cl))
+
+        update = {}
+        if "name" in payload:
+            update["name"] = str(payload["name"] or "Untitled").strip()[:80]
+        if "screen_ids" in payload:
+            update["screen_ids"] = [s for s in (payload["screen_ids"] or []) if s in allowed_screens]
+        if "status" in payload and payload["status"] in ("active", "paused"):
+            update["status"] = payload["status"]
+        if "schedule" in payload and isinstance(payload["schedule"], dict):
+            sch_in = payload["schedule"]
+            update["schedule"] = {
+                "enabled": bool(sch_in.get("enabled", True)),
+                "days": sorted({int(d) for d in (sch_in.get("days") or []) if 0 <= int(d) <= 6}),
+                "start_time": (sch_in.get("start_time") or "00:00")[:5],
+                "end_time": (sch_in.get("end_time") or "23:59")[:5],
+                "priority": int(sch_in.get("priority") or 1),
+            }
+        if not update:
+            return _strip(m)
+
+        update["updated_at"] = datetime.utcnow()
+        await db.client_media.update_one({"id": media_id}, {"$set": update})
+        m2 = await db.client_media.find_one({"id": media_id})
+        return _strip(m2)
+
+    @corporate_router.delete("/media/{media_id}")
+    async def delete_media(media_id: str, user: dict = Depends(require_corporate)):
+        r = await db.client_media.delete_one({"id": media_id, "client_id": user["client_id"]})
+        if r.deleted_count == 0:
+            raise HTTPException(404, "Media not found")
+        return {"ok": True}
 
     return corporate_router

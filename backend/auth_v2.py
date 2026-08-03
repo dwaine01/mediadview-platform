@@ -370,6 +370,15 @@ def build_auth_router(db, get_current_user_dep):
         await audit(db, user_id=user["id"], action="login_success", request=request,
                     metadata={"client_type": body.client_type})
 
+        # Track last successful login (Phase D.1.d) — non-critical, best-effort
+        try:
+            await db.users.update_one(
+                {"id": user["id"]},
+                {"$set": {"last_login_at": _now(), "last_login_ip": ip}}
+            )
+        except Exception:
+            pass
+
         # 4) Return tokens
         if body.client_type == "web":
             set_refresh_cookie(response, refresh)
