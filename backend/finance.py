@@ -287,6 +287,228 @@ def create_finance_routes(db, get_current_user):
         await db.fin_clients.update_one({"id": client_id}, {"$set": {"status": "archived"}})
         return {"ok": True}
 
+    # ============ PORTAL ACCESS (Phase D.1 — corporate client login) ============
+    #
+    # These endpoints let the admin grant / reset a client's login to the
+    # corporate portal at panel.mediadview.com. When a portal is created, a
+    # `users` document is added with role="corporate" linked to the fin_client
+    # via `client_id`. The temporary password is returned once so the admin
+    # can copy or forward it; it's also emailed to the client's email on
+    # file (if SMTP is configured under Finance → Email Settings).
+
+    def _gen_portal_password(length: int = 12) -> str:
+        import secrets
+        alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789"
+        return "".join(secrets.choice(alphabet) for _ in range(length))
+
+    async def _send_portal_welcome_email(client: dict, email: str, temp_password: str) -> dict:
+        """Send credentials via SMTP if configured. Never raise — return
+        {sent: bool, error: str|None} so the admin flow always succeeds and
+        the admin can copy the password from the UI if the email fails."""
+        try:
+            s = await db.fin_settings.find_one({"_id": "email"})
+            if not s or not s.get("enabled"):
+                return {"sent": False, "error": "SMTP not configured (Settings → Email)."}
+            from email.message import EmailMessage
+            from email.utils import formataddr
+            import aiosmtplib
+            from finance_email import decrypt_password
+
+            portal_url = "https://panel.mediadview.com"
+            biz = client.get("business_name", "your business")
+            msg = EmailMessage()
+            msg["From"] = formataddr((s.get("from_name", "MediAd View"), s.get("from_email") or s.get("smtp_user")))
+            msg["To"] = email
+            msg["Subject"] = f"Welcome to MediAd View — Your Portal Access ({biz})"
+            msg.set_content(
+                f"""Welcome to MediAd View!
+
+Your business profile "{biz}" is now active. You can log in to the
+corporate portal to manage your screens, content and view your invoices.
+
+Portal:   {portal_url}
+Email:    {email}
+Password: {temp_password}
+
+For security, please change this password after your first login.
+
+— The MediAd View Team
+"""
+            )
+            msg.add_alternative(
+                f"""<html><body style="font-family:-apple-system,Segoe UI,Arial,sans-serif;background:#f4f6fb;padding:24px">
+<div style="max-width:560px;margin:auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.06)">
+  <div style="background:linear-gradient(135deg,#6366f1,#22d3ee);padding:26px;color:#fff">
+    <div style="font-size:11px;letter-spacing:2px;font-weight:700;opacity:.85">MEDIAD VIEW</div>
+    <div style="font-size:22px;font-weight:900;margin-top:4px">Welcome, {biz}</div>
+  </div>
+  <div style="padding:26px;color:#0f172a;font-size:14px;line-height:1.55">
+    <p>Your business profile is now active on MediAd View. You can log in to your dedicated corporate portal to manage your screens, upload content, and view your monthly invoices.</p>
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:16px;margin:18px 0">
+      <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Your credentials</div>
+      <div style="font-size:13px;margin-bottom:6px"><strong>Email:</strong> {email}</div>
+      <div style="font-size:13px"><strong>Temporary password:</strong> <code style="background:#fff;border:1px solid #e2e8f0;padding:3px 8px;border-radius:6px;font-size:13px">{temp_password}</code></div>
+    </div>
+    <p style="text-align:center;margin:22px 0"><a href="{portal_url}" style="display:inline-block;background:#6366f1;color:#fff;text-decoration:none;padding:12px 28px;border-radius:8px;font-weight:700;font-size:14px">Log in to your portal</a></p>
+    <p style="font-size:12px;color:#64748b">For your security, please change your password after your first login. If you didn't expect this email, contact us at support@mediadview.com.</p>
+  </div>
+</div></body></html>""",
+                subtype="html",
+            )
+
+            pwd = decrypt_password(s.get("smtp_password", ""))
+            port = int(s.get("smtp_port", 587))
+            use_tls = port == 465
+            start_tls = not use_tls
+            await aiosmtplib.send(
+                msg,
+                hostname=s.get("smtp_host", "smtp.titan.email"),
+                port=port,
+                username=s.get("smtp_user"),
+                password=pwd,
+                use_tls=use_tls,
+                start_tls=start_tls,
+                timeout=30,
+            )
+            return {"sent": True, "error": None}
+        except Exception as e:
+            return {"sent": False, "error": str(e)}
+
+    @finance_router.get("/clients/{client_id}/portal-access")
+    async def get_portal_access(client_id: str, user: dict = Depends(require_finance)):
+        """Check whether this client has portal login credentials."""
+        cl = await db.fin_clients.find_one({"id": client_id}, {"id": 1, "email": 1, "business_name": 1})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+        portal_user = await db.users.find_one({"client_id": client_id, "role": "corporate"})
+        return {
+            "has_access": bool(portal_user),
+            "email": (portal_user or {}).get("email"),
+            "last_login": (portal_user or {}).get("last_login_at"),
+            "created_at": (portal_user or {}).get("created_at"),
+            "must_change_password": bool((portal_user or {}).get("must_change_password", False)),
+            "client_email": cl.get("email"),
+        }
+
+    @finance_router.post("/clients/{client_id}/portal-access")
+    async def create_portal_access(client_id: str, payload: dict = Body(default={}), user: dict = Depends(require_finance_edit)):
+        """Create portal login credentials for this client.
+
+        Steps:
+          1. Verify the client exists and has an email.
+          2. If a user for this client already exists → just reset password.
+          3. Otherwise create a new users doc with role="corporate".
+          4. Try to email the credentials; return the plain password so the
+             admin can copy it manually if email failed.
+        """
+        cl = await db.fin_clients.find_one({"id": client_id})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+
+        # Allow overriding email at portal-creation time (client email may be blank in profile)
+        email = (payload.get("email") or cl.get("email") or "").strip().lower()
+        if not email:
+            raise HTTPException(400, "Client has no email address. Add one in the profile or pass 'email' in the request.")
+
+        # Import hash_password from server module (already registered at boot)
+        from server import hash_password
+
+        temp_pwd = _gen_portal_password()
+        pwd_hash = hash_password(temp_pwd)
+
+        existing = await db.users.find_one({"$or": [{"email": email}, {"client_id": client_id}]})
+        if existing:
+            # If it belongs to a different client, block to avoid takeover
+            if existing.get("client_id") and existing["client_id"] != client_id:
+                raise HTTPException(409, "This email already belongs to a different business profile.")
+            # If it's an admin/superadmin, block — never demote an admin
+            if existing.get("role") in ("admin", "superadmin"):
+                raise HTTPException(409, "This email is already used by an administrator.")
+            # Otherwise reset password + upgrade to corporate
+            await db.users.update_one(
+                {"id": existing["id"]},
+                {"$set": {
+                    "password_hash": pwd_hash,
+                    "role": "corporate",
+                    "client_id": client_id,
+                    "must_change_password": True,
+                    "active": True,
+                    "updated_at": datetime.utcnow(),
+                }}
+            )
+            portal_user_id = existing["id"]
+            action = "reset"
+        else:
+            portal_user_id = str(uuid.uuid4())
+            await db.users.insert_one({
+                "id": portal_user_id,
+                "email": email,
+                "password_hash": pwd_hash,
+                "role": "corporate",
+                "client_id": client_id,
+                "name": cl.get("representative") or cl.get("business_name") or email,
+                "company_name": cl.get("business_name"),
+                "phone": cl.get("phone"),
+                "language": "en",
+                "active": True,
+                "must_change_password": True,
+                "created_at": datetime.utcnow(),
+            })
+            action = "created"
+
+        # Ensure fin_clients has an email set (so it appears in the profile)
+        if not cl.get("email"):
+            await db.fin_clients.update_one({"id": client_id}, {"$set": {"email": email}})
+
+        # Send welcome email (non-blocking on failure)
+        email_res = await _send_portal_welcome_email(cl, email, temp_pwd)
+
+        return {
+            "ok": True,
+            "action": action,
+            "email": email,
+            "temp_password": temp_pwd,
+            "email_sent": email_res["sent"],
+            "email_error": email_res["error"],
+            "portal_url": "https://panel.mediadview.com",
+        }
+
+    @finance_router.post("/clients/{client_id}/portal-access/reset")
+    async def reset_portal_password(client_id: str, user: dict = Depends(require_finance_edit)):
+        """Regenerate the password for an existing portal user."""
+        portal_user = await db.users.find_one({"client_id": client_id, "role": "corporate"})
+        if not portal_user:
+            raise HTTPException(404, "This client has no portal access yet. Create it first.")
+        cl = await db.fin_clients.find_one({"id": client_id}) or {}
+        from server import hash_password
+        temp_pwd = _gen_portal_password()
+        await db.users.update_one(
+            {"id": portal_user["id"]},
+            {"$set": {
+                "password_hash": hash_password(temp_pwd),
+                "must_change_password": True,
+                "updated_at": datetime.utcnow(),
+            }}
+        )
+        email_res = await _send_portal_welcome_email(cl, portal_user["email"], temp_pwd)
+        return {
+            "ok": True,
+            "email": portal_user["email"],
+            "temp_password": temp_pwd,
+            "email_sent": email_res["sent"],
+            "email_error": email_res["error"],
+        }
+
+    @finance_router.delete("/clients/{client_id}/portal-access")
+    async def revoke_portal_access(client_id: str, user: dict = Depends(require_finance_edit)):
+        """Disable the corporate user for this client (soft — keeps history)."""
+        r = await db.users.update_one(
+            {"client_id": client_id, "role": "corporate"},
+            {"$set": {"active": False, "updated_at": datetime.utcnow()}}
+        )
+        return {"ok": True, "modified": r.modified_count}
+
+
     # ============ LOCATIONS & SCREENS ============
     @finance_router.post("/clients/{client_id}/locations")
     async def add_location(client_id: str, data: ClientLocation, user: dict = Depends(require_finance_edit)):

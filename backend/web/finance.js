@@ -572,6 +572,8 @@
         </div>
       </div>
 
+      <div id="portal-access-card"></div>
+
       ${renderLocations(cl)}
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
@@ -627,7 +629,114 @@
         </div>
       </div>
     `;
+    // Load portal access panel asynchronously (doesn't block render)
+    renderPortalAccessCard(cl.id);
   };
+
+  async function renderPortalAccessCard(clientId){
+    const holder = document.getElementById('portal-access-card');
+    if(!holder) return;
+    holder.innerHTML = `<div class="card" style="padding:16px 18px;margin-bottom:20px;font-size:12.5px;color:var(--t-4)">Checking portal access…</div>`;
+    try{
+      const info = await api(FAPI + '/clients/' + clientId + '/portal-access');
+      if(info.has_access){
+        holder.innerHTML = `
+          <div class="card" style="padding:18px 20px;margin-bottom:20px;background:linear-gradient(90deg,rgba(16,185,129,.06),#fff 70%);border-left:3px solid var(--green)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:11px;font-weight:800;color:var(--green);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Portal access · Active</div>
+                <div style="font-size:14px;color:var(--t-1);font-weight:600">${esc(info.email||'—')}</div>
+                <div style="font-size:11.5px;color:var(--t-4);margin-top:3px">
+                  Client can sign in at <strong>panel.mediadview.com</strong>
+                  ${info.last_login?' · Last login: '+fmtDate(info.last_login):' · Never signed in yet'}
+                  ${info.must_change_password?' · <span style="color:var(--amber-l);font-weight:600">Password not changed yet</span>':''}
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn-s" onclick="resetPortalPassword('${clientId}')" style="border-color:#fca5a5;color:#dc2626">🔑 Reset Password</button>
+                <button class="btn-s" onclick="revokePortalAccess('${clientId}')" style="border-color:#e2e8f0;color:var(--t-4)">Revoke Access</button>
+              </div>
+            </div>
+          </div>`;
+      } else {
+        holder.innerHTML = `
+          <div class="card" style="padding:18px 20px;margin-bottom:20px;background:linear-gradient(90deg,rgba(99,102,241,.06),#fff 70%);border-left:3px solid var(--brand-l)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
+              <div>
+                <div style="font-size:11px;font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Portal Access</div>
+                <div style="font-size:14px;color:var(--t-1);font-weight:600">No portal access yet</div>
+                <div style="font-size:11.5px;color:var(--t-4);margin-top:3px">Grant the client login credentials for panel.mediadview.com to manage their own screens and content.</div>
+              </div>
+              <button class="btn-p" onclick="createPortalAccess('${clientId}','${esc(info.client_email||'')}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>Create Portal Access</button>
+            </div>
+          </div>`;
+      }
+    }catch(e){
+      holder.innerHTML = `<div class="card" style="padding:14px 16px;margin-bottom:20px;color:var(--red);font-size:12.5px">Unable to load portal access status: ${esc(e.message||'unknown')}</div>`;
+    }
+  }
+
+  window.createPortalAccess = async function(clientId, defaultEmail){
+    const email = prompt('Enter the email address the client will use to log in:', defaultEmail || '');
+    if(email===null) return;
+    if(!email.trim() || !/@/.test(email)){ alert('Please enter a valid email address.'); return; }
+    try{
+      const r = await api(FAPI + '/clients/' + clientId + '/portal-access', {method:'POST', body: JSON.stringify({email: email.trim()})});
+      showPortalCredentials(r);
+      await viewClient(clientId);
+    }catch(e){ alert('Failed to create portal access: '+(e.message||'unknown')); }
+  };
+
+  window.resetPortalPassword = async function(clientId){
+    if(!confirm('Generate a new temporary password? The current password will stop working immediately.')) return;
+    try{
+      const r = await api(FAPI + '/clients/' + clientId + '/portal-access/reset', {method:'POST', body:'{}'});
+      showPortalCredentials(r);
+      await viewClient(clientId);
+    }catch(e){ alert('Failed to reset password: '+(e.message||'unknown')); }
+  };
+
+  window.revokePortalAccess = async function(clientId){
+    if(!confirm('Revoke portal access for this client? They will no longer be able to sign in until you re-enable it.')) return;
+    try{
+      await api(FAPI + '/clients/' + clientId + '/portal-access', {method:'DELETE'});
+      await viewClient(clientId);
+    }catch(e){ alert('Failed to revoke: '+(e.message||'unknown')); }
+  };
+
+  function showPortalCredentials(r){
+    const emailStatus = r.email_sent
+      ? '<div style="color:var(--green);font-weight:600;font-size:12px;margin-top:6px">✓ Credentials emailed to '+esc(r.email)+'</div>'
+      : '<div style="color:var(--amber-l);font-weight:600;font-size:12px;margin-top:6px">⚠️ Email could not be sent — copy the password below and share it manually.<br><span style="color:var(--t-4);font-weight:400">('+esc(r.email_error||'no reason')+')</span></div>';
+    closeFinModal();
+    const html = `<div id="fin-modal" style="position:fixed;inset:0;background:rgba(2,6,18,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px;overflow-y:auto">
+      <div style="width:100%;max-width:520px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
+        <div style="padding:20px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;flex-shrink:0">
+          <div style="font-size:17px;font-weight:700">Portal Access ${r.action==='reset'?'Reset':'Created'}</div>
+          <button onclick="closeFinModal()" class="btn-icon">✕</button>
+        </div>
+        <div style="padding:24px;overflow-y:auto;flex:1">
+          <p style="font-size:13px;color:var(--t-2);margin-bottom:12px">Share these credentials with the client. They must change the password on their first login.</p>
+          <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;padding:14px 16px">
+            <div style="font-size:11px;color:var(--t-4);font-weight:700;text-transform:uppercase;letter-spacing:1px">Login URL</div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--brand-dd);margin-bottom:10px">panel.mediadview.com</div>
+            <div style="font-size:11px;color:var(--t-4);font-weight:700;text-transform:uppercase;letter-spacing:1px">Email</div>
+            <div style="font-size:14px;font-weight:600;margin-bottom:10px;font-family:'JetBrains Mono',monospace">${esc(r.email)}</div>
+            <div style="font-size:11px;color:var(--t-4);font-weight:700;text-transform:uppercase;letter-spacing:1px">Temporary password</div>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <span style="font-size:16px;font-weight:800;color:var(--brand-dd);font-family:'JetBrains Mono',monospace;background:#fff;border:1px dashed #cbd5e1;padding:8px 12px;border-radius:6px">${esc(r.temp_password)}</span>
+              <button class="btn-s" style="padding:8px 12px;font-size:12px" onclick="navigator.clipboard.writeText('${esc(r.temp_password)}');this.textContent='Copied!'">📋 Copy</button>
+            </div>
+          </div>
+          ${emailStatus}
+        </div>
+        <div style="padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-shrink:0">
+          <button class="btn-p" onclick="closeFinModal()">Got it</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
 
   // One-click contract generation
   window.quickGenerateContract = async function(clientId){

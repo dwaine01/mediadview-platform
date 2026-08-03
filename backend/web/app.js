@@ -12,6 +12,14 @@ async function doLogout(){try{await window.Auth.logout()}catch(_){}token=null;us
 // On page load, if the refresh cookie is still valid, hydrate the session silently.
 window.addEventListener('DOMContentLoaded',async function(){const ok=await window.Auth.bootstrap();if(ok){user=window.Auth.user();enterApp()}});
 function enterApp(){
+  // Corporate portal — business/rental clients get their own dedicated view
+  if(user?.role==='corporate'){
+    if(typeof window.renderCorporatePortal==='function'){
+      document.getElementById('view-login').classList.add('off');
+      window.renderCorporatePortal(user);
+      return;
+    }
+  }
   document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
   document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
   document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();

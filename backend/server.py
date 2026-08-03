@@ -4063,6 +4063,10 @@ app.include_router(build_admin_refunds_router(db))
 from reports_routes import build_reports_router
 app.include_router(build_reports_router(db))
 
+# Phase D.1 — Corporate Portal (business/rental clients dashboard)
+from corporate_portal import create_corporate_routes
+app.include_router(create_corporate_routes(db, get_current_user))
+
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
 # ────────────────────────────────────────────────────────────────────────

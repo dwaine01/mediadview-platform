@@ -385,6 +385,8 @@ def build_auth_router(db, get_current_user_dep):
                 "id": user["id"], "email": user["email"], "name": user.get("name"),
                 "role": user.get("role"), "company_name": user.get("company_name"),
                 "language": user.get("language", "en"),
+                "client_id": user.get("client_id"),
+                "must_change_password": bool(user.get("must_change_password", False)),
             },
             **payload_out,
         }
@@ -496,7 +498,7 @@ def build_auth_router(db, get_current_user_dep):
         new_epoch = int(current_user.get("session_epoch", 0)) + 1
         await db.users.update_one(
             {"id": current_user["id"]},
-            {"$set": {"password_hash": new_hash, "session_epoch": new_epoch}}
+            {"$set": {"password_hash": new_hash, "session_epoch": new_epoch, "must_change_password": False}}
         )
         await revoke_all_for_user(db, current_user["id"], reason="password_changed")
         await audit(db, user_id=current_user["id"], action="change_password",
@@ -512,6 +514,8 @@ def build_auth_router(db, get_current_user_dep):
             "role":         current_user.get("role"),
             "company_name": current_user.get("company_name"),
             "language":     current_user.get("language", "en"),
+            "client_id":    current_user.get("client_id"),
+            "must_change_password": bool(current_user.get("must_change_password", False)),
         }
 
     return router
