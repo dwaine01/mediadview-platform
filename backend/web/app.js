@@ -1854,8 +1854,3 @@ async function pushToColorlight(){
   }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)'}
   finally{btn.disabled=false;btn.style.opacity='1'}
 }
-
- Claude is active in this tab group  
-Open chat
- 
-Dismiss
