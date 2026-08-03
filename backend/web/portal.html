@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi cuenta — MediAd View</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:100vh}
+.wrap{max-width:640px;margin:0 auto;padding:40px 20px;text-align:center}
+.top img{height:44px;margin-bottom:24px}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:32px 22px;margin-top:20px}
+.h1{font-size:26px;font-weight:900;letter-spacing:-.5px;margin-bottom:8px}
+.sub{font-size:14px;color:#94a3b8;line-height:1.5;margin-bottom:22px}
+.hi{background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.25);border-radius:12px;padding:14px 18px;margin-bottom:20px;text-align:left}
+.hi-eyebrow{font-size:10px;color:#a5b4fc;letter-spacing:2px;font-weight:800}
+.hi-name{font-size:16px;font-weight:800;margin-top:3px}
+.hi-loc{font-size:12px;color:#94a3b8;margin-top:2px}
+.pending{background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.35);border-radius:12px;padding:16px;font-size:13px;color:#fbbf24;line-height:1.5}
+.btn-out{width:100%;padding:12px;background:transparent;border:1.5px solid #1e293b;border-radius:10px;color:#94a3b8;text-decoration:none;display:inline-block;font-weight:700;font-size:13px;margin-top:16px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><img src="/api/web/logo-new.png" alt="MediAd View"></div>
+  <h1 class="h1">¡Bienvenido a tu portal!</h1>
+  <p class="sub">Tu cuenta se creó correctamente. Estamos preparando el catálogo completo.</p>
+
+  <div id="scanned-block" class="card" style="display:none">
+    <div id="scanned"></div>
+  </div>
+
+  <div class="card">
+    <div class="pending">
+      🚧 <b>Catálogo en construcción</b><br><br>
+      Estamos terminando la vista de todas las pantallas disponibles, el carrito con múltiples selecciones y la calculadora de descuentos. Estará listo muy pronto.<br><br>
+      Mientras tanto, si escaneaste una pantalla en particular puedes escribir a nuestro equipo para reservarla directamente.
+    </div>
+    <a href="mailto:sales@mediadview.com" style="display:block;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;padding:14px;border-radius:12px;text-decoration:none;font-weight:800;margin-top:16px">Contáctanos: sales@mediadview.com</a>
+    <a href="/" class="btn-out">← Volver al inicio</a>
+  </div>
+</div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var highlight = params.get('highlight');
+  var code = params.get('code');
+
+  var token = null;
+  try { token = localStorage.getItem('mv_token'); } catch(e){}
+
+  // Verify session; if none, redirect to login.
+  if (!token) { location.replace('/login'); return; }
+
+  // Show the scanned screen at the top if present
+  if (highlight) {
+    fetch('/api/public/screens/' + encodeURIComponent(highlight))
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(s){
+        if (!s) return;
+        var loc = s.location || {};
+        var city = [loc.city, loc.state].filter(Boolean).join(', ') || '';
+        var block = document.getElementById('scanned-block');
+        var body = document.getElementById('scanned');
+        body.innerHTML =
+          '<div class="hi">'
+          + '<div class="hi-eyebrow">⭐ PANTALLA QUE ESCANEASTE</div>'
+          + '<div class="hi-name">' + (s.name||'Pantalla') + '</div>'
+          + (city ? '<div class="hi-loc">'+city+(s.pairing_code?' · '+s.pairing_code:'')+'</div>' : '')
+          + '</div>';
+        block.style.display = 'block';
+      })
+      .catch(function(){});
+  }
+})();
+</script>
+</body>
+</html>

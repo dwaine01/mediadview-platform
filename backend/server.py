@@ -3854,6 +3854,29 @@ async def root(request: Request):
 async def about():
     return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
 
+@app.get("/signup", include_in_schema=False)
+async def _signup():
+    """Customer signup (Phase C.3). Query params 'screen' + 'code' are
+    read by the client-side JS to remember which physical screen the user
+    scanned and forward them to /portal?highlight=... after registration."""
+    return FileResponse(os.path.join(WEB_DIR, 'signup.html'), media_type='text/html')
+
+@app.get("/login", include_in_schema=False)
+async def _login():
+    """Customer-facing login. Admins/superadmins are redirected to
+    /api/dashboard by the client JS based on the role from /auth/v2/login."""
+    return FileResponse(os.path.join(WEB_DIR, 'login-customer.html'), media_type='text/html')
+
+@app.get("/portal", include_in_schema=False)
+async def _portal():
+    """Customer portal / marketplace (Phase C.4)."""
+    return FileResponse(os.path.join(WEB_DIR, 'portal.html'), media_type='text/html')
+
+@app.get("/marketplace", include_in_schema=False)
+async def _marketplace():
+    """Convenience alias for /portal — same catalog page."""
+    return FileResponse(os.path.join(WEB_DIR, 'portal.html'), media_type='text/html')
+
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
 from finance_email import create_finance_extensions

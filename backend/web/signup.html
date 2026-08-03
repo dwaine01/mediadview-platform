@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Crear cuenta — MediAd View</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:linear-gradient(180deg,#020617 0%,#0a0f1a 100%);color:#e2e8f0;min-height:100vh}
+.wrap{max-width:520px;margin:0 auto;padding:24px 20px 60px}
+.top{padding:14px 0 20px;display:flex;align-items:center;justify-content:center;gap:8px}
+.top img{height:36px}
+.top-tag{font-size:9px;color:#22d3ee;letter-spacing:2px;font-weight:800;padding:3px 10px;border:1px solid #22d3ee55;border-radius:12px}
+
+.h1{font-size:28px;font-weight:900;letter-spacing:-.5px;margin-bottom:6px;text-align:center}
+.sub{font-size:14px;color:#94a3b8;text-align:center;margin-bottom:24px;line-height:1.5}
+
+.pill-screen{background:rgba(99,102,241,.10);border:1px solid rgba(99,102,241,.28);border-radius:12px;padding:14px 16px;margin-bottom:20px;display:flex;align-items:center;gap:12px}
+.pill-icon{flex-shrink:0;width:38px;height:38px;background:rgba(99,102,241,.2);border-radius:10px;display:flex;align-items:center;justify-content:center;color:#a5b4fc}
+.pill-body{flex:1;min-width:0}
+.pill-eyebrow{font-size:10px;letter-spacing:1.5px;color:#a5b4fc;font-weight:700}
+.pill-name{font-size:15px;font-weight:800;color:#f1f5f9;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill-loc{font-size:11px;color:#94a3b8}
+
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:20px}
+.lbl{display:block;font-size:10px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}
+.inp{width:100%;padding:12px 14px;background:#020617;border:1.5px solid #1e293b;border-radius:10px;color:#f1f5f9;font-size:14px;font-family:inherit;transition:border .2s;color-scheme:dark}
+.inp:focus{border-color:#6366f1;outline:none}
+.inp::placeholder{color:#334155}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.field{margin-bottom:14px}
+
+.btn{width:100%;padding:14px;border:none;border-radius:12px;font-weight:800;font-size:15px;cursor:pointer;font-family:inherit;background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 8px 22px rgba(99,102,241,.32);margin-top:8px;transition:transform .15s,box-shadow .2s}
+.btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 12px 28px rgba(99,102,241,.42)}
+.btn:disabled{opacity:.55;cursor:wait;transform:none}
+
+.err{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fca5a5;padding:12px;border-radius:10px;margin-bottom:14px;font-size:13px}
+.hint{font-size:11px;color:#475569;margin-top:6px}
+
+.foot{margin-top:18px;text-align:center;font-size:13px;color:#94a3b8}
+.foot a{color:#a5b4fc;text-decoration:none;font-weight:700}
+.legal{font-size:10px;color:#475569;text-align:center;line-height:1.5;margin-top:18px}
+.legal a{color:#64748b;text-decoration:underline}
+
+@media(max-width:420px){
+  .row{grid-template-columns:1fr;gap:0}
+  .row .field{margin-bottom:14px}
+  .wrap{padding:20px 16px 40px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <img src="/api/web/logo-new.png" alt="MediAd View">
+    <span class="top-tag">DIGITAL SIGNAGE</span>
+  </div>
+
+  <h1 class="h1">Crea tu cuenta</h1>
+  <p class="sub">En 30 segundos podrás publicar tu anuncio en cualquier pantalla disponible.</p>
+
+  <div id="screen-pill" style="display:none"></div>
+  <div id="err" style="display:none" class="err"></div>
+
+  <div class="card">
+    <div class="row">
+      <div><label class="lbl">Nombre</label><input id="name" class="inp" placeholder="Tu nombre" autocomplete="given-name" autofocus></div>
+      <div><label class="lbl">Apellido (opcional)</label><input id="lastname" class="inp" placeholder="Tu apellido" autocomplete="family-name"></div>
+    </div>
+    <div class="field">
+      <label class="lbl">Email</label>
+      <input id="email" class="inp" type="email" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label class="lbl">Teléfono (opcional)</label>
+      <input id="phone" class="inp" type="tel" placeholder="+1 555 000 0000" autocomplete="tel">
+    </div>
+    <div class="field">
+      <label class="lbl">Contraseña</label>
+      <input id="pwd" class="inp" type="password" placeholder="Mínimo 8 caracteres" autocomplete="new-password">
+      <div class="hint">Combina letras, números y algún símbolo para más seguridad.</div>
+    </div>
+    <button id="btn" class="btn" onclick="submit()">Crear cuenta gratis →</button>
+  </div>
+
+  <p class="foot">¿Ya tienes cuenta? <a id="loginLink" href="/login">Iniciar sesión</a></p>
+  <p class="legal">Al continuar aceptas los <a href="/terms">Términos</a> y la <a href="/privacy">Política de Privacidad</a> de MediAd View.</p>
+</div>
+
+<script>
+(function(){
+  var params = new URLSearchParams(location.search);
+  var scanScreen = params.get('screen');
+  var scanCode   = params.get('code');
+  var err = document.getElementById('err');
+  var btn = document.getElementById('btn');
+
+  // Preserve context on the "Iniciar sesión" link.
+  if (scanScreen || scanCode) {
+    var q = new URLSearchParams();
+    if (scanScreen) q.set('screen', scanScreen);
+    if (scanCode)   q.set('code', scanCode);
+    document.getElementById('loginLink').href = '/login?' + q.toString();
+  }
+
+  // If we came from a scan, resolve the screen and render its badge.
+  if (scanScreen) {
+    var url = '/api/public/screens/' + encodeURIComponent(scanScreen);
+    fetch(url).then(function(r){ return r.ok ? r.json() : null; }).then(function(s){
+      if (!s) return;
+      var loc = s.location || {};
+      var city = [loc.city, loc.state].filter(Boolean).join(', ') || '';
+      var pill = document.getElementById('screen-pill');
+      pill.innerHTML =
+        '<div class="pill-screen">'
+        + '<div class="pill-icon"><svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg></div>'
+        + '<div class="pill-body">'
+          + '<div class="pill-eyebrow">PANTALLA QUE ESCANEASTE</div>'
+          + '<div class="pill-name">' + (s.name || 'Pantalla') + '</div>'
+          + (city ? '<div class="pill-loc">'+city+(s.pairing_code?' · '+s.pairing_code:'')+'</div>' : '')
+        + '</div>'
+        + '</div>';
+      pill.style.display = 'block';
+    }).catch(function(){});
+  }
+
+  function showErr(msg){ err.textContent = msg; err.style.display = 'block'; }
+
+  window.submit = async function(){
+    err.style.display = 'none';
+    var name = (document.getElementById('name').value || '').trim();
+    var last = (document.getElementById('lastname').value || '').trim();
+    var email = (document.getElementById('email').value || '').trim().toLowerCase();
+    var phone = (document.getElementById('phone').value || '').trim();
+    var pwd = document.getElementById('pwd').value || '';
+
+    if (!name) return showErr('Ingresa tu nombre.');
+    if (!email || !/^\S+@\S+\.\S+$/.test(email)) return showErr('Ingresa un email válido.');
+    if (pwd.length < 8) return showErr('La contraseña debe tener al menos 8 caracteres.');
+
+    btn.disabled = true; btn.textContent = 'Creando tu cuenta…';
+
+    try{
+      var res = await fetch('/api/auth/register', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          name: last ? (name + ' ' + last) : name,
+          email: email,
+          password: pwd,
+          phone: phone || null,
+          company_name: null
+        })
+      });
+      var data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'No se pudo crear la cuenta.');
+
+      // Store token so /portal can pick it up.
+      try { localStorage.setItem('mv_token', data.access_token); } catch(e){}
+
+      // Redirect to portal, carrying the scanned screen (so it lands highlighted).
+      var target = '/portal';
+      var qs = [];
+      if (scanScreen) qs.push('highlight=' + encodeURIComponent(scanScreen));
+      if (scanCode)   qs.push('code=' + encodeURIComponent(scanCode));
+      if (qs.length)  target += '?' + qs.join('&');
+      location.replace(target);
+    } catch(e){
+      showErr(e.message || 'Error al crear la cuenta.');
+      btn.disabled = false; btn.textContent = 'Crear cuenta gratis →';
+    }
+  };
+})();
+</script>
+</body>
+</html>
