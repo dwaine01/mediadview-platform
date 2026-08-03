@@ -581,6 +581,39 @@ async function editAdminScreen(id){
       '<button class="btn-s" onclick="copyAllPairing(\''+id+'\')" style="font-size:11px;padding:5px 12px">📋 Copy All 3</button>'+
     '</div>'+
   '</div>'+
+  // ===== PUBLIC MARKETPLACE (advertising for walk-in / QR customers) =====
+  '<div class="card" id="adv-card-'+id+'" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(99,102,241,.06),transparent);border:1px solid rgba(99,102,241,.25)">'+
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
+      '<svg width="22" height="22" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3z"/><path d="M8 12l3 3 5-6"/></svg>'+
+      '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--brand-l)">Public marketplace (QR / walk-in customers)</div>'+
+      '<div style="font-size:11px;color:var(--t-4)">These settings drive the /portal customer catalog and the QR landing page.</div></div>'+
+    '</div>'+
+    // Photo
+    '<div style="margin-bottom:14px"><div class="lbl">Photo of this screen (base64 stored, ~300 KB max)</div>'+
+      '<div id="adv-photo-preview-'+id+'" style="width:100%;aspect-ratio:16/9;background:var(--bg-1);border:1.5px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px">'+
+        (s.advertising?.photo_base64 ? '<img src="'+(s.advertising.photo_base64.startsWith('data:')?s.advertising.photo_base64:'data:image/jpeg;base64,'+s.advertising.photo_base64)+'" style="width:100%;height:100%;object-fit:cover">' : '<span style="color:var(--t-4);font-size:12px">No photo — customers will see a placeholder</span>')+
+      '</div>'+
+      '<input type="file" id="adv-photo-file-'+id+'" accept="image/*" onchange="advPickPhoto(\''+id+'\',this)" style="display:none">'+
+      '<div style="display:flex;gap:8px"><button class="btn-s" onclick="document.getElementById(\'adv-photo-file-'+id+'\').click()" style="flex:1;padding:8px;font-size:12px">📷 '+(s.advertising?.photo_base64?'Replace photo':'Upload photo')+'</button>'+
+      (s.advertising?.photo_base64 ? '<button class="btn-s" onclick="advClearPhoto(\''+id+'\')" style="padding:8px 12px;font-size:12px;color:var(--red);border-color:rgba(239,68,68,.35)">Remove</button>' : '')+'</div>'+
+    '</div>'+
+    // Price and public toggle
+    '<div class="row2" style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+      '<div><div class="lbl">Price per ad / month (USD)</div>'+
+        '<input class="inp" id="adv-price-'+id+'" type="number" min="0" step="1" value="'+(s.advertising?.price_per_ad_per_month ?? '')+'" placeholder="e.g. 50">'+
+        '<div style="font-size:10px;color:var(--t-4);margin-top:4px">Total = ads × months × price × (1 − scale discount)</div>'+
+      '</div>'+
+      '<div><div class="lbl">Show in public catalog</div>'+
+        '<label style="display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg-1);border:1.5px solid var(--border);border-radius:8px;cursor:pointer">'+
+          '<input type="checkbox" id="adv-public-'+id+'" '+((s.advertising?.is_public ?? true)?'checked':'')+' style="accent-color:var(--brand-l);width:18px;height:18px">'+
+          '<span style="font-size:13px;font-weight:600" id="adv-public-lbl-'+id+'">'+((s.advertising?.is_public ?? true)?'Visible to visitors':'Hidden from catalog')+'</span>'+
+        '</label>'+
+        '<div style="font-size:10px;color:var(--t-4);margin-top:4px">Disable for screens rented under a corporate contract.</div>'+
+      '</div>'+
+    '</div>'+
+    '<button class="btn-p" style="width:100%;justify-content:center;padding:12px;font-size:14px" onclick="saveAdvertising(\''+id+'\')">💾 Save marketplace settings</button>'+
+    '<div id="adv-msg-'+id+'" style="font-size:12px;text-align:center;margin-top:10px;display:none"></div>'+
+  '</div>'+
   '<button class="btn-p" style="width:100%;justify-content:center;padding:14px;font-size:15px" onclick="saveScreen(\''+id+'\')">Save Changes</button></div>';
   window._editOrient=orient;
   // Trigger auto-load of pairing credentials (innerHTML doesn't execute <script> tags)
@@ -638,6 +671,81 @@ function setOrientPreview(o){
 async function saveScreen(id){
   var nm=document.getElementById('es-name').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape';
   try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location:{city:city,address:addr,state:state,country:'US'},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
+
+// ===== Public marketplace helpers (photo, price, is_public) =====
+window._advPhotoData = window._advPhotoData || {};   // { screen_id: base64 dataURL }
+window._advPhotoDirty = window._advPhotoDirty || {}; // { screen_id: 'set' | 'clear' }
+
+function advPickPhoto(id, input){
+  var f = input.files && input.files[0];
+  if(!f) return;
+  if(f.size > 5*1024*1024){ alert('Image too large. Max 5 MB.'); input.value=''; return; }
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    var dataUrl = ev.target.result;
+    // Downscale big images so we don't bloat MongoDB documents.
+    var img = new Image();
+    img.onload = function(){
+      var maxW = 1200;
+      var canvas = document.createElement('canvas');
+      var scale = img.width > maxW ? maxW/img.width : 1;
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      var jpeg = canvas.toDataURL('image/jpeg', 0.82);
+      window._advPhotoData[id] = jpeg;
+      window._advPhotoDirty[id] = 'set';
+      var prev = document.getElementById('adv-photo-preview-'+id);
+      if(prev) prev.innerHTML = '<img src="'+jpeg+'" style="width:100%;height:100%;object-fit:cover">';
+    };
+    img.onerror = function(){ alert('Could not read this image.'); };
+    img.src = dataUrl;
+  };
+  reader.readAsDataURL(f);
+}
+
+function advClearPhoto(id){
+  if(!confirm('Remove the marketplace photo for this screen?')) return;
+  window._advPhotoData[id] = null;
+  window._advPhotoDirty[id] = 'clear';
+  var prev = document.getElementById('adv-photo-preview-'+id);
+  if(prev) prev.innerHTML = '<span style="color:var(--t-4);font-size:12px">Photo will be removed on save</span>';
+}
+
+async function saveAdvertising(id){
+  var priceInp = document.getElementById('adv-price-'+id);
+  var pubInp   = document.getElementById('adv-public-'+id);
+  var msg = document.getElementById('adv-msg-'+id);
+  var body = {
+    is_public: !!pubInp.checked,
+  };
+  if(priceInp.value !== '') body.price_per_ad_per_month = parseFloat(priceInp.value);
+  if(window._advPhotoDirty[id] === 'set')   body.photo_base64 = window._advPhotoData[id];
+  if(window._advPhotoDirty[id] === 'clear') body.photo_base64 = null;
+  try{
+    await api('/admin/screens/'+id+'/advertising', { method:'PUT', body: JSON.stringify(body) });
+    msg.textContent = '✓ Marketplace settings saved';
+    msg.style.color = 'var(--green)';
+    msg.style.display = 'block';
+    delete window._advPhotoDirty[id];
+    var lbl = document.getElementById('adv-public-lbl-'+id);
+    if(lbl) lbl.textContent = pubInp.checked ? 'Visible to visitors' : 'Hidden from catalog';
+  }catch(e){
+    msg.textContent = e.message || 'Error saving';
+    msg.style.color = 'var(--red)';
+    msg.style.display = 'block';
+  }
+}
+
+// Keep toggle label in sync live (nicer UX).
+document.addEventListener('change', function(ev){
+  if(ev.target && ev.target.id && ev.target.id.indexOf('adv-public-')===0){
+    var id = ev.target.id.replace('adv-public-','');
+    var lbl = document.getElementById('adv-public-lbl-'+id);
+    if(lbl) lbl.textContent = ev.target.checked ? 'Visible to visitors' : 'Hidden from catalog';
+  }
+});
 
 async function unlinkDev(id,e){if(e)e.stopPropagation();if(!confirm('Unlink this device?'))return;try{await api('/admin/devices/'+id+'/unlink',{method:'PUT'});loaders.devices()}catch(e){alert(e.message)}}
 async function removeDev(id,e){if(e)e.stopPropagation();if(!confirm('Remove device?'))return;try{await api('/admin/devices/'+id,{method:'DELETE'});loaders.devices()}catch(e){alert(e.message)}}
