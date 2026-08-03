@@ -505,6 +505,16 @@ async def public_screen_by_code(code: str):
         raise HTTPException(status_code=404, detail="Screen not available for public advertising")
     return _public_screen_view(screen)
 
+@api_router.get("/public/screens/{screen_id}")
+async def public_screen_detail(screen_id: str):
+    """Single-screen public detail (used by the QR landing to resolve a scan by ID)."""
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    if (screen.get("advertising") or {}).get("is_public") is False:
+        raise HTTPException(status_code=404, detail="Screen not available for public advertising")
+    return _public_screen_view(screen)
+
 @api_router.get("/customer/screens")
 async def customer_screens(city: Optional[str] = None, current_user: dict = Depends(get_current_user)):
     """Screen catalog visible AFTER signup — includes pricing."""
@@ -3782,6 +3792,12 @@ async def serve_player_activate():
 
 @api_router.get("/screen")
 async def serve_screen_public():
+    """New signup-first landing (Phase C.2). Old guest-checkout flow moved to
+    /api/screen/legacy for reference."""
+    return FileResponse(os.path.join(WEB_DIR, 'scan.html'), media_type='text/html')
+
+@api_router.get("/screen/legacy")
+async def serve_screen_public_legacy():
     return FileResponse(os.path.join(WEB_DIR, 'screen-public.html'), media_type='text/html')
 
 @api_router.get("/o/{token}")
