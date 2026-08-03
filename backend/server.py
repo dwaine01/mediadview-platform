@@ -3925,12 +3925,18 @@ async def serve_player_activate():
 
 @api_router.get("/screen")
 async def serve_screen_public():
-    """New signup-first landing (Phase C.2). Old guest-checkout flow moved to
-    /api/screen/legacy for reference."""
-    return FileResponse(os.path.join(WEB_DIR, 'scan.html'), media_type='text/html')
+    """QR landing — serves the unified customer SPA. The SPA reads ?id= or
+    ?code= to pre-select the scanned screen inside v-marketplace / v-plans."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+
+@api_router.get("/marketplace")
+async def serve_marketplace():
+    """Public /api/marketplace alias (same SPA)."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
 @api_router.get("/screen/legacy")
 async def serve_screen_public_legacy():
+    """Legacy hourly checkout flow — kept for reference."""
     return FileResponse(os.path.join(WEB_DIR, 'screen-public.html'), media_type='text/html')
 
 @api_router.get("/o/{token}")
@@ -3989,26 +3995,26 @@ async def about():
 
 @app.get("/signup", include_in_schema=False)
 async def _signup():
-    """Customer signup (Phase C.3). Query params 'screen' + 'code' are
-    read by the client-side JS to remember which physical screen the user
-    scanned and forward them to /portal?highlight=... after registration."""
-    return FileResponse(os.path.join(WEB_DIR, 'signup.html'), media_type='text/html')
+    """Customer signup — served by the unified customer SPA (customer.html).
+    The SPA reads 'screen' / 'code' query params and switches to v-register."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
 @app.get("/login", include_in_schema=False)
 async def _login():
-    """Customer-facing login. Admins/superadmins are redirected to
-    /api/dashboard by the client JS based on the role from /auth/v2/login."""
-    return FileResponse(os.path.join(WEB_DIR, 'login-customer.html'), media_type='text/html')
+    """Customer login — same SPA, opens on v-login. Admins/superadmins are
+    still redirected to /api/dashboard by the app.js login handler."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
 @app.get("/portal", include_in_schema=False)
 async def _portal():
-    """Customer portal / marketplace (Phase C.4)."""
-    return FileResponse(os.path.join(WEB_DIR, 'portal.html'), media_type='text/html')
+    """Customer 'Mi Cuenta' portal — same SPA, opens on v-portal after auth
+    check restores the session from localStorage."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
 @app.get("/marketplace", include_in_schema=False)
 async def _marketplace():
-    """Convenience alias for /portal — same catalog page."""
-    return FileResponse(os.path.join(WEB_DIR, 'portal.html'), media_type='text/html')
+    """Public landing / catalog — same SPA, opens on v-landing."""
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes

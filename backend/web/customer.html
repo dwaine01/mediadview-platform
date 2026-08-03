@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<title>MediAd View — Publicidad en Pantallas Digitales</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#fff;color:#0f172a;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+a{color:#4f46e5;text-decoration:none}button{cursor:pointer;font-family:inherit;border:none}input,select,textarea{font-family:inherit}
+img{max-width:100%}
+.c{max-width:500px;margin:0 auto;padding:0 20px}
+.btn{width:100%;padding:14px;border-radius:12px;font-size:14px;font-weight:600;transition:all .2s;text-align:center;display:block}
+.btn-p{background:#0f172a;color:#fff}.btn-p:hover{background:#1e293b;transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.15)}
+.btn-o{background:#fff;color:#0f172a;border:1.5px solid #e2e8f0}.btn-o:hover{border-color:#cbd5e1}
+.btn-a{background:#4f46e5;color:#fff}.btn-a:hover{background:#4338ca;box-shadow:0 4px 16px rgba(79,70,229,.25)}
+.btn-g{background:#059669;color:#fff}.btn-g:hover{background:#047857}
+.inp{width:100%;padding:13px 16px;background:#fff;border:1.5px solid #e2e8f0;border-radius:10px;color:#0f172a;font-size:14px;transition:all .2s}
+.inp:focus{border-color:#4f46e5;box-shadow:0 0 0 3px rgba(79,70,229,.08);outline:none}.inp::placeholder{color:#94a3b8}
+.lbl{font-size:13px;font-weight:600;color:#334155;margin-bottom:6px;display:block}
+.view{display:none}.view.on{display:block;animation:fi .35s ease}
+@keyframes fi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+/* Sections */
+.sec{padding:32px 0}.sec-g{background:#f8fafc;margin:0 -20px;padding:32px 20px}.sec-d{background:#0f172a;margin:0 -20px;padding:32px 20px;color:#fff}
+.sec-t{font-size:22px;font-weight:800;letter-spacing:-.3px;margin-bottom:4px;line-height:1.2}
+.sec-s{font-size:13px;color:#64748b;margin-bottom:18px;line-height:1.5}
+.sec-d .sec-s{color:#94a3b8}
+/* Cards */
+.fcard{border-radius:14px;overflow:hidden;margin-bottom:16px;border:1px solid #f1f5f9;transition:all .2s}
+.fcard:hover{box-shadow:0 4px 16px rgba(0,0,0,.06)}
+.fcard img{width:100%;height:180px;object-fit:cover;display:block}
+.fcard .fc-b{padding:16px}
+.fcard h3{font-size:16px;font-weight:700;margin-bottom:4px}
+.fcard p{font-size:13px;color:#64748b;line-height:1.5}
+/* Video */
+.vid{border-radius:14px;overflow:hidden;margin-bottom:16px;position:relative;padding-bottom:56.25%;height:0;background:#000}
+.vid iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none}
+/* Steps */
+.stp{display:flex;gap:14px;margin-bottom:20px;align-items:flex-start}
+.stp-n{width:36px;height:36px;border-radius:50%;background:#4f46e5;color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0}
+.stp h3{font-size:14px;font-weight:700;margin-bottom:2px}.stp p{font-size:12px;color:#94a3b8}
+/* Testimonials */
+.test{background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:18px;margin-bottom:12px}
+.test q{font-size:13px;color:#334155;line-height:1.7;display:block;margin-bottom:12px;font-style:italic}
+.test .au{display:flex;align-items:center;gap:10px}.test .av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0}
+.test .nm{font-size:13px;font-weight:700}.test .rl{font-size:10px;color:#94a3b8}
+/* Industry */
+.ind{border-radius:12px;overflow:hidden;margin-bottom:10px;border:1px solid #f1f5f9;cursor:pointer;transition:all .2s}
+.ind:hover{box-shadow:0 4px 12px rgba(0,0,0,.06);transform:translateY(-2px)}
+.ind img{width:100%;height:120px;object-fit:cover;display:block}
+.ind .ib{padding:12px}
+.ind h3{font-size:14px;font-weight:700;margin-bottom:2px}.ind p{font-size:11px;color:#64748b;line-height:1.4}
+/* FAQ */
+.fq{border-bottom:1px solid #f1f5f9;padding:14px 0;cursor:pointer}
+.fq:last-child{border:none}
+.fq-q{display:flex;justify-content:space-between;align-items:center;font-size:14px;font-weight:600}
+.fq-q svg{width:18px;height:18px;color:#94a3b8;transition:transform .2s;flex-shrink:0}
+.fq-a{font-size:13px;color:#64748b;line-height:1.6;max-height:0;overflow:hidden;transition:max-height .3s}
+.fq.open .fq-a{max-height:200px;padding-top:8px}.fq.open .fq-q svg{transform:rotate(180deg)}
+/* Stats */
+.st-bar{display:flex;gap:0;margin:20px 0;border-radius:14px;overflow:hidden;border:1px solid #f1f5f9}
+.st-i{flex:1;text-align:center;padding:16px 8px;border-right:1px solid #f1f5f9}.st-i:last-child{border:none}
+.st-v{font-size:26px;font-weight:900;color:#0f172a}.st-l{font-size:9px;color:#94a3b8;font-weight:600;text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+/* Nav */
+.nav{display:flex;justify-content:space-between;align-items:center;padding:14px 20px;max-width:500px;margin:0 auto;position:sticky;top:0;background:rgba(255,255,255,.95);backdrop-filter:blur(8px);z-index:50}
+.nav-l{font-size:13px;font-weight:600;color:#4f46e5}
+/* Trust */
+.tr-g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:16px 0}
+.tr-i{background:#fff;border:1px solid #f1f5f9;border-radius:10px;padding:14px;text-align:center}
+.tr-i svg{width:22px;height:22px;margin:0 auto 6px;display:block}.tr-i span{font-size:11px;font-weight:600;color:#64748b}
+/* Tabs */
+.tabs{display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch}
+.tab{padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;color:#64748b;background:#fff;border:1px solid #e2e8f0;white-space:nowrap;cursor:pointer;transition:all .2s}
+.tab.on{background:#0f172a;color:#fff;border-color:#0f172a}
+.scr-i{background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .2s}
+.scr-i:hover{border-color:#c7d2fe;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.plan-o{background:#fff;border:1.5px solid #f1f5f9;border-radius:12px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all .2s;position:relative}
+.plan-o:hover{border-color:#c7d2fe}.plan-o.sel{border-color:#4f46e5;background:#faf5ff}
+.plan-o.pop::after{content:'Popular';position:absolute;top:-9px;right:14px;padding:2px 10px;border-radius:4px;background:#4f46e5;color:#fff;font-size:10px;font-weight:700}
+.upl{border:2px dashed #e2e8f0;border-radius:14px;padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:#fff}
+.upl:hover{border-color:#c7d2fe;background:#faf5ff}
+.pol{background:#fffbeb;border:1px solid #fef3c7;border-radius:12px;padding:16px;font-size:12px;color:#92400e;line-height:1.7;margin-bottom:14px}
+.sum{background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:18px;margin-bottom:16px}
+.toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;display:none}
+.toast.ok{background:#059669;color:#fff;display:block}.toast.err{background:#dc2626;color:#fff;display:block}
+
+/* Video slides */
+.vslide,.vslide2{position:absolute;inset:0;opacity:0;transition:opacity .8s ease}
+.vslide.active,.vslide2.active{opacity:1}
+.back{background:none;border:none;color:#4f46e5;font-size:13px;font-weight:600;padding:12px 0}
+.ft{text-align:center;padding:24px;font-size:11px;color:#94a3b8;border-top:1px solid #f1f5f9}
+</style>
+</head>
+<body>
+<div id="toast" class="toast"></div>
+
+<!-- ==================== LANDING ==================== -->
+<div id="v-landing" class="view on">
+<div class="nav">
+  <div style="display:flex;align-items:center;gap:8px"><div style="width:38px;height:38px;overflow:hidden;flex-shrink:0"><img src="/api/web/logo.png" alt="" style="height:38px;object-fit:cover;object-position:left center"></div><div><div style="font-size:14px;font-weight:800;color:#0f172a">MediAd View</div><div style="font-size:7px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:2px">Advertising Solution</div></div></div>
+  <a class="nav-l" href="#" onclick="showView('v-login')">Iniciar sesion</a>
+</div>
+<div class="c">
+
+<!-- HERO -->
+<div style="text-align:center;padding:24px 0 16px">
+  <div style="display:inline-flex;align-items:center;gap:6px;padding:5px 14px;border-radius:20px;background:#f0f0ff;border:1px solid #e0e0ff;font-size:11px;font-weight:600;color:#4f46e5;margin-bottom:16px"><span style="width:6px;height:6px;border-radius:50%;background:#4f46e5"></span> Plataforma de Digital Signage</div>
+  <h1 style="font-size:30px;font-weight:900;line-height:1.15;letter-spacing:-.5px;margin-bottom:10px">Haz que tu negocio se vea todos los dias</h1>
+  <p style="font-size:14px;color:#64748b;line-height:1.6">Publica tu anuncio en pantallas dentro de tiendas, restaurantes y negocios con clientes reales.</p>
+</div>
+
+<div style="display:flex;gap:10px;margin-bottom:6px">
+  <button class="btn btn-p" style="flex:1" onclick="showView('v-register')">Anunciate ahora</button>
+  <button class="btn btn-o" style="flex:1" onclick="showView('v-register')">Ver pantallas</button>
+</div>
+<p style="text-align:center;font-size:11px;color:#94a3b8;margin-bottom:16px">Sin tarjeta de credito requerida</p>
+
+<!-- Hero image gallery -->
+<div style="border-radius:16px;overflow:hidden;position:relative;height:340px;box-shadow:0 8px 30px rgba(0,0,0,.1)">
+  <img id="hero-img" src="https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/rbb5g2zq_image.png" style="width:100%;height:100%;object-fit:contain;background:#f1f5f9;transition:opacity .6s">
+  <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.5))"></div>
+  <div style="position:absolute;bottom:10px;left:12px"><div id="hero-cap" style="font-size:11px;font-weight:700;color:#fff">Llantera — Gasolinera</div></div>
+  <div style="position:absolute;bottom:10px;right:12px;display:flex;gap:4px" id="img-dots"></div>
+</div>
+<div style="display:flex;gap:5px;margin-top:6px" id="thumbs"></div>
+
+<!-- Stats -->
+<div class="st-bar">
+  <div class="st-i"><div class="st-v">10+</div><div class="st-l">Pantallas</div></div>
+  <div class="st-i"><div class="st-v">50K</div><div class="st-l">Vistas/Dia</div></div>
+  <div class="st-i"><div class="st-v">9</div><div class="st-l">Ciudades</div></div>
+</div>
+
+<!-- ===== VIDEO: What is Digital Signage ===== -->
+<div class="sec">
+</div>
+
+<!-- ===== FEATURES ===== -->
+<div class="sec-g">
+  <div class="sec-t">Como funciona MediAd View</div>
+  <div class="sec-s">Todo lo que necesita para publicar su anuncio</div>
+
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;padding:18px;background:#fff;border:1px solid #f1f5f9;border-radius:14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:#f0f0ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" fill="none" stroke="#4f46e5" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div>
+    <div><h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Pantallas en establecimientos reales</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Sus anuncios en pantallas HD verticales dentro de tiendas, restaurantes, farmacias y gasolineras con clientes reales.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;padding:18px;background:#fff;border:1px solid #f1f5f9;border-radius:14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:#ecfdf5;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg></div>
+    <div><h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Publique desde su celular</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Suba su imagen o video desde cualquier dispositivo. Plataforma 100% web, publique en minutos sin descargar nada.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;padding:18px;background:#fff;border:1px solid #f1f5f9;border-radius:14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" fill="none" stroke="#ea580c" stroke-width="2" viewBox="0 0 24 24"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg></div>
+    <div><h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Multiples ubicaciones</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Elija pantallas en distintas ciudades y establecimientos. Cada pantalla tiene un codigo unico.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;padding:18px;background:#fff;border:1px solid #f1f5f9;border-radius:14px">
+    <div style="width:44px;height:44px;border-radius:12px;background:#f0f9ff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="22" height="22" fill="none" stroke="#0284c7" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg></div>
+    <div><h3 style="font-size:15px;font-weight:700;margin-bottom:4px">Contenido revisado y seguro</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Nuestro equipo aprueba cada anuncio en menos de 24 horas. Pago seguro, sin contratos.</p></div>
+  </div>
+</div>
+
+<!-- ===== VIDEO: How to use ===== -->
+<div class="sec">
+  <div class="sec-t">Casos de exito</div>
+  <div class="sec-s">Vea como otros negocios aumentan sus ventas</div>
+  <!-- Custom animated case study -->
+  <div style="border-radius:14px;overflow:hidden;background:#0f172a;position:relative;height:220px;margin-bottom:12px">
+    <div id="vid2" style="position:relative;width:100%;height:100%">
+      <div class="vslide2 vv1" style="background:linear-gradient(135deg,#1a1a2e,#16213e);padding:20px;display:flex;flex-direction:column;justify-content:center">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:36px;height:36px;border-radius:50%;background:#4f46e5;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">SM</div><div><div style="font-size:13px;font-weight:700;color:#fff">Sarah Mitchell</div><div style="font-size:10px;color:#94a3b8">Bright Agency — New York</div></div></div>
+        <div style="font-size:13px;color:#cbd5e1;font-style:italic;line-height:1.6">"Nuestras ventas en tienda aumentaron 40% desde que publicamos en MediAd View. La mejor inversion en publicidad."</div>
+        <div style="margin-top:12px;display:inline-flex;padding:4px 12px;border-radius:6px;background:rgba(16,185,129,.15);color:#34d399;font-size:12px;font-weight:700;align-self:flex-start">+40% ventas</div>
+      </div>
+      <div class="vslide2 vv2" style="background:linear-gradient(135deg,#0c1b33,#1e3a5f);padding:20px;display:flex;flex-direction:column;justify-content:center">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:36px;height:36px;border-radius:50%;background:#0891b2;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">CM</div><div><div style="font-size:13px;font-weight:700;color:#fff">Carlos Mendez</div><div style="font-size:10px;color:#94a3b8">Urban Media — Miami</div></div></div>
+        <div style="font-size:13px;color:#cbd5e1;font-style:italic;line-height:1.6">"Por $150/mes mi restaurante aparece en 3 pantallas. Mis clientes me dicen que me vieron en la pantalla del supermercado."</div>
+        <div style="margin-top:12px;display:inline-flex;padding:4px 12px;border-radius:6px;background:rgba(14,165,233,.15);color:#38bdf8;font-size:12px;font-weight:700;align-self:flex-start">3 pantallas activas</div>
+      </div>
+      <div class="vslide2 vv3" style="background:linear-gradient(135deg,#2d1b4e,#581c87);padding:20px;display:flex;flex-direction:column;justify-content:center">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><div style="width:36px;height:36px;border-radius:50%;background:#a855f7;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff">RH</div><div><div style="font-size:13px;font-weight:700;color:#fff">Robert Herrera</div><div style="font-size:10px;color:#94a3b8">Les Cavistes Restaurant — Houston</div></div></div>
+        <div style="font-size:13px;color:#cbd5e1;font-style:italic;line-height:1.6">"Muy facil de usar. Subi mi imagen desde el celular, la aprobaron en 2 horas y al dia siguiente ya estaba en la pantalla."</div>
+        <div style="margin-top:12px;display:inline-flex;padding:4px 12px;border-radius:6px;background:rgba(168,85,247,.15);color:#c084fc;font-size:12px;font-weight:700;align-self:flex-start">Aprobado en 2 horas</div>
+      </div>
+    </div>
+    <div style="position:absolute;bottom:0;left:0;right:0;height:3px;background:rgba(255,255,255,.1)"><div id="vid2-prog" style="height:100%;background:#fff;width:0;transition:width .1s linear"></div></div>
+  </div>
+</div>
+
+<!-- ===== 4 STEPS ===== -->
+<div class="sec-g">
+  <div class="sec-t">Publique en 4 pasos simples</div>
+  <div class="sec-s">De la idea a la pantalla en minutos</div>
+  <div class="stp"><div class="stp-n">1</div><div><h3>Cree su cuenta gratuita</h3><p>Registro en 30 segundos. Sin tarjeta de credito. Sin compromiso.</p></div></div>
+  <div class="stp"><div class="stp-n" style="background:#0891b2">2</div><div><h3>Seleccione una pantalla</h3><p>Explore pantallas disponibles por ciudad y ubicacion. Cada una tiene un codigo unico.</p></div></div>
+  <div class="stp"><div class="stp-n" style="background:#059669">3</div><div><h3>Suba su anuncio</h3><p>Cargue su imagen JPG/PNG o video MP4. Resolucion recomendada: 1920x1080.</p></div></div>
+  <div class="stp"><div class="stp-n" style="background:#ea580c">4</div><div><h3>Aparece en pantalla</h3><p>Despues de la aprobacion (menos de 24h), su anuncio se muestra 24/7 en la pantalla seleccionada.</p></div></div>
+  <button class="btn btn-a" onclick="showView('v-register')">Comenzar ahora</button>
+</div>
+
+<!-- ===== ADVANTAGES ===== -->
+<div class="sec">
+  <div class="sec-t">Por que elegir MediAd View</div>
+  <div class="sec-s">Ventajas que nos diferencian</div>
+
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:12px">
+    <svg width="32" height="32" fill="none" stroke="#4f46e5" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+    <div><h3 style="font-size:14px;font-weight:700;margin-bottom:2px">Audiencia local verificada</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Su anuncio llega a personas reales en establecimientos comerciales con alto trafico. Publicidad contextual que genera resultados.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:12px">
+    <svg width="32" height="32" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    <div><h3 style="font-size:14px;font-weight:700;margin-bottom:2px">Planes desde $5 al dia</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Precios accesibles para cualquier negocio. Planes mensuales, trimestrales, semestrales y anuales. Sin contratos obligatorios.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:12px">
+    <svg width="32" height="32" fill="none" stroke="#ea580c" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5"/></svg>
+    <div><h3 style="font-size:14px;font-weight:700;margin-bottom:2px">Reportes de reproduccion</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Verifique cuantas veces se mostro su anuncio con reportes Proof of Play. Transparencia total en cada campana.</p></div>
+  </div>
+  <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;padding:16px;background:#f8fafc;border-radius:12px">
+    <svg width="32" height="32" fill="none" stroke="#0891b2" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+    <div><h3 style="font-size:14px;font-weight:700;margin-bottom:2px">Gestion desde cualquier dispositivo</h3><p style="font-size:12px;color:#64748b;line-height:1.5">Administre sus campanas desde su celular, tablet o computadora. Plataforma 100% web, sin descargas necesarias.</p></div>
+  </div>
+</div>
+
+<!-- ===== TESTIMONIALS ===== -->
+<div class="sec-g">
+  <div class="sec-t">Resultados reales</div>
+  <div class="sec-s">Lo que dicen nuestros clientes</div>
+  <div class="test"><q>Desde que implementamos publicidad en MediAd View, nuestras ventas en tienda aumentaron significativamente. Es la inversion en publicidad con mejor retorno que hemos tenido.</q><div class="au"><div class="av" style="background:#4f46e5">SM</div><div><div class="nm">Sarah Mitchell</div><div class="rl">Directora de Marketing — Bright Agency, New York</div></div></div><div style="margin-top:8px;display:inline-flex;padding:4px 10px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:600">+40% en ventas</div></div>
+  <div class="test"><q>La facilidad de uso es impresionante. Subimos el diseno desde el telefono, fue aprobado en pocas horas y al dia siguiente ya estaba visible en la pantalla del supermercado.</q><div class="au"><div class="av" style="background:#0891b2">CM</div><div><div class="nm">Carlos Mendez</div><div class="rl">CEO — Urban Media Group, Miami</div></div></div><div style="margin-top:8px;display:inline-flex;padding:4px 10px;border-radius:6px;background:#f0f9ff;color:#0284c7;font-size:11px;font-weight:600">3 pantallas activas</div></div>
+  <div class="test"><q>Excelente plataforma. El costo es accesible y el impacto es enorme. Los reportes de reproduccion nos permiten validar la inversion ante nuestros socios.</q><div class="au"><div class="av" style="background:#7c3aed">JP</div><div><div class="nm">Jessica Park</div><div class="rl">Fundadora — Nova Retail Inc., San Francisco</div></div></div><div style="margin-top:8px;display:inline-flex;padding:4px 10px;border-radius:6px;background:#faf5ff;color:#7c3aed;font-size:11px;font-weight:600">ROI verificado</div></div>
+  <div class="test"><q>Nuestros clientes nos dicen que vieron nuestro anuncio en la pantalla de la tienda. Eso no tiene precio. MediAd View nos conecta directamente con compradores reales.</q><div class="au"><div class="av" style="background:#ea580c">RH</div><div><div class="nm">Robert Herrera</div><div class="rl">Propietario — Les Cavistes Restaurant, Houston</div></div></div><div style="margin-top:8px;display:inline-flex;padding:4px 10px;border-radius:6px;background:#fff7ed;color:#ea580c;font-size:11px;font-weight:600">Nuevos clientes cada semana</div></div>
+</div>
+
+<!-- ===== INDUSTRIES WITH REAL PHOTOS ===== -->
+<div class="sec">
+  <div class="sec-t">Pantallas para cada industria</div>
+  <div class="sec-s">Soluciones adaptadas a su sector</div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+    <div class="ind"><img src="https://images.pexels.com/photos/264636/pexels-photo-264636.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Retail</h3><p>Promociones en punto de venta</p></div></div>
+    <div class="ind"><img src="https://images.pexels.com/photos/67468/pexels-photo-67468.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Restaurantes</h3><p>Menus digitales y ofertas</p></div></div>
+    <div class="ind"><img src="https://images.pexels.com/photos/1170412/pexels-photo-1170412.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Oficinas</h3><p>Comunicacion corporativa</p></div></div>
+    <div class="ind"><img src="https://images.pexels.com/photos/247786/pexels-photo-247786.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Salud</h3><p>Informacion para pacientes</p></div></div>
+    <div class="ind"><img src="https://images.pexels.com/photos/159711/books-bookstore-book-reading-159711.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Educacion</h3><p>Avisos y eventos</p></div></div>
+    <div class="ind"><img src="https://images.pexels.com/photos/3184465/pexels-photo-3184465.jpeg?w=400&h=250&fit=crop" loading="lazy"><div class="ib"><h3>Eventos</h3><p>Conferencias y ferias</p></div></div>
+  </div>
+</div>
+
+<!-- ===== TRUST ===== -->
+<div class="tr-g">
+  <div class="tr-i"><svg fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg><span>Pago seguro</span></div>
+  <div class="tr-i"><svg fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg><span>Contenido revisado</span></div>
+  <div class="tr-i"><svg fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg><span>Desde cualquier dispositivo</span></div>
+  <div class="tr-i"><svg fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg><span>Sin contratos</span></div>
+</div>
+
+<!-- ===== FAQ ===== -->
+<div class="sec">
+  <div class="sec-t">Preguntas frecuentes</div>
+  <div class="sec-s">Todo lo que necesita saber</div>
+  <div class="fq" onclick="this.classList.toggle('open')"><div class="fq-q"><span>Que tipo de contenido puedo publicar?</span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div class="fq-a">Aceptamos imagenes (JPG, PNG) y videos (MP4) de productos, servicios, eventos y ofertas comerciales. No se permite contenido adulto, violento o discriminatorio. Todo contenido es revisado por nuestro equipo antes de publicarse.</div></div>
+  <div class="fq" onclick="this.classList.toggle('open')"><div class="fq-q"><span>Cuanto tiempo toma la aprobacion?</span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div class="fq-a">Nuestro equipo revisa el contenido en menos de 24 horas habiles. Una vez aprobado, su anuncio se muestra inmediatamente en la pantalla seleccionada.</div></div>
+  <div class="fq" onclick="this.classList.toggle('open')"><div class="fq-q"><span>Puedo cancelar en cualquier momento?</span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div class="fq-a">Si. No exigimos contratos. El plan mensual se puede cancelar cuando quiera. Los planes trimestrales, semestrales y anuales ofrecen descuentos y se pagan mes a mes.</div></div>
+  <div class="fq" onclick="this.classList.toggle('open')"><div class="fq-q"><span>Que resolucion necesita mi imagen?</span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div class="fq-a">Recomendamos 1920x1080 pixeles (Full HD). Tambien aceptamos formato vertical (1080x1920) segun la orientacion de la pantalla.</div></div>
+  <div class="fq" onclick="this.classList.toggle('open')"><div class="fq-q"><span>Como verifico que mi anuncio se muestra?</span><svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg></div><div class="fq-a">Cada campana incluye reportes de Proof of Play donde puede ver cuantas veces se mostro su contenido, en que horarios y en que pantalla.</div></div>
+</div>
+
+<!-- ===== FINAL CTA ===== -->
+<div class="sec-d" style="border-radius:20px;text-align:center;margin:20px 0">
+  <div class="sec-t" style="color:#fff">Comience a mostrar su marca hoy</div>
+  <p style="font-size:13px;color:#94a3b8;margin-bottom:20px">Unase a negocios que ya aumentan sus ventas con publicidad en pantallas digitales</p>
+  <button class="btn" style="background:#fff;color:#0f172a;max-width:280px;margin:0 auto" onclick="showView('v-register')">Crear cuenta gratuita</button>
+  <p style="font-size:11px;color:#64748b;margin-top:10px">Sin compromiso · Cancele cuando quiera</p>
+</div>
+
+<!-- Contact -->
+<div class="sec" style="text-align:center">
+  <div class="sec-t">Contacto</div>
+  <p style="font-size:13px;color:#64748b;margin-bottom:12px">Escribanos para cualquier consulta</p>
+  <a href="mailto:info@mediadview.com" style="font-size:14px;font-weight:600;color:#4f46e5">info@mediadview.com</a>
+</div>
+
+<div class="ft">© 2026 MediAd View Inc. · <a href="#" style="color:#94a3b8">Terminos</a> · <a href="#" style="color:#94a3b8">Privacidad</a></div>
+</div>
+</div>
+
+<!-- ==================== CLIENT PORTAL (Mi Cuenta) ==================== -->
+<div id="v-portal" class="view"><div class="c" style="padding-top:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <div><h2 style="font-size:20px;font-weight:800">Mi Cuenta</h2><p style="font-size:12px;color:#94a3b8" id="portal-name"></p></div>
+    <button onclick="toggleMenu()" style="width:40px;height:40px;border-radius:10px;border:1px solid #e2e8f0;background:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer"><svg width="20" height="20" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+  </div>
+
+  <!-- Hamburger menu dropdown -->
+  <div id="ham-menu" style="display:none;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:6px;margin-bottom:14px;box-shadow:0 4px 12px rgba(0,0,0,.08)">
+    <div onclick="openProfile()" style="padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#334155;cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">Mi perfil</div>
+    <div onclick="showView('v-changepwd')" style="padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#334155;cursor:pointer" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">Cambiar contrasena</div>
+    <div style="height:1px;background:#f1f5f9;margin:4px 0"></div>
+    <div onclick="doLogout()" style="padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;color:#dc2626;cursor:pointer" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='transparent'">Cerrar sesion</div>
+  </div>
+
+  <!-- Quick stats -->
+  <div style="display:flex;gap:8px;margin-bottom:16px">
+    <div style="flex:1;background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:14px;text-align:center"><div id="p-active" style="font-size:24px;font-weight:900;color:#059669">0</div><div style="font-size:10px;color:#94a3b8;font-weight:600">Activas</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:14px;text-align:center"><div id="p-pending" style="font-size:24px;font-weight:900;color:#d97706">0</div><div style="font-size:10px;color:#94a3b8;font-weight:600">Pendientes</div></div>
+    <div style="flex:1;background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:14px;text-align:center"><div id="p-total" style="font-size:24px;font-weight:900;color:#0f172a">0</div><div style="font-size:10px;color:#94a3b8;font-weight:600">Total</div></div>
+  </div>
+
+  <!-- Action button -->
+  <button class="btn btn-p" onclick="loadMkt()" style="margin-bottom:20px">Publicar en nueva pantalla</button>
+
+  <!-- Tabs -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch">
+    <div class="tab on" onclick="showPortalTab('camps',this)">Activas</div>
+    <div class="tab" onclick="showPortalTab('rejected',this)">Rechazadas</div>
+    <div class="tab" onclick="showPortalTab('expired',this)">Finalizadas</div>
+    <div class="tab" onclick="showPortalTab('pays',this)">Pagos</div>
+  </div>
+
+  <div id="portal-camps"></div>
+  <div id="portal-rejected" style="display:none"></div>
+  <div id="portal-expired" style="display:none"></div>
+  <div id="portal-pays" style="display:none"></div>
+</div></div>
+
+<!-- ==================== EDIT CAMPAIGN ==================== -->
+<div id="v-edit-camp" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="loadPortal()">← Mis campanas</button>
+  <div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:16px;margin-bottom:16px">
+    <div id="ec-info"></div>
+  </div>
+  <h3 style="font-size:16px;font-weight:700;margin-bottom:4px">Cambiar anuncio</h3>
+  <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Suba una nueva imagen o video para reemplazar el actual</p>
+  <div id="ec-current" style="margin-bottom:14px"></div>
+  <div class="upl" id="ec-upload" onclick="document.getElementById('ec-file').click()">
+    <svg width="36" height="36" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 8px;display:block"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    <p style="font-size:14px;font-weight:600;color:#334155">Subir nueva imagen o video</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:4px">JPG, PNG o MP4 — 1920x1080</p>
+  </div>
+  <input type="file" id="ec-file" accept="image/*,video/mp4" style="display:none" onchange="onEditFileSelect(this)">
+  <div id="ec-preview" style="margin-top:12px;display:none"></div>
+  <div id="ec-status" style="margin-top:10px"></div>
+  <button class="btn btn-p" id="ec-save" onclick="saveEditMedia()" style="margin-top:16px;display:none">Guardar cambio</button>
+  <button onclick="deleteCampaign()" style="width:100%;margin-top:12px;padding:14px;border-radius:12px;font-size:14px;font-weight:600;background:#fff;color:#dc2626;border:1.5px solid #fecaca;cursor:pointer;transition:all .2s" onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background='#fff'">Eliminar campana</button>
+</div></div>
+
+<!-- ==================== PROFILE ==================== -->
+<div id="v-profile" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="loadPortal()">← Mi cuenta</button>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:16px">Mi perfil</h2>
+  <div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:16px;margin-bottom:12px">
+    <div style="margin-bottom:12px"><label class="lbl">Nombre</label><input class="inp" id="pf-name" placeholder="Nombre"></div>
+    <div style="margin-bottom:12px"><label class="lbl">Empresa</label><input class="inp" id="pf-company" placeholder="Empresa"></div>
+    <div style="margin-bottom:12px"><label class="lbl">Email</label><input class="inp" id="pf-email" disabled style="background:#f8fafc;color:#94a3b8"></div>
+    <button class="btn btn-p" onclick="saveProfile()">Guardar cambios</button>
+  </div>
+</div></div>
+
+<!-- ==================== CHANGE PASSWORD ==================== -->
+<div id="v-changepwd" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="loadPortal()">← Mi cuenta</button>
+  <h2 style="font-size:22px;font-weight:800;margin-bottom:16px">Cambiar contrasena</h2>
+  <div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;padding:16px;margin-bottom:12px">
+    <div style="margin-bottom:12px"><label class="lbl">Contrasena actual</label><input class="inp" id="cp-old" type="password" placeholder="Contrasena actual"></div>
+    <div style="margin-bottom:12px"><label class="lbl">Nueva contrasena</label><input class="inp" id="cp-new" type="password" placeholder="Minimo 6 caracteres"></div>
+    <div style="margin-bottom:12px"><label class="lbl">Confirmar</label><input class="inp" id="cp-confirm" type="password" placeholder="Repita la contrasena"></div>
+    <button class="btn btn-p" onclick="changePassword()">Cambiar contrasena</button>
+    <p id="cp-err" style="color:#dc2626;font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+  </div>
+</div></div>
+
+
+<!-- ==================== REGISTER ==================== -->
+<div id="v-register" class="view"><div class="c" style="padding-top:24px">
+  <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:20px"><div style="width:32px;height:32px;overflow:hidden"><img src="/api/web/logo.png" alt="" style="height:32px;object-fit:cover;object-position:left"></div><span style="font-size:16px;font-weight:800">MediAd View</span></div>
+  <h2 style="font-size:22px;font-weight:800;text-align:center;margin-bottom:4px">Crear cuenta</h2>
+  <p style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px">Gratuito · Sin tarjeta · 30 segundos</p>
+  <div style="margin-bottom:12px"><label class="lbl">Nombre</label><input class="inp" id="r-name" placeholder="Nombre y apellido"></div>
+  <div style="margin-bottom:12px"><label class="lbl">Empresa (opcional)</label><input class="inp" id="r-company" placeholder="Mi Negocio LLC"></div>
+  <div style="margin-bottom:12px"><label class="lbl">Email</label><input class="inp" id="r-email" type="email" placeholder="correo@empresa.com"></div>
+  <div style="margin-bottom:20px"><label class="lbl">Contrasena</label><input class="inp" id="r-pwd" type="password" placeholder="Minimo 6 caracteres"></div>
+  <button class="btn btn-p" onclick="doRegister()">Crear cuenta</button>
+  <p id="r-err" style="color:#dc2626;font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+  <p style="text-align:center;margin-top:14px;font-size:13px;color:#94a3b8">Ya tiene cuenta? <a href="#" onclick="showView('v-login')">Iniciar sesion</a></p>
+  <p style="text-align:center;margin-top:6px"><a href="#" onclick="showView('v-landing')" style="font-size:12px;color:#94a3b8">Volver</a></p>
+</div></div>
+
+<!-- ==================== FORGOT PASSWORD ==================== -->
+<div id="v-forgot" class="view"><div class="c" style="padding-top:24px">
+  <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:20px"><div style="width:32px;height:32px;overflow:hidden"><img src="/api/web/logo.png" alt="" style="height:32px;object-fit:cover;object-position:left"></div><span style="font-size:16px;font-weight:800">MediAd View</span></div>
+  <!-- Step 1: Enter email -->
+  <div id="fg-step1">
+    <h2 style="font-size:22px;font-weight:800;text-align:center;margin-bottom:4px">Recuperar contrasena</h2>
+    <p style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px">Ingrese su email para recibir un codigo</p>
+    <div style="margin-bottom:20px"><label class="lbl">Email</label><input class="inp" id="fg-email" type="email" placeholder="correo@empresa.com"></div>
+    <button class="btn btn-p" onclick="sendResetCode()">Enviar codigo</button>
+    <p id="fg-err1" style="color:#dc2626;font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+  </div>
+  <!-- Step 2: Enter code + new password -->
+  <div id="fg-step2" style="display:none">
+    <h2 style="font-size:22px;font-weight:800;text-align:center;margin-bottom:4px">Ingrese el codigo</h2>
+    <p style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px">Revise su email para el codigo de 6 digitos</p>
+    <div style="margin-bottom:12px"><label class="lbl">Codigo</label><input class="inp" id="fg-code" placeholder="123456" style="text-align:center;font-size:24px;font-weight:800;letter-spacing:8px"></div>
+    <div style="margin-bottom:12px"><label class="lbl">Nueva contrasena</label><input class="inp" id="fg-newpwd" type="password" placeholder="Minimo 6 caracteres"></div>
+    <div style="margin-bottom:20px"><label class="lbl">Confirmar contrasena</label><input class="inp" id="fg-newpwd2" type="password" placeholder="Repita la contrasena"></div>
+    <button class="btn btn-p" onclick="resetPassword()">Cambiar contrasena</button>
+    <p id="fg-err2" style="color:#dc2626;font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+  </div>
+  <!-- Step 3: Success -->
+  <div id="fg-step3" style="display:none;text-align:center;padding:20px 0">
+    <div style="width:56px;height:56px;border-radius:50%;background:#ecfdf5;display:flex;align-items:center;justify-content:center;margin:0 auto 16px"><svg width="28" height="28" fill="none" stroke="#059669" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+    <h2 style="font-size:20px;font-weight:800;margin-bottom:6px">Contrasena actualizada</h2>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:20px">Ya puede iniciar sesion con su nueva contrasena</p>
+    <button class="btn btn-p" onclick="showView('v-login')">Iniciar sesion</button>
+  </div>
+  <p style="text-align:center;margin-top:14px"><a href="#" onclick="showView('v-login')" style="font-size:12px;color:#94a3b8">Volver a iniciar sesion</a></p>
+</div></div>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="v-login" class="view"><div class="c" style="padding-top:24px">
+  <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin-bottom:20px"><div style="width:32px;height:32px;overflow:hidden"><img src="/api/web/logo.png" alt="" style="height:32px;object-fit:cover;object-position:left"></div><span style="font-size:16px;font-weight:800">MediAd View</span></div>
+  <h2 style="font-size:22px;font-weight:800;text-align:center;margin-bottom:4px">Iniciar sesion</h2>
+  <p style="font-size:13px;color:#94a3b8;text-align:center;margin-bottom:20px">Acceda a su cuenta</p>
+  <div style="margin-bottom:12px"><label class="lbl">Email</label><input class="inp" id="l-email" type="email" placeholder="correo@empresa.com"></div>
+  <div style="margin-bottom:20px"><label class="lbl">Contrasena</label><input class="inp" id="l-pwd" type="password" placeholder="Su contrasena"></div>
+  <button class="btn btn-p" onclick="doLogin()">Entrar</button>
+  <p id="l-err" style="color:#dc2626;font-size:12px;text-align:center;margin-top:10px;display:none"></p>
+  <p style="text-align:center;margin-top:14px;font-size:13px;color:#94a3b8">No tiene cuenta? <a href="#" onclick="showView('v-register')">Registrarse</a></p>
+  <p style="text-align:center;margin-top:6px"><a href="#" onclick="showView('v-forgot')" style="font-size:13px;color:#4f46e5;font-weight:600">Olvide mi contrasena</a></p>
+  <p style="text-align:center;margin-top:6px"><a href="#" onclick="showView('v-landing')" style="font-size:12px;color:#94a3b8">Volver</a></p>
+</div></div>
+
+<!-- ==================== MARKETPLACE ==================== -->
+<div id="v-marketplace" class="view"><div class="c" style="padding-top:16px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h2 style="font-size:20px;font-weight:800">Pantallas disponibles</h2><p style="font-size:12px;color:#94a3b8" id="user-greeting"></p></div><button style="padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid #e2e8f0;background:#fff;color:#64748b" onclick="doLogout()">Salir</button></div>
+  <div class="tabs" id="city-tabs"></div>
+  <div id="screen-list"></div>
+</div></div>
+
+<!-- ==================== PLANS ==================== -->
+<div id="v-plans" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="showView('v-marketplace')">← Pantallas</button>
+  <div style="background:#fff;border:1px solid #f1f5f9;border-radius:14px;text-align:center;padding:20px;margin-bottom:20px" id="plan-screen-info"></div>
+  <h3 style="font-size:18px;font-weight:800;margin-bottom:4px">Seleccione su plan</h3>
+  <p style="font-size:12px;color:#94a3b8;margin-bottom:14px">Publicacion continua 24/7</p>
+  <div id="plan-list"></div>
+  <div style="height:1px;background:#f1f5f9;margin:16px 0"></div>
+  <div class="pol"><strong>Politicas:</strong><br>Se acepta: productos, servicios, eventos, ofertas (JPG, PNG, MP4).<br>No se acepta: contenido adulto, violento, discriminatorio o que compita con el establecimiento.<br><span style="font-size:11px;color:#a16207">Contenido revisado antes de publicarse.</span></div>
+  <button class="btn btn-p" id="btn-continue" onclick="goToUpload()" disabled style="opacity:.4">Seleccione un plan</button>
+</div></div>
+
+<!-- ==================== UPLOAD ==================== -->
+<div id="v-upload" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="showView('v-plans')">← Plan</button>
+  <div style="display:flex;gap:4px;margin-bottom:20px"><div style="flex:1;height:3px;border-radius:2px;background:#4f46e5"></div><div style="flex:1;height:3px;border-radius:2px;background:#4f46e5"></div><div style="flex:1;height:3px;border-radius:2px;background:#0ea5e9"></div><div style="flex:1;height:3px;border-radius:2px;background:#e2e8f0"></div></div>
+  <h3 style="font-size:18px;font-weight:800;margin-bottom:4px">Cargue su contenido</h3>
+  <p style="font-size:12px;color:#94a3b8;margin-bottom:16px">Suba la imagen o video para la pantalla</p>
+  <div class="upl" id="upload-area" onclick="document.getElementById('file-input').click()">
+    <svg width="40" height="40" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    <p style="font-size:14px;font-weight:600;color:#334155">Toque para seleccionar</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:4px">JPG, PNG o MP4 — 1920x1080</p>
+  </div>
+  <input type="file" id="file-input" accept="image/*,video/mp4" style="display:none" onchange="onFileSelect(this)">
+  <div id="upload-preview" style="margin-top:12px;display:none"></div>
+  <div id="upload-status" style="margin-top:10px"></div>
+  <div style="height:1px;background:#f1f5f9;margin:16px 0"></div>
+  <h3 style="font-size:15px;font-weight:700;margin-bottom:12px">Resumen</h3>
+  <div id="order-summary" class="sum"></div>
+  <button class="btn btn-g" id="btn-submit" onclick="submitCampaign()" disabled style="opacity:.4">Cargue su contenido primero</button>
+  <p style="text-align:center;margin-top:10px;font-size:11px;color:#94a3b8">Pago seguro · Revision en 24h</p>
+</div></div>
+
+<!-- ==================== SUCCESS ==================== -->
+<div id="v-success" class="view"><div class="c" style="padding-top:60px;text-align:center">
+  <div style="width:64px;height:64px;border-radius:50%;background:#ecfdf5;display:flex;align-items:center;justify-content:center;margin:0 auto 20px"><svg width="32" height="32" fill="none" stroke="#059669" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></div>
+  <h2 style="font-size:24px;font-weight:800;margin-bottom:6px">Campana enviada</h2>
+  <p style="font-size:14px;color:#64748b;margin-bottom:6px">Su contenido esta en revision.</p>
+  <p style="font-size:12px;color:#94a3b8;margin-bottom:28px">Le notificaremos cuando este activo.</p>
+  <button class="btn btn-p" onclick="loadPortal()" style="margin-bottom:10px">Ver mis campanas</button>
+  <button class="btn btn-o" onclick="showView('v-marketplace')">Publicar en otra pantalla</button>
+</div></div>
+
+<script>
+const API='/api';let token=null,user=null,screens=[],selScreen=null,selPlan=null,mediaId=null;
+
+// Restore session from localStorage
+try{
+  var saved=localStorage.getItem('mv_token');
+  var savedUser=localStorage.getItem('mv_user');
+  if(saved&&savedUser){token=saved;user=JSON.parse(savedUser)}
+}catch(e){}
+
+function saveSession(){try{localStorage.setItem('mv_token',token);localStorage.setItem('mv_user',JSON.stringify(user))}catch(e){}}
+function clearSession(){try{localStorage.removeItem('mv_token');localStorage.removeItem('mv_user')}catch(e){}}
+const SG=['#4f46e5','#0891b2','#059669','#7c3aed','#ea580c','#dc2626','#0284c7','#6d28d9','#0d9488','#be185d'];
+var selectedScreens=[];
+function multiDiscount(n){if(n>=5)return 20;if(n>=4)return 15;if(n>=3)return 10;if(n>=2)return 5;return 0}
+const PLANS=[{id:'m',name:'Mensual',mo:1,off:0,desc:'Sin compromiso'},{id:'q',name:'Trimestral',mo:3,off:10,desc:'Ahorre 10%'},{id:'s',name:'Semestral',mo:6,off:15,desc:'Mas solicitado'},{id:'a',name:'Anual',mo:12,off:25,desc:'Mejor precio'}];
+async function apiFetch(p,o={}){const h={'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;const r=await fetch(API+p,{...o,headers:h});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}return r.json()}
+function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));document.getElementById(id)?.classList.add('on');window.scrollTo(0,0)}
+function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;t.className='toast '+(ok?'ok':'err');setTimeout(()=>t.className='toast',3000)}
+async function doRegister(){const n=document.getElementById('r-name').value,e=document.getElementById('r-email').value,p=document.getElementById('r-pwd').value,c=document.getElementById('r-company').value,err=document.getElementById('r-err');err.style.display='none';if(!n||!e||!p){err.textContent='Complete todos los campos';err.style.display='block';return}try{const d=await apiFetch('/auth/register',{method:'POST',body:JSON.stringify({name:n,email:e,password:p,company_name:c||null})});token=d.access_token;user=d.user;saveSession();toast('Cuenta creada',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
+async function doLogin(){const e=document.getElementById('l-email').value,p=document.getElementById('l-pwd').value,err=document.getElementById('l-err');err.style.display='none';try{const d=await apiFetch('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;saveSession();toast('Bienvenido',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
+function doLogout(){token=null;user=null;clearSession();showView('v-landing')}
+async function loadMkt(){selectedScreens=[];showView('v-marketplace');document.getElementById('user-greeting').textContent=(user?.company_name||user?.name||'');screens=await apiFetch('/screens');const cities=[...new Set(screens.map(s=>s.location?.city))].sort();document.getElementById('city-tabs').innerHTML='<div class="tab on" onclick="fCity(\'\',this)">Todas</div>'+cities.map(c=>'<div class="tab" onclick="fCity(\''+c+'\',this)">'+c+'</div>').join('');rScreens(screens)}
+function fCity(c,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el?.classList.add('on');rScreens(c?screens.filter(s=>s.location?.city===c):screens)}
+function rScreens(l){document.getElementById('screen-list').innerHTML=l.map((s,i)=>{const cd=s.location_code||'MV-'+s.id.substring(0,4).toUpperCase();return'<div class="scr-i" onclick="selScr(\''+s.id+'\')"><div style="width:44px;height:30px;border-radius:8px;background:'+SG[i%SG.length]+';flex-shrink:0"></div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:11px;color:#94a3b8">'+s.location?.city+', '+(s.location?.state||'')+' · <span style="color:#4f46e5;font-weight:600">'+cd+'</span></div></div><div style="text-align:right"><div style="font-size:17px;font-weight:800">$'+(s.pricing?.per_day||0)+'</div><div style="font-size:9px;color:#94a3b8">/dia</div></div></div>'}).join('')}
+function selScr(id){selScreen=screens.find(s=>s.id===id);if(!selScreen)return;selPlan=null;showView('v-plans');const cd=selScreen.location_code||'';document.getElementById('plan-screen-info').innerHTML='<div style="font-size:20px;font-weight:800">'+selScreen.name+'</div><div style="font-size:14px;color:#4f46e5;font-weight:700;letter-spacing:2px;margin-top:4px">'+cd+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">'+selScreen.location?.city+', '+(selScreen.location?.state||'')+'</div>';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);document.getElementById('plan-list').innerHTML=PLANS.map((p,i)=>{const pr=Math.round(mb*(1-p.off/100));return'<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr.toLocaleString()+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2])}
+function selP(id,el){selPlan=PLANS.find(p=>p.id===id);document.querySelectorAll('.plan-o').forEach(p=>{p.classList.remove('sel');p.classList.remove('pop')});el?.classList.add('sel');const b=document.getElementById('btn-continue');b.disabled=false;b.style.opacity='1';b.textContent='Continuar'}
+function goToUpload(){
+  // Check if this is a republish
+  if(window._republishCampId&&window._republishMediaIds&&selPlan&&selScreen){
+    var now=new Date(),end=new Date(now);end.setMonth(end.getMonth()+selPlan.mo);
+    var sd=now.toISOString().split('T')[0],ed=end.toISOString().split('T')[0];
+    apiFetch('/campaigns/'+window._republishCampId,{method:'PUT',body:JSON.stringify({schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5}})}).then(function(){
+      return apiFetch('/payments',{method:'POST',body:JSON.stringify({campaign_id:window._republishCampId,method:'card',card_last4:'4242'})});
+    }).then(function(){
+      window._republishCampId=null;window._republishMediaIds=null;
+      toast('Campana republicada',true);loadPortal();
+    }).catch(function(e){toast(e.message,false)});
+    return;
+  }
+if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
+async function onFileSelect(inp){const f=inp.files[0];if(!f)return;document.getElementById('upload-status').innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';const rd=new FileReader();rd.onload=async function(){const b=rd.result.split(',')[1];try{const r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b})});mediaId=r.id;document.getElementById('upload-area').style.display='none';document.getElementById('upload-preview').innerHTML='<div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px"><svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><div><div style="font-size:13px;font-weight:600;color:#059669">Archivo cargado</div><div style="font-size:11px;color:#6b7280">'+f.name+'</div></div></div>';document.getElementById('upload-preview').style.display='block';document.getElementById('upload-status').innerHTML='';const b2=document.getElementById('btn-submit');b2.disabled=false;b2.style.opacity='1';b2.textContent='Enviar para revision'}catch(e){document.getElementById('upload-status').innerHTML='<p style="color:#dc2626;font-size:12px">'+e.message+'</p>'}};rd.readAsDataURL(f)}
+async function submitCampaign(){
+  if(!mediaId||!selPlan)return;
+  var scrIds=selectedScreens.length>0?selectedScreens:[selScreen?.id];
+  if(!scrIds||scrIds.length===0)return;
+  var btn=document.getElementById('btn-submit');btn.disabled=true;btn.textContent='Procesando...';
+  try{
+    var now=new Date(),end=new Date(now);end.setMonth(end.getMonth()+selPlan.mo);
+    var sd=now.toISOString().split('T')[0],ed=end.toISOString().split('T')[0];
+    for(var si=0;si<scrIds.length;si++){
+      var scr=screens.find(function(s){return s.id===scrIds[si]});
+      var campName=(user?.company_name||user?.name)+' — '+selPlan.name+(scrIds.length>1?' ('+(si+1)+'/'+scrIds.length+')':'');
+      var c=await apiFetch('/campaigns',{method:'POST',body:JSON.stringify({name:campName,screen_id:scrIds[si],schedule:{start_date:sd,end_date:ed,start_time:'00:00',end_time:'23:59',slot_duration:15,frequency:5},media_ids:[mediaId]})});
+      await apiFetch('/payments',{method:'POST',body:JSON.stringify({campaign_id:c.id,method:'card',card_last4:'4242'})});
+    }
+    selectedScreens=[];
+    showView('v-success');toast('Enviado a '+scrIds.length+' pantalla'+(scrIds.length>1?'s':''),true);
+  }catch(e){toast(e.message,false);btn.disabled=false;btn.textContent='Reintentar'}
+}
+// Hero gallery
+const HI=[
+{src:'https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/3km4svzc_1e065af3-59aa-4039-be11-ae67fbb8a7e6.png',cap:'Llantera — Gasolinera'},
+{src:'https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/9u8f12w1_88add383-d2c5-4b66-9ea7-0a04535f7eaf.png',cap:'Taller de mecanica — Food truck'},
+{src:'https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/0tcl57o3_476c03fe-5896-44b0-9f07-8251a4ca3255.png',cap:'Servicios de construccion'},
+{src:'https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/tfjrxfof_784e1332-e2a6-4428-bf3a-2f9a9e7b2167.png',cap:'Anuncio publicitario aqui'},
+{src:'https://customer-assets.emergentagent.com/job_hello-world-6394/artifacts/rbb5g2zq_image.png',cap:'Anuncio de pizzeria en peluqueria'}
+];
+let ci=0;
+function initG(){const d=document.getElementById('img-dots'),t=document.getElementById('thumbs');if(!d||!t)return;d.innerHTML=HI.map((_,i)=>'<div style="width:6px;height:6px;border-radius:50%;background:'+(i===0?'#fff':'rgba(255,255,255,.35)')+'" id="d'+i+'"></div>').join('');t.innerHTML=HI.map((img,i)=>'<div onclick="chI('+i+')" style="flex:1;height:56px;border-radius:8px;overflow:hidden;cursor:pointer;border:2px solid '+(i===0?'#4f46e5':'transparent')+'" id="t'+i+'"><img src="'+img.src.replace('w=800','w=200').replace('h=500','h=100')+'" style="width:100%;height:100%;object-fit:cover"></div>').join('')}
+function chI(n){ci=n;document.getElementById('hero-img').src=HI[n].src;document.getElementById('hero-cap').textContent=HI[n].cap;HI.forEach((_,i)=>{const d=document.getElementById('d'+i);if(d)d.style.background=i===n?'#fff':'rgba(255,255,255,.35)';const t=document.getElementById('t'+i);if(t)t.style.borderColor=i===n?'#4f46e5':'transparent'})}
+setInterval(()=>{chI((ci+1)%HI.length)},4000);initG();
+
+// Client Portal
+async function loadPortal(){
+  showView('v-portal');
+  document.getElementById('portal-name').textContent=(user?.company_name||user?.name||'');
+  try{
+    var camps=await apiFetch('/campaigns');
+    var pays=await apiFetch('/payments');
+    screens=await apiFetch('/screens');
+    var activeCamps=camps.filter(function(c){return c.status==='approved'||c.status==='active'});
+    var expiredCamps=camps.filter(function(c){return c.status==='expired'});
+    var pendingCamps=camps.filter(function(c){return c.status==='pending'||c.status==='draft'});
+    document.getElementById('p-active').textContent=activeCamps.length;
+    document.getElementById('p-pending').textContent=pendingCamps.length;
+    document.getElementById('p-total').textContent=camps.length;
+    function campCard(c,isExp){
+      var scr=screens.find(function(s){return s.id===c.screen_id});
+      var sn=scr?scr.name:'Pantalla';var sc=scr?(scr.location_code||''):'';var st=c.status;
+      var stc=st==='approved'||st==='active'?'#059669':st==='pending'?'#d97706':st==='expired'?'#64748b':'#94a3b8';
+      var stl=st==='approved'?'Activa':st==='active'?'Activa':st==='pending'?'Pendiente':st==='expired'?'Finalizada':st;
+      var ed=c.schedule?c.schedule.end_date:'';
+      var mid=c.media_ids&&c.media_ids.length>0?c.media_ids[0]:'';
+      var thumb=mid?'<img src="/api/player/media/'+mid+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#f1f5f9">':'<div style="width:56px;height:56px;border-radius:8px;background:#f1f5f9;flex-shrink:0"></div>';
+      var expLabel=ed?'<div style="font-size:10px;color:'+(st==='expired'?'#dc2626':'#64748b')+'">'+
+        (st==='expired'?'Finalizo: ':'Vence: ')+ed+'</div>':'';
+      var actions=isExp?'<button onclick="event.stopPropagation();republishCampaign(\''+c.id+'\')" style="padding:6px 16px;border-radius:20px;background:#4f46e5;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Republicar</button>':'<button onclick="editCampaign(\''+c.id+'\')" style="padding:6px 16px;border-radius:20px;background:#0f172a;color:#fff;font-size:11px;font-weight:600;border:none;cursor:pointer">Editar</button>';
+      return '<div onclick="'+(isExp?'':'editCampaign(\''+c.id+'\')')+'" style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:12px;margin-bottom:8px;cursor:pointer;display:flex;gap:12px;align-items:center'+(st==='expired'?';opacity:.75':'')+'">'+thumb+
+        '<div style="flex:1;min-width:0"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="font-size:13px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:150px">'+c.name+'</div><div style="font-size:11px;color:#94a3b8">'+sn+' &middot; '+sc+'</div>'+expLabel+'</div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><div style="padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;color:'+stc+';background:'+stc+'12">'+stl+'</div>'+actions+'</div></div></div></div>';
+    }
+    var ce=document.getElementById('portal-camps');
+    var allActive=activeCamps.concat(pendingCamps);
+    if(allActive.length===0){ce.innerHTML='<div style="text-align:center;padding:32px;color:#94a3b8">No tiene campanas activas</div>'}
+    else{ce.innerHTML=allActive.map(function(c){return campCard(c,false)}).join('')}
+    // Rejected campaigns
+    var rejectedCamps=camps.filter(function(c){return c.status==='rejected'});
+    var re=document.getElementById('portal-rejected');
+    if(rejectedCamps.length===0){re.innerHTML='<div style="text-align:center;padding:32px;color:#94a3b8">No tiene campanas rechazadas</div>'}
+    else{re.innerHTML=rejectedCamps.map(function(c){
+      var scr=screens.find(function(s){return s.id===c.screen_id});
+      var sn=scr?scr.name:'Pantalla';
+      var mid=c.media_ids&&c.media_ids.length>0?c.media_ids[0]:'';
+      var thumb=mid?'<img src="/api/player/media/'+mid+'" style="width:56px;height:56px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#f1f5f9">':'<div style="width:56px;height:56px;border-radius:8px;background:#f1f5f9;flex-shrink:0"></div>';
+      var notes=c.admin_notes||'Sin comentarios del administrador';
+      return '<div style="background:#fff;border:1px solid #fecaca;border-radius:12px;padding:12px;margin-bottom:8px;display:flex;gap:12px;align-items:flex-start">'+thumb+
+        '<div style="flex:1"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px"><div style="font-size:13px;font-weight:700">'+c.name+'</div><div style="padding:3px 8px;border-radius:20px;font-size:9px;font-weight:700;color:#dc2626;background:#dc262612">Rechazada</div></div>'+
+        '<div style="font-size:11px;color:#94a3b8;margin-bottom:6px">'+sn+'</div>'+
+        '<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:8px;font-size:12px;color:#991b1b;line-height:1.5"><strong>Motivo:</strong> '+notes+'</div></div></div>'
+    }).join('')}
+    var ee=document.getElementById('portal-expired');
+    if(expiredCamps.length===0){ee.innerHTML='<div style="text-align:center;padding:32px;color:#94a3b8">No tiene campanas finalizadas</div>'}
+    else{ee.innerHTML=expiredCamps.map(function(c){return campCard(c,true)}).join('')}
+    var pe=document.getElementById('portal-pays');
+    if(pays.length===0){pe.innerHTML='<div style="text-align:center;padding:32px;color:#94a3b8">No hay pagos</div>'}
+    else{pe.innerHTML=pays.map(function(p){var camp=camps.find(function(c){return c.id===p.campaign_id});var cn=camp?camp.name:'Campana';var pst=p.status;var pstc=pst==='completed'?'#059669':'#d97706';var pstl=pst==='completed'?'Pagado':'Pendiente';return '<div style="background:#fff;border:1px solid #f1f5f9;border-radius:12px;padding:14px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div style="font-size:14px;font-weight:700">$'+(p.amount||0)+'</div><div style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:'+pstc+';background:'+pstc+'12">'+pstl+'</div></div><div style="font-size:12px;color:#64748b">'+cn+'</div></div>'}).join('')}
+  }catch(e){console.error(e)}
+}
+function showPortalTab(tab,el){
+  document.querySelectorAll('#v-portal .tab').forEach(function(t){t.classList.remove('on')});
+  el.classList.add('on');
+  document.getElementById('portal-camps').style.display=tab==='camps'?'block':'none';
+  document.getElementById('portal-rejected').style.display=tab==='rejected'?'block':'none';
+  document.getElementById('portal-expired').style.display=tab==='expired'?'block':'none';
+  document.getElementById('portal-pays').style.display=tab==='pays'?'block':'none';
+}
+function toggleMenu(){var m=document.getElementById('ham-menu');m.style.display=m.style.display==='none'?'block':'none'}
+function openProfile(){
+  showView('v-profile');
+  document.getElementById('pf-name').value=user?.name||'';
+  document.getElementById('pf-company').value=user?.company_name||'';
+  document.getElementById('pf-email').value=user?.email||'';
+}
+function saveProfile(){
+  var name=document.getElementById('pf-name').value;
+  var company=document.getElementById('pf-company').value;
+  apiFetch('/auth/profile',{method:'PUT',body:JSON.stringify({name:name,company_name:company})}).then(function(){
+    user.name=name;user.company_name=company;saveSession();toast('Perfil actualizado',true);loadPortal();
+  }).catch(function(e){toast(e.message,false)});
+}
+function changePassword(){
+  var oldp=document.getElementById('cp-old').value;
+  var newp=document.getElementById('cp-new').value;
+  var conf=document.getElementById('cp-confirm').value;
+  var err=document.getElementById('cp-err');err.style.display='none';
+  if(!oldp||!newp){err.textContent='Complete todos los campos';err.style.display='block';return}
+  if(newp.length<6){err.textContent='Minimo 6 caracteres';err.style.display='block';return}
+  if(newp!==conf){err.textContent='Las contrasenas no coinciden';err.style.display='block';return}
+  apiFetch('/auth/profile',{method:'PUT',body:JSON.stringify({password:newp})}).then(function(){
+    toast('Contrasena cambiada',true);loadPortal();
+  }).catch(function(e){err.textContent=e.message;err.style.display='block'});
+}
+
+function goToMultiPlans(){
+  if(selectedScreens.length===0){toast('Seleccione al menos una pantalla',false);return}
+  // Use first screen for plan display, but will create campaigns for all
+  selScreen=screens.find(function(s){return s.id===selectedScreens[0]});
+  if(!selScreen)return;
+  selPlan=null;showView('v-plans');
+  var disc=multiDiscount(selectedScreens.length);
+  document.getElementById('plan-screen-info').innerHTML='<div style="font-size:18px;font-weight:800">'+selectedScreens.length+' pantalla'+(selectedScreens.length>1?'s':'')+'</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">Publicacion en multiples ubicaciones</div>'+(disc>0?'<div style="margin-top:6px;padding:3px 10px;border-radius:20px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:700;display:inline-block">-'+disc+'% descuento por volumen</div>':'');
+  var totalDaily=0;selectedScreens.forEach(function(id){var s=screens.find(function(x){return x.id===id});if(s)totalDaily+=(s.pricing?.per_day||5)});
+  var mb=Math.round(totalDaily*30*(1-disc/100));
+  document.getElementById('plan-list').innerHTML=PLANS.map(function(p,i){var pr=Math.round(mb*(1-p.off/100));return'<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');
+  if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2]);
+}
+function republishCampaign(cid){
+  apiFetch('/campaigns/'+cid).then(function(camp){
+    selScreen=screens.find(function(s){return s.id===camp.screen_id});
+    if(!selScreen){toast('Pantalla no encontrada',false);return}
+    window._republishCampId=cid;
+    window._republishMediaIds=camp.media_ids;
+    selPlan=null;showView('v-plans');
+    var cd=selScreen.location_code||'';
+    document.getElementById('plan-screen-info').innerHTML='<div style="font-size:20px;font-weight:800">'+selScreen.name+'</div><div style="font-size:14px;color:#4f46e5;font-weight:700;letter-spacing:2px;margin-top:4px">'+cd+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">Republicar campana</div>';
+    var bp=selScreen.pricing?.per_day||5;var mb=Math.round(bp*30);
+    document.getElementById('plan-list').innerHTML=PLANS.map(function(p,i){var pr=Math.round(mb*(1-p.off/100));return '<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');
+    if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2]);
+  }).catch(function(e){toast(e.message,false)});
+}
+
+// Edit Campaign
+var editCampId=null,editNewMediaId=null;
+async function editCampaign(cid){
+  editCampId=cid;editNewMediaId=null;
+  showView('v-edit-camp');
+  document.getElementById('ec-preview').style.display='none';
+  document.getElementById('ec-upload').style.display='block';
+  document.getElementById('ec-save').style.display='none';
+  document.getElementById('ec-status').innerHTML='';
+  try{
+    var camp=await apiFetch('/campaigns/'+cid);
+    var scr=screens.find(function(s){return s.id===camp.screen_id});
+    var sn=scr?scr.name:'Pantalla';
+    var sc=scr?(scr.location_code||''):'';
+    var st=camp.status;
+    var stc=st==='approved'||st==='active'?'#059669':st==='pending'?'#d97706':'#94a3b8';
+    var stl=st==='approved'?'Activa':st==='active'?'Activa':st==='pending'?'Pendiente':st;
+    var sd=camp.schedule?camp.schedule.start_date:'';
+    var ed=camp.schedule?camp.schedule.end_date:'';
+    document.getElementById('ec-info').innerHTML=
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div style="font-size:16px;font-weight:700">'+camp.name+'</div><div style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:'+stc+';background:'+stc+'12">'+stl+'</div></div>'+
+      '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px">'+sn+' · '+sc+'</div>'+
+      '<div style="font-size:12px;color:#94a3b8">'+sd+' a '+ed+'</div>';
+    // Show current media
+    var mids=camp.media_ids||[];
+    if(mids.length>0){
+      document.getElementById('ec-current').innerHTML='<div style="font-size:12px;font-weight:600;color:#334155;margin-bottom:8px">Anuncio actual:</div>'+
+        '<div style="border-radius:10px;overflow:hidden;border:1px solid #f1f5f9"><img src="/api/player/media/'+mids[0]+'" style="width:100%;max-height:200px;object-fit:contain;background:#f8fafc;display:block"></div>';
+    }else{document.getElementById('ec-current').innerHTML='<div style="font-size:12px;color:#94a3b8">Sin media actual</div>'}
+  }catch(e){document.getElementById('ec-info').innerHTML='<p style="color:#dc2626">'+e.message+'</p>'}
+}
+async function onEditFileSelect(inp){
+  var f=inp.files[0];if(!f)return;
+  document.getElementById('ec-status').innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
+  var rd=new FileReader();rd.onload=async function(){
+    var b=rd.result.split(',')[1];
+    try{
+      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b})});
+      editNewMediaId=r.id;
+      document.getElementById('ec-upload').style.display='none';
+      document.getElementById('ec-preview').innerHTML='<div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px"><svg width="18" height="18" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><div><div style="font-size:13px;font-weight:600;color:#059669">Nuevo archivo listo</div><div style="font-size:11px;color:#6b7280">'+f.name+'</div></div></div>';
+      document.getElementById('ec-preview').style.display='block';
+      document.getElementById('ec-status').innerHTML='';
+      document.getElementById('ec-save').style.display='block';
+    }catch(e){document.getElementById('ec-status').innerHTML='<p style="color:#dc2626;font-size:12px">'+e.message+'</p>'}
+  };rd.readAsDataURL(f);
+}
+async function saveEditMedia(){
+  if(!editCampId||!editNewMediaId)return;
+  var btn=document.getElementById('ec-save');btn.disabled=true;btn.textContent='Guardando...';
+  try{
+    await apiFetch('/campaigns/'+editCampId+'/media',{method:'PUT',body:JSON.stringify({media_ids:[editNewMediaId]})});
+    toast('Anuncio actualizado — aparecera primero en pantalla',true);
+    loadPortal();
+  }catch(e){toast(e.message,false);btn.disabled=false;btn.textContent='Guardar cambio'}
+}
+function deleteCampaign(){
+  if(!editCampId)return;
+  if(!confirm('Seguro que desea eliminar esta campana? Se eliminara de la pantalla inmediatamente.'))return;
+  apiFetch('/campaigns/'+editCampId,{method:'DELETE'}).then(function(){
+    toast('Campana eliminada',true);
+    loadPortal();
+  }).catch(function(e){toast(e.message,false)});
+}
+
+// Forgot Password
+var resetEmail='';
+async function sendResetCode(){
+  var email=document.getElementById('fg-email').value;
+  var err=document.getElementById('fg-err1');err.style.display='none';
+  if(!email){err.textContent='Ingrese su email';err.style.display='block';return}
+  try{
+    var r=await apiFetch('/auth/forgot-password?email='+encodeURIComponent(email),{method:'POST'});
+    resetEmail=email;
+    document.getElementById('fg-step1').style.display='none';
+    document.getElementById('fg-step2').style.display='block';
+    toast('Codigo enviado',true);
+  }catch(e){err.textContent=e.message;err.style.display='block'}
+}
+async function resetPassword(){
+  var code=document.getElementById('fg-code').value;
+  var pwd=document.getElementById('fg-newpwd').value;
+  var pwd2=document.getElementById('fg-newpwd2').value;
+  var err=document.getElementById('fg-err2');err.style.display='none';
+  if(!code){err.textContent='Ingrese el codigo';err.style.display='block';return}
+  if(!pwd||pwd.length<6){err.textContent='La contrasena debe tener al menos 6 caracteres';err.style.display='block';return}
+  if(pwd!==pwd2){err.textContent='Las contrasenas no coinciden';err.style.display='block';return}
+  try{
+    await apiFetch('/auth/reset-password?email='+encodeURIComponent(resetEmail)+'&code='+code+'&new_password='+encodeURIComponent(pwd),{method:'POST'});
+    document.getElementById('fg-step2').style.display='none';
+    document.getElementById('fg-step3').style.display='block';
+    toast('Contrasena actualizada',true);
+  }catch(e){err.textContent=e.message;err.style.display='block'}
+}
+
+// Auto-load portal if session exists
+if(token&&user){loadPortal()}
+(function(){
+  const slides=document.querySelectorAll('.vslide2');
+  const prog=document.getElementById('vid2-prog');
+  if(!slides.length)return;
+  let cur=0,dur=5000,start=Date.now();
+  slides[0].classList.add('active');
+  function tick(){
+    const elapsed=Date.now()-start;
+    const pct=Math.min((elapsed/dur)*100,100);
+    if(prog)prog.style.width=pct+'%';
+    if(elapsed>=dur){
+      slides[cur].classList.remove('active');
+      cur=(cur+1)%slides.length;
+      slides[cur].classList.add('active');
+      start=Date.now();
+      if(prog)prog.style.width='0%';
+    }
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
