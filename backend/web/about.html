@@ -17,6 +17,9 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 .nav-links a{font-size:14px;color:#94a3b8;font-weight:500;transition:color .2s}
 .nav-links a:hover{color:#22d3ee}
 .nav-cta{background:#6366f1;color:#fff;padding:10px 24px;border-radius:8px;font-size:14px;font-weight:600}
+.nav-right{display:flex;align-items:center;gap:12px}
+.lang-toggle-fixed{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;font-family:inherit;transition:all .2s}
+.lang-toggle-fixed:hover{border-color:#22d3ee;color:#22d3ee}
 .sec{padding:80px 40px}
 .inner{max-width:1200px;margin:0 auto}
 .badge{font-size:11px;font-weight:700;color:#22d3ee;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px}
@@ -35,24 +38,28 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
   nav .nav-inner{padding:8px 16px!important}
   nav .nav-logo img{height:48px!important;margin-left:0!important}
   nav .nav-cta{padding:8px 14px!important;font-size:13px!important}
-  /* Josue portrait: show FULL photo (hand-on-desk visible) using object-fit
-     contain on portrait viewports. Landscape/desktop keeps 'cover' framing. */
+  /* Josue portrait on mobile: fill the viewport width completely, no side
+     bars. The <img> uses width:100% + height:auto so it scales proportionally
+     to the phone width, showing the full photo (hands on desk + laptop +
+     backdrop) with no cropping and no empty space. */
   .hero-grid > .ceo-photo-wrap{
     height:auto !important;
     min-height:auto !important;
     max-height:none !important;
     width:100% !important;
-    background:#020617 !important;
-    padding:12px 0 !important;
+    background:transparent !important;
+    padding:0 !important;
+    display:block !important;
+    overflow:hidden !important;
   }
   .hero-grid > .ceo-photo-wrap .ceo-photo-img{
     width:100% !important;
     height:auto !important;
-    max-height:70vh !important;
-    object-fit:contain !important;
+    max-height:none !important;
+    object-fit:cover !important;
     object-position:center !important;
     display:block !important;
-    margin:0 auto !important;
+    margin:0 !important;
   }
   .hero-grid > div:last-child{padding:26px 20px 40px!important}
   .hero-grid h1{font-size:32px!important}
@@ -70,7 +77,7 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:12px 0;background:rg
 </head>
 <body>
 
-<nav><div class="nav-inner"><a href="/" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a><div class="nav-links"><a href="/" data-i18n="nav.home">Home</a><a href="/#services" data-i18n="nav.services">Services</a><a href="/#menus" data-i18n="nav.menus">Digital Menus</a><a href="/#contact" data-i18n="nav.contact">Contact</a><a href="https://panel.mediadview.com" class="nav-cta" data-i18n="nav.dashboard">Dashboard Login</a><button id="lang-toggle" aria-label="Change language" style="background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:800;letter-spacing:1px;cursor:pointer;margin-left:8px;font-family:inherit">ES</button></div></div></nav>
+<nav><div class="nav-inner"><a href="/" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a><div class="nav-right"><button id="lang-toggle" aria-label="Change language" title="Change language" class="lang-toggle-fixed">ES</button><div class="nav-links"><a href="/" data-i18n="nav.home">Home</a><a href="/#services" data-i18n="nav.services">Services</a><a href="/#menus" data-i18n="nav.menus">Digital Menus</a><a href="/#contact" data-i18n="nav.contact">Contact</a><a href="https://panel.mediadview.com" class="nav-cta" data-i18n="nav.dashboard">Dashboard Login</a></div></div></div></nav>
 
 <!-- HERO -->
 <section style="min-height:100vh;display:grid;grid-template-columns:1fr 1fr;padding-top:56px" class="hero-grid">
