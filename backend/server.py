@@ -3980,21 +3980,19 @@ app.include_router(api_router)
 
 # Root route: host-aware direct serve (no redirect, keeps URL clean).
 #   - panel.mediadview.com/           → serves web/index.html (admin panel / login)
-#   - mediadview.com/, www.*, else    → serves web/customer.html
-#                                        (the 12-view customer SPA opens on v-landing:
-#                                         'Haz que tu negocio se vea todos los dias').
-# The former marketing site (landing.html) is still reachable at /home for
-# backward compatibility with any external inbound link.
+#   - mediadview.com/, www.*, else    → serves web/landing.html (corporate/marketing)
+#     The customer marketplace SPA (customer.html) lives at /marketplace and is
+#     the target of a 'Promociónate aquí' CTA inside landing.html.
 @app.get("/", include_in_schema=False)
 async def root(request: Request):
     host = (request.headers.get("host") or "").lower()
     if host.startswith("panel."):
         return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 @app.get("/home", include_in_schema=False)
 async def home_marketing():
-    """Legacy corporate marketing page kept at /home so nothing breaks."""
+    """Alias for the corporate landing (identical to root)."""
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 # Clean public URLs at the apex domain (no /api prefix visible in the browser).
