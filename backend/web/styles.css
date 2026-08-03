@@ -270,7 +270,7 @@ select.inp { cursor:pointer; appearance:none; -webkit-appearance:none; backgroun
   border-bottom:1px solid rgba(255,255,255,.06);
   min-height:var(--tb-h);
 }
-.sb-brand img { filter:brightness(1.1) }
+.sb-brand img { filter:none }
 
 .sb nav {
   flex:1;

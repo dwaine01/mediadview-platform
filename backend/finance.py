@@ -25,7 +25,7 @@ COMPANY = {
     "account_number": "891786730",
     "routing": "044000037",
     "website": "www.mediadview.com",
-    "logo_url": "/api/web/logo.png",
+    "logo_url": "/api/web/logo-dark.png",
 }
 
 # ==================== MODELS ====================

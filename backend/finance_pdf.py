@@ -28,6 +28,31 @@ ACCENT = colors.HexColor("#7a4ad5")  # subtle accent matching purple logo gradie
 LOGO_PATH = "/app/backend/web/logo-pdf.png"  # smaller version for embedding
 PAGE_W, PAGE_H = letter
 
+# Read the logo's real aspect ratio ONCE at import time so every Image() call
+# below can preserve proportions (avoids stretched/squashed logo when the
+# artwork changes shape).
+def _logo_aspect() -> float:
+    try:
+        from PIL import Image as _PILImage
+        with _PILImage.open(LOGO_PATH) as _im:
+            w, h = _im.size
+            if h > 0:
+                return w / h
+    except Exception:
+        pass
+    return 2.29  # sensible fallback matching current logo (564x246)
+LOGO_ASPECT = _logo_aspect()
+
+def _logo_image(width_inch: float):
+    """Build a ReportLab Image sized to `width_inch` wide while preserving the
+    real logo aspect ratio. Returns None if the file is missing/unreadable."""
+    if not os.path.exists(LOGO_PATH):
+        return None
+    try:
+        return Image(LOGO_PATH, width=width_inch*inch, height=(width_inch/LOGO_ASPECT)*inch)
+    except Exception:
+        return None
+
 COMPANY = {
     "name": "MediAd View LLC",
     "brand": "MediAd View",
@@ -90,14 +115,9 @@ def _styles():
 
 def _header(st):
     """Logo + Brand block on the right, blank space on left."""
-    logo = None
-    if os.path.exists(LOGO_PATH):
-        try:
-            logo = Image(LOGO_PATH, width=0.55*inch, height=0.55*inch)
-        except Exception:
-            logo = None
+    logo = _logo_image(1.4)  # ~1.4" wide; height auto-derived from real aspect
     brand_row = Table(
-        [[logo or Spacer(1, 0.55*inch), Paragraph(COMPANY["brand"], st["brand"])]],
+        [[logo or Spacer(1, 0.6*inch), Paragraph(COMPANY["brand"], st["brand"])]],
         colWidths=[0.7*inch, 2.3*inch]
     )
     brand_row.setStyle(TableStyle([
@@ -714,13 +734,8 @@ def generate_contract_pdf(ct: dict, client: dict) -> bytes:
 def _contract_header(st):
     """Compact header for contracts: small logo only (logo already includes brand+tagline).
     No address/phones (those appear inside the I. THE PARTIES section)."""
-    logo = None
-    if os.path.exists(LOGO_PATH):
-        try:
-            logo = Image(LOGO_PATH, width=1.7*inch, height=0.5*inch)
-        except Exception:
-            logo = None
-    row = Table([[logo or Spacer(1, 0.5*inch)]], colWidths=[1.7*inch])
+    logo = _logo_image(1.7)
+    row = Table([[logo or Spacer(1, 0.74*inch)]], colWidths=[1.7*inch])
     _no_padding(row, [("ALIGN", (0,0), (-1,-1), "CENTER")])
     outer = Table([[row]], colWidths=[6.9*inch])
     _no_padding(outer, [("ALIGN", (0,0), (-1,-1), "CENTER")])
@@ -730,13 +745,8 @@ def _contract_header(st):
 def _brand_header(st):
     """Right-aligned brand block — LOGO ONLY (the logo already contains brand+tagline)
     + address + phones below."""
-    logo = None
-    if os.path.exists(LOGO_PATH):
-        try:
-            # Wide logo (~3.3:1 aspect)
-            logo = Image(LOGO_PATH, width=2.0*inch, height=0.6*inch)
-        except Exception:
-            logo = None
+    # Preserve real aspect ratio; ~2.0" wide is the target on the receipt/invoice header.
+    logo = _logo_image(2.0)
 
     addr_para = Paragraph(
         f"{COMPANY['address_line1']}<br/>{COMPANY['address_line2']}<br/>"
