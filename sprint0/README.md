@@ -120,11 +120,15 @@ Sprint 0 PASSES if T1–T6 all pass.
 
 ## ▶ Execution
 
+Every HTTP request and response is printed on screen exactly as sent/received
+(colored for readability). Critical failures (T1–T4) stop the run immediately
+per contract — no silent patching.
+
 ```bash
 cd sprint0/
 pip install requests pillow
 python3 quick_smoke_test.py    # confirms connectivity + verified endpoint path
-python3 run_sprint0.py         # runs T1..T6, produces markdown report
+python3 run_sprint0.py         # runs T1..T6, produces markdown report + logs
 ```
 
 Deliverables (send back to architect):
