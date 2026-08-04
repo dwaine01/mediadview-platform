@@ -1,117 +1,134 @@
-# Sprint 0 — MediaView × Colorlight A35 Proof of Concept
+# Sprint 0 — MediaView × Colorlight A35 (verified-only edition)
 
-**Objective**: Prove that MediaView can drive a Colorlight A35 using ONLY the official
-Local HTTP API and Device Discovery Protocol documented at
-https://colorlight-doc.apifox.cn/. Nothing else. No custom APK. No ColorlightCloud.
+**Contract**: every endpoint below has been verified against its individual page on
+the official Colorlight Apifox documentation. **Zero inferred endpoints.**
 
-**Contract**: If any test reveals an assumption from previous architecture documents
-was wrong, STOP, document it, and update the architecture before continuing.
-
----
-
-## Phase 1 — Endpoints used by Sprint 0
-
-Every endpoint below is documented in the official Colorlight docs. Nothing invented.
-
-| # | Purpose | Method + Path | Docs URL | Test that uses it |
-|---|---|---|---|---|
-| 1 | Discover A35 on LAN | UDP broadcast `{"netType":1,"mType":71}` → port `9041/UDP` | doc-7054095 | Test 3 |
-| 2 | Get device info (model, firmware, serial) | `GET /api/system/info` | api-145138569 | Test 1 |
-| 3 | Verify LAN encryption status | `GET /api/system/encryption/lan` | api-145138599 | Test 2 |
-| 4 | Publish JSON program + assets, autoplay=1 | `POST /api/program/{name}.vsn` (form-data) | api-145138684, doc-8105869 | Test 5, 6 |
-| 5 | List programs on device | `GET /api/program/list` | api-179910235 | Test 7 |
-| 6 | Get current playing status | `GET /api/program/play/status` | api-285091083 | Test 7, 8 |
-| 7 | Get thumbnail of current program | `GET /api/program/thumbnail` | api-193165866 | Test 7 |
-| 8 | Get device screenshot | `GET /api/system/screenshot` | api-145138572 | Test 7 |
-| 9 | Get C-Cloud config (current cloud target) | `GET /api/cloud/ccloud/account` | api-180616402 | Test 4 |
-| 10 | Set C-Cloud config (point at our server) | `POST /api/cloud/ccloud/account` | api-180616704 | Test 4 |
-| 11 | Set HTTP polling interval | `POST /api/cloud/ccloud/pollinterval` | api-180612906 | Test 4 |
-| 12 | Get boardconfig (device capabilities) | `GET /api/system/boardconfig` | api-145138607 | Test 1 |
-
-**Auth**: HTTP Basic — user `admin`, password from `test_credentials.md`
-(`Jesusmifielamigo8@` or default `Console@123`).
-
-**Program format**: JSON `.vsn` — compatible with ALL firmware versions (docs §4.1).
-
-**Filename spec**: `Playlist{id}_{md5_of_file}_{size_bytes}.vsn` for the .vsn descriptor,
-`F_{md5}_{size}.{ext}` for each asset (docs §8.1). Device validates md5 + size.
+**Scope reduced**: 6 tests instead of 9. Any endpoint whose exact URL path could not
+be confirmed from the docs was REMOVED, per your explicit instruction:
+*"fewer tests with 100% verified APIs than more tests based on assumptions"*.
 
 ---
 
-## Phase 2 — Test environment
+## ✅ Officially verified endpoints in Sprint 0
 
-**Prerequisite**: A laptop on the SAME LAN as the A35, with Python 3.8+.
+### 1) Device Discovery — UDP broadcast
+- **Protocol**: UDP
+- **Target**: `<broadcast>:9041`
+- **Auth**: none (LAN protocol)
+- **Request body** (exact, from docs):
+  ```json
+  {"netType": 1, "mType": 71}
+  ```
+- **Response body** (exact, from docs):
+  ```json
+  {
+    "imgVersion": "6.1.3",
+    "isNewBrightness": 1,
+    "modelName": "a200",
+    "password": "-",
+    "serial": "CLCA20111457",
+    "terminateName": "Terminal1457",
+    "errorCode": 0,
+    "mType": 72,
+    "netType": 1,
+    "deviceType": 0
+  }
+  ```
+- **Docs URL**: https://colorlight-doc.apifox.cn/doc-7054095
+- **Docs section**: §5, §7.1, §8.1
 
-### Setup (Josue's laptop, one-time)
-```
-# Clone Sprint 0 files onto your laptop:
-git pull   # if repo is already cloned locally
-# OR just download the /app/sprint0/ folder from Emergent
+### 2) Get Device Info
+- **Method**: `GET`
+- **Path**: `/api/info.json`
+- **Auth**: HTTP Basic (`Authorization: Basic base64(user:pass)`)
+- **Request**: no body
+- **Response example** (exact, from docs):
+  ```json
+  {
+    "info": {
+      "vername": "1.71.3",
+      "fw": "A600.1713.240124.1910",
+      "serialno": "CLCA8A123457",
+      "model": "a800",
+      "up": 1493809,
+      "force_encryption": true,
+      "mem": {"total": 4021211136, "free": 2926379008},
+      "storage": {"total": 24950689792, "free": 24781905920},
+      "playing": {"name": "", "path": "", "source": "STOP"}
+    }
+  }
+  ```
+- **Docs URL**: https://colorlight-doc.apifox.cn/api-145138569
+- **Notes**: cURL example on the docs page uses your device IP `http://192.168.42.129`
 
-cd sprint0/
-pip install requests
-```
+### 3) HTTP Basic Auth (all local API calls)
+- **Header**: `Authorization: Basic <base64(user:pass)>`
+- **Default user**: `admin`
+- **Default password**: `Console@123` (or whatever is currently set on your device)
+- **Docs URL**: https://colorlight-doc.apifox.cn/doc-7054166 §6
 
-### Configure device IP & credentials
-Edit `config.py`:
-```python
-DEVICE_IP = "192.168.42.129"          # your A35's LAN IP
-DEVICE_USER = "admin"
-DEVICE_PASS = "Jesusmifielamigo8@"    # or Console@123 for default
-MEDIAVIEW_URL = "https://panel.mediadview.com"  # for test 4
-```
+### 4) Publish Program (image / video) with autoplay
+- **Method**: `POST`
+- **Path**: `/api/program/{program_name}.vsn`
+- **Auth**: HTTP Basic
+- **Content-Type**: `multipart/form-data`
+- **Query param**: `autoplay=1` (per docs Q4 — value 0 = do not auto-play, 1 = play immediately)
+- **File naming rule** (mandatory, docs §8.1):
+  - `.vsn` file: `Playlist{id}_{md5}_{size_bytes}.vsn`
+  - Asset files: `F_{md5}_{size_bytes}.{ext}` (e.g. `F_82B07E1F..._6446377.mp4`)
+- **Form field names**: `f1`, `f2`, `f3`, ... (docs §5.3: "keys should be f\* form")
+- **`.vsn` content**: JSON per docs §4.1 (compatible with ALL firmware versions)
+- **Docs URL**: https://colorlight-doc.apifox.cn/doc-8105869 (§5) + https://colorlight-doc.apifox.cn/api-145138684
 
-### Run all tests + generate report
-```
-python3 run_sprint0.py
-```
-Output: `sprint0_report_YYYYMMDD_HHMM.md` with PASS/FAIL per test + evidence.
+### JSON program-descriptor field spec
+- **Docs URL**: https://colorlight-doc.apifox.cn/doc-7054971
+- **Docs URL** (XML alternative, firmware ≥ 1.70.2 only): https://colorlight-doc.apifox.cn/doc-7054987
 
 ---
 
-## Phase 3 — The 9 tests
+## 🗑 Removed from Sprint 0 (NOT officially verified paths — deferred)
 
-| # | Test | PASS criteria | FAIL criteria |
+| Original test | API ID (functionality confirmed) | Reason removed |
+|---|---|---|
+| GET screenshot | api-145138572 | Exact URL path not verified. Deferred to Sprint 0.5 after crawling docs page |
+| GET play status | api-285091083 | Same — path not verified |
+| GET program list | api-179910235 | Same |
+| GET boardconfig | api-145138607 | Same |
+| GET/POST C-Cloud account | api-180616402 / api-180616704 | Same — also destructive, defer |
+| POST HTTP poll interval | api-180612906 | Same |
+| GET LAN encryption status | api-145138599 | Same |
+| GET program thumbnail | api-193165866 | Same |
+
+**Functionality of each of these IS documented in the official docs.** Only the exact URL PATH remains unverified. Sprint 0.5 will crawl each individual page and add them back after verification.
+
+---
+
+## 🎯 Sprint 0 test list — reduced but 100% verified
+
+| # | Test | Endpoint used | PASS criteria |
 |---|---|---|---|
-| 1 | Read device info | HTTP 200, JSON has `model`, `vername`, `serialno` | 401 / timeout / missing fields |
-| 2 | Verify auth | HTTP 200 on protected endpoint using Basic auth | 401 with correct password |
-| 3 | Discovery via UDP :9041 | Device responds within 5s with `serial` + `modelName` | No response after 3 broadcasts |
-| 4 | Point device to MediaView server | Cloud config updated; device begins heartbeat to us | Endpoint returns error / no heartbeat within 5 min |
-| 5 | Publish full-screen image (autoplay=1) | HTTP 200 + image visible on LED within 30s | Non-200 / image never appears |
-| 6 | Publish full-screen video (autoplay=1, ~5MB mp4) | HTTP 200 + video plays on LED within 90s | Non-200 / video not playing |
-| 7 | Verify playback via `/play/status` + screenshot | `playing.name` matches uploaded name; screenshot shows content | Wrong content / offline |
-| 8 | Measure latency: publish → LED | Latency < 30s image / < 90s video | Latency > 5 min |
-| 9 | Document all requests/responses | Every HTTP call captured in `sprint0_report.md` | Missing data |
+| T1 | Read device info | `GET /api/info.json` | HTTP 200, JSON has `info.model`, `info.vername`, `info.serialno` |
+| T2 | Verify Basic Auth | `GET /api/info.json` with wrong password | 401 with wrong, 200 with correct (or 200/200 if LAN encryption OFF) |
+| T3 | UDP Discovery | UDP `:9041` with `{"netType":1,"mType":71}` | Device responds within 5s with matching `serial` |
+| T4 | Publish full-screen image | `POST /api/program/Playlist{id}_{md5}_{size}.vsn?autoplay=1` | HTTP 200 + image appears on LED |
+| T5 | Publish full-screen video | Same endpoint, video asset | HTTP 200 + video appears on LED |
+| T6 | Documentation & photos | Log + phone photos | Full request/response saved + photo of LED |
 
-**Sprint 0 PASSES if tests 1-9 all pass.**
-**Sprint 0 FAILS if ANY test fails. Stop. Update architecture. Restart.**
+Sprint 0 PASSES if T1–T6 all pass.
 
 ---
 
-## Phase 4 — Deliverables (what you send back)
+## ▶ Execution
 
-After running `run_sprint0.py`, you deliver:
+```bash
+cd sprint0/
+pip install requests pillow
+python3 quick_smoke_test.py    # confirms connectivity + verified endpoint path
+python3 run_sprint0.py         # runs T1..T6, produces markdown report
+```
 
-1. `sprint0_report_YYYYMMDD_HHMM.md` — auto-generated markdown with pass/fail per test
-2. `sprint0_logs/` folder — full request/response dump per test
-3. **2 photos of the LED with your phone**:
-   - Photo A: LED showing the red test image from Test 5
-   - Photo B: LED showing the test video from Test 6
-4. **1 screenshot from the A35**: from Test 7 (`/api/system/screenshot`)
-5. Latency measurements (Test 8) in the report
-
-Send me all 5 items → I evaluate → declare Sprint 0 PASS or FAIL → we plan Sprint 1.
-
----
-
-## Phase 5 — What to do if a test fails
-
-Every failure = potential architecture assumption error. Follow this protocol:
-
-1. **STOP.** Do not proceed to next test.
-2. Copy the exact request + response + error from the log.
-3. Send it to me with the message: *"Sprint 0 Test N failed. Assumption to re-evaluate: [describe]"*.
-4. I re-read the specific docs section, identify the wrong assumption, propose fix.
-5. Only then do you retry.
-
-**Never patch a failure without re-reading the docs.**
+Deliverables (send back to architect):
+- `sprint0_report_YYYYMMDD_HHMM/sprint0_report.md`
+- `sprint0_report_YYYYMMDD_HHMM/logs/*.txt` (full request/response transcripts)
+- Photo A: LED showing red test image
+- Photo B: LED playing test video (if `sprint0_test.mp4` provided)
