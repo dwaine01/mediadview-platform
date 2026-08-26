@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import getpass
 import os
 import sys
 from datetime import datetime, timezone
@@ -189,6 +190,111 @@ async def run(args) -> int:
     return 0
 
 
+async def run_interactive() -> int:
+    """Modo asistido: 1) conecta, 2) muestra admins, 3) desbloquea lockout,
+    4) pide email + contraseña, 5) resetea todo."""
+    print("\n════════════════════════════════════════════════════════════")
+    print("   MediaView — Recuperación de Acceso Admin (modo asistido)")
+    print("════════════════════════════════════════════════════════════\n")
+    print(f"→ Conectando a MongoDB: {_mask_url(MONGO_URL)}")
+    print(f"  db = {DB_NAME}\n")
+
+    client = AsyncIOMotorClient(MONGO_URL, serverSelectionTimeoutMS=8000)
+    db = client[DB_NAME]
+    try:
+        await db.command("ping")
+    except Exception as e:
+        print(f"❌ No pude conectar a Mongo: {e}")
+        print("   Verifica que MONGO_URL esté configurada en las env vars de Render.")
+        return 2
+    print("✅ Conexión OK.\n")
+
+    # 1) Listar admins
+    docs = await db.users.find(
+        {"role": {"$in": ["admin", "superadmin"]}},
+        {"email": 1, "name": 1, "role": 1, "active": 1},
+    ).to_list(length=200)
+
+    if not docs:
+        print("⚠️  No hay usuarios admin/superadmin en la base de datos.")
+        print("   Sugerencia: activa SEED_DEMO=true en Render y redeploy, o crea uno manualmente.")
+        return 3
+
+    print(f"📋 {len(docs)} admin(s) encontrados:\n")
+    for i, d in enumerate(docs, start=1):
+        print(f"  [{i}]  {d.get('email','?'):40s}  role={d.get('role',''):11s}  active={d.get('active', True)}")
+    print()
+
+    # 2) Desbloquear intentos fallidos globales (siempre)
+    res = await db.login_attempts.delete_many({"success": False})
+    print(f"🔓 Lockout liberado: se borraron {res.deleted_count} intentos fallidos.\n")
+
+    # 3) Elegir usuario
+    while True:
+        raw = input("👉 ¿Qué admin quieres resetear? (escribe el número o el email, o 'q' para salir): ").strip()
+        if raw.lower() in ("q", "quit", "exit", ""):
+            print("Saliendo sin cambios de password. El lockout ya fue liberado, prueba a entrar.")
+            return 0
+        if raw.isdigit():
+            idx = int(raw) - 1
+            if 0 <= idx < len(docs):
+                email = docs[idx]["email"]
+                break
+            print("Número fuera de rango, intenta de nuevo.")
+            continue
+        if "@" in raw:
+            match = next((d for d in docs if d["email"].lower() == raw.lower()), None)
+            if match:
+                email = match["email"]
+                break
+            print("Ese email no está en la lista, intenta de nuevo.")
+            continue
+        print("Entrada no válida.")
+
+    print(f"\n→ Usuario seleccionado: {email}")
+
+    # 4) Pedir contraseña de forma segura
+    while True:
+        pw = getpass.getpass("🔑 Escribe la NUEVA contraseña (min 8, no se mostrará): ")
+        if len(pw) < 8:
+            print("   ❌ Muy corta. Debe tener al menos 8 caracteres.")
+            continue
+        pw2 = getpass.getpass("🔑 Confírmala de nuevo: ")
+        if pw != pw2:
+            print("   ❌ No coinciden. Intenta otra vez.")
+            continue
+        break
+
+    # 5) Aplicar cambios
+    user = await db.users.find_one({"email": email})
+    update = {
+        "password_hash": _hash(pw),
+        "session_epoch": int((user or {}).get("session_epoch", 0)) + 1,
+        "active": True,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    await db.users.update_one({"email": email}, {"$set": update})
+    cleared = await db.login_attempts.delete_many({"email": email.lower(), "success": False})
+    try:
+        rt = await db.refresh_tokens.delete_many({"user_id": (user or {}).get("id")})
+        rt_n = rt.deleted_count
+    except Exception:
+        rt_n = 0
+
+    print("\n════════════════════════════════════════════════════════════")
+    print("✅ LISTO. Contraseña actualizada.")
+    print(f"   • usuario:             {email}")
+    print(f"   • intentos limpiados:  {cleared.deleted_count}")
+    print(f"   • refresh tokens:      {rt_n} revocados")
+    print(f"   • active:              True")
+    print("\n🔐 Prueba AHORA en una ventana Incognito:")
+    print("   https://panel.mediadview.com")
+    print(f"   Email:    {email}")
+    print("   Password: (la que acabas de escribir)")
+    print("════════════════════════════════════════════════════════════\n")
+    return 0
+
+
 def main():
     p = argparse.ArgumentParser(
         description="MediaView admin recovery (unlock + password reset).",
@@ -209,9 +315,11 @@ def main():
                    help="No escribe cambios, solo muestra qué haría.")
     args = p.parse_args()
 
-    if not any([args.email, args.unlock_all, args.unlock_email, args.list_admins]):
-        p.print_help()
-        sys.exit(1)
+    # Modo asistido: si no pasas NINGÚN flag, corre interactivo.
+    if not any([args.email, args.password, args.activate, args.show,
+                args.unlock_all, args.unlock_email, args.list_admins, args.dry_run]):
+        code = asyncio.run(run_interactive())
+        sys.exit(code)
 
     code = asyncio.run(run(args))
     sys.exit(code)
