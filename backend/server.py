@@ -4000,6 +4000,11 @@ async def home_marketing():
 async def about():
     return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
 
+@app.get("/sign-permit-information", include_in_schema=False)
+async def sign_permit_form_page():
+    """Public form: /sign-permit-information — customers fill and submit."""
+    return FileResponse(os.path.join(WEB_DIR, 'sign-permit.html'), media_type='text/html')
+
 @app.get("/signup", include_in_schema=False)
 async def _signup():
     """Customer signup — served by the unified customer SPA (customer.html).
@@ -4066,6 +4071,10 @@ app.include_router(build_reports_router(db))
 # Phase D.1 — Corporate Portal (business/rental clients dashboard)
 from corporate_portal import create_corporate_routes
 app.include_router(create_corporate_routes(db, get_current_user))
+
+# Sign Permit Information — public form + admin management
+from sign_permits import create_sign_permit_routes
+app.include_router(create_sign_permit_routes(db, require_admin))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
