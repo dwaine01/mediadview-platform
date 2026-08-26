@@ -1,20 +1,19 @@
 """
-Generate the Open Graph preview image for MediAd View social sharing.
-Recommended size: 1200x630 (Facebook/LinkedIn/Twitter standard).
-Overlays the existing MediAd View logo onto a brand-gradient background.
-Run once at deploy time — output saved to backend/web/og-image.png.
+Generate:
+  1) og-image.png (1200x630) — social sharing card. Logo big & centered, no text.
+  2) favicon.png (512x512)   — square icon for browser tabs.
 """
 import os
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 
 WEB = os.path.join(os.path.dirname(__file__), 'web')
-OUT = os.path.join(WEB, 'og-image.png')
+OG_OUT       = os.path.join(WEB, 'og-image.png')
+FAV_OUT      = os.path.join(WEB, 'favicon.png')
 LOGO_CANDIDATES = [
     os.path.join(WEB, 'logo-new.png'),
     os.path.join(WEB, 'logo-dark.png'),
 ]
 
-W, H = 1200, 630
 
 def gradient(w, h, top, bottom):
     img = Image.new('RGB', (w, h), top)
@@ -28,59 +27,40 @@ def gradient(w, h, top, bottom):
             px[x, y] = (r, g, b)
     return img
 
-def find_font(size):
-    for path in [
-        '/usr/share/fonts/truetype/dejavu/DejaVu-Sans-Bold.ttf',
-        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
-        '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
-        '/System/Library/Fonts/Helvetica.ttc',
-    ]:
-        if os.path.exists(path):
-            try:
-                return ImageFont.truetype(path, size)
-            except Exception:
-                pass
-    return ImageFont.load_default()
 
-def build():
-    # Deep navy → indigo → cyan gradient (MediAd View brand)
+def build_og():
+    W, H = 1200, 630
     img = gradient(W, H, (12, 18, 44), (24, 30, 70))
     draw = ImageDraw.Draw(img, 'RGBA')
 
-    # Decorative glow blobs
+    # Subtle decorative glows
     for cx, cy, r, col in [
-        (W - 180, 140, 220, (99, 102, 241, 60)),
-        (100, H - 100, 280, (34, 211, 238, 45)),
-        (W // 2, H // 2, 400, (99, 102, 241, 22)),
+        (W - 180, 140, 260, (99, 102, 241, 55)),
+        (140, H - 120, 320, (34, 211, 238, 45)),
+        (W // 2, H // 2, 480, (99, 102, 241, 18)),
     ]:
-        for i in range(24, 0, -1):
-            alpha = int(col[3] * (i / 24) * 0.35)
-            draw.ellipse((cx - r * i / 24, cy - r * i / 24,
-                          cx + r * i / 24, cy + r * i / 24),
+        for i in range(28, 0, -1):
+            alpha = int(col[3] * (i / 28) * 0.35)
+            draw.ellipse((cx - r * i / 28, cy - r * i / 28,
+                          cx + r * i / 28, cy + r * i / 28),
                          fill=(col[0], col[1], col[2], alpha))
 
-    # Logo — centered upper 60%
+    # Logo — BIG and centered
     logo_path = next((p for p in LOGO_CANDIDATES if os.path.exists(p)), None)
     if logo_path:
         logo = Image.open(logo_path).convert('RGBA')
-        target_w = 640
+        # Fit logo to ~78% of the canvas width (visually dominant)
+        target_w = int(W * 0.78)
         ratio = target_w / logo.width
-        logo = logo.resize((target_w, int(logo.height * ratio)), Image.LANCZOS)
-        img.paste(logo, ((W - logo.width) // 2, 130), logo)
-
-    # Tagline
-    tagline = "Digital Advertising Solutions"
-    f_tag = find_font(38)
-    tw = draw.textlength(tagline, font=f_tag)
-    draw.text(((W - tw) / 2, 400), tagline, font=f_tag,
-              fill=(226, 232, 240, 255))
-
-    # Sub tagline
-    sub = "LED Displays  ·  Content Management  ·  Campaign Analytics"
-    f_sub = find_font(24)
-    sw = draw.textlength(sub, font=f_sub)
-    draw.text(((W - sw) / 2, 470), sub, font=f_sub,
-              fill=(148, 163, 184, 255))
+        target_h = int(logo.height * ratio)
+        # If height too tall, constrain by height instead
+        if target_h > H * 0.72:
+            target_h = int(H * 0.72)
+            ratio = target_h / logo.height
+            target_w = int(logo.width * ratio)
+        logo = logo.resize((target_w, target_h), Image.LANCZOS)
+        pos = ((W - target_w) // 2, (H - target_h) // 2)
+        img.paste(logo, pos, logo)
 
     # Bottom accent bar (cyan → indigo)
     bar_h = 8
@@ -91,15 +71,53 @@ def build():
         b = int(238 * (1 - t) + 241 * t)
         draw.line([(x, H - bar_h), (x, H)], fill=(r, g, b, 255))
 
-    # Domain in bottom-right corner
-    dom = "mediadview.com"
-    f_dom = find_font(20)
-    dw = draw.textlength(dom, font=f_dom)
-    draw.text((W - dw - 40, H - bar_h - 40), dom, font=f_dom,
-              fill=(148, 163, 184, 220))
+    img.save(OG_OUT, 'PNG', optimize=True)
+    print(f"OG image: {OG_OUT}  ({os.path.getsize(OG_OUT)} bytes)")
 
-    img.save(OUT, 'PNG', optimize=True)
-    print(f"OG image written: {OUT}  ({os.path.getsize(OUT)} bytes)")
+
+def build_favicon():
+    """A square icon browsers scale down to 16/32/48 px in tabs.
+    The MediAd View logo is wide (letterbox), so we crop just the 'symbol'
+    portion on the left and place it centered on a solid brand-navy square."""
+    SIZE = 512
+    logo_path = next((p for p in LOGO_CANDIDATES if os.path.exists(p)), None)
+    if not logo_path:
+        return
+
+    # Solid brand-navy background — high contrast in light + dark browser themes
+    icon = Image.new('RGBA', (SIZE, SIZE), (12, 18, 44, 255))
+    draw = ImageDraw.Draw(icon, 'RGBA')
+
+    logo = Image.open(logo_path).convert('RGBA')
+
+    # The logo is wide (letterbox): estimate the "symbol" area on the left
+    # by cropping the leftmost ~30% (typical MediAd View play-triangle icon).
+    lw, lh = logo.size
+    # Find the leftmost non-transparent column to trim padding
+    alpha = logo.split()[-1]
+    bbox = alpha.getbbox() or (0, 0, lw, lh)
+    left, top, right, bottom = bbox
+    # Crop to symbol: leftmost 22% of the actual content (just the phone/play icon)
+    content_w = right - left
+    sym_right = left + int(content_w * 0.22)
+    symbol = logo.crop((left, top, sym_right, bottom))
+
+    # Resize symbol to ~75% of canvas, centered
+    sw, sh = symbol.size
+    target_h = int(SIZE * 0.78)
+    ratio = target_h / sh
+    target_w = int(sw * ratio)
+    if target_w > SIZE * 0.85:
+        target_w = int(SIZE * 0.85)
+        ratio = target_w / sw
+        target_h = int(sh * ratio)
+    symbol = symbol.resize((target_w, target_h), Image.LANCZOS)
+    icon.paste(symbol, ((SIZE - target_w) // 2, (SIZE - target_h) // 2), symbol)
+
+    icon.save(FAV_OUT, 'PNG', optimize=True)
+    print(f"Favicon: {FAV_OUT}  ({os.path.getsize(FAV_OUT)} bytes)")
+
 
 if __name__ == '__main__':
-    build()
+    build_og()
+    build_favicon()
