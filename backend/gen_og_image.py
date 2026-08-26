@@ -104,63 +104,63 @@ def build_og():
     print(f"OG image: {OG_OUT}  ({os.path.getsize(OG_OUT)} bytes)")
 
 
-# =================== FAVICON (pro app-icon style) ===================
+# =================== FAVICON (round, isotipo-focused) ===================
 def build_favicon():
-    """Modern iOS-style rounded square with cyan→indigo gradient +
-    a bold white 'M' letter. Simple, high-contrast, works at 16px."""
+    """Round icon (circle, not square) with the actual MediAd View isotipo
+    (phone + swoosh) big and centered on a clean navy background."""
     S = 512
 
-    # 1. Base: diagonal cyan → indigo gradient
-    base = gradient_diag(S, (34, 211, 238), (79, 70, 229))
+    logo_path = next((p for p in LOGO_CANDIDATES if os.path.exists(p)), None)
+    if not logo_path:
+        return
+    logo = Image.open(logo_path).convert('RGBA')
 
-    # 2. Clip into rounded square (iOS radius = ~22% of side)
+    # 1. Crop just the isotipo (phone symbol) — leftmost ~24% of visible content
+    alpha = logo.split()[-1]
+    bbox = alpha.getbbox() or (0, 0, logo.width, logo.height)
+    left, top, right, bottom = bbox
+    content_w = right - left
+    sym_right = left + int(content_w * 0.24)
+    symbol = logo.crop((left, top, sym_right, bottom))
+
+    # 2. Make the symbol square (paste onto transparent square, centered)
+    sw, sh = symbol.size
+    side = max(sw, sh)
+    sq = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+    sq.paste(symbol, ((side - sw) // 2, (side - sh) // 2), symbol)
+
+    # 3. Scale symbol to ~68% of icon size (leaves nice breathing room)
+    target = int(S * 0.68)
+    symbol_scaled = sq.resize((target, target), Image.LANCZOS)
+
+    # 4. Base circle — deep navy background with a soft radial glow inside
     icon = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    mask = rounded_mask(S, int(S * 0.22))
-    icon.paste(base, (0, 0), mask)
-
-    # 3. Subtle inner glow (top highlight to feel glossy)
+    # Circle mask
+    mask = Image.new('L', (S, S), 0)
+    ImageDraw.Draw(mask).ellipse((0, 0, S - 1, S - 1), fill=255)
+    # Fill with navy
+    navy = Image.new('RGB', (S, S), (10, 14, 46))
+    # Add radial glow (cyan center → navy edge) for depth
     glow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     gd = ImageDraw.Draw(glow)
-    for i in range(0, 60):
-        a = int(30 * (1 - i / 60))
-        gd.ellipse((-S // 4 + i, -S // 4 + i,
-                    S + S // 4 - i, S // 2 + i),
-                   fill=(255, 255, 255, a))
-    glow = glow.filter(ImageFilter.GaussianBlur(radius=8))
-    icon = Image.alpha_composite(icon, glow)
+    for r in range(int(S * 0.6), 0, -8):
+        a = int(45 * (1 - r / (S * 0.6)))
+        gd.ellipse((S // 2 - r, S // 2 - r, S // 2 + r, S // 2 + r),
+                   fill=(99, 102, 241, a))
+    glow = glow.filter(ImageFilter.GaussianBlur(radius=12))
+    navy_rgba = navy.convert('RGBA')
+    navy_rgba = Image.alpha_composite(navy_rgba, glow)
+    icon.paste(navy_rgba, (0, 0), mask)
 
-    # 4. Bold white "M" centered
-    draw = ImageDraw.Draw(icon, 'RGBA')
-    # Try progressively smaller font sizes until it fits nicely
-    letter = "M"
-    font_size = int(S * 0.72)
-    font = find_font(font_size)
-    while font_size > 60:
-        # Measure
-        bbox = draw.textbbox((0, 0), letter, font=font)
-        tw = bbox[2] - bbox[0]
-        th = bbox[3] - bbox[1]
-        if tw < S * 0.72 and th < S * 0.72:
-            break
-        font_size -= 12
-        font = find_font(font_size)
-    bbox = draw.textbbox((0, 0), letter, font=font)
-    tw = bbox[2] - bbox[0]
-    th = bbox[3] - bbox[1]
-    # Center visually (baseline correction)
-    x = (S - tw) / 2 - bbox[0]
-    y = (S - th) / 2 - bbox[1] - int(S * 0.02)
+    # 5. Very subtle inner ring for polish (like premium app icons)
+    ring = Image.new('RGBA', (S, S), (0, 0, 0, 0))
+    ImageDraw.Draw(ring).ellipse((6, 6, S - 7, S - 7), outline=(255, 255, 255, 25), width=2)
+    icon = Image.alpha_composite(icon, ring)
 
-    # Soft drop shadow
-    shadow = Image.new('RGBA', (S, S), (0, 0, 0, 0))
-    sd = ImageDraw.Draw(shadow)
-    sd.text((x + 6, y + 8), letter, font=font, fill=(0, 0, 0, 90))
-    shadow = shadow.filter(ImageFilter.GaussianBlur(radius=6))
-    icon = Image.alpha_composite(icon, shadow)
-
-    # White letter on top
-    draw = ImageDraw.Draw(icon, 'RGBA')
-    draw.text((x, y), letter, font=font, fill=(255, 255, 255, 255))
+    # 6. Paste isotipo centered
+    icon.paste(symbol_scaled,
+               ((S - target) // 2, (S - target) // 2),
+               symbol_scaled)
 
     icon.save(FAV_OUT, 'PNG', optimize=True)
     print(f"Favicon: {FAV_OUT}  ({os.path.getsize(FAV_OUT)} bytes)")
