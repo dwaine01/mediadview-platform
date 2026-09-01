@@ -4028,6 +4028,42 @@ async def _marketplace():
     """Public landing / catalog — same SPA, opens on v-landing."""
     return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
 
+# ─── Short URL for TV sideloading via Downloader app ─────────────────
+# Google TV remotes make typing long URLs painful. Serve the APK from
+# a tiny memorable path: mediadview.com/apk
+from fastapi.responses import RedirectResponse
+
+def _latest_player_apk() -> str:
+    """Pick the highest-versioned mediaview-player-*.apk in web/. Falls back
+    to the unversioned mediaview-player.apk if no versioned APK is found."""
+    try:
+        candidates = []
+        for f in os.listdir(WEB_DIR):
+            if f.startswith("mediaview-player-v") and f.endswith(".apk"):
+                candidates.append(f)
+        if candidates:
+            # semver-like sort on the numeric parts inside "v<X.Y.Z>"
+            def _key(name: str):
+                import re
+                m = re.search(r"v(\d+)\.(\d+)\.(\d+)", name)
+                return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
+            candidates.sort(key=_key, reverse=True)
+            return candidates[0]
+    except Exception:
+        pass
+    return "mediaview-player.apk"
+
+@app.get("/apk", include_in_schema=False)
+async def apk_short_url():
+    """Short URL for sideloading via TV Downloader app."""
+    filename = _latest_player_apk()
+    return RedirectResponse(url=f"/api/web/{filename}", status_code=302)
+
+@app.get("/download.apk", include_in_schema=False)
+async def apk_short_url_alias():
+    """Alias — some users type /download.apk instead of /apk."""
+    return await apk_short_url()
+
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
 from finance_email import create_finance_extensions
