@@ -73,7 +73,28 @@ jobs:
           MEDIAVIEW_KEY_ALIAS: ${{ secrets.MEDIAVIEW_KEY_ALIAS }}
           MEDIAVIEW_KEY_PASSWORD: ${{ secrets.MEDIAVIEW_KEY_PASSWORD }}
         run: |
-          gradle assembleRelease --no-daemon --stacktrace
+          set -o pipefail
+          gradle assembleRelease --no-daemon --stacktrace --info 2>&1 | tee /tmp/gradle-build.log
+
+      - name: Dump build error to workflow summary (on failure)
+        if: failure()
+        run: |
+          echo "## ❌ APK build failed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Gradle version" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          gradle --version >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Last 120 lines of gradle output" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -120 /tmp/gradle-build.log >> $GITHUB_STEP_SUMMARY 2>&1 || echo "(no log captured)"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### First error line (grep FAILURE or error:)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          grep -nE "FAILURE:|error:|e: file|Task .* FAILED|Exception:" /tmp/gradle-build.log | head -40 >> $GITHUB_STEP_SUMMARY 2>&1 || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Locate built APK
         id: apk

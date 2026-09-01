@@ -27,7 +27,9 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
+            // R8/minify DISABLED temporarily until the pairing screen is verified
+            // to work in production. Re-enable once we know all classes survive shrinking.
+            isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -35,7 +37,7 @@ android {
             // If a release keystore is provided via environment variables
             // (used by GitHub Actions), sign with it. Otherwise fall back
             // to the debug signing config so the APK is still installable.
-            signingConfig = if (System.getenv("MEDIAVIEW_KEYSTORE_PATH") != null) {
+            signingConfig = if (!System.getenv("MEDIAVIEW_KEYSTORE_PATH").isNullOrBlank()) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
@@ -73,5 +75,6 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.6.1")
     implementation("androidx.webkit:webkit:1.10.0")
     implementation("androidx.work:work-runtime-ktx:2.9.0")
-    implementation("androidx.appcompat:appcompat:1.6.1")
+    // Explicit coroutines for PairingActivity long-polling (safer than relying on transitive).
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
