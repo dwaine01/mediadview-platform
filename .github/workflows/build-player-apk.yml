@@ -6,15 +6,15 @@ on:
     paths:
       - 'android-player/**'
       - '.github/workflows/build-player-apk.yml'
-  workflow_dispatch:  # Allow manual trigger from Actions tab
+  workflow_dispatch:
 
 permissions:
-  contents: write  # Needed to commit the built APK back to the repo
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -23,164 +23,156 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: gradle
-
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-34 build-tools;34.0.0'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.7'
-
-      - name: Remove local.properties (uses runner's SDK)
+      # ─── Do EVERYTHING in one bash script that captures logs from t=0 ───
+      # so that even if a setup step dies early we still have the trace.
+      - name: Build APK (self-contained, all logs captured)
+        id: build
+        continue-on-error: true  # so the log-commit step below always runs
         run: |
-          rm -f android-player/local.properties
-          echo "sdk.dir=$ANDROID_HOME" > android-player/local.properties
-          cat android-player/local.properties
+          set +e   # never abort — we want to reach the commit step
+          exec > >(tee -a /tmp/build.log) 2>&1
+          echo "=========================================================="
+          echo "  MediAd View Player — full build log"
+          echo "  commit:  ${{ github.sha }}"
+          echo "  run:     https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "  time:    $(date -Iseconds)"
+          echo "=========================================================="
 
-      - name: Extract version from build.gradle.kts
-        id: version
-        run: |
-          VERSION=$(grep 'versionName' android-player/app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
+          # ─── 1. JDK 17 ───────────────────────────────────────────
+          echo "::group::Install JDK 17"
+          sudo apt-get update -qq
+          sudo apt-get install -y openjdk-17-jdk-headless unzip wget
+          export JAVA_HOME=$(readlink -f /usr/bin/javac | sed "s:/bin/javac::")
+          echo "JAVA_HOME=$JAVA_HOME" >> $GITHUB_ENV
+          java -version
+          echo "::endgroup::"
 
-      - name: Decode release keystore (if provided)
-        id: keystore
-        run: |
-          if [ -n "${{ secrets.MEDIAVIEW_KEYSTORE_B64 }}" ]; then
-            echo "${{ secrets.MEDIAVIEW_KEYSTORE_B64 }}" | base64 -d > /tmp/mediaview-release.jks
-            echo "path=/tmp/mediaview-release.jks" >> $GITHUB_OUTPUT
-            echo "✓ Release keystore decoded"
-          else
-            echo "path=" >> $GITHUB_OUTPUT
-            echo "⚠ No release keystore secret set — will use debug signing"
+          # ─── 2. Android SDK ──────────────────────────────────────
+          echo "::group::Install Android SDK"
+          export ANDROID_HOME=$HOME/android-sdk
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          cd $ANDROID_HOME/cmdline-tools
+          wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmd.zip
+          unzip -q cmd.zip
+          mv cmdline-tools latest
+          rm cmd.zip
+          export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
+          echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
+          echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> $GITHUB_PATH
+          echo "$ANDROID_HOME/platform-tools" >> $GITHUB_PATH
+          yes 2>/dev/null | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          echo "SDK contents:"
+          ls -la $ANDROID_HOME
+          echo "::endgroup::"
+
+          # ─── 3. Gradle 8.7 ───────────────────────────────────────
+          echo "::group::Install Gradle 8.7"
+          cd /tmp
+          wget -q https://services.gradle.org/distributions/gradle-8.7-bin.zip -O gradle.zip
+          unzip -q gradle.zip -d $HOME/
+          export PATH=$HOME/gradle-8.7/bin:$PATH
+          echo "$HOME/gradle-8.7/bin" >> $GITHUB_PATH
+          gradle --version
+          echo "::endgroup::"
+
+          # ─── 4. Configure project ────────────────────────────────
+          echo "::group::Configure project"
+          cd $GITHUB_WORKSPACE/android-player
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          cat local.properties
+          echo "--- build.gradle.kts (top) ---"
+          head -60 app/build.gradle.kts
+          echo "::endgroup::"
+
+          # ─── 5. Compile ──────────────────────────────────────────
+          echo "::group::gradle assembleRelease"
+          cd $GITHUB_WORKSPACE/android-player
+          gradle assembleRelease --no-daemon --stacktrace --info
+          BUILD_RC=$?
+          echo "gradle exit code: $BUILD_RC"
+          echo "::endgroup::"
+
+          # ─── 6. Locate APK ───────────────────────────────────────
+          echo "::group::Locate APK"
+          find $GITHUB_WORKSPACE/android-player/app/build/outputs/apk -type f -name "*.apk" -exec ls -lh {} \;
+          APK=$(find $GITHUB_WORKSPACE/android-player/app/build/outputs/apk/release -type f -name "*.apk" | head -1)
+          echo "APK=$APK"
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
+          echo "::endgroup::"
+
+          if [ -z "$APK" ] || [ ! -f "$APK" ]; then
+            echo "❌ No APK produced. Build failed."
+            exit 1
           fi
 
-      - name: Build release APK
-        working-directory: android-player
-        env:
-          MEDIAVIEW_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
-          MEDIAVIEW_KEYSTORE_PASSWORD: ${{ secrets.MEDIAVIEW_KEYSTORE_PASSWORD }}
-          MEDIAVIEW_KEY_ALIAS: ${{ secrets.MEDIAVIEW_KEY_ALIAS }}
-          MEDIAVIEW_KEY_PASSWORD: ${{ secrets.MEDIAVIEW_KEY_PASSWORD }}
-        run: |
-          set -o pipefail
-          gradle assembleRelease --no-daemon --stacktrace --info 2>&1 | tee /tmp/gradle-build.log
+          # ─── 7. Deploy ───────────────────────────────────────────
+          echo "::group::Copy APK to backend/web/"
+          VERSION=$(grep 'versionName' $GITHUB_WORKSPACE/android-player/app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          cp "$APK" "$GITHUB_WORKSPACE/backend/web/mediaview-player-v${VERSION}.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/backend/web/mediaview-player.apk"
+          ls -lh $GITHUB_WORKSPACE/backend/web/mediaview-player*.apk
+          echo "::endgroup::"
 
-      - name: Dump build error to workflow summary (on failure)
-        if: failure()
-        run: |
-          echo "## ❌ APK build failed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Gradle version" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          gradle --version >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Last 120 lines of gradle output" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -120 /tmp/gradle-build.log >> $GITHUB_STEP_SUMMARY 2>&1 || echo "(no log captured)"
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### First error line (grep FAILURE or error:)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          grep -nE "FAILURE:|error:|e: file|Task .* FAILED|Exception:" /tmp/gradle-build.log | head -40 >> $GITHUB_STEP_SUMMARY 2>&1 || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "✅ BUILD SUCCEEDED"
 
-      - name: Commit full build log to repo on failure (so the main agent can read it)
-        if: failure()
+      # ─── ALWAYS commit the log back to the repo, success or fail ───
+      - name: Commit APK and log
+        if: always()
         run: |
           mkdir -p .build-logs
-          # Grab only the tail so we don't blow up the repo
-          tail -600 /tmp/gradle-build.log > .build-logs/latest-error.txt 2>&1 || echo "no log" > .build-logs/latest-error.txt
+          # Truncate to last ~800 lines so the repo doesn't bloat
+          tail -800 /tmp/build.log > .build-logs/latest.txt 2>/dev/null || echo "(no log)" > .build-logs/latest.txt
           {
             echo "=== BUILD METADATA ==="
+            echo "status:   ${{ steps.build.outcome }}"
             echo "commit:   ${{ github.sha }}"
             echo "run_id:   ${{ github.run_id }}"
             echo "run_url:  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-            echo "gradle:   $(gradle --version 2>&1 | grep Gradle | head -1)"
-            echo "===================="
+            echo "time:     $(date -Iseconds)"
+            echo "=================================="
             echo ""
-          } | cat - .build-logs/latest-error.txt > .build-logs/latest-error.tmp
-          mv .build-logs/latest-error.tmp .build-logs/latest-error.txt
+          } | cat - .build-logs/latest.txt > .build-logs/latest.tmp
+          mv .build-logs/latest.tmp .build-logs/latest.txt
+
           git config user.name  "MediAd View Bot"
           git config user.email "bot@mediadview.com"
-          git add .build-logs/latest-error.txt
-          git commit -m "ci(apk): build failed — log at .build-logs/latest-error.txt [skip ci]" || echo "nothing to commit"
-          for i in 1 2 3; do
-            git pull --rebase origin main && git push origin main && break
-            echo "Push attempt $i failed, retrying..."
-            sleep 3
-          done
 
-      - name: Locate built APK
-        id: apk
-        working-directory: android-player
-        run: |
-          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" -type f | head -1)
-          if [ -z "$APK_PATH" ]; then
-            echo "❌ No APK produced!"
-            ls -la app/build/outputs/apk/release/ || true
-            exit 1
+          # Stage log always
+          git add .build-logs/latest.txt
+
+          # Stage APK if build succeeded
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            git add backend/web/mediaview-player*.apk 2>/dev/null || true
           fi
-          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
-          echo "✓ APK: $APK_PATH"
-          ls -la "$APK_PATH"
 
-      - name: Copy APK to backend/web/ with versioned name
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          SRC="android-player/${{ steps.apk.outputs.apk_path }}"
-          cp "$SRC" "backend/web/mediaview-player-v${VERSION}.apk"
-          cp "$SRC" "backend/web/mediaview-player.apk"
-          echo "✓ Deployed:"
-          ls -lh backend/web/mediaview-player*.apk
-
-      - name: Upload APK as workflow artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mediaview-player-v${{ steps.version.outputs.version }}
-          path: backend/web/mediaview-player-v${{ steps.version.outputs.version }}.apk
-          retention-days: 90
-
-      - name: Commit APK back to repo
-        run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          git config user.name  "MediAd View Bot"
-          git config user.email "bot@mediadview.com"
-          git add "backend/web/mediaview-player-v${VERSION}.apk" "backend/web/mediaview-player.apk"
           if git diff --cached --quiet; then
-            echo "No APK changes to commit"
+            echo "Nothing to commit"
             exit 0
           fi
-          git commit -m "build(apk): mediaview-player-v${VERSION} [skip ci]"
-          # Retry push a few times in case of concurrent updates
+
+          if [ "${{ steps.build.outcome }}" = "success" ]; then
+            git commit -m "build(apk): mediaview-player build ok [skip ci]"
+          else
+            git commit -m "ci(apk): build FAILED — see .build-logs/latest.txt [skip ci]"
+          fi
+
           for i in 1 2 3; do
             git pull --rebase origin main && git push origin main && break
             echo "Push attempt $i failed, retrying..."
             sleep 3
           done
 
-      - name: Summary
+      - name: Fail workflow if build failed
+        if: steps.build.outcome != 'success'
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          echo "## 🎉 MediAd View Player v${VERSION} built" >> $GITHUB_STEP_SUMMARY
+          echo "❌ Build did not succeed — see .build-logs/latest.txt in the repo for full trace"
+          exit 1
+
+      - name: Summary
+        if: steps.build.outcome == 'success'
+        run: |
+          echo "## 🎉 MediAd View Player built" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**APK available at:**" >> $GITHUB_STEP_SUMMARY
-          echo "- \`https://mediadview.com/apk\` (short URL, auto-redirect to latest)" >> $GITHUB_STEP_SUMMARY
-          echo "- \`https://mediadview.com/api/web/mediaview-player-v${VERSION}.apk\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Sideload on Google TV / Android TV:**" >> $GITHUB_STEP_SUMMARY
-          echo "1. Open the *Downloader* app" >> $GITHUB_STEP_SUMMARY
-          echo "2. Type: \`mediadview.com/apk\`" >> $GITHUB_STEP_SUMMARY
-          echo "3. Install → open MediAd View Player" >> $GITHUB_STEP_SUMMARY
-          echo "4. Enter the shown activation code in \`panel.mediadview.com → Screens → Pair Device\`" >> $GITHUB_STEP_SUMMARY
+          echo "APK available at: https://mediadview.com/apk" >> $GITHUB_STEP_SUMMARY
