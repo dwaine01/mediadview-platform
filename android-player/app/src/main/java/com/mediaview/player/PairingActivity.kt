@@ -73,9 +73,9 @@ class PairingActivity : AppCompatActivity() {
     private var lastActivationCode: String = ""
 
     companion object {
-        private const val PAIR_PREFS = "mediaview_pairing"
-        private const val KEY_SERVER_DEVICE_ID = "server_device_id"
-        private const val KEY_ACTIVATION_CODE = "activation_code"
+        const val PAIR_PREFS = "mediaview_pairing"
+        const val KEY_SERVER_DEVICE_ID = "server_device_id"
+        const val KEY_ACTIVATION_CODE = "activation_code"
     }
 
     private var menuKeyCount = 0

@@ -186,9 +186,29 @@ class MainActivity : Activity() {
                 override fun onReceivedError(
                     view: WebView?, errorCode: Int, description: String?, failingUrl: String?
                 ) {
-                    Log.e(PlayerApp.TAG, "WebView error: $description ($errorCode)")
+                    Log.e(PlayerApp.TAG, "WebView error: $description ($errorCode) url=$failingUrl")
                     isConnected = false
                     scheduleReconnect()
+                }
+
+                override fun onReceivedHttpError(
+                    view: WebView?,
+                    request: android.webkit.WebResourceRequest?,
+                    errorResponse: android.webkit.WebResourceResponse?
+                ) {
+                    super.onReceivedHttpError(view, request, errorResponse)
+                    val status = errorResponse?.statusCode ?: 0
+                    val url = request?.url?.toString() ?: ""
+                    // If we are trying to load THIS screen's main player page
+                    // and it returns 404, the screen was deleted server-side.
+                    // Kick back to PairingActivity so the user can re-pair with
+                    // a fresh activation code instead of black-screening forever.
+                    val isMainDoc = request?.isForMainFrame == true &&
+                        url.contains("/api/player/") && url.endsWith("/web")
+                    if (isMainDoc && status == 404) {
+                        Log.w(PlayerApp.TAG, "Player URL returned 404 — screen deleted, returning to pairing")
+                        returnToPairing("Screen no longer exists")
+                    }
                 }
             }
 
@@ -218,7 +238,9 @@ class MainActivity : Activity() {
         // ===== START =====
         checkOverlayPermission()
         if (screenId.isNotEmpty()) {
-            loadPlayer()
+            // Verify with backend that the screen is still valid BEFORE
+            // loading the WebView, so we don't black-screen on deleted screens.
+            verifyPairingThenLoad()
         } else {
             showSetupMode()
         }
@@ -289,6 +311,75 @@ class MainActivity : Activity() {
             statusView.visibility = View.VISIBLE
             scheduleReconnect()
         }
+    }
+
+    /**
+     * Verify the pairing status with the backend before loading the WebView.
+     * If the backend reports the device is no longer active (e.g. the screen
+     * was deleted from the admin panel), route back to the PairingActivity
+     * so the user sees a fresh activation code instead of a black screen.
+     */
+    private fun verifyPairingThenLoad() {
+        statusView.text = "Verifying pairing..."
+        statusView.visibility = View.VISIBLE
+        val pairPrefs = getSharedPreferences(PairingActivity.PAIR_PREFS, Context.MODE_PRIVATE)
+        val srvId = pairPrefs.getString(PairingActivity.KEY_SERVER_DEVICE_ID, "") ?: ""
+        val clientUuid = DeviceIdentity.getDeviceId(this)
+        val pollId = if (srvId.isNotBlank()) srvId else clientUuid
+
+        Thread {
+            try {
+                val res = PlayerApi.getJson(this@MainActivity, "/api/devices/$pollId/check")
+                val status = res.optString("status", "")
+                val serverScreenId = res.optString("screen_id", "")
+                runOnUiThread {
+                    if (status == "active" && serverScreenId.isNotBlank()) {
+                        // Sync screen_id in case admin re-assigned it to a new screen
+                        if (serverScreenId != screenId) {
+                            screenId = serverScreenId
+                            getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                                .putString(PREF_SCREEN_ID, serverScreenId).apply()
+                        }
+                        loadPlayer()
+                    } else {
+                        Log.w(PlayerApp.TAG, "Backend reports device not active (status=$status). Returning to pairing.")
+                        returnToPairing("Not paired anymore")
+                    }
+                }
+            } catch (e: Exception) {
+                // Network error — best effort: try loading the player anyway
+                // so an offline TV doesn't get stuck in a verification loop.
+                Log.w(PlayerApp.TAG, "Pairing verify failed: ${e.message}. Falling back to loadPlayer().")
+                runOnUiThread { loadPlayer() }
+            }
+        }.start()
+    }
+
+    /**
+     * Clear the current pairing (screen_id) and jump back to PairingActivity.
+     * Called when the backend says our screen no longer exists or the device
+     * is no longer active.
+     */
+    private fun returnToPairing(reason: String) {
+        Log.i(PlayerApp.TAG, "Returning to pairing screen: $reason")
+        try {
+            getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
+                .remove(PREF_SCREEN_ID)
+                .remove(PREF_DEVICE_NAME)
+                .apply()
+            // Also drop the cached activation_code so PairingActivity fetches
+            // the fresh one from the backend.
+            getSharedPreferences(PairingActivity.PAIR_PREFS, Context.MODE_PRIVATE).edit()
+                .remove(PairingActivity.KEY_ACTIVATION_CODE)
+                .apply()
+        } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "Failed to clear prefs: ${e.message}")
+        }
+        try { stopLockTask() } catch (e: Exception) { }
+        startActivity(Intent(this, PairingActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
+        finish()
     }
 
     /**

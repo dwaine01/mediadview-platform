@@ -1435,11 +1435,30 @@ async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict
     # Cascade: clean up related data
     if cascade:
         await db.campaigns.delete_many({"screen_id": screen_id})
-        await db.devices.update_many({"screen_id": screen_id}, {"$set": {"screen_id": None}})
+
+    # Always reset any device pointing to this screen so the player app
+    # goes back to the pairing screen (fresh activation_code) instead of
+    # being stuck on a black WebView loading a deleted screen.
+    orphans = await db.devices.find({"screen_id": screen_id}).to_list(100)
+    for d in orphans:
+        new_code = gen_activation_code()
+        while await db.devices.find_one({"activation_code": new_code, "status": "pending"}):
+            new_code = gen_activation_code()
+        await db.devices.update_one(
+            {"id": d["id"]},
+            {"$set": {
+                "screen_id": None,
+                "status": "pending",
+                "activation_code": new_code,
+                "activated_at": None,
+            }}
+        )
+        logger.info(f"Device {d['id']} unpaired (screen {screen_id} deleted). New code: {new_code}")
+
     result = await db.screens.delete_one({"id": screen_id})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Screen not found")
-    return {"message": "Screen deleted", "cascaded_campaigns": active if cascade else 0}
+    return {"message": "Screen deleted", "cascaded_campaigns": active if cascade else 0, "devices_unpaired": len(orphans)}
 
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):
@@ -1786,6 +1805,11 @@ async def check_device_activation(device_id: str):
 
     Accepts either the server-generated device id OR the client_uuid, so both
     old builds (which polled with client_uuid) and new builds keep working.
+
+    Also auto-heals zombie state: if the device is 'active' but its screen
+    was deleted, we reset it back to 'pending' with a fresh activation code
+    so the Player App re-pairs cleanly instead of black-screening on a
+    dead screen_id.
     """
     device = await db.devices.find_one({"id": device_id})
     if not device:
@@ -1793,6 +1817,28 @@ async def check_device_activation(device_id: str):
         device = await db.devices.find_one({"client_uuid": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
+
+    # Auto-heal orphan device: screen_id set but screen no longer exists
+    if device.get("screen_id"):
+        screen_exists = await db.screens.find_one({"id": device["screen_id"]})
+        if not screen_exists:
+            new_code = gen_activation_code()
+            while await db.devices.find_one({"activation_code": new_code, "status": "pending"}):
+                new_code = gen_activation_code()
+            await db.devices.update_one(
+                {"id": device["id"]},
+                {"$set": {
+                    "screen_id": None,
+                    "status": "pending",
+                    "activation_code": new_code,
+                    "activated_at": None,
+                }}
+            )
+            logger.info(f"Device {device['id']} auto-healed (screen missing). New code: {new_code}")
+            device["screen_id"] = None
+            device["status"] = "pending"
+            device["activation_code"] = new_code
+            device["activated_at"] = None
 
     result = {
         "device_id": device["id"],
