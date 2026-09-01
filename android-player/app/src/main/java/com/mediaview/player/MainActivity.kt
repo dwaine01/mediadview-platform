@@ -156,7 +156,7 @@ class MainActivity : Activity() {
                 databaseEnabled = true
                 mediaPlaybackRequiresUserGesture = false
                 allowFileAccess = true
-                cacheMode = WebSettings.LOAD_DEFAULT
+                cacheMode = WebSettings.LOAD_NO_CACHE
                 mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                 useWideViewPort = true
                 loadWithOverviewMode = true
@@ -298,12 +298,18 @@ class MainActivity : Activity() {
      * Load the Web Player for the configured screen
      */
     private fun loadPlayer() {
-        val playerUrl = "$serverUrl/api/player/$screenId/web"
+        // Cache-buster so the WebView never serves a stale HTML.
+        val playerUrl = "$serverUrl/api/player/$screenId/web?ts=${System.currentTimeMillis()}"
         Log.i(PlayerApp.TAG, "Loading player: $playerUrl")
         statusView.text = "Loading MediAd View Player..."
         statusView.visibility = View.VISIBLE
 
         if (isNetworkAvailable()) {
+            // Nuke any cached copy of the previous version to force a fresh fetch.
+            try {
+                webView.clearCache(true)
+                webView.clearHistory()
+            } catch (e: Exception) { }
             webView.loadUrl(playerUrl)
         } else {
             Log.w(PlayerApp.TAG, "No network - will retry")

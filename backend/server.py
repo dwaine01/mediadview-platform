@@ -1645,7 +1645,11 @@ function gcu(it){return mdc[it.media_id]||(AB+it.media_url)};
 fp();setInterval(fp,PI);setInterval(hb,HI);
 })();
 </script></body></html>"""
-    return HTMLResponse(content=html)
+    return HTMLResponse(content=html, headers={
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0",
+    })
 
 # ============ A35 BRIDGE: Export endpoint for Colorlight A35 integration ============
 
