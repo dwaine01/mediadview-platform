@@ -5,8 +5,18 @@ workflows:
 
     environment:
       java: 17
+      groups:
+        - github_secrets      # Contiene GITHUB_TOKEN (PAT con contents:write)
       vars:
         PACKAGE_NAME: "com.mediaview.player"
+        GITHUB_REPO: "dwaine01/mediadview-platform"
+
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: main
+          include: true
 
     scripts:
       - name: Prepare project
@@ -15,12 +25,13 @@ workflows:
           echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
           cat local.properties
           echo "--- Version info ---"
-          grep -E "versionName|versionCode" app/build.gradle.kts | head -3
+          VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "APK_VERSION=$VERSION" >> $CM_ENV
+          echo "Building version: $VERSION"
 
       - name: Build release APK
         script: |
           cd android-player
-          # Codemagic ya trae SDK 34 + build-tools + Java 17 pre-instalados
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
             ./gradlew assembleRelease --stacktrace
@@ -28,18 +39,60 @@ workflows:
             gradle assembleRelease --stacktrace
           fi
 
-      - name: List APK output
+      - name: Locate and rename APK
         script: |
-          find android-player/app/build/outputs -type f -name "*.apk" -exec ls -lh {} \;
+          APK_SRC=$(find android-player/app/build/outputs/apk -type f -name "*.apk" | head -1)
+          echo "Built APK: $APK_SRC"
+          ls -lh "$APK_SRC"
+          if [ -z "$APK_SRC" ]; then
+            echo "❌ No APK found!"
+            exit 1
+          fi
+          echo "APK_SRC_PATH=$APK_SRC" >> $CM_ENV
+
+      - name: Auto-commit APK back to repo
+        script: |
+          set -e
+          echo "🚀 Auto-publishing APK to backend/web/..."
+          # Copy APK to backend/web with versioned + generic names
+          cp "$APK_SRC_PATH" "backend/web/mediaview-player-v${APK_VERSION}.apk"
+          cp "$APK_SRC_PATH" "backend/web/mediaview-player.apk"
+          ls -lh backend/web/mediaview-player*.apk
+
+          # Configure git
+          git config user.name  "Codemagic Bot"
+          git config user.email "bot@mediadview.com"
+
+          # Stage APKs
+          git add "backend/web/mediaview-player-v${APK_VERSION}.apk" \
+                  "backend/web/mediaview-player.apk"
+
+          if git diff --cached --quiet; then
+            echo "ℹ️  No APK changes to commit (same binary)"
+            exit 0
+          fi
+
+          # Commit with skip-ci so we don't trigger another build
+          git commit -m "build(apk): mediaview-player-v${APK_VERSION} [skip ci]"
+
+          # Push using PAT stored as secret env var
+          REMOTE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
+          for i in 1 2 3; do
+            git pull --rebase "$REMOTE_URL" main && git push "$REMOTE_URL" main && break
+            echo "Push attempt $i failed, retrying..."
+            sleep 3
+          done
+
+          echo "✅ APK v${APK_VERSION} published to repo. Render will redeploy in ~3 min."
+          echo "🔗 Verify at: https://mediadview.com/apk"
 
     artifacts:
       - android-player/app/build/outputs/apk/**/*.apk
-      - android-player/app/build/outputs/**/mapping.txt
 
     publishing:
       email:
         recipients:
-          - dwaine01@gmail.com
+          - mediaview.llc@gmail.com
         notify:
           success: true
           failure: true
