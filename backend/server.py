@@ -158,10 +158,14 @@ class ScreenUpdate(BaseModel):
     location_code: Optional[str] = None
 
 class CampaignSchedule(BaseModel):
-    start_date: str
-    end_date: str
-    start_time: str = "08:00"
-    end_time: str = "22:00"
+    # start_date / end_date now optional. `null` (or missing) means
+    # "no bound on that side" (always valid from the beginning /
+    # never expires). Empty strings are also accepted and normalised
+    # to null so old clients keep working.
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    start_time: str = "00:00"
+    end_time: str = "23:59"
     slot_duration: int = 15
     frequency: int = 5
 
@@ -242,6 +246,100 @@ def gen_activation_code():
     """Generate 6-char easy-to-read activation code (no ambiguous chars)"""
     chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
     return ''.join(random.choices(chars, k=6))
+
+
+# ============================================================
+# CAMPAIGN STATE MODEL (single source of truth)
+# ============================================================
+#   draft     - being edited by the customer
+#   pending   - submitted for admin approval
+#   approved  - admin approved, ready to play
+#   active    - currently running (alias of approved, historical)
+#   paused    - temporarily suspended by admin/customer
+#   expired   - end_date has passed
+#   archived  - removed from view but kept for history
+PLAYABLE_STATUSES = {"approved", "active"}
+NON_PLAYABLE_STATUSES = {"draft", "pending", "paused", "expired", "archived", "rejected"}
+
+
+def _norm_date(v):
+    """Normalise date-ish values. '' / 'null' / None -> None."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        s = v.strip()
+        if not s or s.lower() == "null":
+            return None
+        return s
+    return v
+
+
+def normalise_schedule(sched: dict) -> dict:
+    """Force start_date/end_date to be None instead of empty string, so we
+    never end up with '' > today comparisons again. Also defaults times."""
+    out = dict(sched or {})
+    out["start_date"] = _norm_date(out.get("start_date"))
+    out["end_date"] = _norm_date(out.get("end_date"))
+    out["start_time"] = out.get("start_time") or "00:00"
+    out["end_time"] = out.get("end_time") or "23:59"
+    if "slot_duration" not in out:
+        out["slot_duration"] = 15
+    if "frequency" not in out:
+        out["frequency"] = 5
+    return out
+
+
+def is_campaign_playable(campaign: dict, now: Optional[datetime] = None) -> tuple:
+    """Single source of truth for 'is this campaign eligible to play NOW?'.
+
+    Returns (bool, reason_str). reason_str is empty if playable, otherwise
+    the human-readable reason why it's not.
+    """
+    now = now or datetime.utcnow()
+    today = now.strftime("%Y-%m-%d")
+    now_hm = now.strftime("%H:%M")
+
+    status = campaign.get("status")
+    if status not in PLAYABLE_STATUSES:
+        return False, f"status={status!r}"
+
+    sched = campaign.get("schedule") or {}
+    sd = _norm_date(sched.get("start_date"))
+    ed = _norm_date(sched.get("end_date"))
+    # null means "no bound"
+    if sd is not None and sd > today:
+        return False, f"starts on {sd}"
+    if ed is not None and ed < today:
+        return False, f"expired on {ed}"
+
+    st = sched.get("start_time") or "00:00"
+    et = sched.get("end_time") or "23:59"
+    if not (st <= now_hm <= et):
+        return False, f"outside time window {st}-{et}"
+
+    if not (campaign.get("media_ids") or []):
+        return False, "no media assigned"
+
+    return True, ""
+
+
+async def bump_playlist_version(screen_id: str, reason: str = ""):
+    """Increment the playlist_version counter for a screen. Any code path
+    that changes what a screen should play MUST call this so the player
+    can detect it via GET /api/player/{id}/version and resync."""
+    if not screen_id:
+        return
+    try:
+        r = await db.screens.update_one(
+            {"id": screen_id},
+            {"$inc": {"playlist_version": 1},
+             "$set": {"playlist_version_updated_at": datetime.utcnow(),
+                      "playlist_version_reason": reason}}
+        )
+        if r.matched_count:
+            logger.info(f"playlist_version bumped for screen={screen_id} reason={reason}")
+    except Exception as e:
+        logger.warning(f"bump_playlist_version failed for {screen_id}: {e}")
 
 # ============ AUTH HELPERS ============
 
@@ -752,25 +850,13 @@ async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
 
-    # ===== VALIDATE + AUTO-FILL SCHEDULE =====
-    # Root cause of the "black screen" bug was campaigns being saved with
-    # empty start_date/end_date, which makes get_playlist() exclude them.
-    # Fill sensible defaults so a fresh campaign is playable immediately.
-    sched = data.schedule.dict()
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    if not sched.get("start_date"):
-        sched["start_date"] = today
-    if not sched.get("end_date"):
-        # default: 30-day run
-        sched["end_date"] = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
-    if sched["start_date"] > sched["end_date"]:
+    # Normalise the schedule so empty strings never leak into the DB.
+    # start_date/end_date=None means "no bound" (always valid on that side).
+    sched = normalise_schedule(data.schedule.dict())
+    if sched.get("start_date") and sched.get("end_date") and sched["start_date"] > sched["end_date"]:
         raise HTTPException(status_code=400, detail="start_date must be <= end_date")
-    sched.setdefault("start_time", "00:00")
-    sched.setdefault("end_time", "23:59")
 
-    # ===== VALIDATE MEDIA IDs =====
-    # Reject campaigns that reference nonexistent media so we never end up
-    # with an "approved" campaign whose media_ids point to nothing.
+    # Every media_id must resolve to a real media doc.
     missing = []
     for mid in (data.media_ids or []):
         if not await db.media.find_one({"id": mid}):
@@ -786,6 +872,7 @@ async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get
         "status": "draft", "schedule": sched,
         "media_ids": data.media_ids, "pricing": pricing,
         "payment_id": None, "admin_notes": None,
+        "needs_attention": False,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.campaigns.insert_one(campaign)
@@ -831,12 +918,25 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user: 
         raise HTTPException(status_code=400, detail="Can only edit draft or rejected campaigns")
     update = {k: v for k, v in data.dict().items() if v is not None}
     if "schedule" in update and data.schedule:
-        update["schedule"] = data.schedule.dict()
+        update["schedule"] = normalise_schedule(data.schedule.dict())
         screen = await db.screens.find_one({"id": campaign["screen_id"]})
         if screen:
             update["pricing"] = calculate_campaign_price(screen.get("pricing", {}), update["schedule"])
+    # If media_ids are being changed, verify they resolve and clear the
+    # needs_attention flag if the campaign now has valid media.
+    if "media_ids" in update and update["media_ids"] is not None:
+        missing = []
+        for mid in update["media_ids"]:
+            if not await db.media.find_one({"id": mid}):
+                missing.append(mid)
+        if missing:
+            raise HTTPException(status_code=400,
+                detail=f"Media not found: {', '.join(missing)}. Please re-upload.")
+        if update["media_ids"]:
+            update["needs_attention"] = False
     update["updated_at"] = datetime.utcnow()
     await db.campaigns.update_one({"id": campaign_id}, {"$set": update})
+    await bump_playlist_version(campaign.get("screen_id"), reason="campaign updated")
     return {"message": "Campaign updated"}
 
 @api_router.delete("/campaigns/{campaign_id}")
@@ -847,6 +947,7 @@ async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_cur
     if campaign["status"] != "draft":
         raise HTTPException(status_code=400, detail="Can only delete draft campaigns")
     await db.campaigns.delete_one({"id": campaign_id})
+    await bump_playlist_version(campaign.get("screen_id"), reason="campaign deleted")
     return {"message": "Campaign deleted"}
 
 # ============ ROUTES: MEDIA ============
@@ -1040,10 +1141,37 @@ async def get_media_file(media_id: str):
     return Response(content=result["value"], media_type=result["mime"])
 
 @api_router.delete("/media/{media_id}")
-async def delete_media(media_id: str, current_user: dict = Depends(get_current_user)):
+async def delete_media(media_id: str, force: bool = False, current_user: dict = Depends(get_current_user)):
+    """Delete a media asset.
+
+    By default this is REFUSED if the media is referenced by any campaign
+    (returns HTTP 409 with the list of campaigns). Passing ?force=true
+    performs a cascade: the media is removed from every campaign's
+    media_ids and any campaign left without media is flagged
+    needs_attention=true so the admin dashboard can surface it.
+    """
     media = await db.media.find_one({"id": media_id, "user_id": current_user["id"]})
     if not media:
         raise HTTPException(404, "Media not found")
+
+    # Referential integrity check
+    using = await db.campaigns.find({"media_ids": media_id}).to_list(200)
+    if using and not force:
+        raise HTTPException(status_code=409, detail={
+            "message": f"This media is used by {len(using)} campaign(s). Pass force=true to cascade delete.",
+            "used_by": [{"campaign_id": c["id"], "name": c.get("name"), "status": c.get("status")} for c in using],
+        })
+
+    # Force cascade: remove media_id from every campaign, flag those left empty
+    if using and force:
+        for c in using:
+            new_mids = [m for m in (c.get("media_ids") or []) if m != media_id]
+            update = {"media_ids": new_mids, "updated_at": datetime.utcnow()}
+            if not new_mids and c.get("status") in PLAYABLE_STATUSES:
+                update["needs_attention"] = True
+            await db.campaigns.update_one({"id": c["id"]}, {"$set": update})
+            await bump_playlist_version(c.get("screen_id"), reason="media deleted (force)")
+
     # Remove R2 object if present
     if media.get("r2_key"):
         await r2_delete(media["r2_key"])
@@ -1054,7 +1182,7 @@ async def delete_media(media_id: str, current_user: dict = Depends(get_current_u
             try: os.remove(file_path)
             except Exception: pass
     await db.media.delete_one({"id": media_id})
-    return {"message": "Media deleted"}
+    return {"message": "Media deleted", "cascaded_campaigns": len(using) if force else 0}
 
 @api_router.put("/media/{media_id}/rotate")
 async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = Depends(get_current_user)):
@@ -1251,6 +1379,7 @@ async def admin_approve(campaign_id: str, admin: dict = Depends(require_admin)):
         {"$set": {"status": new_status, "admin_notes": f"Approved by {admin['name']}",
                   "updated_at": datetime.utcnow()}}
     )
+    await bump_playlist_version(campaign.get("screen_id"), reason=f"campaign {new_status}")
     return {"message": f"Campaign {new_status}"}
 
 @api_router.put("/admin/campaigns/{campaign_id}/reject")
@@ -1258,12 +1387,15 @@ async def admin_reject(campaign_id: str, notes: Optional[str] = None, admin: dic
     campaign = await db.campaigns.find_one({"id": campaign_id})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
+    was_playable = campaign.get("status") in PLAYABLE_STATUSES
     await db.campaigns.update_one(
         {"id": campaign_id},
         {"$set": {"status": "rejected",
                   "admin_notes": notes or f"Rejected by {admin['name']}",
                   "updated_at": datetime.utcnow()}}
     )
+    if was_playable:
+        await bump_playlist_version(campaign.get("screen_id"), reason="campaign rejected")
     return {"message": "Campaign rejected"}
 
 def gen_location_code():
@@ -1534,38 +1666,30 @@ async def admin_list_payments(admin: dict = Depends(require_admin)):
 
 @api_router.post("/admin/campaigns/repair")
 async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
-    """MAINTENANCE: fix campaigns saved with empty schedule.start_date/end_date
-    (root cause of the 'no content' bug) and drop media_ids that reference
-    deleted media. Returns a report of everything changed.
+    """MAINTENANCE: normalise every campaign's schedule (empty '' -> None)
+    and prune media_ids that reference deleted media. Campaigns that end
+    up without any media are FLAGGED with needs_attention=True instead of
+    being silently emptied — the admin dashboard should surface them.
     """
-    today = datetime.utcnow().strftime("%Y-%m-%d")
-    default_end = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
-
-    report = {"total": 0, "date_fixed": 0, "media_pruned": 0, "orphan_removed": 0, "details": []}
+    report = {"total": 0, "date_normalised": 0, "media_pruned": 0,
+              "flagged_needs_attention": 0, "details": []}
     campaigns = await db.campaigns.find({}).to_list(2000)
     report["total"] = len(campaigns)
 
     for c in campaigns:
         cid = c.get("id")
-        sched = dict(c.get("schedule", {}) or {})
+        sched_before = c.get("schedule", {}) or {}
+        sched = normalise_schedule(sched_before)
         updates = {}
         changes = []
 
-        if not sched.get("start_date"):
-            sched["start_date"] = today
-            changes.append(f"start_date -> {today}")
-        if not sched.get("end_date"):
-            sched["end_date"] = default_end
-            changes.append(f"end_date -> {default_end}")
-        if not sched.get("start_time"):
-            sched["start_time"] = "00:00"
-            changes.append("start_time -> 00:00")
-        if not sched.get("end_time"):
-            sched["end_time"] = "23:59"
-            changes.append("end_time -> 23:59")
-        if changes:
+        if sched != sched_before:
             updates["schedule"] = sched
-            report["date_fixed"] += 1
+            report["date_normalised"] += 1
+            if sched.get("start_date") != sched_before.get("start_date"):
+                changes.append(f"start_date {sched_before.get('start_date')!r} -> {sched.get('start_date')!r}")
+            if sched.get("end_date") != sched_before.get("end_date"):
+                changes.append(f"end_date {sched_before.get('end_date')!r} -> {sched.get('end_date')!r}")
 
         mids = c.get("media_ids", []) or []
         clean_mids = []
@@ -1580,13 +1704,17 @@ async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
             report["media_pruned"] += len(removed)
             changes.append(f"removed {len(removed)} missing media id(s)")
 
-        if not clean_mids and (removed or not mids):
-            # Empty campaign after cleanup: leave it but flag it.
-            changes.append("campaign has no media")
+        # Flag campaigns that end up with no valid media so an admin can act.
+        needs_flag = (not clean_mids) and c.get("status") in PLAYABLE_STATUSES
+        if needs_flag and not c.get("needs_attention"):
+            updates["needs_attention"] = True
+            report["flagged_needs_attention"] += 1
+            changes.append("flagged needs_attention=true (no valid media)")
 
         if updates:
             updates["updated_at"] = datetime.utcnow()
             await db.campaigns.update_one({"id": cid}, {"$set": updates})
+            await bump_playlist_version(c.get("screen_id"), reason="repair")
             report["details"].append({
                 "campaign_id": cid,
                 "name": c.get("name"),
@@ -1602,35 +1730,65 @@ async def get_playlist(screen_id: str):
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
     now = datetime.utcnow()
-    cd = now.strftime("%Y-%m-%d")
-    ct = now.strftime("%H:%M")
+    # Fetch every non-final campaign for this screen and let the central
+    # helper is_campaign_playable() decide eligibility — single source of
+    # truth for scheduling logic.
     campaigns = await db.campaigns.find({
-        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
-        "schedule.start_date": {"$lte": cd}, "schedule.end_date": {"$gte": cd}
-    }).to_list(100)
+        "screen_id": screen_id,
+        "status": {"$in": list(PLAYABLE_STATUSES)}
+    }).to_list(500)
+
     items = []
     for c in campaigns:
-        s = c.get("schedule", {})
-        if s.get("start_time", "00:00") <= ct <= s.get("end_time", "23:59"):
-            for mid in c.get("media_ids", []):
-                media = await db.media.find_one({"id": mid})
-                if media:
-                    items.append({
-                        "campaign_id": c["id"], "media_id": media["id"],
-                        "filename": media.get("filename"),
-                        "content_type": media.get("content_type"),
-                        "duration": s.get("slot_duration", 15),
-                        "rotation": media.get("rotation", 0),
-                        "animation": media.get("animation", "fade"),
-                        "media_url": f"/api/player/media/{media['id']}"
-                    })
-    return {"screen_id": screen_id, "screen_name": screen.get("name"),
-            "generated_at": now.isoformat(), "total_items": len(items), "items": items}
+        playable, _ = is_campaign_playable(c, now)
+        if not playable:
+            continue
+        s = c.get("schedule") or {}
+        for mid in c.get("media_ids", []):
+            media = await db.media.find_one({"id": mid})
+            if media:
+                items.append({
+                    "campaign_id": c["id"], "media_id": media["id"],
+                    "filename": media.get("filename"),
+                    "content_type": media.get("content_type"),
+                    "duration": s.get("slot_duration", 15),
+                    "rotation": media.get("rotation", 0),
+                    "animation": media.get("animation", "fade"),
+                    "media_url": f"/api/player/media/{media['id']}"
+                })
+
+    return {
+        "screen_id": screen_id,
+        "screen_name": screen.get("name"),
+        "playlist_version": screen.get("playlist_version", 0),
+        "generated_at": now.isoformat(),
+        "total_items": len(items),
+        "items": items,
+    }
+
+
+@api_router.get("/player/{screen_id}/version")
+async def get_playlist_version(screen_id: str):
+    """Lightweight endpoint the player polls every 15s to detect changes.
+
+    Response:
+        { "playlist_version": <int>, "server_time": "<iso>" }
+    The player compares the returned number against its cached one and
+    only re-fetches /playlist when it changed. Cheap, cache-friendly.
+    """
+    screen = await db.screens.find_one({"id": screen_id}, {"playlist_version": 1})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    return {
+        "screen_id": screen_id,
+        "playlist_version": screen.get("playlist_version", 0),
+        "server_time": datetime.utcnow().isoformat(),
+    }
 
 
 @api_router.get("/player/{screen_id}/diagnose")
-async def diagnose_playlist(screen_id: str):
-    """DIAGNOSTIC ENDPOINT: explains exactly WHY a playlist is empty.
+async def diagnose_playlist(screen_id: str, admin: dict = Depends(require_admin)):
+    """DIAGNOSTIC ENDPOINT (admin only): explains exactly WHY a playlist is empty.
 
     Returns every campaign attached to the screen and, for each one, whether
     it is currently visible to the player and — if not — the reason.
@@ -1656,14 +1814,14 @@ async def diagnose_playlist(screen_id: str):
         mids = c.get("media_ids", []) or []
         reasons = []
 
-        if status not in ("approved", "active"):
-            reasons.append(f"status='{status}' (need approved/active)")
+        if status not in PLAYABLE_STATUSES:
+            reasons.append(f"status='{status}' (need {'/'.join(sorted(PLAYABLE_STATUSES))})")
 
-        sd = sched.get("start_date")
-        ed = sched.get("end_date")
-        if not sd or sd > today:
+        sd = _norm_date(sched.get("start_date"))
+        ed = _norm_date(sched.get("end_date"))
+        if sd is not None and sd > today:
             reasons.append(f"schedule.start_date={sd!r} > today({today})")
-        if not ed or ed < today:
+        if ed is not None and ed < today:
             reasons.append(f"schedule.end_date={ed!r} < today({today})")
 
         st = sched.get("start_time", "00:00")
@@ -1708,6 +1866,7 @@ async def diagnose_playlist(screen_id: str):
             "schedule": sched,
             "media_ids": mids,
             "media_status": media_status,
+            "needs_attention": c.get("needs_attention", False),
             "will_play_now": is_visible,
             "excluded_reasons": reasons,
         })
@@ -1716,6 +1875,7 @@ async def diagnose_playlist(screen_id: str):
         "screen_id": screen_id,
         "screen_name": screen.get("name"),
         "screen_status": screen.get("status"),
+        "playlist_version": screen.get("playlist_version", 0),
         "server_time_utc": now.isoformat(),
         "server_date": today,
         "server_time_hm": now_hm,
@@ -1793,33 +1953,38 @@ async def web_player(screen_id: str):
     html += '<div id="hud"><h2>MediAd View Player - Diagnostics</h2><div id="hc"></div><div class="ch">Press i or click to close</div></div>'
     html += """<script>
 (function(){
-var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin,PI=60000,HI=30000,V='2.0.0';
-var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false;
+var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin,PI=15000,HI=30000,V='2.5.1';
+var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false,pv=-1,DEV=(location.search.indexOf('dev=1')>=0);
 function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
-async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
+// Lightweight version check: only fetch full playlist if it actually changed.
+async function fv(){try{var r=await fetch(AB+'/api/player/'+SID+'/version');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var v=d.playlist_version;io=false;if(v!==pv){log('info','version '+pv+' -> '+v);pv=v;await fp()}else{ls=new Date();rc=0}}catch(e){io=true;rc++;le=e.message;log('warn','version fetch failed: '+e.message);if(pl.length===0){await fp()}}}
+async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;if(d.playlist_version!=null)pv=d.playlist_version;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
 if(pl.length>0&&!ip){sf(false);pn();pdc()}else if(pl.length===0){fdr()}
 }catch(e){io=true;rc++;le=e.message;log('warn','Fetch failed: '+e.message+' (#'+rc+')');
 if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);sf(false);pn()}}}catch(x){}}
-if(pl.length===0){sf(true,io?'Offline — Reconnecting':'No content','Auto-retry active')}}}
-// Diagnostic fallback: instead of just showing "no content", call
-// /diagnose and explain WHY the playlist is empty.
-async function fdr(){try{var r=await fetch(AB+'/api/player/'+SID+'/diagnose');var d=await r.json();var msg='No content scheduled',sub='';
-if(d.total_campaigns===0){msg='No campaigns yet';sub='Create a campaign in the admin panel and assign this screen'}
+if(pl.length===0){sf(true,'Waiting for content','Auto-retry active')}}}
+// Diagnostic fallback: in DEV mode call /diagnose to explain why the
+// playlist is empty. In production show a clean customer-friendly message
+// and log the technical details silently.
+async function fdr(){if(!DEV){sf(true,'Waiting for content','MediAd View is ready');return}
+try{var r=await fetch(AB+'/api/player/'+SID+'/diagnose');if(!r.ok){sf(true,'Waiting for content','MediAd View is ready');return}
+var d=await r.json();var msg='Waiting for content',sub='MediAd View is ready';
+if(d.total_campaigns===0){msg='No campaigns yet';sub='Create a campaign and assign this screen'}
 else if(d.visible_now===0){
-  var reasons={};
-  (d.campaigns||[]).forEach(function(c){(c.excluded_reasons||[]).forEach(function(r){reasons[r]=(reasons[r]||0)+1})});
+  var reasons={};(d.campaigns||[]).forEach(function(c){(c.excluded_reasons||[]).forEach(function(r){reasons[r]=(reasons[r]||0)+1})});
   var topR=Object.keys(reasons).sort(function(a,b){return reasons[b]-reasons[a]})[0]||'';
-  if(/media_id.*not found/i.test(topR)){msg='Media file missing';sub='One or more media in the campaign was deleted. Re-upload and re-assign.'}
-  else if(/media_ids array is empty/i.test(topR)){msg='Campaign has no media';sub='Open the campaign and assign an image or video'}
-  else if(/status=/.test(topR)){msg='Campaign not approved yet';sub='An admin must approve this campaign to start playback'}
-  else if(/schedule\.start_date/.test(topR)||/schedule\.end_date/.test(topR)){msg='Schedule dates out of range';sub='Adjust the campaign date range or run /api/admin/campaigns/repair'}
-  else if(/time .* not in/.test(topR)){msg='Outside campaign time window';sub='Campaign will resume during its scheduled hours'}
-  else{msg='Cannot play now';sub=topR}
+  log('info','Diagnose top reason: '+topR);
+  if(/media_id.*not found/i.test(topR)){msg='Media missing';sub='Re-upload media and re-assign'}
+  else if(/media_ids array is empty/i.test(topR)){msg='Campaign has no media';sub='Open the campaign and assign a file'}
+  else if(/status=/.test(topR)){msg='Waiting for approval';sub='An admin must approve the campaign'}
+  else if(/schedule\.start_date/.test(topR)||/schedule\.end_date/.test(topR)){msg='Outside date range';sub='Adjust the campaign date range'}
+  else if(/time .* not in/.test(topR)){msg='Outside scheduled hours';sub='Content will resume during scheduled time'}
+  else{msg='Waiting for content';sub=topR}
 }
 sf(true,msg,sub)
-}catch(e){sf(true,'No content','Auto-retry active')}}
+}catch(e){sf(true,'Waiting for content','MediAd View is ready')}}
 function pm(i){if(mc[i.media_id])return;var u=AB+i.media_url;if(i.content_type&&i.content_type.startsWith('image/')){var img=new Image();img.src=u;mc[i.media_id]={t:'image',u:u}}else{mc[i.media_id]={t:'video',u:u}}}
 function pn(){if(pl.length===0)return;ci=(ci+1)%pl.length;var it=pl[ci],u=AB+it.media_url,ii=it.content_type&&it.content_type.startsWith('image/');ip=true;tp++;clearTimeout(pt);
 var c=document.getElementById('ml');c.innerHTML='';
@@ -1853,7 +2018,7 @@ setInterval(function(){var n=new Date(),h=String(n.getHours()).padStart(2,'0'),m
 var mdc={};
 async function pdc(){for(var i of pl){if(mdc[i.media_id])continue;try{var r=await fetch(AB+i.media_url);var b=await r.blob();mdc[i.media_id]=URL.createObjectURL(b);log('info','Cached: '+i.filename)}catch(e){}}}
 function gcu(it){return mdc[it.media_id]||(AB+it.media_url)};
-fp();setInterval(fp,PI);setInterval(hb,HI);
+fp();setInterval(fv,PI);setInterval(hb,HI);
 })();
 </script></body></html>"""
     return HTMLResponse(content=html, headers={
