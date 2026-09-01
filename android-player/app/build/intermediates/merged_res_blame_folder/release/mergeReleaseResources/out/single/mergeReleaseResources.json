@@ -1,10 +1,10 @@
 [
     {
-        "merged": "com.mediaview.player.app-release-4:/xml_file_provider_paths.xml.flat",
-        "source": "com.mediaview.player.app-main-5:/xml/file_provider_paths.xml"
+        "merged": "com.mediaview.player.app-release-4:/drawable_ic_launcher.xml.flat",
+        "source": "com.mediaview.player.app-main-5:/drawable/ic_launcher.xml"
     },
     {
-        "merged": "/root/.gradle/daemon/8.7/com.mediaview.player.app-release-4:/drawable_ic_launcher.xml.flat",
-        "source": "/root/.gradle/daemon/8.7/com.mediaview.player.app-main-5:/drawable/ic_launcher.xml"
+        "merged": "com.mediaview.player.app-release-4:/xml_file_provider_paths.xml.flat",
+        "source": "com.mediaview.player.app-main-5:/xml/file_provider_paths.xml"
     }
 ]
