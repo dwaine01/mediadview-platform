@@ -86,3 +86,7 @@ workflows:
     publishing:
       email:
         recipients:
+mediaview.llc@gmail.com
+        notify:
+          success: true
+          failure: true
