@@ -101,6 +101,15 @@
             android:exported="false" />
 
 
+        <!-- PAIRING ACTIVITY (native OptiSigns-style, shown on first boot) -->
+        <activity
+            android:name=".PairingActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTask"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
         <!-- SETUP ACTIVITY (Manual pairing fallback — accessible via hidden menu) -->
         <activity
             android:name=".SetupActivity"

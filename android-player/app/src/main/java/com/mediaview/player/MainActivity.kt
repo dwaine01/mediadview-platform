@@ -90,10 +90,20 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
-        // ===== NOTE: pairing is handled by the web HTML at /api/player-activate,
-        // loaded inside the WebView. It calls /api/devices/register and shows
-        // a big activation code (OptiSigns-style). We skip the native
-        // SetupActivity/PairingActivity redirect — the WebView UX is nicer.
+        // ===== PAIRING CHECK =====
+        // If this device hasn't finished pairing (no screen_id saved yet),
+        // hand off to the native OptiSigns-style pairing screen instead of
+        // building the WebView player UI.
+        if (!DeviceIdentity.isRegistered(this) ||
+            getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+                .getString(PREF_SCREEN_ID, "").isNullOrBlank()
+        ) {
+            startActivity(android.content.Intent(this, PairingActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
+            })
+            finish()
+            return
+        }
 
         // ===== FULL SCREEN + ALWAYS ON =====
         window.addFlags(
