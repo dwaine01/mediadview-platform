@@ -90,20 +90,13 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
-        // ===== PAIRING CHECK =====
-        // If this device hasn't finished pairing (no screen_id saved yet),
-        // hand off to the native OptiSigns-style pairing screen instead of
-        // building the WebView player UI.
-        if (!DeviceIdentity.isRegistered(this) ||
-            getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-                .getString(PREF_SCREEN_ID, "").isNullOrBlank()
-        ) {
-            startActivity(android.content.Intent(this, PairingActivity::class.java).apply {
-                flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-            })
-            finish()
-            return
-        }
+        // ===== NOTE: pairing is fully handled by the web HTML at
+        // /api/player-activate. It calls /api/devices/register, shows a big
+        // activation code (OptiSigns-style), polls /devices/{id}/check, and
+        // on activation switches to playing the playlist. It also handles
+        // "unpair" via the heartbeat action=wait. The native PairingActivity
+        // was removed because the WebView flow is more reliable and has
+        // fewer moving parts.
 
         // ===== FULL SCREEN + ALWAYS ON =====
         window.addFlags(
@@ -237,10 +230,12 @@ class MainActivity : Activity() {
 
         // ===== START =====
         checkOverlayPermission()
+        // Always load the OptiSigns-style WebView pairing/player page.
+        // It handles register + poll + activate + play + auto-unpair all
+        // in one HTML page. If a screen_id is already saved we jump
+        // straight to that screen's player URL for speed.
         if (screenId.isNotEmpty()) {
-            // Verify with backend that the screen is still valid BEFORE
-            // loading the WebView, so we don't black-screen on deleted screens.
-            verifyPairingThenLoad()
+            loadPlayer()
         } else {
             showSetupMode()
         }
@@ -322,49 +317,19 @@ class MainActivity : Activity() {
     /**
      * Verify the pairing status with the backend before loading the WebView.
      * If the backend reports the device is no longer active (e.g. the screen
-     * was deleted from the admin panel), route back to the PairingActivity
+     * was deleted from the admin panel), route back to the pairing WebView
      * so the user sees a fresh activation code instead of a black screen.
      */
     private fun verifyPairingThenLoad() {
-        statusView.text = "Verifying pairing..."
-        statusView.visibility = View.VISIBLE
-        val pairPrefs = getSharedPreferences(PairingActivity.PAIR_PREFS, Context.MODE_PRIVATE)
-        val srvId = pairPrefs.getString(PairingActivity.KEY_SERVER_DEVICE_ID, "") ?: ""
-        val clientUuid = DeviceIdentity.getDeviceId(this)
-        val pollId = if (srvId.isNotBlank()) srvId else clientUuid
-
-        Thread {
-            try {
-                val res = PlayerApi.getJson(this@MainActivity, "/api/devices/$pollId/check")
-                val status = res.optString("status", "")
-                val serverScreenId = res.optString("screen_id", "")
-                runOnUiThread {
-                    if (status == "active" && serverScreenId.isNotBlank()) {
-                        // Sync screen_id in case admin re-assigned it to a new screen
-                        if (serverScreenId != screenId) {
-                            screenId = serverScreenId
-                            getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE).edit()
-                                .putString(PREF_SCREEN_ID, serverScreenId).apply()
-                        }
-                        loadPlayer()
-                    } else {
-                        Log.w(PlayerApp.TAG, "Backend reports device not active (status=$status). Returning to pairing.")
-                        returnToPairing("Not paired anymore")
-                    }
-                }
-            } catch (e: Exception) {
-                // Network error — best effort: try loading the player anyway
-                // so an offline TV doesn't get stuck in a verification loop.
-                Log.w(PlayerApp.TAG, "Pairing verify failed: ${e.message}. Falling back to loadPlayer().")
-                runOnUiThread { loadPlayer() }
-            }
-        }.start()
+        // Deprecated: the WebView page /api/player-activate already handles
+        // periodic status checks and auto-unpair via heartbeat action=wait.
+        // Kept as a thin wrapper so we don't have to change callers.
+        loadPlayer()
     }
 
     /**
-     * Clear the current pairing (screen_id) and jump back to PairingActivity.
-     * Called when the backend says our screen no longer exists or the device
-     * is no longer active.
+     * Clear the current pairing (screen_id) and jump back to the pairing UI.
+     * Called when the backend says our screen no longer exists.
      */
     private fun returnToPairing(reason: String) {
         Log.i(PlayerApp.TAG, "Returning to pairing screen: $reason")
@@ -373,19 +338,10 @@ class MainActivity : Activity() {
                 .remove(PREF_SCREEN_ID)
                 .remove(PREF_DEVICE_NAME)
                 .apply()
-            // Also drop the cached activation_code so PairingActivity fetches
-            // the fresh one from the backend.
-            getSharedPreferences(PairingActivity.PAIR_PREFS, Context.MODE_PRIVATE).edit()
-                .remove(PairingActivity.KEY_ACTIVATION_CODE)
-                .apply()
-        } catch (e: Exception) {
-            Log.w(PlayerApp.TAG, "Failed to clear prefs: ${e.message}")
-        }
-        try { stopLockTask() } catch (e: Exception) { }
-        startActivity(Intent(this, PairingActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-        })
-        finish()
+        } catch (e: Exception) { }
+        screenId = ""
+        try { webView.clearCache(true); webView.clearHistory() } catch (e: Exception) { }
+        showSetupMode()
     }
 
     /**

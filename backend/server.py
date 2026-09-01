@@ -1895,6 +1895,22 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     if data.last_error:
         update["last_error"] = data.last_error
 
+    # Auto-heal zombie state: if this device has screen_id set but the screen
+    # was deleted, clear the pairing and force the player to re-pair.
+    if device.get("screen_id"):
+        screen_exists = await db.screens.find_one({"id": device["screen_id"]})
+        if not screen_exists:
+            new_code = gen_activation_code()
+            while await db.devices.find_one({"activation_code": new_code, "status": "pending"}):
+                new_code = gen_activation_code()
+            update["screen_id"] = None
+            update["status"] = "pending"
+            update["activation_code"] = new_code
+            update["activated_at"] = None
+            device["screen_id"] = None
+            device["status"] = "pending"
+            logger.info(f"Device {device_id} auto-healed via heartbeat (screen missing). New code: {new_code}")
+
     await db.devices.update_one({"id": device_id}, {"$set": update})
 
     # Return instructions for the player
