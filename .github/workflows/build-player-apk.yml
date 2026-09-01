@@ -8,6 +8,9 @@ on:
       - '.github/workflows/build-player-apk.yml'
   workflow_dispatch:  # Allow manual trigger from Actions tab
 
+permissions:
+  contents: write  # Needed to commit the built APK back to the repo
+
 jobs:
   build:
     runs-on: ubuntu-latest
