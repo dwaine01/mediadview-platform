@@ -5,7 +5,7 @@ workflows:
     environment:
       java: 17
       groups:
-        - github_secrets      # Contiene GITHUB_TOKEN (PAT con contents:write)
+        - github_secrets
       vars:
         PACKAGE_NAME: "com.mediaview.player"
         GITHUB_REPO: "dwaine01/mediadview-platform"
@@ -40,31 +40,26 @@ workflows:
           echo "Built APK: $APK_SRC"
           ls -lh "$APK_SRC"
           if [ -z "$APK_SRC" ]; then
-            echo "❌ No APK found!"
+            echo "No APK found!"
             exit 1
           fi
           echo "APK_SRC_PATH=$APK_SRC" >> $CM_ENV
       - name: Auto-commit APK back to repo
         script: |
           set -e
-          echo "🚀 Auto-publishing APK to backend/web/..."
-          # Copy APK to backend/web with versioned + generic names
+          echo "Auto-publishing APK to backend/web/..."
           cp "$APK_SRC_PATH" "backend/web/mediaview-player-v${APK_VERSION}.apk"
           cp "$APK_SRC_PATH" "backend/web/mediaview-player.apk"
           ls -lh backend/web/mediaview-player*.apk
-          # Configure git
           git config user.name  "Codemagic Bot"
           git config user.email "bot@mediadview.com"
-          # Stage APKs
           git add "backend/web/mediaview-player-v${APK_VERSION}.apk" \
                   "backend/web/mediaview-player.apk"
           if git diff --cached --quiet; then
-            echo "ℹ️  No APK changes to commit (same binary)"
+            echo "No APK changes to commit (same binary)"
             exit 0
           fi
-          # Commit with skip-ci so we don't trigger another build
           git commit -m "build(apk): mediaview-player-v${APK_VERSION} [skip ci]"
-          # Push using PAT stored as secret env var
           REMOTE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
           PUSHED=false
           for i in 1 2 3; do
@@ -75,18 +70,18 @@ workflows:
             echo "Push attempt $i failed, retrying..."
             sleep 3
           done
-          if [ "$PUSHED" != true ]; then
-            echo "❌ Failed to push APK after 3 attempts — see git error above"
+          if [ "$PUSHED" != "true" ]; then
+            echo "Failed to push APK after 3 attempts"
             exit 1
           fi
-          echo "✅ APK v${APK_VERSION} published to repo. Render will redeploy in ~3 min."
-          echo "🔗 Verify at: https://mediadview.com/apk"
+          echo "APK v${APK_VERSION} published to repo. Render will redeploy in ~3 min."
+          echo "Verify at: https://mediadview.com/apk"
     artifacts:
       - android-player/app/build/outputs/apk/**/*.apk
     publishing:
       email:
         recipients:
-mediaview.llc@gmail.com
+          - mediaview.llc@gmail.com
         notify:
           success: true
           failure: true
