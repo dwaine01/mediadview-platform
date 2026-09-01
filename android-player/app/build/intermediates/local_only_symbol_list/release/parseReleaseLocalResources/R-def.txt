@@ -3,3 +3,4 @@ local
 drawable ic_launcher
 string app_name
 style Theme.MediaViewPlayer
+xml file_provider_paths

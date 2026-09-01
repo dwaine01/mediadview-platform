@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.mediaview.player"
-    android:versionCode="2"
-    android:versionName="2.0.0" >
+    android:versionCode="5"
+    android:versionName="2.3.0" >
 
     <uses-sdk
         android:minSdkVersion="21"
@@ -20,6 +20,7 @@
     <uses-permission android:name="android.permission.WRITE_SETTINGS" />
     <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Declare TV feature (not required, allows non-TV too) -->
     <uses-feature
@@ -122,6 +123,32 @@
             android:enabled="true"
             android:exported="false" />
 
+        <!-- PAIRING ACTIVITY (native OptiSigns-style, shown on first boot) -->
+        <activity
+            android:name="com.mediaview.player.PairingActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <!-- SETUP ACTIVITY (Manual pairing fallback — accessible via hidden menu) -->
+        <activity
+            android:name="com.mediaview.player.SetupActivity"
+            android:exported="false"
+            android:screenOrientation="landscape"
+            android:theme="@style/Theme.AppCompat.NoActionBar" />
+
+        <!-- FileProvider for APK auto-update install -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.mediaview.player.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true" >
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_provider_paths" />
+        </provider>
         <provider
             android:name="androidx.startup.InitializationProvider"
             android:authorities="com.mediaview.player.androidx-startup"
