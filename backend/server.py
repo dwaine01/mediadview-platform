@@ -1818,27 +1818,36 @@ async def check_device_activation(device_id: str):
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
 
-    # Auto-heal orphan device: screen_id set but screen no longer exists
+    # Auto-heal orphan device: screen was deleted / never linked but device
+    # is stuck in a non-pending state → reset to pending with a fresh code
+    # so the Player App re-pairs cleanly instead of black-screening.
+    needs_heal = False
     if device.get("screen_id"):
         screen_exists = await db.screens.find_one({"id": device["screen_id"]})
         if not screen_exists:
+            needs_heal = True
+    elif device.get("status") == "active":
+        # active but no screen_id at all → definitely broken
+        needs_heal = True
+
+    if needs_heal:
+        new_code = gen_activation_code()
+        while await db.devices.find_one({"activation_code": new_code, "status": "pending"}):
             new_code = gen_activation_code()
-            while await db.devices.find_one({"activation_code": new_code, "status": "pending"}):
-                new_code = gen_activation_code()
-            await db.devices.update_one(
-                {"id": device["id"]},
-                {"$set": {
-                    "screen_id": None,
-                    "status": "pending",
-                    "activation_code": new_code,
-                    "activated_at": None,
-                }}
-            )
-            logger.info(f"Device {device['id']} auto-healed (screen missing). New code: {new_code}")
-            device["screen_id"] = None
-            device["status"] = "pending"
-            device["activation_code"] = new_code
-            device["activated_at"] = None
+        await db.devices.update_one(
+            {"id": device["id"]},
+            {"$set": {
+                "screen_id": None,
+                "status": "pending",
+                "activation_code": new_code,
+                "activated_at": None,
+            }}
+        )
+        logger.info(f"Device {device['id']} auto-healed. New code: {new_code}")
+        device["screen_id"] = None
+        device["status"] = "pending"
+        device["activation_code"] = new_code
+        device["activated_at"] = None
 
     result = {
         "device_id": device["id"],
