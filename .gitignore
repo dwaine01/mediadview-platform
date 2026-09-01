@@ -18,6 +18,9 @@ credentials.json
 service-account.json
 firebase-adminsdk*.json
 google-services.json
+.git-credentials
+.netrc
+.gitignore-tmp
 
 # ─── Python ────────────────────────────────────────────────────────
 __pycache__/
