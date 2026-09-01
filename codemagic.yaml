@@ -1,0 +1,45 @@
+workflows:
+  build-mediaview-player:
+    name: MediAd View Player APK
+    max_build_duration: 30
+
+    environment:
+      java: 17
+      vars:
+        PACKAGE_NAME: "com.mediaview.player"
+
+    scripts:
+      - name: Prepare project
+        script: |
+          cd android-player
+          echo "sdk.dir=$ANDROID_SDK_ROOT" > local.properties
+          cat local.properties
+          echo "--- Version info ---"
+          grep -E "versionName|versionCode" app/build.gradle.kts | head -3
+
+      - name: Build release APK
+        script: |
+          cd android-player
+          # Codemagic ya trae SDK 34 + build-tools + Java 17 pre-instalados
+          if [ -f ./gradlew ]; then
+            chmod +x ./gradlew
+            ./gradlew assembleRelease --stacktrace
+          else
+            gradle assembleRelease --stacktrace
+          fi
+
+      - name: List APK output
+        script: |
+          find android-player/app/build/outputs -type f -name "*.apk" -exec ls -lh {} \;
+
+    artifacts:
+      - android-player/app/build/outputs/apk/**/*.apk
+      - android-player/app/build/outputs/**/mapping.txt
+
+    publishing:
+      email:
+        recipients:
+          - dwaine01@gmail.com
+        notify:
+          success: true
+          failure: true
