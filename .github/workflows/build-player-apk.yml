@@ -1,16 +1,12 @@
 name: Build MediAd View Player APK
 
 on:
-  # DISABLED for now — the existing APK v2.2.0 (already installed on customer
-  # devices) can be pointed at production via its hidden settings menu, so we
-  # don't strictly need to rebuild. Re-enable this trigger when we want a
-  # branded v2.3.0 with the new PairingActivity baked in.
-  # push:
-  #   branches: [main]
-  #   paths:
-  #     - 'android-player/**'
-  #     - '.github/workflows/build-player-apk.yml'
-  workflow_dispatch:  # Manual trigger only
+  push:
+    branches: [main]
+    paths:
+      - 'android-player/**'
+      - '.github/workflows/build-player-apk.yml'
+  workflow_dispatch:  # Allow manual trigger from Actions tab
 
 permissions:
   contents: write  # Needed to commit the built APK back to the repo
@@ -99,6 +95,32 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           grep -nE "FAILURE:|error:|e: file|Task .* FAILED|Exception:" /tmp/gradle-build.log | head -40 >> $GITHUB_STEP_SUMMARY 2>&1 || true
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Commit full build log to repo on failure (so the main agent can read it)
+        if: failure()
+        run: |
+          mkdir -p .build-logs
+          # Grab only the tail so we don't blow up the repo
+          tail -600 /tmp/gradle-build.log > .build-logs/latest-error.txt 2>&1 || echo "no log" > .build-logs/latest-error.txt
+          {
+            echo "=== BUILD METADATA ==="
+            echo "commit:   ${{ github.sha }}"
+            echo "run_id:   ${{ github.run_id }}"
+            echo "run_url:  https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo "gradle:   $(gradle --version 2>&1 | grep Gradle | head -1)"
+            echo "===================="
+            echo ""
+          } | cat - .build-logs/latest-error.txt > .build-logs/latest-error.tmp
+          mv .build-logs/latest-error.tmp .build-logs/latest-error.txt
+          git config user.name  "MediAd View Bot"
+          git config user.email "bot@mediadview.com"
+          git add .build-logs/latest-error.txt
+          git commit -m "ci(apk): build failed — log at .build-logs/latest-error.txt [skip ci]" || echo "nothing to commit"
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin main && break
+            echo "Push attempt $i failed, retrying..."
+            sleep 3
+          done
 
       - name: Locate built APK
         id: apk
