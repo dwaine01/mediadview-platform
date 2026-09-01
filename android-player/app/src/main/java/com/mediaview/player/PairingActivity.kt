@@ -1,5 +1,6 @@
 package com.mediaview.player
 
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
@@ -12,10 +13,11 @@ import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
+import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -28,41 +30,41 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 
 /**
- * PairingActivity - native OptiSigns-style pairing screen.
+ * PairingActivity — premium OptiSigns-style pairing screen with MediAd View branding.
  *
- * Shown whenever the device has not been paired to a screen yet.
  * Flow:
  *   1. Register against POST /api/devices/register (idempotent).
- *   2. Show the returned 6-char activation code in large text.
- *   3. Long-poll GET /api/devices/{device_id}/check every 3s until
- *      status=active with a screen_id.
+ *   2. Show the returned 6-char activation code in oversized letters.
+ *   3. Long-poll GET /api/devices/{device_id}/check every 3s until active.
  *   4. Persist screen_id and hand off to MainActivity.
- *
- * Hidden admin menu: press MENU 5x quickly, or hold DPAD_CENTER 5s.
  */
 class PairingActivity : AppCompatActivity() {
 
-    // Palette
-    private val colorBg = Color.parseColor("#030712")
-    private val colorCard = Color.parseColor("#111827")
-    private val colorCardBorder = Color.parseColor("#1E293B")
+    // ═══════ Premium palette ═══════
+    private val colorBg = Color.parseColor("#000814")           // deep midnight blue-black
+    private val colorCardBg = Color.parseColor("#0B1220")       // slightly lighter than bg
+    private val colorCardBorder = Color.parseColor("#1E2A3F")
     private val colorTextPrimary = Color.WHITE
     private val colorTextSecondary = Color.parseColor("#94A3B8")
     private val colorTextMuted = Color.parseColor("#475569")
     private val colorTextBody = Color.parseColor("#CBD5E1")
-    private val colorAccentStart = Color.parseColor("#6366F1")
-    private val colorAccentEnd = Color.parseColor("#4338CA")
-    private val colorSuccess = Color.parseColor("#34D399")
-    private val colorError = Color.parseColor("#FCA5A5")
-    private val colorCode = Color.parseColor("#818CF8")
+    private val colorAccent1 = Color.parseColor("#EC4899")       // brand pink (from logo)
+    private val colorAccent2 = Color.parseColor("#8B5CF6")       // brand purple (from logo)
+    private val colorAccent3 = Color.parseColor("#06B6D4")       // brand cyan (from logo)
+    private val colorSuccess = Color.parseColor("#10B981")
+    private val colorError = Color.parseColor("#F87171")
+    private val colorCode = Color.parseColor("#A78BFA")          // premium violet for code
     private val colorFooter = Color.parseColor("#334155")
+    private val colorGlow = Color.parseColor("#3730A3")
 
     private lateinit var codeText: TextView
     private lateinit var statusText: TextView
     private lateinit var subStatusText: TextView
     private lateinit var retryButton: Button
+    private lateinit var statusDot: View
 
     private var job: Job? = null
+    private var pulseAnim: ValueAnimator? = null
     private var deviceId: String = ""
     private var checkCount: Int = 0
     private var lastActivationCode: String = ""
@@ -79,9 +81,16 @@ class PairingActivity : AppCompatActivity() {
         supportActionBar?.hide()
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
 
         deviceId = DeviceIdentity.getDeviceId(this)
         setContentView(buildUi())
+        startPulseAnimation()
         startRegisterAndPoll()
     }
 
@@ -89,104 +98,166 @@ class PairingActivity : AppCompatActivity() {
         (value * resources.displayMetrics.density).toInt()
 
     private fun buildUi(): View {
-        val root = FrameLayout(this).apply { setBackgroundColor(colorBg) }
-        val scroll = ScrollView(this).apply { isFillViewport = true }
+        // ═══════ Root with radial-ish glow effect ═══════
+        val root = FrameLayout(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(colorBg, Color.parseColor("#020617"), colorBg)
+            )
+        }
+
+        // ═══════ Content column, centered ═══════
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(96), dp(64), dp(96), dp(64))
+            setPadding(dp(80), dp(48), dp(80), dp(48))
         }
 
-        val logo = TextView(this).apply {
-            text = "MV"
-            textSize = 28f
-            setTypeface(typeface, Typeface.BOLD)
-            setTextColor(Color.WHITE)
-            gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(88), dp(88))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(colorAccentStart, colorAccentEnd)
-            ).apply { cornerRadius = dp(20).toFloat() }
+        // ═══════ Logo (real MediAd View brand image) ═══════
+        val logo = ImageView(this).apply {
+            try {
+                val resId = resources.getIdentifier("logo_mediaview_dark", "drawable", packageName)
+                if (resId != 0) setImageResource(resId)
+            } catch (_: Exception) {}
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(dp(360), dp(120)).apply {
+                bottomMargin = dp(32)
+            }
         }
         content.addView(logo)
 
-        val title = TextView(this).apply {
-            text = "MediAd View Player"
-            textSize = 30f
+        // ═══════ Tagline ═══════
+        val tagline = TextView(this).apply {
+            text = "DIGITAL SIGNAGE PLATFORM"
+            textSize = 12f
             setTypeface(typeface, Typeface.BOLD)
-            setTextColor(colorTextPrimary)
-            gravity = Gravity.CENTER
-            setPadding(0, dp(20), 0, 0)
-        }
-        content.addView(title)
-
-        val subtitle = TextView(this).apply {
-            text = "Empareja esta pantalla con tu cuenta"
-            textSize = 15f
             setTextColor(colorTextSecondary)
             gravity = Gravity.CENTER
-            setPadding(0, dp(4), 0, dp(40))
+            letterSpacing = 0.4f
+            setPadding(0, 0, 0, dp(48))
         }
-        content.addView(subtitle)
+        content.addView(tagline)
+
+        // ═══════ Code card with premium glow border ═══════
+        val codeCardWrap = FrameLayout(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            ).apply {
+                gravity = Gravity.CENTER_HORIZONTAL
+            }
+        }
+
+        // outer glow layer
+        val glowLayer = View(this).apply {
+            background = GradientDrawable().apply {
+                cornerRadius = dp(28).toFloat()
+                colors = intArrayOf(colorAccent1, colorAccent2, colorAccent3)
+                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+                alpha = 60
+            }
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            ).apply {
+                setMargins(-dp(2), -dp(2), -dp(2), -dp(2))
+            }
+        }
+        codeCardWrap.addView(glowLayer)
 
         val codeCard = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(24), dp(28), dp(24), dp(28))
+            setPadding(dp(48), dp(36), dp(48), dp(36))
             background = GradientDrawable().apply {
-                setColor(colorCard)
-                setStroke(dp(2), colorCardBorder)
-                cornerRadius = dp(20).toFloat()
+                setColor(colorCardBg)
+                setStroke(dp(1), colorCardBorder)
+                cornerRadius = dp(24).toFloat()
             }
         }
+
         codeText = TextView(this).apply {
-            text = "\u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7"
-            textSize = 72f
+            text = "\u00b7  \u00b7  \u00b7  \u00b7  \u00b7  \u00b7"
+            textSize = 84f
             setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
             setTextColor(colorCode)
             gravity = Gravity.CENTER
-            letterSpacing = 0.18f
+            letterSpacing = 0.22f
         }
         codeCard.addView(codeText)
-        content.addView(codeCard)
+        codeCardWrap.addView(codeCard)
 
+        val codeCardParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT
+        ).apply { gravity = Gravity.CENTER_HORIZONTAL }
+        codeCardWrap.layoutParams = codeCardParams
+        content.addView(codeCardWrap)
+
+        // ═══════ Instructions ═══════
         val instructions = TextView(this).apply {
-            text = "1.  Abre  panel.mediadview.com  en tu computadora\n" +
-                "2.  Ve a  Screens  \u2192  Pair Device\n" +
-                "3.  Ingresa el codigo de arriba"
-            textSize = 17f
+            text = "1.  Open  panel.mediadview.com  on your computer\n" +
+                "2.  Go to  Devices  \u2192  Link Device by Code\n" +
+                "3.  Enter the code above and select a screen"
+            textSize = 16f
             setTextColor(colorTextBody)
             gravity = Gravity.CENTER
-            setLineSpacing(dp(8).toFloat(), 1f)
-            setPadding(0, dp(40), 0, 0)
+            setLineSpacing(dp(6).toFloat(), 1f)
+            setPadding(0, dp(48), 0, dp(0))
         }
         content.addView(instructions)
 
+        // ═══════ Status row (dot + text) ═══════
+        val statusRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(32), 0, 0)
+        }
+
+        statusDot = View(this).apply {
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(colorCode)
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(10), dp(10)).apply {
+                rightMargin = dp(12)
+                gravity = Gravity.CENTER_VERTICAL
+            }
+        }
+        statusRow.addView(statusDot)
+
         statusText = TextView(this).apply {
-            text = "\u23f3  Conectando al servidor..."
+            text = "Connecting to server..."
             textSize = 14f
             setTextColor(colorCode)
-            gravity = Gravity.CENTER
-            setPadding(0, dp(28), 0, 0)
+            gravity = Gravity.CENTER_VERTICAL
+            letterSpacing = 0.05f
         }
-        content.addView(statusText)
+        statusRow.addView(statusText)
+        content.addView(statusRow)
 
         subStatusText = TextView(this).apply {
             text = ""
             textSize = 11f
             setTextColor(colorTextMuted)
             gravity = Gravity.CENTER
-            setPadding(0, dp(6), 0, 0)
+            setPadding(0, dp(8), 0, 0)
+            letterSpacing = 0.08f
         }
         content.addView(subStatusText)
 
         retryButton = Button(this).apply {
-            text = "Reintentar"
-            setAllCaps(false)
+            text = "RETRY"
+            setAllCaps(true)
             setTextColor(Color.WHITE)
-            setBackgroundColor(colorAccentEnd)
-            setPadding(dp(48), dp(16), dp(48), dp(16))
+            typeface = Typeface.create(typeface, Typeface.BOLD)
+            letterSpacing = 0.15f
+            background = GradientDrawable().apply {
+                cornerRadius = dp(12).toFloat()
+                colors = intArrayOf(colorAccent2, colorAccent1)
+                orientation = GradientDrawable.Orientation.LEFT_RIGHT
+            }
+            setPadding(dp(56), dp(18), dp(56), dp(18))
             visibility = View.GONE
             setOnClickListener {
                 visibility = View.GONE
@@ -197,51 +268,64 @@ class PairingActivity : AppCompatActivity() {
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT
         ).apply {
-            topMargin = dp(20)
+            topMargin = dp(24)
             gravity = Gravity.CENTER
         }
         retryButton.layoutParams = retryParams
         content.addView(retryButton)
 
         val footer = TextView(this).apply {
-            text = "v${BuildConfig.VERSION_NAME}  \u00b7  https://mediadview.com"
+            text = "v${BuildConfig.VERSION_NAME}  \u2022  mediadview.com"
             textSize = 10f
             setTextColor(colorFooter)
             gravity = Gravity.CENTER
-            setPadding(0, dp(32), 0, 0)
+            setPadding(0, dp(40), 0, 0)
+            letterSpacing = 0.15f
         }
         content.addView(footer)
 
-        scroll.addView(
-            content,
+        val contentParams = FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT
+            FrameLayout.LayoutParams.MATCH_PARENT
         )
-        root.addView(scroll)
+        content.layoutParams = contentParams
+        root.addView(content)
         return root
+    }
+
+    private fun startPulseAnimation() {
+        pulseAnim?.cancel()
+        pulseAnim = ValueAnimator.ofFloat(0.35f, 1f, 0.35f).apply {
+            duration = 1600
+            repeatCount = ValueAnimator.INFINITE
+            interpolator = AccelerateDecelerateInterpolator()
+            addUpdateListener { anim ->
+                statusDot.alpha = anim.animatedValue as Float
+            }
+            start()
+        }
     }
 
     private fun formatCode(raw: String): String {
         val clean = raw.trim().uppercase()
-        if (clean.isEmpty()) return "\u00b7 \u00b7 \u00b7 \u00b7 \u00b7 \u00b7"
-        return clean.chunked(2).joinToString("  ")
+        if (clean.isEmpty()) return "\u00b7  \u00b7  \u00b7  \u00b7  \u00b7  \u00b7"
+        return clean.toCharArray().joinToString("  ")
     }
 
     private fun setStatus(text: String, color: Int) {
         statusText.text = text
         statusText.setTextColor(color)
+        (statusDot.background as? GradientDrawable)?.setColor(color)
     }
 
     private fun startRegisterAndPoll() {
         job?.cancel()
-        job = CoroutineScope(Dispatchers.IO).launch {
-            registerAndPoll()
-        }
+        job = CoroutineScope(Dispatchers.IO).launch { registerAndPoll() }
     }
 
     private suspend fun registerAndPoll() {
         withContext(Dispatchers.Main) {
-            setStatus("\u23f3  Conectando al servidor...", colorCode)
+            setStatus("Connecting to server...", colorCode)
             subStatusText.text = ""
             retryButton.visibility = View.GONE
         }
@@ -256,14 +340,18 @@ class PairingActivity : AppCompatActivity() {
             val code = res.optString("activation_code", "")
             if (code.isNotBlank()) {
                 lastActivationCode = code
-                DeviceIdentity.markRegistered(this@PairingActivity, res.optString("device_id", deviceId), code)
+                DeviceIdentity.markRegistered(
+                    this@PairingActivity,
+                    res.optString("device_id", deviceId),
+                    code
+                )
             }
             true
         } catch (e: Exception) {
             Log.e(PlayerApp.TAG, "Pairing: register failed: ${e.message}")
             withContext(Dispatchers.Main) {
-                setStatus("\u2717  Error de conexion", colorError)
-                subStatusText.text = e.message?.take(80) ?: "no se pudo contactar al servidor"
+                setStatus("Connection error", colorError)
+                subStatusText.text = e.message?.take(80) ?: "could not reach server"
                 retryButton.visibility = View.VISIBLE
             }
             false
@@ -273,14 +361,14 @@ class PairingActivity : AppCompatActivity() {
 
         withContext(Dispatchers.Main) {
             codeText.text = formatCode(lastActivationCode)
-            setStatus("\u23f3  Esperando activacion...", colorCode)
+            setStatus("Waiting for activation...", colorCode)
         }
 
         checkCount = 0
         while (job?.isActive == true) {
             checkCount++
             withContext(Dispatchers.Main) {
-                subStatusText.text = "esperando..  \u00b7  chequeo #$checkCount"
+                subStatusText.text = "check #$checkCount"
             }
             try {
                 val res = PlayerApi.getJson(this@PairingActivity, "/api/devices/$deviceId/check")
@@ -292,7 +380,6 @@ class PairingActivity : AppCompatActivity() {
                     val screenId = res.optString("screen_id", "")
                     val screenName = res.optString("screen_name", "")
                     val serverUrl = res.optString("server_url", "")
-
                     if (serverUrl.isNotBlank()) {
                         PlayerApi.setBaseUrl(this@PairingActivity, serverUrl)
                     }
@@ -304,23 +391,24 @@ class PairingActivity : AppCompatActivity() {
 
                     withContext(Dispatchers.Main) {
                         codeText.text = formatCode(lastActivationCode)
-                        setStatus("\u2713  Emparejado con: $screenName", colorSuccess)
-                        subStatusText.text = ""
+                        pulseAnim?.cancel()
+                        statusDot.alpha = 1f
+                        setStatus("Paired with $screenName", colorSuccess)
+                        subStatusText.text = "starting player..."
                     }
-
-                    delay(1400)
+                    delay(1600)
                     withContext(Dispatchers.Main) { goToPlayer() }
                     return
                 } else {
                     withContext(Dispatchers.Main) {
                         codeText.text = formatCode(lastActivationCode)
-                        setStatus("\u23f3  Esperando activacion...", colorCode)
+                        setStatus("Waiting for activation...", colorCode)
                     }
                 }
             } catch (e: Exception) {
                 Log.w(PlayerApp.TAG, "Pairing: check failed (#$checkCount): ${e.message}")
                 withContext(Dispatchers.Main) {
-                    subStatusText.text = "esperando..  \u00b7  chequeo #$checkCount  \u00b7  reintentando red"
+                    subStatusText.text = "check #$checkCount  \u2022  retrying network"
                 }
             }
             delay(3000)
@@ -329,11 +417,10 @@ class PairingActivity : AppCompatActivity() {
 
     private fun goToPlayer() {
         job?.cancel()
-        startActivity(
-            Intent(this, MainActivity::class.java).apply {
-                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
-            }
-        )
+        pulseAnim?.cancel()
+        startActivity(Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+        })
         finish()
     }
 
@@ -349,11 +436,8 @@ class PairingActivity : AppCompatActivity() {
             }
             return true
         }
-
         if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER || keyCode == KeyEvent.KEYCODE_ENTER) {
-            if (event?.repeatCount == 0) {
-                dpadCenterDownTime = System.currentTimeMillis()
-            }
+            if (event?.repeatCount == 0) dpadCenterDownTime = System.currentTimeMillis()
             if (dpadCenterDownTime > 0 &&
                 System.currentTimeMillis() - dpadCenterDownTime >= LONG_PRESS_DURATION
             ) {
@@ -362,7 +446,6 @@ class PairingActivity : AppCompatActivity() {
                 return true
             }
         }
-
         return super.onKeyDown(keyCode, event)
     }
 
@@ -373,26 +456,26 @@ class PairingActivity : AppCompatActivity() {
         return super.onKeyUp(keyCode, event)
     }
 
-    override fun onBackPressed() {
-        // Blocked: kiosk pairing screen, nowhere to go back.
-    }
+    override fun onBackPressed() { /* blocked */ }
 
     private fun showAdminMenu() {
         val info = "Server URL: ${PlayerApi.baseUrl(this)}\n" +
-            "Device ID: $deviceId\n" +
-            "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
-
+                "Device ID: ${deviceId.take(24)}\n" +
+                "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-            .setTitle("Menu de administrador")
+            .setTitle("Admin menu")
             .setMessage(info)
-            .setPositiveButton("Cerrar", null)
-            .setNeutralButton("Emparejamiento manual") { _, _ ->
+            .setPositiveButton("Close", null)
+            .setNeutralButton("Manual pairing") { _, _ ->
                 startActivity(Intent(this, SetupActivity::class.java))
             }
             .setNegativeButton("Reset device") { _, _ ->
                 job?.cancel()
-                getSharedPreferences("mediaview_identity", Context.MODE_PRIVATE).edit().clear().apply()
-                getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE).edit().clear().apply()
+                pulseAnim?.cancel()
+                getSharedPreferences("mediaview_identity", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE)
+                    .edit().clear().apply()
                 recreate()
             }
             .setCancelable(true)
@@ -401,6 +484,7 @@ class PairingActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         job?.cancel()
+        pulseAnim?.cancel()
         super.onDestroy()
     }
 }
