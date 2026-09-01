@@ -177,3 +177,5 @@ playwright-report/
 pw-browsers/
 tests/screenshots/
 *.har
+*.env
+.credentials

@@ -4053,16 +4053,45 @@ def _latest_player_apk() -> str:
         pass
     return "mediaview-player.apk"
 
+def _serve_player_apk() -> FileResponse:
+    """Serve the latest APK directly with the correct Content-Type and
+    Content-Disposition headers. The Downloader app on Android/Google TV
+    parses these headers to decide whether to treat the response as an
+    installable APK or (incorrectly) render it as text. Serving the file
+    directly avoids redirect issues and guarantees the right MIME type."""
+    filename = _latest_player_apk()
+    path = os.path.join(WEB_DIR, filename)
+    return FileResponse(
+        path,
+        media_type="application/vnd.android.package-archive",
+        filename=filename,
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "public, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
+
 @app.get("/apk", include_in_schema=False)
 async def apk_short_url():
     """Short URL for sideloading via TV Downloader app."""
-    filename = _latest_player_apk()
-    return RedirectResponse(url=f"/api/web/{filename}", status_code=302)
+    return _serve_player_apk()
+
+@app.get("/apk.apk", include_in_schema=False)
+async def apk_dot_apk():
+    """URL ending in .apk — some Downloader versions require the extension
+    to correctly detect the file as an installable Android package."""
+    return _serve_player_apk()
+
+@app.get("/mediaview.apk", include_in_schema=False)
+async def mediaview_apk():
+    """Branded direct-download URL: mediadview.com/mediaview.apk"""
+    return _serve_player_apk()
 
 @app.get("/download.apk", include_in_schema=False)
-async def apk_short_url_alias():
+async def download_dot_apk():
     """Alias — some users type /download.apk instead of /apk."""
-    return await apk_short_url()
+    return _serve_player_apk()
 
 # ============ FINANCE & ADMIN MODULE ============
 from finance import create_finance_routes
