@@ -105,7 +105,7 @@
         <activity
             android:name=".PairingActivity"
             android:exported="false"
-            android:screenOrientation="landscape"
+            android:screenOrientation="unspecified"
             android:configChanges="orientation|screenSize|keyboardHidden"
             android:launchMode="singleTask"
             android:theme="@style/Theme.AppCompat.NoActionBar" />

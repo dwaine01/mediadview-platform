@@ -41,19 +41,21 @@ import org.json.JSONObject
 class PairingActivity : AppCompatActivity() {
 
     // ═══════ Premium palette ═══════
-    private val colorBg = Color.parseColor("#000814")           // deep midnight blue-black
-    private val colorCardBg = Color.parseColor("#0B1220")       // slightly lighter than bg
-    private val colorCardBorder = Color.parseColor("#1E2A3F")
+    private val colorBg = Color.parseColor("#050810")           // solid deep black-navy
+    private val colorBgTop = Color.parseColor("#0A0F1C")        // slightly lighter top
+    private val colorCardBg = Color.parseColor("#0F172A")
+    private val colorCardBorder = Color.parseColor("#1E293B")
+    private val colorLogoCardBg = Color.parseColor("#FFFFFF")   // white card behind logo (intentional)
     private val colorTextPrimary = Color.WHITE
     private val colorTextSecondary = Color.parseColor("#94A3B8")
     private val colorTextMuted = Color.parseColor("#475569")
     private val colorTextBody = Color.parseColor("#CBD5E1")
-    private val colorAccent1 = Color.parseColor("#EC4899")       // brand pink (from logo)
-    private val colorAccent2 = Color.parseColor("#8B5CF6")       // brand purple (from logo)
-    private val colorAccent3 = Color.parseColor("#06B6D4")       // brand cyan (from logo)
+    private val colorAccent1 = Color.parseColor("#EC4899")       // brand pink
+    private val colorAccent2 = Color.parseColor("#8B5CF6")       // brand purple
+    private val colorAccent3 = Color.parseColor("#06B6D4")       // brand cyan
     private val colorSuccess = Color.parseColor("#10B981")
     private val colorError = Color.parseColor("#F87171")
-    private val colorCode = Color.parseColor("#A78BFA")          // premium violet for code
+    private val colorCode = Color.parseColor("#A78BFA")
     private val colorFooter = Color.parseColor("#334155")
     private val colorGlow = Color.parseColor("#3730A3")
 
@@ -65,9 +67,16 @@ class PairingActivity : AppCompatActivity() {
 
     private var job: Job? = null
     private var pulseAnim: ValueAnimator? = null
-    private var deviceId: String = ""
+    private var clientUuid: String = ""     // stable local UUID
+    private var serverDeviceId: String = "" // the id returned by /register (used for polling)
     private var checkCount: Int = 0
     private var lastActivationCode: String = ""
+
+    companion object {
+        private const val PAIR_PREFS = "mediaview_pairing"
+        private const val KEY_SERVER_DEVICE_ID = "server_device_id"
+        private const val KEY_ACTIVATION_CODE = "activation_code"
+    }
 
     private var menuKeyCount = 0
     private var lastMenuKeyTime = 0L
@@ -79,7 +88,9 @@ class PairingActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         supportActionBar?.hide()
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        // Support both landscape and portrait — Android TV usually lands landscape,
+        // but portrait signage (menu boards) needs this too.
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
@@ -88,7 +99,11 @@ class PairingActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
 
-        deviceId = DeviceIdentity.getDeviceId(this)
+        clientUuid = DeviceIdentity.getDeviceId(this)
+        // Restore previous server-issued device_id + code if we already registered.
+        val pairPrefs = getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE)
+        serverDeviceId = pairPrefs.getString(KEY_SERVER_DEVICE_ID, "") ?: ""
+        lastActivationCode = pairPrefs.getString(KEY_ACTIVATION_CODE, "") ?: ""
         setContentView(buildUi())
         startPulseAnimation()
         startRegisterAndPoll()
@@ -178,11 +193,13 @@ class PairingActivity : AppCompatActivity() {
 
         codeText = TextView(this).apply {
             text = "\u00b7  \u00b7  \u00b7  \u00b7  \u00b7  \u00b7"
-            textSize = 84f
+            textSize = 56f
             setTypeface(Typeface.MONOSPACE, Typeface.BOLD)
             setTextColor(colorCode)
             gravity = Gravity.CENTER
-            letterSpacing = 0.22f
+            letterSpacing = 0.18f
+            maxLines = 1
+            includeFontPadding = false
         }
         codeCard.addView(codeText)
         codeCardWrap.addView(codeCard)
@@ -325,36 +342,64 @@ class PairingActivity : AppCompatActivity() {
 
     private suspend fun registerAndPoll() {
         withContext(Dispatchers.Main) {
-            setStatus("Connecting to server...", colorCode)
+            // If we already have a persisted code from a previous run, show it
+            // IMMEDIATELY so it doesn't flicker.
+            if (lastActivationCode.isNotBlank()) {
+                codeText.text = formatCode(lastActivationCode)
+                setStatus("Waiting for activation...", colorCode)
+            } else {
+                setStatus("Connecting to server...", colorCode)
+            }
             subStatusText.text = ""
             retryButton.visibility = View.GONE
         }
 
         val registered = try {
             val payload = JSONObject().apply {
-                put("device_id", deviceId)
+                put("client_uuid", clientUuid)      // stable local UUID (backend key)
+                put("device_id", clientUuid)        // legacy alias (backwards compat)
                 put("device_name", "MediAd Player")
-                put("model", "Android TV")
+                put("device_model", android.os.Build.MODEL)
+                put("model", android.os.Build.MODEL)
+                put("os_version", "Android ${android.os.Build.VERSION.RELEASE}")
+                put("app_version", BuildConfig.VERSION_NAME)
             }
             val res = PlayerApi.postJson(this@PairingActivity, "/api/devices/register", payload)
             val code = res.optString("activation_code", "")
+            val srvId = res.optString("device_id", "")
+            if (srvId.isNotBlank()) {
+                serverDeviceId = srvId
+            }
             if (code.isNotBlank()) {
                 lastActivationCode = code
                 DeviceIdentity.markRegistered(
                     this@PairingActivity,
-                    res.optString("device_id", deviceId),
+                    if (srvId.isNotBlank()) srvId else clientUuid,
                     code
                 )
             }
+            // Persist so the code stays STABLE across relaunches / rotations.
+            getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE).edit()
+                .putString(KEY_SERVER_DEVICE_ID, serverDeviceId)
+                .putString(KEY_ACTIVATION_CODE, lastActivationCode)
+                .apply()
             true
         } catch (e: Exception) {
             Log.e(PlayerApp.TAG, "Pairing: register failed: ${e.message}")
             withContext(Dispatchers.Main) {
-                setStatus("Connection error", colorError)
-                subStatusText.text = e.message?.take(80) ?: "could not reach server"
-                retryButton.visibility = View.VISIBLE
+                // If we already had a cached code from before, keep showing it —
+                // don't nuke the code just because network is momentarily down.
+                if (lastActivationCode.isBlank()) {
+                    setStatus("Connection error", colorError)
+                    subStatusText.text = e.message?.take(80) ?: "could not reach server"
+                    retryButton.visibility = View.VISIBLE
+                } else {
+                    setStatus("Reconnecting...", colorError)
+                    subStatusText.text = "network offline — will keep trying"
+                }
             }
-            false
+            // Keep polling anyway if we have a cached code.
+            lastActivationCode.isNotBlank()
         }
 
         if (!registered) return
@@ -364,6 +409,10 @@ class PairingActivity : AppCompatActivity() {
             setStatus("Waiting for activation...", colorCode)
         }
 
+        // Use the SERVER-issued device id for polling. Fall back to the local
+        // UUID for legacy backends (they now support both).
+        val pollId = if (serverDeviceId.isNotBlank()) serverDeviceId else clientUuid
+
         checkCount = 0
         while (job?.isActive == true) {
             checkCount++
@@ -371,10 +420,15 @@ class PairingActivity : AppCompatActivity() {
                 subStatusText.text = "check #$checkCount"
             }
             try {
-                val res = PlayerApi.getJson(this@PairingActivity, "/api/devices/$deviceId/check")
+                val res = PlayerApi.getJson(this@PairingActivity, "/api/devices/$pollId/check")
                 val status = res.optString("status", "pending")
                 val code = res.optString("activation_code", "")
-                if (code.isNotBlank()) lastActivationCode = code
+                if (code.isNotBlank() && code != lastActivationCode) {
+                    lastActivationCode = code
+                    getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE).edit()
+                        .putString(KEY_ACTIVATION_CODE, code)
+                        .apply()
+                }
 
                 if (status == "active") {
                     val screenId = res.optString("screen_id", "")
@@ -460,7 +514,7 @@ class PairingActivity : AppCompatActivity() {
 
     private fun showAdminMenu() {
         val info = "Server URL: ${PlayerApi.baseUrl(this)}\n" +
-                "Device ID: ${deviceId.take(24)}\n" +
+                "Device ID: ${clientUuid.take(24)}\n" +
                 "Version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})"
         AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
             .setTitle("Admin menu")
@@ -475,6 +529,8 @@ class PairingActivity : AppCompatActivity() {
                 getSharedPreferences("mediaview_identity", Context.MODE_PRIVATE)
                     .edit().clear().apply()
                 getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE)
                     .edit().clear().apply()
                 recreate()
             }
