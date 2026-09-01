@@ -14,7 +14,7 @@ class PlayerApp : Application() {
     companion object {
         const val TAG = "MediAdView"
         // Default backend URL — can be overridden at runtime via SharedPreferences ("server_url")
-        const val DEFAULT_SERVER_URL = "https://menu-studio-3.preview.emergentagent.com"
+        const val DEFAULT_SERVER_URL = "https://mediadview.com"
     }
 
     override fun onCreate() {

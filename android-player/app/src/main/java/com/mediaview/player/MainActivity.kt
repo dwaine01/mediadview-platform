@@ -90,10 +90,10 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
-        // ===== PAIRING CHECK: redirect to SetupActivity if not paired =====
+        // ===== PAIRING CHECK: redirect to PairingActivity if not paired =====
         if (!DeviceIdentity.isRegistered(this)) {
-            Log.i(PlayerApp.TAG, "Device not paired — launching SetupActivity")
-            startActivity(android.content.Intent(this, SetupActivity::class.java).apply {
+            Log.i(PlayerApp.TAG, "Device not paired — launching PairingActivity")
+            startActivity(android.content.Intent(this, PairingActivity::class.java).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
             })
             finish()

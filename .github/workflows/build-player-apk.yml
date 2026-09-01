@@ -1,0 +1,128 @@
+name: Build MediAd View Player APK
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-player/**'
+      - '.github/workflows/build-player-apk.yml'
+  workflow_dispatch:  # Allow manual trigger from Actions tab
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: gradle
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.5'
+
+      - name: Extract version from build.gradle.kts
+        id: version
+        run: |
+          VERSION=$(grep 'versionName' android-player/app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Detected version: $VERSION"
+
+      - name: Decode release keystore (if provided)
+        id: keystore
+        run: |
+          if [ -n "${{ secrets.MEDIAVIEW_KEYSTORE_B64 }}" ]; then
+            echo "${{ secrets.MEDIAVIEW_KEYSTORE_B64 }}" | base64 -d > /tmp/mediaview-release.jks
+            echo "path=/tmp/mediaview-release.jks" >> $GITHUB_OUTPUT
+            echo "✓ Release keystore decoded"
+          else
+            echo "path=" >> $GITHUB_OUTPUT
+            echo "⚠ No release keystore secret set — will use debug signing"
+          fi
+
+      - name: Build release APK
+        working-directory: android-player
+        env:
+          MEDIAVIEW_KEYSTORE_PATH: ${{ steps.keystore.outputs.path }}
+          MEDIAVIEW_KEYSTORE_PASSWORD: ${{ secrets.MEDIAVIEW_KEYSTORE_PASSWORD }}
+          MEDIAVIEW_KEY_ALIAS: ${{ secrets.MEDIAVIEW_KEY_ALIAS }}
+          MEDIAVIEW_KEY_PASSWORD: ${{ secrets.MEDIAVIEW_KEY_PASSWORD }}
+        run: |
+          gradle assembleRelease --no-daemon --stacktrace
+
+      - name: Locate built APK
+        id: apk
+        working-directory: android-player
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/release -name "*.apk" -type f | head -1)
+          if [ -z "$APK_PATH" ]; then
+            echo "❌ No APK produced!"
+            ls -la app/build/outputs/apk/release/ || true
+            exit 1
+          fi
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "✓ APK: $APK_PATH"
+          ls -la "$APK_PATH"
+
+      - name: Copy APK to backend/web/ with versioned name
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          SRC="android-player/${{ steps.apk.outputs.apk_path }}"
+          cp "$SRC" "backend/web/mediaview-player-v${VERSION}.apk"
+          cp "$SRC" "backend/web/mediaview-player.apk"
+          echo "✓ Deployed:"
+          ls -lh backend/web/mediaview-player*.apk
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediaview-player-v${{ steps.version.outputs.version }}
+          path: backend/web/mediaview-player-v${{ steps.version.outputs.version }}.apk
+          retention-days: 90
+
+      - name: Commit APK back to repo
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          git config user.name  "MediAd View Bot"
+          git config user.email "bot@mediadview.com"
+          git add "backend/web/mediaview-player-v${VERSION}.apk" "backend/web/mediaview-player.apk"
+          if git diff --cached --quiet; then
+            echo "No APK changes to commit"
+            exit 0
+          fi
+          git commit -m "build(apk): mediaview-player-v${VERSION} [skip ci]"
+          # Retry push a few times in case of concurrent updates
+          for i in 1 2 3; do
+            git pull --rebase origin main && git push origin main && break
+            echo "Push attempt $i failed, retrying..."
+            sleep 3
+          done
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "## 🎉 MediAd View Player v${VERSION} built" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**APK available at:**" >> $GITHUB_STEP_SUMMARY
+          echo "- \`https://mediadview.com/apk\` (short URL, auto-redirect to latest)" >> $GITHUB_STEP_SUMMARY
+          echo "- \`https://mediadview.com/api/web/mediaview-player-v${VERSION}.apk\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Sideload on Google TV / Android TV:**" >> $GITHUB_STEP_SUMMARY
+          echo "1. Open the *Downloader* app" >> $GITHUB_STEP_SUMMARY
+          echo "2. Type: \`mediadview.com/apk\`" >> $GITHUB_STEP_SUMMARY
+          echo "3. Install → open MediAd View Player" >> $GITHUB_STEP_SUMMARY
+          echo "4. Enter the shown activation code in \`panel.mediadview.com → Screens → Pair Device\`" >> $GITHUB_STEP_SUMMARY

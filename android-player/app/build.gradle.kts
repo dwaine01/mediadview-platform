@@ -15,15 +15,14 @@ android {
         applicationId = "com.mediaview.player"
         minSdk = 21
         targetSdk = 34
-        versionCode = 4
-        versionName = "2.2.0"
+        versionCode = 5
+        versionName = "2.3.0"
 
         // =============================================================
         // CONFIGURACION DE PRODUCCION
-        // Cambia esta URL a tu servidor real de MediAd View
-        // Ejemplo: "https://app.mediadview.com"
+        // Servidor de MediAd View (backend FastAPI en Render).
         // =============================================================
-        buildConfigField("String", "SERVER_URL", "\"https://menu-studio-3.preview.emergentagent.com\"")
+        buildConfigField("String", "SERVER_URL", "\"https://mediadview.com\"")
     }
 
     buildTypes {
@@ -33,10 +32,30 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // If a release keystore is provided via environment variables
+            // (used by GitHub Actions), sign with it. Otherwise fall back
+            // to the debug signing config so the APK is still installable.
+            signingConfig = if (System.getenv("MEDIAVIEW_KEYSTORE_PATH") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
         debug {
             isMinifyEnabled = false
             applicationIdSuffix = ".debug"
+        }
+    }
+
+    signingConfigs {
+        create("release") {
+            val ksPath = System.getenv("MEDIAVIEW_KEYSTORE_PATH")
+            if (ksPath != null && file(ksPath).exists()) {
+                storeFile = file(ksPath)
+                storePassword = System.getenv("MEDIAVIEW_KEYSTORE_PASSWORD") ?: ""
+                keyAlias = System.getenv("MEDIAVIEW_KEY_ALIAS") ?: "mediaview"
+                keyPassword = System.getenv("MEDIAVIEW_KEY_PASSWORD") ?: ""
+            }
         }
     }
 
