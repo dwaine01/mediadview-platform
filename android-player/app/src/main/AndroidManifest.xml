@@ -108,15 +108,6 @@
             android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.NoActionBar" />
 
-        <!-- PAIRING ACTIVITY (OptiSigns-style: auto-generated 6-char code) -->
-        <activity
-            android:name=".PairingActivity"
-            android:exported="false"
-            android:screenOrientation="landscape"
-            android:configChanges="orientation|screenSize|keyboardHidden"
-            android:launchMode="singleTask"
-            android:theme="@style/Theme.AppCompat.NoActionBar" />
-
         <!-- FileProvider for APK auto-update install -->
         <provider
             android:name="androidx.core.content.FileProvider"
