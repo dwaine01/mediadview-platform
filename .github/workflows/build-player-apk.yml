@@ -32,11 +32,19 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: 'platforms;android-34 build-tools;34.0.0'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v3
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.7'
+
+      - name: Remove local.properties (uses runner's SDK)
+        run: |
+          rm -f android-player/local.properties
+          echo "sdk.dir=$ANDROID_HOME" > android-player/local.properties
+          cat android-player/local.properties
 
       - name: Extract version from build.gradle.kts
         id: version
