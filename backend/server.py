@@ -751,11 +751,39 @@ async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get
     screen = await db.screens.find_one({"id": data.screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
-    pricing = calculate_campaign_price(screen.get("pricing", {}), data.schedule.dict())
+
+    # ===== VALIDATE + AUTO-FILL SCHEDULE =====
+    # Root cause of the "black screen" bug was campaigns being saved with
+    # empty start_date/end_date, which makes get_playlist() exclude them.
+    # Fill sensible defaults so a fresh campaign is playable immediately.
+    sched = data.schedule.dict()
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    if not sched.get("start_date"):
+        sched["start_date"] = today
+    if not sched.get("end_date"):
+        # default: 30-day run
+        sched["end_date"] = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+    if sched["start_date"] > sched["end_date"]:
+        raise HTTPException(status_code=400, detail="start_date must be <= end_date")
+    sched.setdefault("start_time", "00:00")
+    sched.setdefault("end_time", "23:59")
+
+    # ===== VALIDATE MEDIA IDs =====
+    # Reject campaigns that reference nonexistent media so we never end up
+    # with an "approved" campaign whose media_ids point to nothing.
+    missing = []
+    for mid in (data.media_ids or []):
+        if not await db.media.find_one({"id": mid}):
+            missing.append(mid)
+    if missing:
+        raise HTTPException(status_code=400,
+            detail=f"Media not found: {', '.join(missing)}. Please re-upload.")
+
+    pricing = calculate_campaign_price(screen.get("pricing", {}), sched)
     campaign = {
         "id": gen_id(), "user_id": current_user["id"],
         "screen_id": data.screen_id, "name": data.name,
-        "status": "draft", "schedule": data.schedule.dict(),
+        "status": "draft", "schedule": sched,
         "media_ids": data.media_ids, "pricing": pricing,
         "payment_id": None, "admin_notes": None,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
@@ -1504,6 +1532,70 @@ async def admin_list_payments(admin: dict = Depends(require_admin)):
 
 # ============ ROUTES: PLAYER API ============
 
+@api_router.post("/admin/campaigns/repair")
+async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
+    """MAINTENANCE: fix campaigns saved with empty schedule.start_date/end_date
+    (root cause of the 'no content' bug) and drop media_ids that reference
+    deleted media. Returns a report of everything changed.
+    """
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    default_end = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d")
+
+    report = {"total": 0, "date_fixed": 0, "media_pruned": 0, "orphan_removed": 0, "details": []}
+    campaigns = await db.campaigns.find({}).to_list(2000)
+    report["total"] = len(campaigns)
+
+    for c in campaigns:
+        cid = c.get("id")
+        sched = dict(c.get("schedule", {}) or {})
+        updates = {}
+        changes = []
+
+        if not sched.get("start_date"):
+            sched["start_date"] = today
+            changes.append(f"start_date -> {today}")
+        if not sched.get("end_date"):
+            sched["end_date"] = default_end
+            changes.append(f"end_date -> {default_end}")
+        if not sched.get("start_time"):
+            sched["start_time"] = "00:00"
+            changes.append("start_time -> 00:00")
+        if not sched.get("end_time"):
+            sched["end_time"] = "23:59"
+            changes.append("end_time -> 23:59")
+        if changes:
+            updates["schedule"] = sched
+            report["date_fixed"] += 1
+
+        mids = c.get("media_ids", []) or []
+        clean_mids = []
+        removed = []
+        for mid in mids:
+            if await db.media.find_one({"id": mid}):
+                clean_mids.append(mid)
+            else:
+                removed.append(mid)
+        if removed:
+            updates["media_ids"] = clean_mids
+            report["media_pruned"] += len(removed)
+            changes.append(f"removed {len(removed)} missing media id(s)")
+
+        if not clean_mids and (removed or not mids):
+            # Empty campaign after cleanup: leave it but flag it.
+            changes.append("campaign has no media")
+
+        if updates:
+            updates["updated_at"] = datetime.utcnow()
+            await db.campaigns.update_one({"id": cid}, {"$set": updates})
+            report["details"].append({
+                "campaign_id": cid,
+                "name": c.get("name"),
+                "changes": changes,
+            })
+
+    return report
+
+
 @api_router.get("/player/{screen_id}/playlist")
 async def get_playlist(screen_id: str):
     screen = await db.screens.find_one({"id": screen_id})
@@ -1534,6 +1626,108 @@ async def get_playlist(screen_id: str):
                     })
     return {"screen_id": screen_id, "screen_name": screen.get("name"),
             "generated_at": now.isoformat(), "total_items": len(items), "items": items}
+
+
+@api_router.get("/player/{screen_id}/diagnose")
+async def diagnose_playlist(screen_id: str):
+    """DIAGNOSTIC ENDPOINT: explains exactly WHY a playlist is empty.
+
+    Returns every campaign attached to the screen and, for each one, whether
+    it is currently visible to the player and — if not — the reason.
+    Also verifies media_ids resolve to actual media files on disk.
+    """
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        return {"screen_id": screen_id, "screen_exists": False,
+                "reason": "screen not found in DB (was it deleted?)"}
+
+    now = datetime.utcnow()
+    today = now.strftime("%Y-%m-%d")
+    now_hm = now.strftime("%H:%M")
+
+    all_campaigns = await db.campaigns.find({"screen_id": screen_id}).to_list(500)
+    diag_campaigns = []
+    visible_count = 0
+
+    for c in all_campaigns:
+        cid = c.get("id")
+        status = c.get("status")
+        sched = c.get("schedule", {}) or {}
+        mids = c.get("media_ids", []) or []
+        reasons = []
+
+        if status not in ("approved", "active"):
+            reasons.append(f"status='{status}' (need approved/active)")
+
+        sd = sched.get("start_date")
+        ed = sched.get("end_date")
+        if not sd or sd > today:
+            reasons.append(f"schedule.start_date={sd!r} > today({today})")
+        if not ed or ed < today:
+            reasons.append(f"schedule.end_date={ed!r} < today({today})")
+
+        st = sched.get("start_time", "00:00")
+        et = sched.get("end_time", "23:59")
+        if not (st <= now_hm <= et):
+            reasons.append(f"time {now_hm!r} not in [{st!r}, {et!r}]")
+
+        if not mids:
+            reasons.append("media_ids array is empty (no media assigned)")
+
+        # verify each media resolves
+        media_status = []
+        for mid in mids:
+            m = await db.media.find_one({"id": mid})
+            if not m:
+                media_status.append({"media_id": mid, "ok": False, "reason": "media doc missing in DB"})
+                reasons.append(f"media_id {mid!r} not found in media collection")
+                continue
+            stored = m.get("stored_filename")
+            fp = os.path.join(MEDIA_DIR, stored or "")
+            file_ok = bool(stored) and os.path.exists(fp)
+            size = os.path.getsize(fp) if file_ok else 0
+            media_status.append({
+                "media_id": mid, "ok": file_ok,
+                "filename": m.get("filename"),
+                "content_type": m.get("content_type"),
+                "stored_filename": stored,
+                "file_exists": file_ok,
+                "file_size_bytes": size,
+            })
+            if not file_ok:
+                reasons.append(f"media_id {mid!r} file missing on disk: {fp}")
+
+        is_visible = len(reasons) == 0
+        if is_visible:
+            visible_count += 1
+
+        diag_campaigns.append({
+            "campaign_id": cid,
+            "name": c.get("name"),
+            "status": status,
+            "schedule": sched,
+            "media_ids": mids,
+            "media_status": media_status,
+            "will_play_now": is_visible,
+            "excluded_reasons": reasons,
+        })
+
+    return {
+        "screen_id": screen_id,
+        "screen_name": screen.get("name"),
+        "screen_status": screen.get("status"),
+        "server_time_utc": now.isoformat(),
+        "server_date": today,
+        "server_time_hm": now_hm,
+        "total_campaigns": len(all_campaigns),
+        "visible_now": visible_count,
+        "campaigns": diag_campaigns,
+        "hint": (
+            "If visible_now == 0, no content will play. Check the "
+            "'excluded_reasons' array on each campaign to see exactly what "
+            "condition failed."
+        ),
+    }
 
 @api_router.get("/player/{screen_id}/schedule")
 async def get_schedule(screen_id: str, date: Optional[str] = None):
@@ -1605,10 +1799,27 @@ function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>
 async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
-if(pl.length>0&&!ip){sf(false);pn();pdc()}else if(pl.length===0){sf(true,'No campaigns scheduled','Waiting for active campaigns...')}
+if(pl.length>0&&!ip){sf(false);pn();pdc()}else if(pl.length===0){fdr()}
 }catch(e){io=true;rc++;le=e.message;log('warn','Fetch failed: '+e.message+' (#'+rc+')');
 if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);sf(false);pn()}}}catch(x){}}
-if(pl.length===0){sf(true,io?'Offline - Reconnecting...':'No content','Auto-retry active')}}}
+if(pl.length===0){sf(true,io?'Offline — Reconnecting':'No content','Auto-retry active')}}}
+// Diagnostic fallback: instead of just showing "no content", call
+// /diagnose and explain WHY the playlist is empty.
+async function fdr(){try{var r=await fetch(AB+'/api/player/'+SID+'/diagnose');var d=await r.json();var msg='No content scheduled',sub='';
+if(d.total_campaigns===0){msg='No campaigns yet';sub='Create a campaign in the admin panel and assign this screen'}
+else if(d.visible_now===0){
+  var reasons={};
+  (d.campaigns||[]).forEach(function(c){(c.excluded_reasons||[]).forEach(function(r){reasons[r]=(reasons[r]||0)+1})});
+  var topR=Object.keys(reasons).sort(function(a,b){return reasons[b]-reasons[a]})[0]||'';
+  if(/media_id.*not found/i.test(topR)){msg='Media file missing';sub='One or more media in the campaign was deleted. Re-upload and re-assign.'}
+  else if(/media_ids array is empty/i.test(topR)){msg='Campaign has no media';sub='Open the campaign and assign an image or video'}
+  else if(/status=/.test(topR)){msg='Campaign not approved yet';sub='An admin must approve this campaign to start playback'}
+  else if(/schedule\.start_date/.test(topR)||/schedule\.end_date/.test(topR)){msg='Schedule dates out of range';sub='Adjust the campaign date range or run /api/admin/campaigns/repair'}
+  else if(/time .* not in/.test(topR)){msg='Outside campaign time window';sub='Campaign will resume during its scheduled hours'}
+  else{msg='Cannot play now';sub=topR}
+}
+sf(true,msg,sub)
+}catch(e){sf(true,'No content','Auto-retry active')}}
 function pm(i){if(mc[i.media_id])return;var u=AB+i.media_url;if(i.content_type&&i.content_type.startsWith('image/')){var img=new Image();img.src=u;mc[i.media_id]={t:'image',u:u}}else{mc[i.media_id]={t:'video',u:u}}}
 function pn(){if(pl.length===0)return;ci=(ci+1)%pl.length;var it=pl[ci],u=AB+it.media_url,ii=it.content_type&&it.content_type.startsWith('image/');ip=true;tp++;clearTimeout(pt);
 var c=document.getElementById('ml');c.innerHTML='';
