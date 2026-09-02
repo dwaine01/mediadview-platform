@@ -69,6 +69,8 @@ export default function AdminPanel() {
     if (tab === 2) fetchAllScreens();
     if (tab === 3) fetchAllCampaigns();
     if (tab === 4) fetchDevices();
+  // fetchAllScreens and fetchAllCampaigns are stable useCallback refs; fetchDevices is local
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
 
   const fetchDevices = async () => {

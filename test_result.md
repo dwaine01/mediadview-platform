@@ -256,6 +256,36 @@ backend:
         comment: "✅ TESTED: Seed data working perfectly. Admin user admin@mediaviewads.com exists and authenticates, 10 screens across 9 US cities (Times Square, Broadway, LA, Miami, Chicago, Vegas, SF, Houston, Dallas, Seattle) properly seeded."
 
 frontend:
+  - task: "ESLint cleanup — 0 warnings 0 errors"
+    implemented: true
+    working: true
+    file: "/app/frontend/eslint.config.js, app/(tabs)/*, app/_layout.tsx, app/admin/index.tsx, app/player/*, src/store/authStore.ts"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Iteration 15: 26 warnings detected — unused vars, react-hooks/exhaustive-deps, unused React import"
+      - working: true
+        agent: "main"
+        comment: "Fixed all 26 ESLint warnings: removed unused imports (useState, ScrollView, React, useCallback), used empty catch{} syntax (TS5.9), moved eslint-disable-next-line to correct position before closing }, []). ESLint now 0 problems."
+
+  - task: "Touch targets btn-icon ≥44px"
+    implemented: true
+    working: true
+    file: "/app/backend/web/styles.css, /app/backend/web/playlists.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Iteration 15: btn-icon buttons (up/down/remove) below 44px on mobile 390x844"
+      - working: true
+        agent: "main"
+        comment: "styles.css .btn-icon: 36px→44px (min-width/min-height). playlists.js .pl-actions .btn-icon override added. Visually verified."
+
   - task: "Login/Register Screens"
     implemented: true
     working: true
@@ -385,6 +415,8 @@ test_plan:
   test_priority: "high_first"
 
 agent_communication:
+  - agent: "main"
+    message: "P0 ESLint + Touch Target fix completed. Changes: (1) eslint.config.js: added .expo/** to ignores. (2) src/store/authStore.ts: removed unused React import. (3) app/(tabs)/_layout.tsx: removed unused useState and ScrollView imports. (4) app/(tabs)/campaigns.tsx, index.tsx, payments.tsx, screens.tsx: changed empty catch(e) to catch{}. (5) app/_layout.tsx: added eslint-disable comment for one-time initialize() effect. (6) app/admin/index.tsx: added eslint-disable comment for tab-switched fetch callbacks. (7) app/player/activate.tsx, display.tsx, index.tsx: moved eslint-disable-next-line to correct position (before closing }, []), removed useCallback import, removed unused errorMsg state. (8) app/player/info.tsx, activate.tsx: changed catch(e) to catch{}. (9) backend/web/styles.css: .btn-icon min-width/min-height changed from 36px to 44px, transition simplified. (10) backend/web/playlists.js: added .pl-actions .btn-icon{min-width:44px;min-height:44px} override. ESLint result: 0 warnings 0 errors. Both frontends verified visually."
   - agent: "main"
     message: "Complete rebuild of the application as MediaView Digital Signage Platform. Backend has all endpoints implemented: auth, screens, campaigns, media, payments (mocked), admin, player API, analytics. 10 sample screens seeded across US cities. Admin user: admin@mediaviewads.com / MediaViewAdmin#2026. Frontend has login, dashboard, screen marketplace, campaign wizard, campaigns list, payments, profile, and admin panel. Please test all backend endpoints comprehensively."
   - agent: "testing"

@@ -12,7 +12,11 @@ export default function PlayerSplash() {
   const [status, setStatus] = useState('Initializing MediaView Player...');
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { boot(); }, []);
+  useEffect(() => {
+    // boot runs once on mount — checks device registration and routes accordingly
+    boot();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const boot = async () => {
     try {
@@ -31,7 +35,7 @@ export default function PlayerSplash() {
           }
           setStatus('Awaiting activation...');
           setTimeout(() => router.replace('/player/activate'), 1500);
-        } catch (e) {
+        } catch {
           // Offline - check for cached content
           const cached = await AsyncStorage.getItem('mv_cached_playlist');
           if (cached && JSON.parse(cached).length > 0) {
@@ -59,13 +63,13 @@ export default function PlayerSplash() {
           await AsyncStorage.setItem('mv_activation_code', res.data.activation_code);
           setStatus('Registration complete.');
           setTimeout(() => router.replace('/player/activate'), 1200);
-        } catch (e: any) {
+        } catch {
           setError('Cannot connect to MediaView server.\nCheck network connection and restart the app.');
           // Retry after 10 seconds
           setTimeout(() => boot(), 10000);
         }
       }
-    } catch (e) {
+    } catch {
       setError('Initialization error. Restarting...');
       setTimeout(() => boot(), 5000);
     }

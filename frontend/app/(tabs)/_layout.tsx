@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Dimensions, ScrollView, Platform,
+  View, Text, StyleSheet, TouchableOpacity, Dimensions, Platform,
 } from 'react-native';
 import { Tabs, useRouter, usePathname } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';

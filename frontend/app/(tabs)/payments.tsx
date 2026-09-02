@@ -19,7 +19,7 @@ export default function PaymentsScreen() {
 
   const fetchData = useCallback(async () => {
     try { const res = await paymentsAPI.list(); setPayments(res.data); }
-    catch (e) {} finally { setLoading(false); setRefreshing(false); }
+    catch {} finally { setLoading(false); setRefreshing(false); }
   }, []);
 
   useEffect(() => { fetchData(); }, [fetchData]);

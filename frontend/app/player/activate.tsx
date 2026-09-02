@@ -16,8 +16,10 @@ export default function PlayerActivate() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
+    // init runs once on mount to load stored device ID and start polling
     init();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const init = async () => {
@@ -40,7 +42,7 @@ export default function PlayerActivate() {
         await AsyncStorage.setItem('mv_screen_id', res.data.screen_id);
         router.replace('/player/display');
       }
-    } catch (e) {
+    } catch {
       setServerOk(false);
     }
   };
