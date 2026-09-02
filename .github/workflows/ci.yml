@@ -135,10 +135,22 @@ jobs:
         working-directory: backend
         run: |
           if [ -d tests ] && ls tests/test_*.py 1>/dev/null 2>&1; then
-            pytest -q --tb=short --disable-warnings tests/test_*.py || exit 1
+            pytest -q --tb=short --disable-warnings \
+              --junitxml=/tmp/pytest-results.xml tests/test_*.py
           else
             echo "no legacy pytest suite — smoke tests already passed."
           fi
+
+      - name: Upload backend test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-diagnostics-${{ github.run_number }}
+          path: |
+            /tmp/ci-backend.log
+            /tmp/pytest-results.xml
+          if-no-files-found: warn
+          retention-days: 14
 
   # ─────────────────────────────────────────────────────────────────
   e2e:

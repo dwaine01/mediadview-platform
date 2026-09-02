@@ -14,9 +14,13 @@ import requests
 from dotenv import dotenv_values
 from pymongo import MongoClient
 
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+FRONTEND_ENV = BACKEND_DIR.parent / "frontend" / ".env"
+MEDIA_DIR = BACKEND_DIR / "media"
+
 
 def _public_base_url() -> str:
-    env = dotenv_values("/app/frontend/.env")
+    env = dotenv_values(FRONTEND_ENV)
     base_url = (
         os.environ.get("TEST_BASE_URL")
         or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
@@ -107,7 +111,7 @@ def test_device_and_screen_playlist_fields_support_null_dates_and_media_contract
     campaign_id = f"TEST-campaign-{suffix}"
 
     # prepare a tiny valid PNG for legacy storage path
-    media_dir = Path("/app/backend/media")
+    media_dir = MEDIA_DIR
     media_dir.mkdir(parents=True, exist_ok=True)
     stored_filename = f"{media_id}.png"
     media_path = media_dir / stored_filename
@@ -187,7 +191,7 @@ def test_device_and_screen_playlist_fields_support_null_dates_and_media_contract
 
 def test_player_media_endpoint_serves_legacy_content(api_session, mongo_db):
     media_id = f"TEST-legacy-{uuid.uuid4().hex[:10]}"
-    media_dir = Path("/app/backend/media")
+    media_dir = MEDIA_DIR
     media_dir.mkdir(parents=True, exist_ok=True)
     stored_filename = f"{media_id}.jpg"
     media_path = media_dir / stored_filename
