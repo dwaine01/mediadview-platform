@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+  <title>Playlist Access · MediAd View</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;background:#050816;color:#f8fafc;font:15px Inter,system-ui,sans-serif}
+    .shell{max-width:620px;margin:auto;min-height:100vh;padding:28px 18px 60px}.brand{color:#22d3ee;font-size:12px;font-weight:900;letter-spacing:.16em}
+    h1{font-size:28px;line-height:1.1;margin:12px 0 8px}.muted{color:#94a3b8;line-height:1.5}.card{background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:16px;margin-top:16px}
+    .item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid #1e293b}.item:last-child{border-bottom:0}.thumb{width:44px;height:44px;border-radius:10px;background:#172033;display:grid;place-items:center;color:#22d3ee;font-weight:900}.grow{flex:1;min-width:0}.title{font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.meta{font-size:12px;color:#64748b;margin-top:3px}
+    button,.upload{min-height:48px;border:0;border-radius:12px;padding:0 16px;font-weight:800;cursor:pointer}.primary{width:100%;background:linear-gradient(135deg,#06b6d4,#2563eb);color:white}.danger{min-height:38px;background:rgba(248,113,113,.1);color:#f87171}.upload{display:flex;align-items:center;justify-content:center;border:1px dashed #334155;color:#cbd5e1;margin-top:14px}.status{margin-top:12px;font-size:13px;color:#94a3b8}.ok{color:#34d399}.bad{color:#f87171}.hide{display:none}.spinner{width:18px;height:18px;border:2px solid #334155;border-top-color:#22d3ee;border-radius:50%;animation:spin .8s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+  </style>
+</head>
+<body>
+<main class="shell" data-testid="public-playlist-portal">
+  <div class="brand">MEDIAD VIEW · SECURE PLAYLIST ACCESS</div>
+  <h1 id="name" data-testid="public-playlist-name">Loading playlist…</h1>
+  <p id="description" class="muted">This link only controls its assigned playlist.</p>
+  <section class="card">
+    <div style="display:flex;align-items:center;justify-content:space-between"><strong>Content</strong><span id="count" class="meta">0 items</span></div>
+    <div id="items" data-testid="public-playlist-items"><div class="item"><div class="spinner"></div><div class="muted">Loading…</div></div></div>
+  </section>
+  <section id="upload-card" class="card hide">
+    <strong>Add image or video</strong>
+    <p class="muted" style="font-size:13px">Changes publish directly or wait for approval, based on the playlist policy.</p>
+    <label class="upload" for="file" data-testid="public-playlist-upload-button">Choose file</label>
+    <input id="file" data-testid="public-playlist-file-input" class="hide" type="file" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4">
+    <div id="status" class="status" data-testid="public-playlist-status"></div>
+  </section>
+</main>
+<script>
+const token=new URLSearchParams(location.search).get('token')||'';
+let model=null;
+const api=(path,options={})=>fetch('/api/public/playlists/'+encodeURIComponent(token)+path,{...options,headers:{'Content-Type':'application/json',...(options.headers||{})}}).then(async r=>{const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.detail||'Request failed');return d});
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]));
+async function load(){try{model=await api('');document.getElementById('name').textContent=model.name;document.getElementById('description').textContent=model.description||'Manage the content assigned to this playlist.';document.getElementById('upload-card').classList.toggle('hide',!model.access.allow_upload);render()}catch(e){document.getElementById('name').textContent='Link unavailable';document.getElementById('items').innerHTML='<div class="bad">'+esc(e.message)+'</div>'}}
+function render(){const items=model.items||[];document.getElementById('count').textContent=items.length+' item'+(items.length===1?'':'s');document.getElementById('items').innerHTML=items.length?items.map((item,index)=>'<div class="item"><div class="thumb">'+(index+1)+'</div><div class="grow"><div class="title">'+esc(item.title)+'</div><div class="meta">'+esc(item.type)+' · '+item.duration+' sec</div></div>'+(model.access.permission==='editor'?'<button class="danger" data-testid="public-remove-'+esc(item.id)+'" onclick="removeItem(\''+esc(item.id)+'\')">Remove</button>':'')+'</div>').join(''):'<div class="item"><div class="muted">No content yet. Add the first item below.</div></div>'}
+async function removeItem(id){if(!confirm('Remove this content from the playlist?'))return;try{await api('/items/'+encodeURIComponent(id),{method:'DELETE'});await load()}catch(e){setStatus(e.message,false)}}
+function setStatus(message,ok){const node=document.getElementById('status');node.className='status '+(ok?'ok':'bad');node.textContent=message}
+document.getElementById('file').addEventListener('change',function(){const file=this.files[0];if(!file)return;if(file.size>100*1024*1024){setStatus('File exceeds the 100 MB limit.',false);return}setStatus('Uploading…',true);const reader=new FileReader();reader.onerror=()=>setStatus('Unable to read this file.',false);reader.onload=async()=>{try{const result=await api('/media',{method:'POST',body:JSON.stringify({filename:file.name,content_type:file.type||'application/octet-stream',data:String(reader.result).split(',')[1]})});setStatus(result.message,true);this.value='';await load()}catch(e){setStatus(e.message,false)}};reader.readAsDataURL(file)});
+load();
+</script>
+</body>
+</html>

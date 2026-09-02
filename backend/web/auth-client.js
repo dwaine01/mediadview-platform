@@ -38,14 +38,14 @@
   let _refreshInFlight = null;   // singleton promise → dedupe concurrent 401s
 
   const listeners = new Set();
-  function emit(evt, payload) { listeners.forEach(fn => { try { fn(evt, payload); } catch(_){} }); }
+  function emit(evt, payload) { listeners.forEach(fn => { try { fn(evt, payload); } catch(_) { /* isolate listener errors */ } }); }
 
   // Belt & suspenders: purge any leftover legacy tokens from previous versions.
   try {
     localStorage.removeItem('mv_t');
     localStorage.removeItem('mv_u');
     localStorage.removeItem('mediadview_token');
-  } catch (_) {}
+  } catch (_) { /* storage may be blocked by browser policy */ }
 
   // ── Low-level helpers ────────────────────────────────────────────
   async function _postJSON(path, body, opts = {}) {
@@ -149,7 +149,7 @@
      * Log out — revokes the entire refresh family and clears the cookie.
      */
     async logout() {
-      try { await _postJSON('/auth/v2/logout', {}); } catch (_) {}
+      try { await _postJSON('/auth/v2/logout', {}); } catch (_) { /* local logout still continues */ }
       _setSession(null, null);
     },
 
@@ -185,6 +185,9 @@
           } else {
             _setSession(null, null);
             emit('unauthenticated');
+            const error = new Error('Session expired');
+            error.code = 'SESSION_EXPIRED';
+            throw error;
           }
         }
         return res;

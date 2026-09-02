@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
 import android.os.SystemClock
+import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
@@ -49,6 +50,8 @@ class MainActivity : Activity(), PlaybackEvents {
     private lateinit var networkMonitor: NetworkMonitor
     private var syncJob: Job? = null
     private var heartbeatJob: Job? = null
+    private var realtimeJob: Job? = null
+    @Volatile private var eventStream: PlayerEventStream? = null
     private var syncing = false
     private var retryAttempt = 0
     private var retryRunnable: Runnable? = null
@@ -147,7 +150,38 @@ class MainActivity : Activity(), PlaybackEvents {
                 delay(30_000)
             }
         }
+        startRealtimeEvents()
         handler.post(watchdog)
+    }
+
+    private fun startRealtimeEvents() {
+        val screenId = DeviceIdentity.getScreenId(this) ?: return
+        realtimeJob?.cancel()
+        realtimeJob = scope.launch(Dispatchers.IO) {
+            var attempt = 0
+            while (isActive) {
+                val stream = PlayerEventStream(this@MainActivity, screenId)
+                eventStream = stream
+                try {
+                    stream.listen { event ->
+                        if (event == "connected") {
+                            attempt = 0
+                            PlayerDiagnostics.realtime(true)
+                        }
+                        if (RealtimeEventPolicy.shouldSync(event)) {
+                            runOnUiThread { syncNow("realtime-$event") }
+                        }
+                    }
+                } catch (error: Exception) {
+                    if (isActive) Log.w(PlayerApp.TAG, "Realtime stream unavailable: ${error.message}")
+                } finally {
+                    stream.close()
+                    eventStream = null
+                    PlayerDiagnostics.realtime(false)
+                }
+                if (isActive) delay(RetryPolicy.delayMs(attempt++).coerceAtMost(60_000L))
+            }
+        }
     }
 
     private fun syncNow(reason: String) {
@@ -345,7 +379,8 @@ class MainActivity : Activity(), PlaybackEvents {
         PlayerDiagnostics.listener = null
         if (::networkMonitor.isInitialized) networkMonitor.stop()
         if (::renderer.isInitialized) renderer.release()
-        syncJob?.cancel(); heartbeatJob?.cancel(); scope.coroutineContext[Job]?.cancel()
+        eventStream?.close()
+        syncJob?.cancel(); heartbeatJob?.cancel(); realtimeJob?.cancel(); scope.coroutineContext[Job]?.cancel()
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }

@@ -1,81 +1,94 @@
 # MediaView / MediAd View — PRD técnico
 
-## Problema
+## Problema y objetivo
 
-El APK Android TV se emparejaba pero podía quedar en pantalla negra. El objetivo es
-un player de digital signage 24/7, offline-first y recuperable, comparable en
-robustez operativa con OptiSigns, ScreenCloud o Yodeck.
+MediaView debe operar como una plataforma SaaS de señalización digital 24/7:
+
+1. El Android TV no puede depender de una pantalla WebView para emparejarse o
+   reproducir video, porque ciertos equipos quedaban negros sin diagnóstico.
+2. Los clientes necesitan administrar contenido cotidiano mediante **Playlists**
+   de menús, fotos y videos, con duración, horario y asignación directa a pantallas.
+3. Las Playlists deben permanecer separadas de las **Campaigns** publicitarias pagadas.
 
 ## Arquitectura
 
-- **Backend:** FastAPI + MongoDB; contratos públicos `/api/devices/*` y
-  `/api/player/*` preservados.
-- **Panel:** HTML/CSS/JS servido por FastAPI.
-- **Player Android:** Kotlin, Media3/ExoPlayer para video, Coil para imágenes,
-  WebView aislado para HTML/widgets, Room para manifiesto persistente.
+- **Backend:** FastAPI + MongoDB; rutas bajo `/api`.
+- **Panel:** HTML/CSS/JavaScript servido por FastAPI.
+- **Player Android:** Kotlin; pairing nativo, Media3/ExoPlayer para video, Coil para
+  imágenes, WebView aislado únicamente para menús HTML/widgets y Room para caché.
+- **Actualización:** SSE por pantalla con reconexión y polling cada 15 segundos como respaldo.
 - **Entrega Android:** Codemagic; el contenedor local no compila Android.
-
-## Causas raíz confirmadas
-
-1. El player web ocultaba el fallback antes de confirmar imagen/frame/video; un
-   404 o fallo de decoder quedaba como superficie negra.
-2. Las playlists por `screen_id` y `device_id` aplicaban reglas de fechas distintas;
-   el endpoint de dispositivo descartaba campañas abiertas con fechas nulas.
-3. `/api/player/media/{id}` no utilizaba la capa de almacenamiento R2 y fallaba para
-   objetos cloud o archivos legacy ausentes.
-4. Pairing e identidad estaban fragmentados entre Web localStorage y dos archivos
-   SharedPreferences; una migración borraba el vínculo.
-
-Detalle y correcciones: `/app/android-player/ROOT_CAUSE_REPORT.md`.
 
 ## Implementado
 
-- Pairing nativo idempotente y una identidad canónica persistente.
-- Playlist canónica compartida, checksums SHA-256, versión y URLs compatibles.
-- Render nativo por tipo, estado visible hasta `first frame`/decode/commit visual.
-- Room + descargas `.tmp`, validación de integridad, reemplazo con respaldo y
-  conservación de la última playlist válida.
-- Red: NetworkCallback, polling 15 s, backoff acotado y recuperación inmediata.
-- Watchdog de playback, timeout de preparación, cuarentena temporal de corruptos,
-  recuperación de crash y heartbeat en foreground/fallback WorkManager.
-- BootReceiver único y flujo para configurar la app como HOME.
-- SSL inválido bloqueado; HTTP y muerte del renderer WebView quedan visibles.
-- HUD diagnóstico con URL, screen_id, pairing, HTTP, WebView/player error, red y
-  última sincronización. `release` lo compila desactivado.
-- CI separada: primero pruebas Kotlin, luego `assembleDiagnostic`; no reemplaza el
-  alias APK de producción.
-- Matriz de pruebas: `/app/android-player/VALIDATION_MATRIX.md`.
+### Player Android nativo
+
+- Pairing nativo idempotente e identidad persistente; no se regresó al pairing WebView.
+- Playlist canónica, checksums SHA-256, versiones y URLs compatibles.
+- ExoPlayer/Coil por tipo de medio; estado visible hasta primer frame o decode correcto.
+- Room, descargas temporales, validación de integridad y última playlist válida offline.
+- NetworkCallback, reintentos con backoff, watchdog, timeout de preparación, recuperación
+  de crash, heartbeat, WorkManager y BootReceiver.
+- HUD con URL, screen_id, pairing, HTTP, error de renderer, red, estado realtime y última sync.
+- SSE `playlist.updated` provoca sincronización inmediata; polling de 15 s recupera eventos perdidos.
+
+### Playlists profesionales
+
+- CRUD de Playlists de contenido propio, separado de Campaigns.
+- Mezcla ordenada de menús, imágenes y videos con duración individual.
+- Publicación directa a una o varias pantallas.
+- Programación por zona horaria, días, horas, fecha inicial/final y prioridad.
+- Gestión admin/client, preparación desde un menú, enlaces/QR seguros y aportes públicos aprobables.
+- Estado de entrega online/offline calculado desde el heartbeat real del dispositivo.
+- Editar un menú actualiza la versión del playlist y avisa inmediatamente a cada TV asignado.
+- Se bloquea borrar un menú usado por playlists, mostrando las dependencias.
+- Drawer móvil, editor, modal de publicación y estados de guardado corregidos.
+
+### Sesión web
+
+- Rutas protegidas responden `401` + `WWW-Authenticate: Bearer` cuando falta o falla el token.
+- Un refresh vencido cancela la llamada, limpia la sesión y muestra login sin dejar el panel activo.
+- Access token permanece en memoria y refresh token en cookie HttpOnly.
 
 ## Verificación actual
 
-- Backend/contratos: **22 passed, 1 skipped**, ruff y py_compile correctos.
-- Revisión estática Android/CI: sin bloqueador conocido tras añadir `org.json` a
-  tests JVM.
-- R2 real, decoders y boot no pueden verificarse en este contenedor.
+- QA independiente Iteración 9: **9/9 contratos backend** y **100% del flujo móvil crítico**.
+- Verificado: CRUD, programación, múltiples pantallas, versionado, SSE, heartbeats,
+  dependencias de menú y autenticación 401.
+- Verificado a 390x844: login, drawer, Playlists, crear, añadir menú, guardar y configurar publicación.
+- Revisión estática Kotlin: sin bloqueadores evidentes; pairing nativo intacto.
+- Compilación Android local no ejecutada por diseño; corresponde a Codemagic.
+
+## Estado de publicación
+
+- **Entorno de trabajo/preview:** contiene y sirve todos los cambios anteriores.
+- **Producción `panel.mediadview.com`: no contiene todavía Playlists.** La comprobación devolvió
+  `404` para `/api/playlists` y `/api/web/playlists.js`.
+- Para publicar se requiere guardar/sincronizar esta versión con GitHub y esperar el despliegue
+  de Render; después debe verificarse nuevamente producción.
+- El APK que incluye SSE debe compilarse en Codemagic y probarse en el Android TV físico.
 
 ## Prioridades
 
-### P0 — actual
+### P0 — publicación y aceptación
 
-- Ejecutar Codemagic mediante **Save to Github** y confirmar que pruebas Kotlin +
-  `assembleDiagnostic` terminan verdes.
-- Instalar `mediaview-player-v3.0.0-diagnostic.apk` en el onn Android TV conectado al televisor.
-- Completar los 10 checks físicos y reportar el HUD ante cualquier fallo.
+- Sincronizar la versión actual con GitHub mediante **Save to Github** sin force push.
+- Confirmar despliegue verde en Render y que producción sirve Playlists/SSE.
+- Confirmar build verde de Codemagic e instalar el APK diagnóstico generado.
+- En TV físico: publicar/cambiar una playlist y confirmar actualización inmediata más modo offline.
 
-### P1 — después de validar A40
+### P1 — robustez operativa
 
-- Corregir cualquier incompatibilidad específica del firmware/codec del onn detectada.
-- Cambiar CI a `assembleRelease`, conservar `DIAGNOSTICS_ENABLED=false` y publicar
-  el APK final sin sobrescribirlo antes de la aceptación.
-- Prueba soak 24–72 horas con cortes de WAN y cambios de playlist.
+- Prueba soak de 24–72 horas con cortes WAN, reinicios y cambios repetidos de playlist.
+- Convertir la build aceptada a release con diagnósticos visuales desactivados.
+- Modularizar `backend/server.py` para reducir el riesgo de regresión del monolito.
 
-### P2 — flota administrada
+### P2 — flota y almacenamiento
 
-- Aprovisionamiento Device Owner/OEM para autoarranque e instalación silenciosa
-  garantizados en Android moderno.
-- Métricas remotas de decoder, almacenamiento, caché y recuperación por dispositivo.
-- Validación end-to-end de Cloudflare R2 con objeto real.
+- Cloudflare R2/almacenamiento persistente para archivos; hoy existe fallback local/base64.
+- Métricas y comandos remotos ampliados por dispositivo.
+- Aprovisionamiento Device Owner/OEM para autoarranque e instalación silenciosa garantizados.
 
-### Backlog ajeno al player
+### Backlog
 
-- Stripe LIVE, D-04 multi-moneda, D-05 presign worker y mejoras de borrado en cascada.
+- Stripe LIVE (actualmente **MOCKED/DESACTIVADO**), D-04 multi-moneda y D-05 presign worker.

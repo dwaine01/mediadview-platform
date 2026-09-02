@@ -89,6 +89,10 @@ object PlaylistUpdatePolicy {
         currentSignature != signature(incoming)
 }
 
+object RealtimeEventPolicy {
+    fun shouldSync(event: String): Boolean = event == "playlist.updated" || event == "reload"
+}
+
 enum class PairingDecision { WAIT, START_PLAYER, INVALID_ACTIVE_STATE }
 
 object PairingPolicy {

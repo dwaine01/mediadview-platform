@@ -49,6 +49,13 @@ class PlayerContractTest {
         assertTrue(PlaylistUpdatePolicy.shouldApply(PlaylistUpdatePolicy.signature(original), changed))
     }
 
+    @Test fun realtimeEventsTriggerSyncAndKeepalivesDoNot() {
+        assertTrue(RealtimeEventPolicy.shouldSync("playlist.updated"))
+        assertTrue(RealtimeEventPolicy.shouldSync("reload"))
+        assertFalse(RealtimeEventPolicy.shouldSync("connected"))
+        assertFalse(RealtimeEventPolicy.shouldSync("keepalive"))
+    }
+
     @Test fun nativePairingOnlyStartsWithAnAssignedScreen() {
         assertEquals(PairingDecision.WAIT, PairingPolicy.decide("pending", null))
         assertEquals(PairingDecision.INVALID_ACTIVE_STATE, PairingPolicy.decide("active", ""))
