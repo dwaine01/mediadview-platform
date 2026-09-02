@@ -1,103 +1,92 @@
-# MediaView / MediAd View — PRD técnico
+# MediaView — PRD técnico y estado
 
-## Problema y objetivo
+## Objetivo
 
-MediaView debe operar como una plataforma SaaS de señalización digital 24/7:
+Una sola plataforma comercial de Digital Signage con infraestructura compartida
+(usuarios, organizaciones, locations, screens, devices, media, playlists, billing y
+player), pero tres operaciones estrictamente separadas por backend RBAC:
 
-1. El Android TV no puede depender de una pantalla WebView para emparejarse o
-   reproducir video, porque ciertos equipos quedaban negros sin diagnóstico.
-2. Los clientes necesitan administrar contenido cotidiano mediante **Playlists**
-   de menús, fotos y videos, con duración, horario y asignación directa a pantallas.
-3. Las Playlists deben permanecer separadas de las **Campaigns** publicitarias pagadas.
+1. **SELF_SERVICE** — cliente administra únicamente sus pantallas y paga suscripción por unidad.
+2. **PUBLIC_ADVERTISING** — MediaView crea/administra la pantalla; anunciantes compran slots.
+3. **MEDIAVIEW_MANAGED** — MediaView opera todo; cliente opcional `MANAGED_VIEWER` solo lectura.
+
+## Decisiones confirmadas
+
+- La pantalla productiva **Columbus** migrará a `PUBLIC_ADVERTISING`.
+- P0 Player se completa y prueba antes del dominio de tres modelos.
+- Diagnostics oculto por defecto; acceso por PIN/activation code y comando remoto admin.
+- Billing P1: modelos/ledger primero y Stripe en modo prueba antes de cobro real.
+- No rewrite, no endpoints/collections duplicados, no ruptura de pairing/auth existentes.
 
 ## Arquitectura
 
-- **Backend:** FastAPI + MongoDB; rutas bajo `/api`.
-- **Panel:** HTML/CSS/JavaScript servido por FastAPI.
-- **Player Android:** Kotlin; pairing nativo, Media3/ExoPlayer para video, Coil para
-  imágenes, WebView aislado únicamente para menús HTML/widgets y Room para caché.
-- **Actualización:** SSE por pantalla con reconexión y polling cada 15 segundos como respaldo.
-- **Entrega Android:** Codemagic; el contenedor local no compila Android. `main`
-  permanece como rama principal y los APK se publican como artifacts, sin commits automáticos.
+- FastAPI + MongoDB; API bajo `/api`.
+- Panel HTML/CSS/JavaScript servido por FastAPI.
+- Android Kotlin: pairing nativo, ExoPlayer, Coil, WebView aislado para menús, Room/cache.
+- SSE por pantalla + polling 15 s fallback.
+- Android se compila únicamente en GitHub Actions/Codemagic.
 
-## Implementado
+## Implementado previamente
 
-### Player Android nativo
+- Pairing nativo, identidad persistente, Room, SHA-256, descarga offline, watchdog,
+  heartbeat, boot recovery, SSE/polling y playlist canónica.
+- Playlists mixtas (menús/fotos/videos), duración, horario, prioridad, publicación directa,
+  estado de entrega, QR/share y aportes públicos aprobables.
+- Sesión web access-token en memoria + refresh HttpOnly y 401 consistente.
+- CI sin commits automáticos de APK/logs en `main`; artifacts Android externos.
 
-- Pairing nativo idempotente e identidad persistente; no se regresó al pairing WebView.
-- Playlist canónica, checksums SHA-256, versiones y URLs compatibles.
-- ExoPlayer/Coil por tipo de medio; estado visible hasta primer frame o decode correcto.
-- Room, descargas temporales, validación de integridad y última playlist válida offline.
-- NetworkCallback, reintentos con backoff, watchdog, timeout de preparación, recuperación
-  de crash, heartbeat, WorkManager y BootReceiver.
-- HUD con URL, screen_id, pairing, HTTP, error de renderer, red, estado realtime y última sync.
-- SSE `playlist.updated` provoca sincronización inmediata; polling de 15 s recupera eventos perdidos.
+## P0 Player — implementado
 
-### Playlists profesionales
+- Auditoría completa en `android-player/P0_AUDIT_REPORT.md`.
+- Eliminado cualquier texto público “Cargando contenido”, red/error/status técnico.
+- Doble buffer `activeSession/pendingSession`: A permanece visible mientras B decodifica,
+  obtiene primer frame o page commit; crossfade 220 ms y fallback al frame anterior.
+- `display_mode`: `cover` predeterminado, `contain`, `stretch`; backend, Room y portal.
+- Room migration 1→2 no destructiva; pairing/cache existentes preservados.
+- Diagnostics siempre oculto; PIN/activation code, comandos `show_diagnostics` /
+  `hide_diagnostics`, auto-cierre 5 min. Pairing admin menu también protegido.
+- Heartbeat ampliado y parcial seguro: no borra diagnóstico anterior con `None`.
+- Player objetivo: **v3.2.0**, `versionCode 17`.
+- `/apk` preparado para GitHub Release estable sin binario en `main`.
 
-- CRUD de Playlists de contenido propio, separado de Campaigns.
-- Mezcla ordenada de menús, imágenes y videos con duración individual.
-- Publicación directa a una o varias pantallas.
-- Programación por zona horaria, días, horas, fecha inicial/final y prioridad.
-- Gestión admin/client, preparación desde un menú, enlaces/QR seguros y aportes públicos aprobables.
-- Estado de entrega online/offline calculado desde el heartbeat real del dispositivo.
-- Editar un menú actualiza la versión del playlist y avisa inmediatamente a cada TV asignado.
-- Se bloquea borrar un menú usado por playlists, mostrando las dependencias.
-- Drawer móvil, editor, modal de publicación y estados de guardado corregidos.
+## Verificación P0
 
-### Sesión web
+- QA independiente Iteración 14: backend/UI **100%**, sin issues críticos o menores.
+- 17 contratos backend P0 aprobados; retest heartbeat adicional 11/11.
+- Ruff y ESLint relevantes aprobados.
+- Flujo móvil real: menú creado después de abrir editor → Refresh → agregar →
+  `contain` → guardar → API persiste; datos temporales eliminados.
+- Revisión estática Kotlin consistente; compilación Android local prohibida por diseño.
 
-- Rutas protegidas responden `401` + `WWW-Authenticate: Bearer` cuando falta o falla el token.
-- Un refresh vencido cancela la llamada, limpia la sesión y muestra login sin dejar el panel activo.
-- Access token permanece en memoria y refresh token en cookie HttpOnly.
+## P0 pendiente / bloqueado
 
-## Verificación actual
+- Guardar/fusionar checkpoint P0, ejecutar CI y descargar artifact v3.2.0.
+- Prueba física TV: image/video/menu/image sin loading, flash negro ni debug; COVER;
+  WAN offline; actualización atómica; PIN diagnostics.
+- Configurar `MEDIAVIEW_DIAGNOSTICS_PIN` como secreto CI si se desea PIN distinto al activation code.
 
-- QA independiente Iteración 9: **9/9 contratos backend** y **100% del flujo móvil crítico**.
-- Verificado: CRUD, programación, múltiples pantallas, versionado, SSE, heartbeats,
-  dependencias de menú y autenticación 401.
-- Verificado a 390x844: login, drawer, Playlists, crear, añadir menú, guardar y configurar publicación.
-- Revisión estática Kotlin: sin bloqueadores evidentes; pairing nativo intacto.
-- Compilación Android local no ejecutada por diseño; corresponde a Codemagic.
-- Player objetivo actualizado a `v3.1.0-diagnostic` (`versionCode 16`).
-- Codemagic y GitHub Actions ya no ejecutan `git commit/push` sobre `main`; ambos
-  conservan APK/checksum/log como artifacts descargables.
-- CI corregido: lint Ruff, plantilla de configuración, detección de credenciales,
-  backend efímero con seeds y reportes BI/XLSX sin fuga de `ObjectId`.
-- Limpieza: 41 archivos binarios diminutos generados por pruebas retirados;
-  44 medios reales preservados y nuevas cargas locales ignoradas por Git.
+## P1 — tres modelos operativos
 
-## Estado de publicación
+- Migración compatible de `screens`: `organization_id`, `location_id`, `operation_type`,
+  ownership, orientation/resolution y campos public advertising.
+- Migrar Columbus a `PUBLIC_ADVERTISING` de forma idempotente.
+- RBAC: `SUPER_ADMIN`, `MEDIAVIEW_ADMIN`, `SUPPORT`, `SELF_SERVICE_OWNER`,
+  `SELF_SERVICE_MANAGER`, `MANAGED_VIEWER`, `ADVERTISER`.
+- Backend ownership obligatorio: customer A→screen B = 403; advertiser no administra;
+  viewer no publica.
+- Portales diferenciados dentro de la misma plataforma.
+- Self-Service completo; Managed portal viewer; Public QR `/advertise/{public_code}`,
+  marketplace multi-screen, creative y aprobación.
 
-- **Entorno de trabajo/preview:** contiene y sirve todos los cambios anteriores.
-- **Producción `panel.mediadview.com`: no contiene todavía Playlists.** La comprobación devolvió
-  `404` para `/api/playlists` y `/api/web/playlists.js`.
-- Para publicar se requiere guardar/sincronizar esta versión con GitHub y esperar el despliegue
-  de Render; después debe verificarse nuevamente producción.
-- El APK que incluye SSE debe compilarse en Codemagic y probarse en el Android TV físico.
+## P2 — billing y operación comercial
 
-## Prioridades
+- `SELF_SERVICE_SUBSCRIPTION`, `PUBLIC_AD_PURCHASE`, `MANAGED_SERVICE`.
+- Ledger/modelos primero; Stripe test para checkout y lifecycle publicitario.
+- Estados campaña: draft, payment pending, paid, review, approved, scheduled, active,
+  completed, rejected, cancelled, refunded.
+- Telemetría/fleet, player health, revenue, audit logs y soak 24–72 h.
 
-### P0 — publicación y aceptación
+## Integraciones pendientes
 
-- Resolver una última vez la divergencia histórica mediante la rama `conflict_*` y PR a `main`.
-- Después de ese merge, **Save to Github** vuelve a trabajar contra `main` sin commits de bots.
-- Confirmar despliegue verde en Render y que producción sirve Playlists/SSE.
-- Confirmar build verde de Codemagic e instalar el APK diagnóstico generado.
-- En TV físico: publicar/cambiar una playlist y confirmar actualización inmediata más modo offline.
-
-### P1 — robustez operativa
-
-- Prueba soak de 24–72 horas con cortes WAN, reinicios y cambios repetidos de playlist.
-- Convertir la build aceptada a release con diagnósticos visuales desactivados.
-- Modularizar `backend/server.py` para reducir el riesgo de regresión del monolito.
-
-### P2 — flota y almacenamiento
-
-- Cloudflare R2/almacenamiento persistente para archivos; hoy existe fallback local/base64.
-- Métricas y comandos remotos ampliados por dispositivo.
-- Aprovisionamiento Device Owner/OEM para autoarranque e instalación silenciosa garantizados.
-
-### Backlog
-
-- Stripe LIVE (actualmente **MOCKED/DESACTIVADO**), D-04 multi-moneda y D-05 presign worker.
+- Stripe está desactivado mientras no se inicie P2.
+- R2 no configurado; uploads mantienen fallback existente hasta migración explícita.

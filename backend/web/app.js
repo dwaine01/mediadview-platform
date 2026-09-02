@@ -1030,6 +1030,7 @@ async function createMenu(){
   if(!name){alert('Enter a menu name');return}
   try{
     var m=await api('/menus',{method:'POST',body:JSON.stringify({name:name,restaurant_name:restaurant,subtitle:subtitle,currency_symbol:currency||'$',template_id:selectedTemplate})});
+    window.dispatchEvent(new CustomEvent('mediaview:sources-changed',{detail:{type:'menu',id:m.id}}));
     document.getElementById('menu-modal').remove();
     editMenu(m.id);
   }catch(e){alert(e.message)}
@@ -1037,7 +1038,7 @@ async function createMenu(){
 
 async function deleteMenu(id){
   if(!confirm('Delete this menu?'))return;
-  try{await api('/menus/'+id,{method:'DELETE'});loaders.menus()}catch(e){alert(e.message)}
+  try{await api('/menus/'+id,{method:'DELETE'});window.dispatchEvent(new CustomEvent('mediaview:sources-changed',{detail:{type:'menu',id:id}}));loaders.menus()}catch(e){alert(e.message)}
 }
 
 function previewMenu(id){

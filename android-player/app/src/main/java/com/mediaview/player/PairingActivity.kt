@@ -8,6 +8,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
@@ -15,10 +16,12 @@ import android.view.View
 import android.view.WindowManager
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.Button
+import android.widget.EditText
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
@@ -510,7 +513,7 @@ class PairingActivity : AppCompatActivity() {
             lastMenuKeyTime = now
             if (menuKeyCount >= MENU_KEY_COUNT_REQUIRED) {
                 menuKeyCount = 0
-                showAdminMenu()
+                requestAdminAccess()
             }
             return true
         }
@@ -520,7 +523,7 @@ class PairingActivity : AppCompatActivity() {
                 System.currentTimeMillis() - dpadCenterDownTime >= LONG_PRESS_DURATION
             ) {
                 dpadCenterDownTime = Long.MAX_VALUE
-                showAdminMenu()
+                requestAdminAccess()
                 return true
             }
         }
@@ -558,6 +561,27 @@ class PairingActivity : AppCompatActivity() {
                 recreate()
             }
             .setCancelable(true)
+            .show()
+    }
+
+    private fun requestAdminAccess() {
+        val input = EditText(this).apply {
+            hint = "Device PIN"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+            .setTitle("Admin access")
+            .setView(input)
+            .setPositiveButton("Unlock") { _, _ ->
+                val allowed = DiagnosticAccessPolicy.matches(
+                    input.text?.toString(),
+                    lastActivationCode,
+                    BuildConfig.DIAGNOSTICS_PIN,
+                )
+                if (allowed) showAdminMenu()
+                else Toast.makeText(this, "Access denied", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
             .show()
     }
 

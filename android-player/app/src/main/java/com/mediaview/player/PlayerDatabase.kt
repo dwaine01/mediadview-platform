@@ -11,6 +11,8 @@ import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Entity(tableName = "cached_media")
 data class CachedMediaEntity(
@@ -20,6 +22,7 @@ data class CachedMediaEntity(
     val contentType: String,
     val durationSeconds: Int,
     val rotation: Int,
+    val displayMode: String,
     val sourceUrl: String,
     val checksum: String?,
     val expectedBytes: Long,
@@ -66,7 +69,7 @@ abstract class PlayerDao {
     }
 }
 
-@Database(entities = [CachedMediaEntity::class, PlayerStateEntity::class], version = 1, exportSchema = false)
+@Database(entities = [CachedMediaEntity::class, PlayerStateEntity::class], version = 2, exportSchema = false)
 abstract class PlayerDatabase : RoomDatabase() {
     abstract fun playerDao(): PlayerDao
 
@@ -78,7 +81,13 @@ abstract class PlayerDatabase : RoomDatabase() {
                 context.applicationContext,
                 PlayerDatabase::class.java,
                 "mediaview-player.db",
-            ).fallbackToDestructiveMigration().build().also { instance = it }
+            ).addMigrations(MIGRATION_1_2).build().also { instance = it }
+        }
+
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE cached_media ADD COLUMN displayMode TEXT NOT NULL DEFAULT 'cover'")
+            }
         }
     }
 }

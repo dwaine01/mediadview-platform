@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuthStore } from '../../src/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 
-const { width: SW, height: SH } = Dimensions.get('window');
+const { height: SH } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,7 +32,7 @@ export default function LoginScreen() {
       <View style={s.orb1} />
       <View style={s.orb2} />
 
-      <ScrollView contentContainerStyle={[s.scroll, { paddingTop: insets.top + (SH > 800 ? 80 : 40) }]} keyboardShouldPersistTaps="handled">
+      <ScrollView testID="login-screen" contentContainerStyle={[s.scroll, { paddingTop: insets.top + (SH > 800 ? 80 : 40) }]} keyboardShouldPersistTaps="handled">
         {/* Logo */}
         <View style={s.logoArea}>
           <View style={s.logoOuter}>
@@ -52,7 +52,7 @@ export default function LoginScreen() {
             <Text style={s.label}>EMAIL</Text>
             <View style={[s.inputBox, focused === 'email' && s.inputFocused]}>
               <Ionicons name="mail" size={18} color={focused === 'email' ? '#818CF8' : '#475569'} />
-              <TextInput style={s.input} placeholder="you@company.com" placeholderTextColor="#374151"
+              <TextInput testID="login-email-input" style={s.input} placeholder="you@company.com" placeholderTextColor="#374151"
                 value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none"
                 onFocus={() => setFocused('email')} onBlur={() => setFocused('')} />
             </View>
@@ -62,23 +62,23 @@ export default function LoginScreen() {
             <Text style={s.label}>PASSWORD</Text>
             <View style={[s.inputBox, focused === 'pwd' && s.inputFocused]}>
               <Ionicons name="lock-closed" size={18} color={focused === 'pwd' ? '#818CF8' : '#475569'} />
-              <TextInput style={s.input} placeholder="Enter password" placeholderTextColor="#374151"
+              <TextInput testID="login-password-input" style={s.input} placeholder="Enter password" placeholderTextColor="#374151"
                 value={password} onChangeText={setPassword} secureTextEntry={!showPwd}
                 onFocus={() => setFocused('pwd')} onBlur={() => setFocused('')} />
-              <TouchableOpacity onPress={() => setShowPwd(!showPwd)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
+              <TouchableOpacity testID="login-password-visibility-button" onPress={() => setShowPwd(!showPwd)} hitSlop={{top:10,bottom:10,left:10,right:10}}>
                 <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={18} color="#475569" />
               </TouchableOpacity>
             </View>
           </View>
 
-          <TouchableOpacity style={[s.btn, isLoading && { opacity: 0.7 }]} onPress={handleLogin} disabled={isLoading} activeOpacity={0.8}>
+          <TouchableOpacity testID="login-submit-button" style={[s.btn, isLoading && { opacity: 0.7 }]} onPress={handleLogin} disabled={isLoading} activeOpacity={0.8}>
             <View style={s.btnGrad} />
             {isLoading ? <ActivityIndicator color="#FFF" /> : <Text style={s.btnText}>Sign In</Text>}
           </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={s.linkRow} onPress={() => router.push('/(auth)/register')}>
-          <Text style={s.linkText}>Don't have an account?</Text>
+        <TouchableOpacity testID="login-register-button" style={s.linkRow} onPress={() => router.push('/(auth)/register')}>
+          <Text style={s.linkText}>Need an account?</Text>
           <Text style={s.linkBold}> Create one</Text>
         </TouchableOpacity>
       </ScrollView>

@@ -4,6 +4,7 @@ import pytest
 from zoneinfo import ZoneInfo
 
 from playlist_domain import (
+    normalize_playlist_item,
     normalize_playlist_items,
     schedule_is_active,
     scheduled_playlist_key,
@@ -66,3 +67,16 @@ def test_schedule_boundary_changes_lightweight_player_version():
     morning = scheduled_playlist_key(playlists, datetime(2026, 9, 7, 10, 0, tzinfo=tz))
     lunch = scheduled_playlist_key(playlists, datetime(2026, 9, 7, 12, 0, tzinfo=tz))
     assert morning != lunch
+
+
+def test_display_mode_defaults_to_cover_and_accepts_supported_values():
+    defaulted = normalize_playlist_item({"type": "media", "ref_id": "m1"}, 0)
+    contained = normalize_playlist_item(
+        {"type": "media", "ref_id": "m1", "display_mode": "contain"}, 0
+    )
+    invalid = normalize_playlist_item(
+        {"type": "media", "ref_id": "m1", "display_mode": "tiny"}, 0
+    )
+    assert defaulted["display_mode"] == "cover"
+    assert contained["display_mode"] == "contain"
+    assert invalid["display_mode"] == "cover"
