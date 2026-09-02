@@ -90,14 +90,60 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         Log.i(PlayerApp.TAG, "MainActivity onCreate - MediAd View Player v${BuildConfig.VERSION_NAME}")
 
-        // ===== NOTE: pairing is fully handled by the web HTML at
-        // /api/player-activate. It calls /api/devices/register, shows a big
-        // activation code (OptiSigns-style), polls /devices/{id}/check, and
-        // on activation switches to playing the playlist. It also handles
-        // "unpair" via the heartbeat action=wait. The native PairingActivity
-        // was removed because the WebView flow is more reliable and has
-        // fewer moving parts.
+        // ===== CRASH GUARD =====
+        // If ANYTHING below crashes, install a global handler that paints
+        // the exception onto the screen so the TV never goes silently dark.
+        // (Uncaught exceptions before setContentView leave the window black,
+        // which is what the user has been reporting.)
+        val crashOverlay = TextView(this).apply {
+            setBackgroundColor(Color.parseColor("#7F1D1D"))
+            setTextColor(Color.parseColor("#FEF2F2"))
+            textSize = 16f
+            setPadding(48, 48, 48, 48)
+            gravity = Gravity.TOP or Gravity.START
+        }
+        val crashRoot = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor("#111827"))
+            addView(crashOverlay, FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT))
+        }
+        // Show the "boot" screen FIRST so the TV shows text immediately,
+        // even if a later step crashes. We'll replace it with the real UI
+        // once we build it successfully.
+        crashOverlay.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+            "Booting…\n\nIf this message stays visible for more than 30 seconds,\n" +
+            "check TV WiFi + date/time and reboot the TV."
+        setContentView(crashRoot)
 
+        Thread.setDefaultUncaughtExceptionHandler { _, t ->
+            try {
+                runOnUiThread {
+                    crashOverlay.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                        "CRASH — please report this text:\n\n" +
+                        "${t.javaClass.simpleName}: ${t.message}\n\n" +
+                        (t.stackTrace.take(6).joinToString("\n") { "  at ${it}" })
+                }
+            } catch (_: Throwable) {}
+            Log.e(PlayerApp.TAG, "Uncaught exception", t)
+        }
+
+        try {
+            bootstrapUi(crashOverlay)
+        } catch (t: Throwable) {
+            Log.e(PlayerApp.TAG, "bootstrapUi failed", t)
+            crashOverlay.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                "Startup failed:\n\n" +
+                "${t.javaClass.simpleName}: ${t.message}\n\n" +
+                (t.stackTrace.take(8).joinToString("\n") { "  at ${it}" })
+        }
+    }
+
+    /**
+     * The old MainActivity onCreate body, extracted so the outer onCreate
+     * can wrap it in a try/catch + always paint SOMETHING first.
+     */
+    private fun bootstrapUi(crashOverlay: TextView) {
         // ===== FULL SCREEN + ALWAYS ON =====
         window.addFlags(
             WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON or
@@ -107,8 +153,8 @@ class MainActivity : Activity() {
         )
 
         // ===== PREVENT SCREEN SLEEP =====
-        preventScreenSleep()
-        hideSystemUI()
+        try { preventScreenSleep() } catch (e: Exception) { Log.w(PlayerApp.TAG, "preventScreenSleep: ${e.message}") }
+        try { hideSystemUI() } catch (e: Exception) { Log.w(PlayerApp.TAG, "hideSystemUI: ${e.message}") }
 
         // ===== LOAD CONFIG =====
         val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
@@ -116,28 +162,20 @@ class MainActivity : Activity() {
         screenId = prefs.getString(PREF_SCREEN_ID, "") ?: ""
 
         // ===== MIGRATION: v2.4.x -> v2.5.x =====
-        // v2.4.x used a native PairingActivity + saved state across multiple
-        // SharedPreferences files that no longer apply. Detect first launch
-        // on this build and wipe stale pairing state so the TV lands on the
-        // fresh pairing screen instead of getting stuck on an obsolete
-        // cached WebView state.
+        // NOTE: WebStorage/CookieManager cleanup was moved to AFTER the
+        // WebView is created — calling those static getInstance() methods
+        // before any WebView exists crashed on some AOSP TV firmwares
+        // (root cause of the reported black-screen).
         val schemaVersion = prefs.getInt("schema_version", 0)
+        val needsWebViewCleanup = schemaVersion < 2
         if (schemaVersion < 2) {
-            Log.i(PlayerApp.TAG, "Migrating prefs schema $schemaVersion -> 2 (clearing pre-v2.5 state)")
+            Log.i(PlayerApp.TAG, "Migrating prefs schema $schemaVersion -> 2")
             try {
-                // Drop the old native-pairing prefs bucket
                 getSharedPreferences("mediaview_pairing", Context.MODE_PRIVATE)
                     .edit().clear().apply()
-                // Clear WebView storage (localStorage/cookies with stale mv_did/mv_sid)
-                try {
-                    android.webkit.WebStorage.getInstance().deleteAllData()
-                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
-                } catch (e: Exception) { }
             } catch (e: Exception) {
-                Log.w(PlayerApp.TAG, "migration cleanup failed: ${e.message}")
+                Log.w(PlayerApp.TAG, "migration prefs cleanup failed: ${e.message}")
             }
-            // Clear the paired screen_id so v2.5 lands on the pairing screen
-            // (fresh code). The user pairs once, then never again on updates.
             prefs.edit()
                 .remove(PREF_SCREEN_ID)
                 .remove(PREF_DEVICE_NAME)
@@ -317,27 +355,49 @@ class MainActivity : Activity() {
         ))
         setContentView(root)
 
+        // Now that WebView is instantiated, it's safe to clean up
+        // WebStorage/CookieManager as part of the pre-v2.5 migration.
+        if (needsWebViewCleanup) {
+            try {
+                android.webkit.WebStorage.getInstance().deleteAllData()
+                android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                Log.i(PlayerApp.TAG, "post-migration: WebStorage + cookies cleared")
+            } catch (e: Exception) {
+                Log.w(PlayerApp.TAG, "post-migration WebStorage cleanup skipped: ${e.message}")
+            }
+        }
+
         // ===== START =====
-        checkOverlayPermission()
+        try { checkOverlayPermission() } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "checkOverlayPermission: ${e.message}")
+        }
         // First-run guidance: if MediAd View isn't the default HOME launcher yet,
         // prompt the installer to set it. This makes auto-start-on-boot bulletproof
         // (Android will launch the HOME app on every power-on).
-        promptSetAsHomeIfNeeded()
+        try { promptSetAsHomeIfNeeded() } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "promptSetAsHomeIfNeeded: ${e.message}")
+        }
         // Always load the OptiSigns-style WebView pairing/player page.
         // It handles register + poll + activate + play + auto-unpair all
         // in one HTML page. If a screen_id is already saved we jump
         // straight to that screen's player URL for speed.
-        if (screenId.isNotEmpty()) {
-            loadPlayer()
-        } else {
-            showSetupMode()
+        try {
+            if (screenId.isNotEmpty()) loadPlayer() else showSetupMode()
+        } catch (e: Exception) {
+            Log.e(PlayerApp.TAG, "load failed: ${e.message}")
+            statusView.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                "Load failed: ${e.message}"
         }
 
         // Start overlay service for auto-boot
-        startOverlayService()
+        try { startOverlayService() } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "startOverlayService: ${e.message}")
+        }
 
         // Schedule nightly restart for stability
-        scheduleNightlyRestart()
+        try { scheduleNightlyRestart() } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "scheduleNightlyRestart: ${e.message}")
+        }
 
         // ===== KIOSK MODE =====
         try {
