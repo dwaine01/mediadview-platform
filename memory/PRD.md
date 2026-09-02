@@ -17,7 +17,8 @@ MediaView debe operar como una plataforma SaaS de señalización digital 24/7:
 - **Player Android:** Kotlin; pairing nativo, Media3/ExoPlayer para video, Coil para
   imágenes, WebView aislado únicamente para menús HTML/widgets y Room para caché.
 - **Actualización:** SSE por pantalla con reconexión y polling cada 15 segundos como respaldo.
-- **Entrega Android:** Codemagic; el contenedor local no compila Android.
+- **Entrega Android:** Codemagic; el contenedor local no compila Android. `main`
+  permanece como rama principal y los APK se publican como artifacts, sin commits automáticos.
 
 ## Implementado
 
@@ -58,6 +59,13 @@ MediaView debe operar como una plataforma SaaS de señalización digital 24/7:
 - Verificado a 390x844: login, drawer, Playlists, crear, añadir menú, guardar y configurar publicación.
 - Revisión estática Kotlin: sin bloqueadores evidentes; pairing nativo intacto.
 - Compilación Android local no ejecutada por diseño; corresponde a Codemagic.
+- Player objetivo actualizado a `v3.1.0-diagnostic` (`versionCode 16`).
+- Codemagic y GitHub Actions ya no ejecutan `git commit/push` sobre `main`; ambos
+  conservan APK/checksum/log como artifacts descargables.
+- CI corregido: lint Ruff, plantilla de configuración, detección de credenciales,
+  backend efímero con seeds y reportes BI/XLSX sin fuga de `ObjectId`.
+- Limpieza: 41 archivos binarios diminutos generados por pruebas retirados;
+  44 medios reales preservados y nuevas cargas locales ignoradas por Git.
 
 ## Estado de publicación
 
@@ -72,7 +80,8 @@ MediaView debe operar como una plataforma SaaS de señalización digital 24/7:
 
 ### P0 — publicación y aceptación
 
-- Sincronizar la versión actual con GitHub mediante **Save to Github** sin force push.
+- Resolver una última vez la divergencia histórica mediante la rama `conflict_*` y PR a `main`.
+- Después de ese merge, **Save to Github** vuelve a trabajar contra `main` sin commits de bots.
 - Confirmar despliegue verde en Render y que producción sirve Playlists/SSE.
 - Confirmar build verde de Codemagic e instalar el APK diagnóstico generado.
 - En TV físico: publicar/cambiar una playlist y confirmar actualización inmediata más modo offline.

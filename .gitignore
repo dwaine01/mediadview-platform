@@ -105,11 +105,14 @@ android-player/**/captures/
 gradle-app.setting
 .gradletasknamecache
 
-# ─── APK / signed artifacts (kept only in /web) ────────────────────
+# ─── APK / signed artifacts ─────────────────────────────────────────
 *.jks
 *.aab
-# Note: we DO commit the /app/backend/web/mediaview-player-*.apk files
-# because they are our distributable artefacts for the LED player.
+# Existing production APK aliases remain tracked for compatibility. New builds
+# are distributed by Codemagic/GitHub Actions artifacts, never committed by CI.
+dist/
+build-artifacts/
+.build-logs/
 
 # ─── Testing / coverage ────────────────────────────────────────────
 coverage/
@@ -148,9 +151,7 @@ uvicorn.log
 # keep yarn.lock and package-lock.json (needed for reproducible installs)
 
 # ─── Media / uploads / user-generated files ────────────────────────
-/app/backend/media/uploads/
-/app/backend/media/tmp/
-/app/backend/media/cache/
+backend/media/*
 uploads/
 tmp/
 *.tmp

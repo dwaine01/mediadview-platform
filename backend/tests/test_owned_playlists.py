@@ -6,7 +6,6 @@ import pytest
 import requests
 from pymongo import MongoClient
 
-
 BASE_URL = os.environ.get("TEST_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 TEST_EMAIL = os.environ.get("TEST_SUPERADMIN_EMAIL", "superadmin@mediadview.com")
 TEST_PASSWORD = os.environ.get("TEST_SUPERADMIN_PASSWORD", "SuperAdmin#2026")

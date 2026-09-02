@@ -1,7 +1,7 @@
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 import pytest
+from zoneinfo import ZoneInfo
 
 from playlist_domain import (
     normalize_playlist_items,

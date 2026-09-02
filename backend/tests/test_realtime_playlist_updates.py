@@ -11,7 +11,6 @@ from pymongo import MongoClient
 
 from realtime import manager
 
-
 BASE_URL = os.environ.get("TEST_BASE_URL", "http://127.0.0.1:8001").rstrip("/")
 
 

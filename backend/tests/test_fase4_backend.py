@@ -337,7 +337,7 @@ class TestMedia:
                    "content_type": "application/x-msdownload",
                    "data": base64.b64encode(b"MZ\x90\x00").decode()}
         r = requests.post(f"{BASE_URL}/api/media/upload", json=payload, headers=h)
-        assert r.status_code == 400, f"expected 400 for .exe, got {r.status_code}: {r.text[:200]}"
+        assert r.status_code == 415, f"expected 415 for unsupported .exe, got {r.status_code}: {r.text[:200]}"
 
 
 # ══════════════════════════════════════════════════════════════════════

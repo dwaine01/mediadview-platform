@@ -1,4 +1,6 @@
-# MediaView Player v3 — Validation Matrix
+# MediaView Player v3.1 — Validation Matrix
+
+Diagnostic target: `v3.1.0-diagnostic` (`versionCode 16`).
 
 ## Automated gates before APK
 

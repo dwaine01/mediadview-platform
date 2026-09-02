@@ -7,7 +7,6 @@ import pytest
 import requests
 from dotenv import load_dotenv
 
-
 # Module: Base URL resolution from env (public preview first)
 load_dotenv("/app/frontend/.env")
 load_dotenv("/app/backend/.env")

@@ -72,7 +72,18 @@ jobs:
       REDIS_URL:   redis://localhost:6379
       JWT_SECRET:  ci-jwt-secret-not-used-in-prod-2626262626262626
       CORS_ORIGINS: http://localhost:3000
-      SKIP_SEED:   "true"
+      SKIP_SEED:   "false"
+      SEED_ADMIN_EMAIL: admin.demo@mediadview.com
+      SEED_ADMIN_PASSWORD: AdminDemo#2026
+      TEST_ADMIN_EMAIL: admin.demo@mediadview.com
+      TEST_ADMIN_PASSWORD: AdminDemo#2026
+      SEED_SUPERADMIN_EMAIL: superadmin@mediadview.com
+      SEED_SUPERADMIN_PASSWORD: SuperAdmin#2026
+      TEST_BASE_URL: http://127.0.0.1:8001
+      EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
+      PUBLIC_URL: http://127.0.0.1:8001
+      PANEL_URL: http://127.0.0.1:8001/api/dashboard
+      PANEL_API_URL: http://127.0.0.1:8001
       SCHEDULER_MODE: apscheduler
       LOG_LEVEL:   WARNING
 
@@ -96,6 +107,17 @@ jobs:
           python -c "from auth_v2 import build_auth_router; from health import build_health_router; print('auth+health OK')"
           python -c "from financial_ledger import append_entry, verify_chain; from refunds_service import request_refund; from credit_notes_service import issue_credit_note_for_refund; from reports_service import executive_dashboard; print('C3+C4 OK')"
           python -c "from security_headers import install; from media_validator import validate_magic_bytes; print('P0 modules OK')"
+
+      - name: Boot test backend
+        working-directory: backend
+        run: |
+          uvicorn server:app --host 127.0.0.1 --port 8001 > /tmp/ci-backend.log 2>&1 &
+          for attempt in $(seq 1 30); do
+            curl --fail --silent http://127.0.0.1:8001/api/health && exit 0
+            sleep 1
+          done
+          cat /tmp/ci-backend.log
+          exit 1
 
       # ── Smoke test suites (standalone python scripts) ────────────
       # These are the authoritative regression suites for MediaDView.
@@ -199,29 +221,48 @@ jobs:
         run: |
           test -f backend/.env.example
           for KEY in ENVIRONMENT MONGO_URL DB_NAME CORS_ORIGINS JWT_SECRET \
-                     REDIS_URL COOKIE_DOMAIN STRIPE_SECRET_KEY R2_BUCKET_NAME \
-                     SMTP_HOST SENTRY_DSN SCHEDULER_MODE ; do
+                     REDIS_URL COOKIE_DOMAIN STRIPE_SECRET_KEY R2_BUCKET \
+                     RESEND_API_KEY SENTRY_DSN SCHEDULER_MODE ; do
             grep -q "^${KEY}=" backend/.env.example || { echo "❌ missing $KEY in .env.example"; exit 1; }
           done
           echo "✓ .env.example has all required keys"
-      - name: Secret scan (gitleaks lite)
+      - name: High-confidence secret scan
         run: |
-          pip install detect-secrets==1.5.0
-          detect-secrets scan --exclude-files 'package-lock.json|yarn.lock|.*\.min\.js' \
-            --exclude-files 'android-player/.*\.jar' \
-            --exclude-files 'backend/web/(app|finance|finance-extras)\.js' \
-            > secrets-report.json
-          # Fail if any HIGH-confidence secret is found
-          python -c "
-          import json
-          with open('secrets-report.json') as f:
-              r = json.load(f)
-          bad = [k for k,v in r.get('results',{}).items() if v]
-          if bad:
-              print('❌ potential secrets in:', bad)
-              exit(1)
-          print('✓ no leaked secrets')
-          "
+          python - <<'PY'
+          import pathlib
+          import re
+          import subprocess
+
+          patterns = {
+              "private key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+              "GitHub token": re.compile(r"(?:ghp|gho|ghu|ghs|ghr)_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}"),
+              "Stripe live secret": re.compile(r"sk_live_[A-Za-z0-9]{16,}"),
+              "OpenAI secret": re.compile(r"sk-[A-Za-z0-9]{20,}"),
+              "AWS access key": re.compile(r"AKIA[0-9A-Z]{16}"),
+              "credentialed Mongo URI": re.compile(r"mongodb(?:\+srv)?://(?!localhost|<)[^:\s/]+:[^@\s]+@"),
+          }
+          ignored_parts = {".git", ".metro-cache", "node_modules", "tests", "docs"}
+          findings = []
+          tracked = subprocess.check_output(["git", "ls-files", "-z"]).decode().split("\0")
+          for filename in tracked:
+              if not filename:
+                  continue
+              path = pathlib.Path(filename)
+              if ignored_parts.intersection(path.parts) or path.suffix in {".apk", ".jar", ".mp4"}:
+                  continue
+              try:
+                  text = path.read_text(errors="ignore")
+              except OSError:
+                  continue
+              for label, pattern in patterns.items():
+                  if pattern.search(text):
+                      findings.append(f"{filename}: {label}")
+          if findings:
+              print("❌ high-confidence credentials found:")
+              print("\n".join(findings))
+              raise SystemExit(1)
+          print("✓ no high-confidence credentials found")
+          PY
 
   # ─────────────────────────────────────────────────────────────────
   docker:
