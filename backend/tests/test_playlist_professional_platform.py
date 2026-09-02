@@ -8,7 +8,7 @@ import pytest
 import requests
 from pymongo import MongoClient
 
-BASE_URL = (os.environ.get("EXPO_PUBLIC_BACKEND_URL") or os.environ.get("EXPO_BACKEND_URL") or os.environ.get("TEST_BASE_URL"))
+BASE_URL = (os.environ.get("TEST_BASE_URL") or os.environ.get("EXPO_PUBLIC_BACKEND_URL") or os.environ.get("EXPO_BACKEND_URL"))
 SUPERADMIN_EMAIL = "superadmin@mediadview.com"
 SUPERADMIN_PASSWORD = "SuperAdmin#2026"
 

@@ -5,15 +5,12 @@ import os
 
 import pytest
 import requests
-from dotenv import load_dotenv
 
-# Module: base URL and auth resolution from environment files
-load_dotenv("/app/frontend/.env")
-load_dotenv("/app/backend/.env")
+# Module: CI/local endpoint first; public preview is an explicit fallback only.
 BASE_URL = (
-    os.environ.get("EXPO_BACKEND_URL")
+    os.environ.get("TEST_BASE_URL")
     or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
-    or os.environ.get("TEST_BASE_URL")
+    or os.environ.get("EXPO_BACKEND_URL")
 )
 
 
