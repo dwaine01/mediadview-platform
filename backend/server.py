@@ -5110,21 +5110,23 @@ def _latest_player_apk() -> str:
         pass
     return "mediaview-player.apk"
 
-def _serve_player_apk() -> FileResponse:
-    """Serve the latest APK directly with the correct Content-Type and
-    Content-Disposition headers. The Downloader app on Android/Google TV
-    parses these headers to decide whether to treat the response as an
-    installable APK or (incorrectly) render it as text. Serving the file
-    directly avoids redirect issues and guarantees the right MIME type."""
-    filename = _latest_player_apk()
-    path = os.path.join(WEB_DIR, filename)
-    return FileResponse(
-        path,
-        media_type="application/vnd.android.package-archive",
-        filename=filename,
+def _player_release_url() -> str:
+    override = os.getenv("PLAYER_APK_RELEASE_URL", "").strip()
+    if override:
+        return override
+    repository = os.getenv("PLAYER_RELEASE_REPOSITORY", "dwaine01/mediadview-platform").strip()
+    tag = os.getenv("PLAYER_RELEASE_TAG", "player-latest").strip()
+    asset = os.getenv("PLAYER_RELEASE_ASSET", "mediaview-player.apk").strip()
+    return f"https://github.com/{repository}/releases/download/{tag}/{asset}"
+
+
+def _serve_player_apk() -> RedirectResponse:
+    """Keep the TV-friendly URL stable while APK binaries live in Releases."""
+    return RedirectResponse(
+        url=_player_release_url(),
+        status_code=302,
         headers={
-            "Content-Disposition": f'attachment; filename="{filename}"',
-            "Cache-Control": "public, max-age=300",
+            "Cache-Control": "no-store",
             "X-Content-Type-Options": "nosniff",
         },
     )

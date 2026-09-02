@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -113,6 +113,7 @@ jobs:
           mkdir -p "$GITHUB_WORKSPACE/dist"
           cp "$APK" "$GITHUB_WORKSPACE/dist/mediaview-player-v${VERSION}.apk"
           cp "$APK" "$GITHUB_WORKSPACE/dist/mediaview-player-latest.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/mediaview-player.apk"
           sha256sum "$GITHUB_WORKSPACE"/dist/*.apk > "$GITHUB_WORKSPACE/dist/SHA256SUMS"
           ls -lh "$GITHUB_WORKSPACE/dist"
           echo "::endgroup::"
@@ -145,6 +146,24 @@ jobs:
           if-no-files-found: error
           retention-days: 30
           compression-level: 0
+
+      - name: Publish stable direct-download release
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="player-latest"
+          VERSION="${{ steps.build.outputs.version }}"
+          TITLE="MediaView Player v${VERSION} — Latest Stable"
+          NOTES="Built from ${GITHUB_SHA}. Direct TV download: https://mediadview.com/apk"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "$TITLE" --notes "$NOTES"
+          fi
+          gh release upload "$TAG" dist/mediaview-player.apk --clobber
+          gh release view "$TAG" --json assets --jq '.assets[].name' | grep -Fx mediaview-player.apk
 
       - name: Upload build log
         if: always()
