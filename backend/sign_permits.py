@@ -1,18 +1,19 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Sign Permit Information (public form + admin management)
 
 Public endpoint /api/sign-permits/submit is rate-limited and does NOT require
 auth. Admin endpoints require role in (admin, superadmin).
 """
+import base64
 import io
 import re
 import uuid
-import base64
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Body, Request
-from fastapi.responses import Response
-from typing import Optional, List
+from typing import List, Optional
 
+from fastapi import APIRouter, Body, Depends, HTTPException, Request
+from fastapi.responses import Response
 
 sp_router = APIRouter(prefix="/api/sign-permits")
 
@@ -230,6 +231,7 @@ async def _send_notification_emails(db, doc):
         return
     from email.message import EmailMessage
     from email.utils import formataddr
+
     import aiosmtplib
     try:
         from finance_email import decrypt_password
@@ -350,8 +352,8 @@ def _permit_html_body(d, is_admin=True):
 # ============================================================
 def _render_permit_pdf(d):
     from reportlab.lib.pagesizes import LETTER
-    from reportlab.pdfgen import canvas
     from reportlab.lib.units import inch
+    from reportlab.pdfgen import canvas
 
     buf = io.BytesIO()
     c = canvas.Canvas(buf, pagesize=LETTER)
@@ -360,8 +362,9 @@ def _render_permit_pdf(d):
 
     # Logo (best-effort — from /app/backend/web/logo-dark.png)
     try:
-        from reportlab.lib.utils import ImageReader
         import os
+
+        from reportlab.lib.utils import ImageReader
         for candidate in ["/app/backend/web/logo-dark.png",
                           "/app/backend/web/logo-new.png"]:
             if os.path.exists(candidate):

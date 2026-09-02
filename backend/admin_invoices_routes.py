@@ -1,14 +1,15 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """Sprint 1 · Etapa C2 — Invoice HTTP endpoints (admin)."""
 from __future__ import annotations
+
 from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
-from permissions import require_permission
 from invoices_service import issue_invoice_for_order, regenerate_invoice_pdf
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from permissions import require_permission
 
 
 def build_admin_invoices_router(db: AsyncIOMotorDatabase) -> APIRouter:

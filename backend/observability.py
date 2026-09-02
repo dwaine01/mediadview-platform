@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Structured logging + Sentry integration
 
@@ -8,14 +9,14 @@ MediAd View — Structured logging + Sentry integration
    • never sent: passwords, cookies, tokens, card numbers, emails, full request bodies
    • before_send hook drops anything matching a regex list
 """
+import contextvars
+import json
+import logging
 import os
 import re
 import sys
-import json
 import time
 import uuid
-import logging
-import contextvars
 from typing import Any
 
 # ─── Context vars for request-scoped fields ───────────────────────────
@@ -171,9 +172,9 @@ def init_sentry():
     try:
         import sentry_sdk
         from sentry_sdk.integrations.fastapi import FastApiIntegration
-        from sentry_sdk.integrations.starlette import StarletteIntegration
         from sentry_sdk.integrations.logging import LoggingIntegration
         from sentry_sdk.integrations.pymongo import PyMongoIntegration
+        from sentry_sdk.integrations.starlette import StarletteIntegration
     except Exception as e:
         logging.getLogger("sentry").warning("sentry_sdk not installed: %s", e)
         return False

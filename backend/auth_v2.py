@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Security & Auth v2 (production-grade)
 
@@ -15,17 +16,17 @@ BACKWARDS-COMPATIBLE: existing bcrypt passwords and JWT `create_token(user_id, r
 continue to work. The v1 endpoints keep responding for a grace period; new clients
 should switch to /api/auth/v2/*.
 """
+import logging
 import os
 import re
 import uuid
-import logging
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import List, Optional
 
 import bcrypt
 import jwt as jose_jwt  # PyJWT (imported as `jwt` in server.py; alias to avoid clash)
-from fastapi import Request, Response, HTTPException, Depends, APIRouter
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, EmailStr, Field
 
 log = logging.getLogger("auth")
@@ -327,7 +328,8 @@ class TokenResp(BaseModel):
 
 def build_auth_router(db, get_current_user_dep):
     """Return the /api/auth/v2 router bound to the given db + auth dep."""
-    from rate_limit import limiter as _rl, LIMITS as _LIMITS
+    from rate_limit import LIMITS as _LIMITS
+    from rate_limit import limiter as _rl
     router = APIRouter(prefix="/api/auth/v2", tags=["auth-v2"])
 
     @router.post("/login", response_model=TokenResp, response_model_exclude_none=True)

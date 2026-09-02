@@ -4,7 +4,8 @@ Generate:
   2) favicon.png  (512x512)  — pro app-style icon (bold "M" on gradient)
 """
 import os
-from PIL import Image, ImageDraw, ImageFont, ImageFilter
+
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 WEB = os.path.join(os.path.dirname(__file__), 'web')
 OG_OUT  = os.path.join(WEB, 'og-image.png')

@@ -47,7 +47,6 @@ except Exception:
 import bcrypt
 from motor.motor_asyncio import AsyncIOMotorClient
 
-
 MONGO_URL = os.environ.get("MONGO_URL", "mongodb://localhost:27017")
 DB_NAME = os.environ.get("DB_NAME", "mediaview_db")
 
@@ -286,7 +285,7 @@ async def run_interactive() -> int:
     print(f"   • usuario:             {email}")
     print(f"   • intentos limpiados:  {cleared.deleted_count}")
     print(f"   • refresh tokens:      {rt_n} revocados")
-    print(f"   • active:              True")
+    print("   • active:              True")
     print("\n🔐 Prueba AHORA en una ventana Incognito:")
     print("   https://panel.mediadview.com")
     print(f"   Email:    {email}")

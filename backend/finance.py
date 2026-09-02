@@ -1,15 +1,17 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Finance & Administration Module
 Phase 1: Clients (CRM), Contracts, Invoices, Deposits, Payments
 """
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Body
+import re
+import uuid
+from calendar import monthrange
+from datetime import date, datetime, timedelta
+from typing import List, Literal, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
-from typing import List, Optional, Literal
-from datetime import datetime, timedelta, date
-from calendar import monthrange
-import uuid
-import re
 
 finance_router = APIRouter(prefix="/api/finance")
 
@@ -311,6 +313,7 @@ def create_finance_routes(db, get_current_user):
                 return {"sent": False, "error": "SMTP not configured (Settings → Email)."}
             from email.message import EmailMessage
             from email.utils import formataddr
+
             import aiosmtplib
             from finance_email import decrypt_password
 

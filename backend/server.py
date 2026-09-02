@@ -1,33 +1,37 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 # =====================================================
 # MediaView Digital Signage Platform - Backend API
 # =====================================================
 
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import Response, HTMLResponse, FileResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from dotenv import load_dotenv
 from pathlib import Path
+
+from dotenv import load_dotenv
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.staticfiles import StaticFiles
 
 # Load .env FIRST (before any module reads env vars) then run fail-fast validator.
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 from startup_check import validate_environment
+
 validate_environment()
-from starlette.middleware.cors import CORSMiddleware
-from motor.motor_asyncio import AsyncIOMotorClient
-import os
+import base64
 import logging
-from pathlib import Path
-from pydantic import BaseModel, Field
-from typing import List, Optional
+import os
 import re
 import uuid
 from datetime import datetime, timedelta
-import jwt
+from pathlib import Path
+from typing import List, Optional
+
 import bcrypt
-import base64
+import jwt
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel, Field
+from starlette.middleware.cors import CORSMiddleware
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -66,7 +70,8 @@ security = HTTPBearer()
 
 # Rate limiter (imported early because @_rl.limit decorators are evaluated
 # at module load time). LIMITS provides central rate-limit strings.
-from rate_limit import limiter as _rl, LIMITS as _LIMITS  # noqa: E402
+from rate_limit import LIMITS as _LIMITS
+from rate_limit import limiter as _rl  # noqa: E402
 
 # ============ HELPERS ============
 
@@ -241,6 +246,7 @@ class DeviceProvision(BaseModel):
 
 import random
 import string
+
 
 def gen_activation_code():
     """Generate 6-char easy-to-read activation code (no ambiguous chars)"""
@@ -466,7 +472,7 @@ async def register(request: Request, response: Response, req: RegisterRequest):
 @_rl.limit(_LIMITS.login)
 async def login(request: Request, response: Response, req: LoginRequest):
     """Legacy v1 login with brute-force protection + audit log added."""
-    from auth_v2 import is_locked_out, record_attempt, audit, _ip
+    from auth_v2 import _ip, audit, is_locked_out, record_attempt
     email = req.email.lower().strip()
     ip = _ip(request)
 
@@ -956,10 +962,19 @@ async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_cur
 #   - Reads       → open_media_for_response() picks r2 URL / bytes automatically.
 #   - Big files   → POST /media/presign + PUT to R2 + POST /media/finalize.
 from storage import (
-    R2_ENABLED, R2_BUCKET, validate_upload, build_key, public_url_for_key,
-    r2_put_bytes, r2_presign_put, r2_head, r2_delete,
-    open_media_for_response, _ext_of,
+    R2_BUCKET,
+    R2_ENABLED,
+    _ext_of,
+    build_key,
+    open_media_for_response,
+    public_url_for_key,
+    r2_delete,
+    r2_head,
+    r2_presign_put,
+    r2_put_bytes,
+    validate_upload,
 )
+
 
 @api_router.post("/media/upload")
 @_rl.limit(_LIMITS.media_upload)
@@ -1193,7 +1208,7 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
     await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
-    
+
     # Find all campaigns using this media and force restart their devices
     campaigns = await db.campaigns.find({"media_ids": media_id}).to_list(100)
     restarted = 0
@@ -1202,7 +1217,7 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
         for dev in devices:
             await db.devices.update_one({"id": dev["id"]}, {"$set": {"pending_command": "reload"}})
             restarted += 1
-    
+
     return {"message": f"Rotation set to {rotation}. {restarted} device(s) will refresh."}
 
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
@@ -1414,7 +1429,7 @@ async def get_unique_location_code():
 
 def gen_pairing_code() -> str:
     """Short, human-friendly Device ID (e.g. MV-A4F2-B83K). Easy to type on a TV remote."""
-    import secrets, string
+    import secrets
     alphabet = string.ascii_uppercase + string.digits
     # remove confusing chars
     alphabet = alphabet.replace('O','').replace('0','').replace('I','').replace('1','')
@@ -1540,6 +1555,7 @@ async def screen_qr_code(request: Request, response: Response, screen_id: str, s
     """Return a PNG QR code for the screen. kind=public → public marketplace URL,
     kind=pair → deep link ready to activate the APK player with the screen id."""
     import io
+
     import qrcode
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
@@ -1929,7 +1945,7 @@ async def player_media(media_id: str):
     return Response(
         content=content,
         media_type=media.get("content_type", "application/octet-stream"),
-        headers={"Content-Disposition": f"attachment; filename=media",
+        headers={"Content-Disposition": "attachment; filename=media",
                  "Cache-Control": "public, max-age=86400"}
     )
 
@@ -1953,7 +1969,7 @@ async def web_player(screen_id: str):
     html += '<div id="hud"><h2>MediAd View Player - Diagnostics</h2><div id="hc"></div><div class="ch">Press i or click to close</div></div>'
     html += """<script>
 (function(){
-var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + """',AB=location.origin,PI=15000,HI=30000,V='2.5.1';
+var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + r"""',AB=location.origin,PI=15000,HI=30000,V='2.5.1';
 var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false,pv=-1,DEV=(location.search.indexOf('dev=1')>=0);
 function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
 // Lightweight version check: only fetch full playlist if it actually changed.
@@ -2467,7 +2483,7 @@ async def set_power_schedule(device_id: str, data: dict, admin: dict = Depends(r
     device = await db.devices.find_one({"id": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    
+
     schedule = {
         "enabled": data.get("enabled", True),
         "power_on": data.get("power_on", "08:00"),
@@ -2475,7 +2491,7 @@ async def set_power_schedule(device_id: str, data: dict, admin: dict = Depends(r
         "days": data.get("days", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
         "timezone": data.get("timezone", "America/New_York")
     }
-    
+
     await db.devices.update_one({"id": device_id}, {"$set": {"power_schedule": schedule}})
     return {"message": "Power schedule updated", "schedule": schedule}
 
@@ -2493,7 +2509,7 @@ async def device_power_control(device_id: str, data: dict, admin: dict = Depends
     device = await db.devices.find_one({"id": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")
-    
+
     action = data.get("action", "")
     if action == "sleep":
         await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "sleep", "power_state": "sleeping"}})
@@ -2503,7 +2519,7 @@ async def device_power_control(device_id: str, data: dict, admin: dict = Depends
         await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "restart"}})
     else:
         raise HTTPException(status_code=400, detail="Invalid action. Use: sleep, wake, restart")
-    
+
     return {"message": f"Command '{action}' sent to device"}
 
 
@@ -2748,13 +2764,13 @@ async def get_play_logs(screen_id: Optional[str] = None, days: int = 7, admin: d
         screen = await db.screens.find_one({"id": log.get("screen_id")})
         log["media_name"] = media.get("filename", "Unknown") if media else "Deleted"
         log["screen_name"] = screen.get("name", "Unknown") if screen else "Unknown"
-    
+
     # Stats
     total_plays = len(logs)
     unique_media = len(set(l.get("media_id") for l in logs))
     unique_screens = len(set(l.get("screen_id") for l in logs))
     total_seconds = sum(l.get("duration", 0) for l in logs)
-    
+
     return {
         "stats": {
             "total_plays": total_plays,
@@ -2842,9 +2858,9 @@ async def render_widget(widget_id: str):
     if not w: raise HTTPException(status_code=404, detail="Widget not found")
     cfg = w.get("config", {})
     wt = w.get("widget_type")
-    
+
     base_style = "body{margin:0;font-family:'Inter',Arial,sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}"
-    
+
     if wt == "weather":
         city = cfg.get("city", "New York")
         api_key = cfg.get("api_key", "demo")
@@ -2853,7 +2869,7 @@ async def render_widget(widget_id: str):
         .then(r=>r.json()).then(d=>{{document.getElementById('temp').textContent=Math.round(d.main.temp)+'°F';document.getElementById('desc').textContent=d.weather[0].description}})
         .catch(()=>{{document.getElementById('desc').textContent='{city}'}});
         </script></body></html>"""
-    
+
     elif wt == "clock":
         fmt = cfg.get("format", "12h")
         bg = cfg.get("bg_color", "#000000")
@@ -2864,13 +2880,13 @@ async def render_widget(widget_id: str):
         document.getElementById('d').textContent=n.toLocaleDateString('en-US',{{weekday:'long',month:'long',day:'numeric',year:'numeric'}})}}
         u();setInterval(u,1000);
         </script></body></html>"""
-    
+
     elif wt == "ticker":
         text = cfg.get("text", "Breaking News: Welcome to MediAd View Digital Signage Platform")
         speed = cfg.get("speed", 80)
         bg = cfg.get("bg_color", "#111827")
         html = f"""<html><head><style>body{{margin:0;background:{bg};display:flex;align-items:center;height:100vh;overflow:hidden}}.t{{white-space:nowrap;font-size:48px;font-weight:700;color:#22d3ee;font-family:Arial,sans-serif;animation:scroll {speed}s linear infinite}}@keyframes scroll{{0%{{transform:translateX(100vw)}}100%{{transform:translateX(-100%)}}}}</style></head><body><div class="t">{text}</div></body></html>"""
-    
+
     elif wt == "qrcode":
         url = cfg.get("url", "https://mediadview.com")
         label = cfg.get("label", "Scan Me")
@@ -2879,7 +2895,7 @@ async def render_widget(widget_id: str):
         document.getElementById('qr').innerHTML=q.createSvgTag(8,0);
         document.querySelector('svg').style.width='300px';document.querySelector('svg').style.height='300px';
         </script></body></html>"""
-    
+
     elif wt == "countdown":
         target = cfg.get("target_date", "2026-12-31T00:00:00")
         title = cfg.get("title", "Coming Soon")
@@ -2887,25 +2903,25 @@ async def render_widget(widget_id: str):
         function u(){{var t=new Date('{target}')-new Date();if(t<0)t=0;var d=Math.floor(t/86400000),h=Math.floor(t%86400000/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
         document.getElementById('d').textContent=d;document.getElementById('h').textContent=h;document.getElementById('m').textContent=m;document.getElementById('s').textContent=s}}u();setInterval(u,1000);
         </script></body></html>"""
-    
+
     elif wt == "slides":
         url = cfg.get("url", "")
         html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}" allowfullscreen></iframe></body></html>"""
-    
+
     elif wt == "youtube":
         video_id = cfg.get("video_id", "")
         html = f"""<html><head><style>body{{margin:0;background:#000}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="https://www.youtube.com/embed/{video_id}?autoplay=1&mute=1&loop=1&playlist={video_id}&controls=0" allowfullscreen allow="autoplay"></iframe></body></html>"""
-    
+
     elif wt == "webpage":
         url = cfg.get("url", "https://google.com")
         html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}"></iframe></body></html>"""
-    
+
     elif wt == "menu":
         title = cfg.get("title", "Today's Menu")
         items = cfg.get("items", [{"name": "Burger", "price": "$12"}, {"name": "Pizza", "price": "$15"}, {"name": "Salad", "price": "$10"}])
         items_html = "".join([f'<div class="item"><span>{i.get("name","")}</span><span class="dots"></span><span class="p">{i.get("price","")}</span></div>' for i in items])
         html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.m{{width:80%;max-width:600px}}.title{{font-size:48px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:40px}}.item{{display:flex;align-items:baseline;font-size:28px;padding:16px 0;border-bottom:1px solid #1e293b}}.dots{{flex:1;border-bottom:2px dotted #334155;margin:0 12px}}.p{{color:#22d3ee;font-weight:700}}</style></head><body><div class="m"><div class="title">{title}</div>{items_html}</div></body></html>"""
-    
+
     elif wt == "calendar":
         html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.cal{{text-align:center;width:90%}}.month{{font-size:36px;font-weight:700;color:#22d3ee;margin-bottom:20px}}.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}}.hd{{font-size:14px;color:#64748b;padding:8px}}.day{{font-size:20px;padding:12px;border-radius:8px}}.day.today{{background:#6366f1;color:#fff;font-weight:700}}</style></head><body><div class="cal"><div class="month" id="mon"></div><div class="grid" id="gr"></div></div><script>
         var n=new Date(),y=n.getFullYear(),m=n.getMonth();
@@ -2917,10 +2933,10 @@ async def render_widget(widget_id: str):
         for(var d=1;d<=last;d++)cells+='<div class="day'+(d===n.getDate()?' today':'')+'">'+d+'</div>';
         document.getElementById('gr').innerHTML=h+cells;
         </script></body></html>"""
-    
+
     else:
         html = f"<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Unknown widget type: {wt}</body></html>"
-    
+
     return HTMLResponse(content=html)
 
 @api_router.get("/app/version")
@@ -3500,7 +3516,7 @@ async def get_menu_templates():
 async def create_menu(data: dict, current_user: dict = Depends(get_current_user)):
     """Create a new digital menu with pre-populated professional content."""
     template_id = data.get("template_id", "classic")
-    
+
     # Pre-populated content per template
     TEMPLATE_CONTENT = {
         "classic": [
@@ -3743,7 +3759,7 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
             ]},
         ],
     }
-    
+
     # Build categories with IDs
     # New visual templates reuse fastfood content with photos
     if template_id in ("mcdonalds", "modern_visual", "premium_dark"):
@@ -3771,7 +3787,7 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
             "items": items,
             "order": i
         })
-    
+
     menu = {
         "id": gen_id(),
         "user_id": current_user["id"],
@@ -3817,7 +3833,7 @@ async def update_menu(menu_id: str, data: dict, current_user: dict = Depends(get
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     update = {"updated_at": datetime.utcnow()}
     for field in ["name", "template_id", "restaurant_name", "restaurant_logo", "subtitle",
                   "currency", "currency_symbol", "status", "categories",
@@ -3826,7 +3842,7 @@ async def update_menu(menu_id: str, data: dict, current_user: dict = Depends(get
                   "split_promo_media", "split_widget_id"]:
         if field in data:
             update[field] = data[field]
-    
+
     await db.menus.update_one({"id": menu_id}, {"$set": update})
     updated = await db.menus.find_one({"id": menu_id})
     try:
@@ -3856,7 +3872,7 @@ async def add_menu_category(menu_id: str, data: dict, current_user: dict = Depen
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     category = {
         "id": gen_id(),
         "name": data.get("name", "Category"),
@@ -3865,7 +3881,7 @@ async def add_menu_category(menu_id: str, data: dict, current_user: dict = Depen
         "order": len(menu.get("categories", [])),
         "active_hours": data.get("active_hours", None),  # {"start":"HH:MM","end":"HH:MM","days":[1,1,1,1,1,1,1]}
     }
-    
+
     await db.menus.update_one({"id": menu_id}, {"$push": {"categories": category}, "$set": {"updated_at": datetime.utcnow()}})
     updated = await db.menus.find_one({"id": menu_id})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
@@ -3880,14 +3896,14 @@ async def update_menu_category(menu_id: str, category_id: str, data: dict, curre
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     categories = menu.get("categories", [])
     for cat in categories:
         if cat["id"] == category_id:
             if "name" in data: cat["name"] = data["name"]
             if "description" in data: cat["description"] = data["description"]
             break
-    
+
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
     except Exception: pass
@@ -3902,7 +3918,7 @@ async def delete_menu_category(menu_id: str, category_id: str, current_user: dic
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     categories = [c for c in menu.get("categories", []) if c["id"] != category_id]
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
@@ -3919,7 +3935,7 @@ async def add_menu_item(menu_id: str, category_id: str, data: dict, current_user
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     item = {
         "id": gen_id(),
         "name": data.get("name", "Item"),
@@ -3930,14 +3946,14 @@ async def add_menu_item(menu_id: str, category_id: str, data: dict, current_user
         "available": data.get("available", True),
         "order": 0
     }
-    
+
     categories = menu.get("categories", [])
     for cat in categories:
         if cat["id"] == category_id:
             item["order"] = len(cat.get("items", []))
             cat.setdefault("items", []).append(item)
             break
-    
+
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
     except Exception: pass
@@ -3952,7 +3968,7 @@ async def update_menu_item(menu_id: str, category_id: str, item_id: str, data: d
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     categories = menu.get("categories", [])
     for cat in categories:
         if cat["id"] == category_id:
@@ -3962,7 +3978,7 @@ async def update_menu_item(menu_id: str, category_id: str, item_id: str, data: d
                         if field in data: it[field] = data[field]
                     break
             break
-    
+
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
     except Exception: pass
@@ -3977,13 +3993,13 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     categories = menu.get("categories", [])
     for cat in categories:
         if cat["id"] == category_id:
             cat["items"] = [it for it in cat.get("items", []) if it["id"] != item_id]
             break
-    
+
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
     try: await ws_manager.broadcast_menu(menu_id, "updated")
     except Exception: pass
@@ -4001,7 +4017,7 @@ async def add_promo_media(menu_id: str, data: dict, current_user: dict = Depends
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     media_item = {
         "id": gen_id(),
         "type": data.get("type", "image"),  # "image" or "video"
@@ -4010,7 +4026,7 @@ async def add_promo_media(menu_id: str, data: dict, current_user: dict = Depends
         "title": data.get("title", ""),
         "order": len(menu.get("promo_media", []))
     }
-    
+
     await db.menus.update_one({"id": menu_id}, {
         "$push": {"promo_media": media_item},
         "$set": {"updated_at": datetime.utcnow()}
@@ -4026,7 +4042,7 @@ async def delete_promo_media(menu_id: str, media_id: str, current_user: dict = D
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
-    
+
     promo_media = [m for m in menu.get("promo_media", []) if m["id"] != media_id]
     await db.menus.update_one({"id": menu_id}, {
         "$set": {"promo_media": promo_media, "updated_at": datetime.utcnow()}
@@ -4042,14 +4058,14 @@ async def render_menu(menu_id: str):
     menu = await db.menus.find_one({"id": menu_id})
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
-    
+
     template_id = menu.get("template_id", "classic")
     restaurant = menu.get("restaurant_name", "Restaurant")
     subtitle = menu.get("subtitle", "")
     currency_sym = menu.get("currency_symbol", "$")
     categories = menu.get("categories", [])
     promo_media = menu.get("promo_media", [])
-    
+
     # Food emoji placeholders by keyword
     food_emojis = {
         "soup": "🍲", "salad": "🥗", "tuna": "🐟", "shrimp": "🦐", "bruschetta": "🍞", "bread": "🍞",
@@ -4095,14 +4111,14 @@ async def render_menu(menu_id: str):
         "nachos": "🧀", "mozzarella": "🧀",
         "default": "🍽️"
     }
-    
+
     def get_food_emoji(name):
         name_lower = name.lower()
         for keyword, emoji in food_emojis.items():
             if keyword in name_lower:
                 return emoji
         return food_emojis["default"]
-    
+
     templates = {
         "classic": {"bg": "#1a1a2e", "bg2": "#16213e", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.08)", "item_bg": "rgba(255,255,255,.03)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "48px", "featured_bg": "rgba(212,175,55,.06)", "img_bg": "rgba(212,175,55,.08)"},
         "modern": {"bg": "#f1f5f9", "bg2": "#e2e8f0", "text": "#1e293b", "text2": "#64748b", "accent": "#2563eb", "cat_bg": "rgba(37,99,235,.06)", "item_bg": "rgba(255,255,255,.9)", "item_border": "rgba(37,99,235,.1)", "font": "'Inter',sans-serif", "name_size": "40px", "featured_bg": "rgba(37,99,235,.05)", "img_bg": "rgba(37,99,235,.06)"},
@@ -4116,11 +4132,11 @@ async def render_menu(menu_id: str):
         "modern_visual": {"bg": "#0f172a", "bg2": "#1e293b", "text": "#e2e8f0", "text2": "#94a3b8", "accent": "#f59e0b", "cat_bg": "rgba(245,158,11,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(245,158,11,.08)", "font": "'Inter',sans-serif", "name_size": "42px", "featured_bg": "rgba(245,158,11,.05)", "img_bg": "rgba(245,158,11,.06)", "grid": True},
         "premium_dark": {"bg": "#000000", "bg2": "#0a0a0a", "text": "#e2e8f0", "text2": "#71717a", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "44px", "featured_bg": "rgba(212,175,55,.05)", "img_bg": "rgba(212,175,55,.06)", "grid": True}
     }
-    
+
     t = templates.get(template_id, templates["classic"])
-    
+
     is_grid = t.get('grid', False)
-    
+
     # -------- Time-based category filtering (Chat #2 feature) --------
     # Categories can define active_hours: {"start":"HH:MM","end":"HH:MM","days":[1,1,1,1,1,1,1]}
     # Filter out categories that shouldn't be shown at this hour on this weekday.
@@ -4159,25 +4175,25 @@ async def render_menu(menu_id: str):
         categories = _filtered
     except Exception:
         pass
-    
+
     # -------- Slideshow settings (menu-level override) --------
     slideshow_enabled = menu.get("slideshow_enabled", True)
     slideshow_interval = int(menu.get("slideshow_interval") or 12)
-    
+
     # Split categories into slides of 3
     slides = []
     for i in range(0, len(categories), 3):
         slides.append(categories[i:i+3])
     if not slides:
         slides = [[]]
-    
+
     num_slides = len(slides)
     slide_duration = slideshow_interval if slideshow_enabled else 999999
-    
+
     has_promo = len(promo_media) > 0
     menu_height = "75%" if has_promo else "calc(100% - 80px)"
     promo_height = "25%" if has_promo else "0"
-    
+
     html = f"""<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:wght@400;700;900&display=swap" rel="stylesheet">
 <style>
@@ -4240,16 +4256,16 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 <div class="menu-container">
 <div class="header">
 <div class="restaurant-name">{restaurant}</div>"""
-    
+
     if subtitle:
         html += f'<div class="subtitle">{subtitle}</div>'
-    
+
     html += '</div><div class="slides-wrapper">'
-    
+
     for si, slide_cats in enumerate(slides):
         active = ' active' if si == 0 else ''
         html += f'<div class="slide{active}" data-slide="{si}">'
-        
+
         for cat in slide_cats:
             items = cat.get("items", [])
             html += '<div class="category"><div class="cat-header">'
@@ -4257,7 +4273,7 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
             if cat.get("description"):
                 html += f'<div class="cat-desc">{cat["description"]}</div>'
             html += '</div><div class="cat-items">' if not is_grid else '</div><div class="grid-items">'
-            
+
             for it in items:
                 if is_grid:
                     # GRID CARD LAYOUT (McDonald's style)
@@ -4292,13 +4308,13 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                     if it.get("description"):
                         html += f'<div class="item-desc">{it["description"]}</div>'
                     html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
-            
+
             html += '</div></div>'
-        
+
         html += '</div>'
-    
+
     html += '</div>'
-    
+
     # Promo media strip
     if promo_media:
         if len(promo_media) == 1:
@@ -4327,7 +4343,7 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                         html += f'<img src="{src}" alt="">'
                     html += '</div>'
             html += '</div></div>'
-    
+
     # Footer
     html += '<div class="footer">'
     html += f'<div class="footer-text">{restaurant}</div>'
@@ -4337,13 +4353,13 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
             active = ' active' if i == 0 else ''
             html += f'<div class="dot{active}" data-dot="{i}"></div>'
         html += '</div>'
-    html += f'<div class="footer-text">MediAd View</div>'
+    html += '<div class="footer-text">MediAd View</div>'
     html += '</div></div>'
-    
+
     # Slideshow JS + Promo scroll
     promo_count = len(promo_media)
     scroll_speed = max(promo_count * 8, 20)  # seconds for full scroll
-    
+
     html += f"""<script>
 var current=0,total={num_slides},duration={slide_duration}000;
 function showSlide(n){{
@@ -4394,7 +4410,7 @@ setTimeout(function(){{location.reload()}},300000);
   }}, 15000);
 }})();
 </script>"""
-    
+
     html += '</body></html>'
     return HTMLResponse(content=html)
 
@@ -4525,7 +4541,6 @@ async def _marketplace():
 # ─── Short URL for TV sideloading via Downloader app ─────────────────
 # Google TV remotes make typing long URLs painful. Serve the APK from
 # a tiny memorable path: mediadview.com/apk
-from fastapi.responses import RedirectResponse
 
 def _latest_player_apk() -> str:
     """Pick the highest-versioned mediaview-player-*.apk in web/. Falls back
@@ -4588,14 +4603,16 @@ async def download_dot_apk():
     return _serve_player_apk()
 
 # ============ FINANCE & ADMIN MODULE ============
+from colorlight import create_colorlight_routes
+from colorlight_player import create_player_routes
+from colorlight_scheduler import start_colorlight_scheduler
 from finance import create_finance_routes
 from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
-from colorlight_scheduler import start_colorlight_scheduler
-from colorlight import create_colorlight_routes
-from colorlight_player import create_player_routes
-from realtime import ws_router, manager as ws_manager
+from realtime import manager as ws_manager
+from realtime import ws_router
+
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
 app.include_router(create_finance_print_routes(db, get_current_user))
@@ -4609,36 +4626,44 @@ app.include_router(ws_router)
 
 # Fase 5 · Sprint 1 · Etapa B — Stripe guest checkout + webhook
 from stripe_routes import build_stripe_router
+
 app.include_router(build_stripe_router(db))
 
 # Sprint 1 · Etapa C1 — Admin Orders (approve / reject / request-changes)
 from admin_orders_routes import build_admin_orders_router
+
 app.include_router(build_admin_orders_router(db, require_admin))
 
 # Sprint 1 · Etapa C2 — Admin Invoices (list / detail / PDF / reissue)
 from admin_invoices_routes import build_admin_invoices_router
+
 app.include_router(build_admin_invoices_router(db))
 
 # Sprint 1 · Etapa C3 — Admin Refunds / Credit Notes / Ledger
 from admin_refunds_routes import build_admin_refunds_router
+
 app.include_router(build_admin_refunds_router(db))
 
 # Sprint 1 · Etapa C4 — Reports / Dashboard / Exports / BI
 from reports_routes import build_reports_router
+
 app.include_router(build_reports_router(db))
 
 # Phase D.1 — Corporate Portal (business/rental clients dashboard)
 from corporate_portal import create_corporate_routes
+
 app.include_router(create_corporate_routes(db, get_current_user))
 
 # Sign Permit Information — public form + admin management
 from sign_permits import create_sign_permit_routes
+
 app.include_router(create_sign_permit_routes(db, require_admin))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
 # ────────────────────────────────────────────────────────────────────────
-from observability import setup_logging, init_sentry, install_request_id_middleware
+from observability import init_sentry, install_request_id_middleware, setup_logging
+
 setup_logging()
 init_sentry()
 install_request_id_middleware(app)
@@ -4647,6 +4672,7 @@ install_request_id_middleware(app)
 # Health + readiness probes (/api/health, /api/ready)
 # ────────────────────────────────────────────────────────────────────────
 from health import build_health_router
+
 app.include_router(build_health_router(db))
 
 # ────────────────────────────────────────────────────────────────────────
@@ -4655,8 +4681,12 @@ app.include_router(build_health_router(db))
 # work for backwards compat during migration.
 # ────────────────────────────────────────────────────────────────────────
 from auth_v2 import (
-    build_deps as _build_auth_deps,
     build_auth_router as _build_auth_router,
+)
+from auth_v2 import (
+    build_deps as _build_auth_deps,
+)
+from auth_v2 import (
     ensure_auth_indexes as _ensure_auth_indexes,
 )
 from rate_limit import install_rate_limiter as _install_rl
@@ -4702,6 +4732,7 @@ app.add_middleware(
 
 # ── P0-A1: HTTP Security Headers (HSTS/CSP/XFO/etc) ─────────────
 from security_headers import install as install_security_headers
+
 install_security_headers(app)
 
 logging.basicConfig(

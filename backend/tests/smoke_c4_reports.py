@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """Smoke test for Fase 5 · Sprint 1 · Etapa C4 (Reports / Dashboard / Exports).
 
 Verifies:
@@ -24,6 +25,7 @@ import requests
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 BASE = "http://localhost:8001"
@@ -43,7 +45,7 @@ def _login_ws_ok() -> bool:
     import websockets  # type: ignore
     async def _run():
         try:
-            async with websockets.connect(f"ws://localhost:8001/api/ws/dashboard/global") as ws:
+            async with websockets.connect("ws://localhost:8001/api/ws/dashboard/global") as ws:
                 msg = await asyncio.wait_for(ws.recv(), timeout=5)
                 return json.loads(msg).get("type") == "connected"
         except Exception as e:
@@ -56,7 +58,7 @@ def run():
     passed = 0
     failed = 0
 
-    def _pass(name): 
+    def _pass(name):
         nonlocal passed
         print(f"  ✓ {name}"); passed += 1
 

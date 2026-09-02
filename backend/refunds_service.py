@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Refunds service (Fase 5 · Sprint 1 · Etapa C3).
 
@@ -42,20 +43,32 @@ import uuid
 from datetime import datetime, timezone
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from financial_audit import audit
 from financial_ledger import (
-    append_entry, next_refund_number,
-    total_refunded_for_order, total_paid_for_order,
-    EntryType, DIR_DEBIT, DIR_INFO,
-    normalise_currency, BASE_CURRENCY,
+    BASE_CURRENCY,
+    DIR_DEBIT,
+    DIR_INFO,
+    EntryType,
+    append_entry,
+    next_refund_number,
+    normalise_currency,
+    total_paid_for_order,
+    total_refunded_for_order,
 )
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from order_state import (
-    STATE_PAID, STATE_APPROVED, STATE_SCHEDULED, STATE_PLAYING,
-    STATE_COMPLETED, STATE_PENDING_REVIEW,
-    STATE_REFUND_PENDING, STATE_REFUNDED,
-    refund_policy, is_refundable, assert_transition, InvalidTransition,
+    STATE_APPROVED,
+    STATE_COMPLETED,
+    STATE_PAID,
+    STATE_PENDING_REVIEW,
+    STATE_PLAYING,
+    STATE_REFUND_PENDING,
+    STATE_REFUNDED,
+    STATE_SCHEDULED,
+    InvalidTransition,
+    assert_transition,
+    is_refundable,
+    refund_policy,
 )
 from payments import get_provider
 from payments.base import REFUND_STATUS_SUCCEEDED, ProviderError

@@ -13,17 +13,26 @@ import stripe
 from starlette.concurrency import run_in_threadpool
 
 from .base import (
-    PaymentProvider,
+    PI_STATUS_CANCELED,
+    PI_STATUS_FAILED,
+    PI_STATUS_PROCESSING,
+    PI_STATUS_REQUIRES_ACTION,
+    PI_STATUS_REQUIRES_CONFIRM,
+    PI_STATUS_REQUIRES_METHOD,
+    PI_STATUS_SUCCEEDED,
+    REFUND_STATUS_CANCELED,
+    REFUND_STATUS_FAILED,
+    REFUND_STATUS_PENDING,
+    REFUND_STATUS_SUCCEEDED,
+    CardError,
     CustomerResult,
     PaymentIntentResult,
+    PaymentProvider,
+    ProviderError,
+    ProviderNotConfigured,
     RefundResult,
+    SignatureVerificationError,
     WebhookEvent,
-    ProviderError, ProviderNotConfigured, CardError, SignatureVerificationError,
-    PI_STATUS_REQUIRES_METHOD, PI_STATUS_REQUIRES_CONFIRM,
-    PI_STATUS_REQUIRES_ACTION, PI_STATUS_PROCESSING,
-    PI_STATUS_SUCCEEDED, PI_STATUS_FAILED, PI_STATUS_CANCELED,
-    REFUND_STATUS_PENDING, REFUND_STATUS_SUCCEEDED,
-    REFUND_STATUS_FAILED, REFUND_STATUS_CANCELED,
 )
 
 log = logging.getLogger("payments.stripe")
@@ -66,7 +75,13 @@ class StripeProvider(PaymentProvider):
         # Delegate all boot-time validation + SDK init to stripe_config
         # (kept for backwards compat with existing tests). This module
         # never reads STRIPE_SECRET_KEY directly.
-        from stripe_config import configure_stripe, get_mode, get_publishable_key, is_configured, webhook_secret
+        from stripe_config import (
+            configure_stripe,
+            get_mode,
+            get_publishable_key,
+            is_configured,
+            webhook_secret,
+        )
         configure_stripe()
         if not is_configured():
             raise ProviderNotConfigured("STRIPE_SECRET_KEY not set")

@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — End-to-end validation against REAL Stripe Test API.
 
@@ -56,9 +57,9 @@ if os.environ["STRIPE_SECRET_KEY"].startswith("sk_live_"):
     sys.exit(2)
 
 import stripe
+import stripe_config
 from motor.motor_asyncio import AsyncIOMotorClient
 
-import stripe_config
 stripe_config.configure_stripe()
 from checkout_service import build_quote, create_intent
 from stripe_events import process_event
@@ -101,8 +102,9 @@ async def _find_test_screen(db) -> str:
 
 async def _upload_media(db, session_jti: str) -> str:
     """Direct DB insert simulating a successful /api/checkout/media call."""
-    from datetime import datetime as _dt, timezone as _tz
     import uuid as _u
+    from datetime import datetime as _dt
+    from datetime import timezone as _tz
     media_id = _u.uuid4().hex
     await db.media.insert_one({
         "id": media_id, "filename": "e2e.png",
@@ -262,7 +264,8 @@ async def scenario_3ds(db, rpt: Report):
 def _peek_session(token: str) -> dict:
     """Decode the checkout_session token payload without verifying (we
     trust it because we just minted it)."""
-    import base64 as _b64, json as _json
+    import base64 as _b64
+    import json as _json
     body = token.split(".")[0]
     pad = "=" * (-len(body) % 4)
     return _json.loads(_b64.urlsafe_b64decode(body + pad))

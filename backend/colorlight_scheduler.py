@@ -22,9 +22,9 @@ The job is idempotent: we record the last triggered action of the day per
 device in `colorlight_terminals.last_schedule_action` so the same command is
 not requeued repeatedly if the device stays online.
 """
+import logging
 import os
 import uuid
-import logging
 from datetime import datetime
 from typing import Optional
 

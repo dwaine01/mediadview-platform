@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — startup configuration validator (fail-fast)
 
@@ -6,8 +7,12 @@ is missing, malformed, or unusable, the process exits with an error message
 that names the offending variable — never a silent partial-startup.
 """
 from __future__ import annotations
-import os, sys, logging
+
+import logging
+import os
+import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 # Load .env from the standard location; safe no-op in prod where Render

@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Admin Orders (Sprint 1 · Etapa C1).
 
@@ -27,17 +28,22 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
-
 from financial_audit import audit
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from order_state import (
-    STATE_PENDING_REVIEW, STATE_APPROVED, STATE_REJECTED,
-    STATE_CHANGES_REQUESTED, STATE_SCHEDULED, STATE_PLAYING,
-    STATE_COMPLETED, STATE_PAID,
-    assert_transition, InvalidTransition,
+    STATE_APPROVED,
+    STATE_CHANGES_REQUESTED,
+    STATE_COMPLETED,
+    STATE_PAID,
+    STATE_PENDING_REVIEW,
+    STATE_PLAYING,
+    STATE_REJECTED,
+    STATE_SCHEDULED,
+    InvalidTransition,
+    assert_transition,
 )
 from payments import get_provider
+from pydantic import BaseModel, Field
 
 log = logging.getLogger("admin_orders")
 

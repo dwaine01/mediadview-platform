@@ -47,12 +47,12 @@ A35 INTEGRATION METHODS:
 """
 
 import argparse
+import base64
+import hashlib
 import json
 import os
 import sys
 import time
-import hashlib
-import base64
 from datetime import datetime
 
 try:

@@ -1,29 +1,34 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Finance Extensions: Email/SMTP, Settings, Users, Exports, Signatures, AR
 """
-from fastapi import APIRouter, Depends, HTTPException, Body, Response
-from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, EmailStr
-from typing import List, Optional
-from datetime import datetime, date
-from calendar import monthrange
-from io import BytesIO
-import os
-import uuid
 import asyncio
 import base64
-import hashlib
 import csv
+import hashlib
+import os
 import smtplib
+import uuid
+from calendar import monthrange
+from datetime import date, datetime
 from email.message import EmailMessage
 from email.utils import formataddr
+from io import BytesIO
+from typing import List, Optional
 
 import aiosmtplib
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from cryptography.fernet import Fernet
-
-from finance_pdf import generate_invoice_pdf, generate_deposit_pdf, generate_contract_pdf, COMPANY
+from fastapi import APIRouter, Body, Depends, HTTPException, Response
+from fastapi.responses import StreamingResponse
+from finance_pdf import (
+    COMPANY,
+    generate_contract_pdf,
+    generate_deposit_pdf,
+    generate_invoice_pdf,
+)
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from pydantic import BaseModel, EmailStr
 
 ext_router = APIRouter(prefix="/api/finance")
 

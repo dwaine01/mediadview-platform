@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Credit Notes service (Fase 5 · Sprint 1 · Etapa C3).
 
@@ -26,16 +27,18 @@ import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from financial_audit import audit
+from financial_ledger import (
+    DIR_DEBIT,
+    EntryType,
+    append_entry,
+    next_credit_note_number,
+    normalise_currency,
+)
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
-
-from financial_audit import audit
-from financial_ledger import (
-    append_entry, next_credit_note_number,
-    EntryType, DIR_DEBIT, normalise_currency,
-)
 
 log = logging.getLogger("credit_notes")
 

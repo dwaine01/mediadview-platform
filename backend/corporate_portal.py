@@ -14,11 +14,11 @@ Two responsibilities:
   2. Portal-side endpoints under /api/corporate/* consumed by the
      corporate-portal.js SPA piece.
 """
-from fastapi import APIRouter, Depends, HTTPException, Body
-from typing import Optional, List
-from datetime import datetime
 import uuid
+from datetime import datetime
+from typing import List, Optional
 
+from fastapi import APIRouter, Body, Depends, HTTPException
 
 corporate_router = APIRouter(prefix="/api/corporate")
 

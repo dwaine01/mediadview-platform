@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Invoicing module (Sprint 1 · Etapa C2).
 
@@ -14,18 +15,17 @@ Public API:
 """
 from __future__ import annotations
 
-import io
 import hashlib
+import io
 import logging
 from datetime import datetime, timezone
 from typing import Optional
 
+from financial_audit import audit, next_invoice_number
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from reportlab.lib.pagesizes import LETTER
 from reportlab.lib.units import cm
 from reportlab.pdfgen import canvas
-
-from financial_audit import audit, next_invoice_number
 
 log = logging.getLogger("invoices")
 

@@ -27,7 +27,6 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
-
 CSP_DIRECTIVES = (
     # default: same origin only
     "default-src 'self'; "

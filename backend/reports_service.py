@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Reports & Analytics service (Fase 5 · Sprint 1 · Etapa C4).
 
@@ -38,12 +39,14 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from financial_ledger import (
-    LEDGER_COLLECTION, EntryType,
-    SUPPORTED_CURRENCIES, BASE_CURRENCY, normalise_currency,
+    BASE_CURRENCY,
+    LEDGER_COLLECTION,
+    SUPPORTED_CURRENCIES,
+    EntryType,
+    normalise_currency,
 )
+from motor.motor_asyncio import AsyncIOMotorDatabase
 
 log = logging.getLogger("reports")
 

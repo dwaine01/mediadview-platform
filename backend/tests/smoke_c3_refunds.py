@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """Smoke test for Fase 5 · Sprint 1 · Etapa C3 (Refunds + Credit Notes + Ledger).
 
 Runs end-to-end on the LocalDevProvider. Covers every business rule
@@ -30,6 +31,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
+
 load_dotenv(Path(__file__).parent.parent / ".env")
 
 # Force dev provider
@@ -37,29 +39,43 @@ os.environ["PAYMENT_PROVIDER"] = "dev"
 os.environ.pop("STRIPE_SECRET_KEY", None)
 
 import payments
+
 payments.reset_provider_for_tests()
 
-from motor.motor_asyncio import AsyncIOMotorClient
-
-from stripe_indexes import ensure_stripe_indexes
 from financial_ledger import (
-    append_entry, EntryType, DIR_DEBIT, DIR_CREDIT, verify_chain,
-    total_refunded_for_order, total_paid_for_order,
+    DIR_CREDIT,
+    DIR_DEBIT,
     LEDGER_COLLECTION,
+    EntryType,
+    append_entry,
+    total_paid_for_order,
+    total_refunded_for_order,
+    verify_chain,
 )
-from refunds_service import (
-    request_refund, approve_refund, reject_refund,
-    RF_SUCCEEDED, RF_PENDING_DUAL, RF_REJECTED,
-)
+from motor.motor_asyncio import AsyncIOMotorClient
 from order_state import (
-    STATE_PAID, STATE_PENDING_REVIEW, STATE_APPROVED,
-    STATE_SCHEDULED, STATE_PLAYING, STATE_COMPLETED,
-    STATE_REFUND_PENDING, STATE_REFUNDED,
+    STATE_APPROVED,
+    STATE_COMPLETED,
+    STATE_PAID,
+    STATE_PENDING_REVIEW,
+    STATE_PLAYING,
+    STATE_REFUND_PENDING,
+    STATE_REFUNDED,
+    STATE_SCHEDULED,
 )
 from payments.base import (
-    REFUND_STATUS_SUCCEEDED, PI_STATUS_SUCCEEDED,
+    PI_STATUS_SUCCEEDED,
+    REFUND_STATUS_SUCCEEDED,
 )
-
+from refunds_service import (
+    RF_PENDING_DUAL,
+    RF_REJECTED,
+    RF_SUCCEEDED,
+    approve_refund,
+    reject_refund,
+    request_refund,
+)
+from stripe_indexes import ensure_stripe_indexes
 
 SCREEN_ID = "scr_smoke_c3"
 

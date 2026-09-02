@@ -22,7 +22,7 @@ import os
 from datetime import datetime, timezone
 from typing import Optional
 
-import stripe   # only for the type of exception in webhook parse
+import stripe  # only for the type of exception in webhook parse
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, Response
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -34,12 +34,15 @@ from checkout_service import (
     build_quote,
     create_intent,
     mint_order_token,
-    verify_order_token,
     stripe_configured_check,
+    verify_order_token,
 )
 from financial_audit import audit
 from payments import (
-    get_provider, ProviderError, CardError, SignatureVerificationError,
+    CardError,
+    ProviderError,
+    SignatureVerificationError,
+    get_provider,
 )
 from stripe_events import process_event
 
@@ -163,7 +166,9 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
         are rejected in `create-intent`.
         """
         from checkout_service import (
-            verify_checkout_session, ALLOWED_MEDIA_MIMES, MEDIA_MAX_BYTES,
+            ALLOWED_MEDIA_MIMES,
+            MEDIA_MAX_BYTES,
+            verify_checkout_session,
         )
         session = await verify_checkout_session(
             db, token=body.checkout_session, screen_id=body.screen_id)
@@ -178,8 +183,10 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
         if est_bytes > MEDIA_MAX_BYTES:
             raise HTTPException(413, "media exceeds size limit")
 
-        import base64 as _b64, uuid as _uuid
-        from datetime import datetime as _dt, timezone as _tz
+        import base64 as _b64
+        import uuid as _uuid
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
         try:
             payload = _b64.b64decode(body.data, validate=True)
         except Exception:
@@ -189,8 +196,13 @@ def build_stripe_router(db: AsyncIOMotorDatabase) -> APIRouter:
 
         # Write to R2 if enabled, otherwise legacy disk. Import from
         # storage.py directly (server.py just re-exports these names).
-        from storage import R2_ENABLED, _ext_of, build_key, r2_put_bytes, public_url_for_key
-        import os
+        from storage import (
+            R2_ENABLED,
+            _ext_of,
+            build_key,
+            public_url_for_key,
+            r2_put_bytes,
+        )
         MEDIA_DIR = os.environ.get("MEDIA_DIR", "/app/backend/media")
         media_id = _uuid.uuid4().hex
         ext = _ext_of(body.filename, body.content_type)

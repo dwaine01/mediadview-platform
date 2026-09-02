@@ -19,9 +19,10 @@ Admin endpoints (require finance role):
 """
 import secrets
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Header, Response
-from pydantic import BaseModel
 from typing import Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
+from pydantic import BaseModel
 
 
 class EnqueueRequest(BaseModel):
@@ -92,7 +93,11 @@ def create_finance_print_routes(db, get_current_user):
         if not job:
             raise HTTPException(404, "Job not found")
 
-        from finance_pdf import generate_invoice_pdf, generate_contract_pdf, generate_deposit_pdf
+        from finance_pdf import (
+            generate_contract_pdf,
+            generate_deposit_pdf,
+            generate_invoice_pdf,
+        )
         kind = job.get("kind", "invoice")
         doc_id = job.get("doc_id")
 

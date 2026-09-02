@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """Smoke test v2 for Fase 5 Sprint 1 Etapa B (post user-feedback).
 
 Covers:
@@ -29,20 +30,26 @@ os.environ["PAYMENT_PROVIDER"] = "dev"
 os.environ.pop("STRIPE_SECRET_KEY", None)   # ensure factory picks dev
 
 import payments
+
 payments.reset_provider_for_tests()
 
-from motor.motor_asyncio import AsyncIOMotorClient
-from stripe_indexes import ensure_stripe_indexes
 from checkout_service import (
-    build_quote, create_intent,
-    _confirm_slots, _release_slots,
-    verify_checkout_session,
     ALLOWED_MEDIA_MIMES,
+    _confirm_slots,
+    _release_slots,
+    build_quote,
+    create_intent,
+    verify_checkout_session,
+)
+from motor.motor_asyncio import AsyncIOMotorClient
+from order_state import (
+    STATE_CANCELLED,
+    STATE_PAID,
+    STATE_PAYMENT_FAILED,
+    STATE_PENDING_REVIEW,
 )
 from stripe_events import process_event
-from order_state import (
-    STATE_PAID, STATE_PENDING_REVIEW, STATE_PAYMENT_FAILED, STATE_CANCELLED,
-)
+from stripe_indexes import ensure_stripe_indexes
 
 
 class _FakePI:
@@ -119,9 +126,11 @@ async def main():
         if payload.content_type not in ALLOWED_MEDIA_MIMES:
             return {"error": "mime"}
         raw = base64.b64decode(payload.data)
-        from storage import _ext_of
         import uuid as _u
-        from datetime import datetime as _dt, timezone as _tz
+        from datetime import datetime as _dt
+        from datetime import timezone as _tz
+
+        from storage import _ext_of
         media_id = _u.uuid4().hex
         try:
             await db.media.insert_one({
@@ -191,7 +200,9 @@ async def main():
 
     # ── 5. Concurrency: two buyers, same slot, different quotes ──────
     print("── concurrency: two buyers for same slot ──")
-    from datetime import datetime as _dtn, timedelta as _tdn, timezone as _tzn
+    from datetime import datetime as _dtn
+    from datetime import timedelta as _tdn
+    from datetime import timezone as _tzn
     # Pick a start_at 30 days in the future (within the 90-day window)
     target_iso = (_dtn.now(_tzn.utc) + _tdn(days=30)).replace(minute=0, second=0, microsecond=0).isoformat()
 
@@ -223,7 +234,7 @@ async def main():
     losers = [x for x in results if not x["ok"]]
     assert len(winners) == 1 and len(losers) == 1, f"expected 1 winner 1 loser, got {results}"
     assert "slot" in losers[0]["err"].lower() or "conflict" in losers[0]["err"].lower(), losers
-    print(f"  1 winner, 1 loser (slot conflict) → OK")
+    print("  1 winner, 1 loser (slot conflict) → OK")
     print(f"  loser_msg: {losers[0]['err'][:80]}")
 
     # Cleanup smoke docs

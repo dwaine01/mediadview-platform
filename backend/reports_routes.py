@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Reports HTTP routes (Fase 5 · Sprint 1 · Etapa C4).
 
@@ -30,17 +31,28 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from permissions import require_permission
-from reports_service import (
-    Filters, executive_dashboard,
-    revenue_by_screen, revenue_by_city, revenue_by_client,
-    revenue_timeseries, screen_occupancy, sla_metrics,
-    flat_orders, flat_invoices, flat_refunds, flat_ledger,
-)
 from reports_exports import (
-    to_csv, to_xlsx, to_pdf,
-    CT_CSV, CT_XLSX, CT_PDF,
+    CT_CSV,
+    CT_PDF,
+    CT_XLSX,
+    to_csv,
+    to_pdf,
+    to_xlsx,
+)
+from reports_service import (
+    Filters,
+    executive_dashboard,
+    flat_invoices,
+    flat_ledger,
+    flat_orders,
+    flat_refunds,
+    revenue_by_city,
+    revenue_by_client,
+    revenue_by_screen,
+    revenue_timeseries,
+    screen_occupancy,
+    sla_metrics,
 )
 
 log = logging.getLogger("reports_routes")

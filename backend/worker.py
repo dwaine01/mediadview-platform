@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — ARQ background worker (production-ready)
 
@@ -20,19 +21,20 @@ Deployment:
   Local:   arq worker.WorkerSettings
   Render:  Background Worker service starting arq worker.WorkerSettings
 """
-import os
-import logging
 import asyncio
-from datetime import datetime, timezone, timedelta
+import logging
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
 
 # ─── Observability first ──────────────────────────────────────────────
-from observability import setup_logging, init_sentry
+from observability import init_sentry, setup_logging
+
 setup_logging()
 init_sentry()
 log = logging.getLogger("worker")

@@ -33,12 +33,12 @@ LOGS
 ----
 Activity is written to print_agent.log next to this script.
 """
-import os
-import sys
 import json
-import time
 import logging
+import os
 import subprocess
+import sys
+import time
 from pathlib import Path
 
 try:
@@ -49,8 +49,8 @@ except ImportError:
 
 # Optional Windows printing
 try:
-    import win32print
     import win32api
+    import win32print
     HAS_WIN32 = True
 except ImportError:
     HAS_WIN32 = False

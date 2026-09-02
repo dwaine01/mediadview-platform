@@ -1,5 +1,6 @@
 """Shared fixtures for MediAd View backend tests."""
 import os
+
 import pytest
 import requests
 from dotenv import load_dotenv

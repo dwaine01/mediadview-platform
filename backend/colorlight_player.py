@@ -23,17 +23,17 @@ MediaView admin uses /api/cls/... endpoints (Colorlight Server admin) to:
   • publish programs
   • see live device status
 """
-import os
-import json
 import base64
 import hashlib
-import secrets
+import json
 import logging
+import os
+import secrets
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Header, Request, Query, Body
-from fastapi.responses import FileResponse, Response, JSONResponse
+from fastapi import APIRouter, Body, Depends, Header, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)

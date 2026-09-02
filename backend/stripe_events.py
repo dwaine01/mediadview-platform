@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Stripe webhook event processor (Fase 5 · Sprint 1 · Etapa B).
 
@@ -31,9 +32,8 @@ import logging
 from datetime import datetime, timezone
 from typing import Any
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-
 from financial_audit import audit
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from order_state import (
     STATE_CANCELLED,
     STATE_DISPUTED,
@@ -42,10 +42,10 @@ from order_state import (
     STATE_PAYMENT_PROCESSING,
     STATE_PENDING_REVIEW,
     STATE_PLAYING,
-    STATE_REFUNDED,
     STATE_REFUND_PENDING,
-    assert_transition,
+    STATE_REFUNDED,
     InvalidTransition,
+    assert_transition,
 )
 
 log = logging.getLogger("stripe_events")

@@ -11,6 +11,7 @@ Requirements from review request:
   7. Regression: admin panel at panel.mediadview.com/ still responsive at 390x844.
 """
 import re
+
 import pytest
 import requests
 from bs4 import BeautifulSoup

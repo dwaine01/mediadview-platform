@@ -2,10 +2,11 @@
 MediAd View — ColorlightCloud Integration (us33.colorlightcloud.com)
 SAFE MODE: read-only by default. Publishing requires explicit user confirmation.
 """
-import os
 import logging
+import os
 from datetime import datetime
-from typing import Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional
+
 import requests
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -282,8 +283,8 @@ class ColorlightSession:
           - password (Secret Key): 15 chars [A-Za-z0-9]
           - email: 7-digit-number @lednets.com
         """
-        import secrets
         import random
+        import secrets
         import string
         alphabet = string.ascii_letters + string.digits
         username = "".join(secrets.choice(alphabet) for _ in range(12))

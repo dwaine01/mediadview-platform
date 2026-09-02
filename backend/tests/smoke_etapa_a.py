@@ -1,13 +1,17 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """Smoke test for Fase 5 Sprint 1 Etapa A. Run: python -m tests.smoke_etapa_a"""
-import asyncio, os, sys
+import asyncio
+import os
+import sys
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-from motor.motor_asyncio import AsyncIOMotorClient
 from financial_audit import audit, next_invoice_number
+from motor.motor_asyncio import AsyncIOMotorClient
 
 
 async def main():

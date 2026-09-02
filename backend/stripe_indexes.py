@@ -14,6 +14,7 @@ Rules for editing this file:
 from __future__ import annotations
 
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 log = logging.getLogger("stripe_indexes")

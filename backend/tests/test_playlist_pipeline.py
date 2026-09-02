@@ -6,10 +6,10 @@ transport so tests can run offline against local Mongo.
 
 Run:   cd /app && pytest backend/tests/test_playlist_pipeline.py -v
 """
-import os
-import sys
 import asyncio
 import base64
+import os
+import sys
 import uuid
 from datetime import datetime, timedelta
 
@@ -22,10 +22,13 @@ sys.path.insert(0, "/app/backend")
 os.environ.setdefault("JWT_SECRET", "test-secret-1234567890abcdef")
 
 from server import (  # type: ignore  # noqa: E402
-    db, is_campaign_playable, normalise_schedule, _norm_date, bump_playlist_version,
     PLAYABLE_STATUSES,
+    _norm_date,
+    bump_playlist_version,
+    db,
+    is_campaign_playable,
+    normalise_schedule,
 )
-
 
 # ---------- helpers ----------
 
@@ -142,6 +145,8 @@ def test_9_start_end_bounds_semantics():
 # quick TCP probe and skip cleanly if it isn't up.
 
 import socket
+
+
 def _backend_up():
     try:
         s = socket.create_connection(("127.0.0.1", 8001), timeout=1)

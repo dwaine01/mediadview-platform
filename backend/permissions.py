@@ -16,6 +16,7 @@ The single-role require_admin() legacy dep is kept for the many pre-Sprint-1
 routes that already use it. New routes SHOULD use require_permission().
 """
 from __future__ import annotations
+
 from fastapi import Depends, HTTPException
 
 # All known permissions in the system. Keep this list flat and grep-able.
@@ -109,7 +110,7 @@ def require_permission(perm: str):
         raise ValueError(f"unknown permission {perm!r}")
 
     # Import here to avoid circular import at module load.
-    from server import get_current_user   # type: ignore
+    from server import get_current_user  # type: ignore
 
     async def _dep(current_user: dict = Depends(get_current_user)) -> dict:
         if not user_has(current_user, perm):

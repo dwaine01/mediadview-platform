@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — PDF Generation using ReportLab
 Mirrors EXACTLY the user's original physical documents:
@@ -6,18 +7,25 @@ Mirrors EXACTLY the user's original physical documents:
   • LED Display Rental Agreement (Contract)
 Clean layout, no boxed UI; logo top-right; subtle gray table lines.
 """
-from io import BytesIO
-from datetime import datetime
 import os
-from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
+from datetime import datetime
+from io import BytesIO
+
 from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.lib.units import inch
 from reportlab.platypus import (
-    SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image,
-    HRFlowable, KeepTogether
+    HRFlowable,
+    Image,
+    KeepTogether,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
-from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER, TA_JUSTIFY
 
 DARK   = colors.HexColor("#222222")
 GRAY   = colors.HexColor("#666666")

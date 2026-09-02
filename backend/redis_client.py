@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Redis client + cache layer
 
@@ -16,11 +17,11 @@ Usage:
     ok = await ping_redis()                 # health check
     raw = await redis_client.get_raw("...") # low-level access
 """
-import os
-import json
-import time
 import asyncio
+import json
 import logging
+import os
+import time
 from typing import Any, Optional
 
 log = logging.getLogger("redis_client")

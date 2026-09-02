@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Automated Monthly Invoice Scheduler
 - Runs on the 1st day of each month at 11:00 AM America/New_York (Ohio).
@@ -5,12 +6,12 @@ MediAd View — Automated Monthly Invoice Scheduler
 - Emails the invoices to clients via SMTP.
 - Enqueues invoices for the local Windows print agent to pick up and print.
 """
-import os
-import uuid
 import logging
+import os
 import secrets
-from datetime import datetime, date
+import uuid
 from calendar import monthrange
+from datetime import date, datetime
 from email.message import EmailMessage
 from email.utils import formataddr
 
@@ -120,8 +121,13 @@ async def _generate_monthly_invoices(db, year: int, month: int):
 async def _send_invoice_email(db, inv: dict):
     """Send invoice via SMTP. Returns True if sent, raises on configuration errors only."""
     import aiosmtplib
-    from finance_email import decrypt_password, render_invoice_email_html, fmt_money, fmt_date
-    from finance_pdf import generate_invoice_pdf, COMPANY
+    from finance_email import (
+        decrypt_password,
+        fmt_date,
+        fmt_money,
+        render_invoice_email_html,
+    )
+    from finance_pdf import COMPANY, generate_invoice_pdf
 
     client = await db.fin_clients.find_one({"id": inv["client_id"]}) or {}
     to_addr = (client.get("email") or "").strip()

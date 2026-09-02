@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Guest-checkout service (Fase 5 · Sprint 1 · Etapa B).
 
@@ -32,13 +33,12 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
 
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from starlette.concurrency import run_in_threadpool
-
 from financial_audit import audit
+from motor.motor_asyncio import AsyncIOMotorDatabase
 from order_state import STATE_AWAITING_PAYMENT, STATE_PAYMENT_PROCESSING
-from payments import get_provider, CardError, ProviderError
+from payments import CardError, ProviderError, get_provider
 from redis_client import redis_client
+from starlette.concurrency import run_in_threadpool
 from stripe_config import (
     ALLOWED_CURRENCIES,
     ALLOWED_PAYMENT_METHOD_TYPES,

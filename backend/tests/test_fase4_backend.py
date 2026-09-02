@@ -25,7 +25,6 @@ import requests
 
 from tests.conftest import BASE_URL  # type: ignore
 
-
 # ── Credentials (from /app/memory/test_credentials.md + review request) ──
 SUPERADMIN = ("superadmin@mediadview.com", "SuperAdmin#2026")
 ADMIN_DEMO = ("admin.demo@mediadview.com", "AdminDemo#2026")
@@ -209,8 +208,8 @@ class TestBruteForceAndRateLimit:
         assert last.status_code == 429, f"expected a 429 within 7 tries, got {last.status_code}"
         keys = {k.lower() for k in last.headers.keys()}
         assert "x-ratelimit-limit" in keys, f"missing X-RateLimit-Limit: {dict(last.headers)}"
-        assert "x-ratelimit-remaining" in keys, f"missing X-RateLimit-Remaining"
-        assert "x-ratelimit-reset" in keys, f"missing X-RateLimit-Reset"
+        assert "x-ratelimit-remaining" in keys, "missing X-RateLimit-Remaining"
+        assert "x-ratelimit-reset" in keys, "missing X-RateLimit-Reset"
         assert last.headers.get("x-ratelimit-limit") == "5"
 
     def test_bruteforce_lockout_returns_429(self, api, mongo_db):

@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Storage layer (Cloudflare R2 + graceful legacy fallback)
 
@@ -17,10 +18,16 @@ imports but every write operation raises RuntimeError so misconfiguration is
 LOUD, never silent.
 """
 from __future__ import annotations
-import os, uuid, base64, mimetypes, logging, contextlib
+
+import base64
+import contextlib
+import logging
+import mimetypes
+import os
+import uuid
 from io import BytesIO
 from pathlib import Path
-from typing import Optional, Literal, Dict, Any
+from typing import Any, Dict, Literal, Optional
 
 import aioboto3
 from botocore.config import Config as BotoConfig

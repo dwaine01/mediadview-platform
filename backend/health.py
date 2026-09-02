@@ -1,10 +1,11 @@
 """
 Health + readiness endpoints for /api/health and /api/ready.
 """
+import logging
 import os
 import time
-import logging
 from datetime import datetime, timezone
+
 from fastapi import APIRouter, Response
 
 log = logging.getLogger("health")

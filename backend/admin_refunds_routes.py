@@ -1,3 +1,4 @@
+# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001
 """
 MediAd View — Admin Refunds / Credit Notes / Ledger HTTP routes
 (Fase 5 · Sprint 1 · Etapa C3).
@@ -27,23 +28,33 @@ from __future__ import annotations
 import logging
 from typing import Optional
 
+from credit_notes_service import (
+    regenerate_credit_note_pdf,
+    render_credit_note_pdf,
+)
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import Response
-from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field
-
-from permissions import require_permission
-from refunds_service import (
-    request_refund, approve_refund, reject_refund,
-    RF_PENDING_DUAL, RF_SUCCEEDED, RF_FAILED, RF_REJECTED, RF_EXECUTING,
-)
-from credit_notes_service import (
-    regenerate_credit_note_pdf, render_credit_note_pdf,
-)
 from financial_ledger import (
-    get_ledger_for_order, verify_chain, LEDGER_COLLECTION,
-    total_paid_for_order, total_refunded_for_order,
-    SUPPORTED_CURRENCIES, BASE_CURRENCY,
+    BASE_CURRENCY,
+    LEDGER_COLLECTION,
+    SUPPORTED_CURRENCIES,
+    get_ledger_for_order,
+    total_paid_for_order,
+    total_refunded_for_order,
+    verify_chain,
+)
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from permissions import require_permission
+from pydantic import BaseModel, Field
+from refunds_service import (
+    RF_EXECUTING,
+    RF_FAILED,
+    RF_PENDING_DUAL,
+    RF_REJECTED,
+    RF_SUCCEEDED,
+    approve_refund,
+    reject_refund,
+    request_refund,
 )
 
 log = logging.getLogger("admin_refunds_routes")

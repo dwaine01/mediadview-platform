@@ -9,8 +9,8 @@ Refundable:       paid, approved, scheduled, playing, completed
 Not refundable:   any state where Stripe never charged the card
 """
 from __future__ import annotations
-from typing import Optional
 
+from typing import Optional
 
 # ── Canonical set of states ────────────────────────────────────────────
 STATE_DRAFT              = "draft"

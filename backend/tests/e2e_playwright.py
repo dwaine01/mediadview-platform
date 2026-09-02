@@ -20,7 +20,6 @@ import sys
 
 from playwright.async_api import async_playwright
 
-
 BASE = "http://localhost:8001"
 ADMIN = "admin.demo@mediadview.com"
 PASS  = "AdminDemo#2026"
