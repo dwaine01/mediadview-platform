@@ -3,7 +3,7 @@
 # ══════════════════════════════════════════════════════════════════════
 # Runs on every push to main + every pull_request:
 #   1. lint       → syntax / static checks (ruff)
-#   2. test       → pytest suite against ephemeral Mongo + Redis
+#   2. test       → pytest suite against ephemeral Mongo + in-memory limits
 #   3. validate   → check .env.example completeness + secret scan
 #   4. docker     → build the production image (fail-fast if Dockerfile broken)
 #   5. deploy     → (disabled) hook to trigger Render deploy after CI green
@@ -58,18 +58,14 @@ jobs:
         options: >-
           --health-cmd "mongosh --eval 'db.adminCommand({ping:1})'"
           --health-interval 10s --health-timeout 5s --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports: ["6379:6379"]
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s --health-timeout 3s --health-retries 5
-
     env:
       ENVIRONMENT: test
       MONGO_URL:   mongodb://localhost:27017
       DB_NAME:     mediadview_ci
-      REDIS_URL:   redis://localhost:6379
+      # The rate-limit regression tests restart Uvicorn to clear counters.
+      # Keep CI on memory://; Redis persistence is an integration concern, not
+      # part of this deterministic backend suite.
+      REDIS_URL:   ""
       JWT_SECRET:  ci-jwt-secret-not-used-in-prod-2626262626262626
       CORS_ORIGINS: http://localhost:3000
       SKIP_SEED:   "false"
