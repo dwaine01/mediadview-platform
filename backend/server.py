@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
 # Load .env FIRST (before any module reads env vars) then run fail-fast validator.
 ROOT_DIR = Path(__file__).parent
@@ -18,6 +19,11 @@ from startup_check import validate_environment
 
 validate_environment()
 import base64
+import hashlib
+import html as html_lib
+import json
+import html as html_lib
+import json
 import logging
 import os
 import re
@@ -38,7 +44,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 # ============ CONFIGURATION ============
 
-MONGO_URL = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+MONGO_URL = os.environ['MONGO_URL']
 DB_NAME = os.environ.get('DB_NAME', 'mediaview_db')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 IS_PROD = ENVIRONMENT == 'production'
@@ -327,6 +333,90 @@ def is_campaign_playable(campaign: dict, now: Optional[datetime] = None) -> tupl
         return False, "no media assigned"
 
     return True, ""
+
+
+def _legacy_media_sha256(media: dict) -> Optional[str]:
+    """Return a verifiable SHA-256 for legacy disk media when available."""
+    existing = str(media.get("sha256") or "").lower()
+    if re.fullmatch(r"[0-9a-f]{64}", existing):
+        return existing
+    stored = media.get("stored_filename")
+    if not stored:
+        return None
+    path = os.path.join(MEDIA_DIR, stored)
+    if not os.path.isfile(path):
+        return None
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+async def build_screen_playlist_items(screen_id: str, include_widgets: bool = False) -> list:
+    """Canonical playlist builder shared by screen and device contracts.
+
+    Null schedule bounds are intentionally supported through
+    ``is_campaign_playable``. Missing/corrupt legacy files are excluded so a
+    player receives either playable content or a controlled empty state.
+    """
+    now = datetime.utcnow()
+    campaigns = await db.campaigns.find({
+        "screen_id": screen_id,
+        "status": {"$in": list(PLAYABLE_STATUSES)},
+    }).to_list(500)
+    items = []
+    for campaign in campaigns:
+        playable, reason = is_campaign_playable(campaign, now)
+        if not playable:
+            logger.debug("Campaign %s excluded from playlist: %s", campaign.get("id"), reason)
+            continue
+        schedule = campaign.get("schedule") or {}
+        for media_id in campaign.get("media_ids") or []:
+            media = await db.media.find_one({"id": media_id, "status": {"$ne": "pending"}})
+            if not media:
+                logger.warning("Playlist skipped missing media document %s", media_id)
+                continue
+            if media.get("storage", "legacy") == "legacy":
+                stored = media.get("stored_filename")
+                if not stored or not os.path.isfile(os.path.join(MEDIA_DIR, stored)):
+                    logger.error("Playlist skipped missing legacy file for media %s", media_id)
+                    continue
+            checksum = await run_in_threadpool(_legacy_media_sha256, media)
+            if checksum and media.get("sha256") != checksum:
+                await db.media.update_one({"id": media_id}, {"$set": {"sha256": checksum}})
+            media_url = f"/api/player/media/{media_id}"
+            items.append({
+                "campaign_id": campaign["id"],
+                "media_id": media_id,
+                "filename": media.get("filename"),
+                "content_type": media.get("content_type"),
+                "size": media.get("size", 0),
+                "duration": schedule.get("slot_duration", 15),
+                "rotation": media.get("rotation", 0),
+                "animation": media.get("animation", "fade"),
+                "media_url": media_url,
+                "download_url": media_url,
+                "checksum": checksum,
+            })
+
+    if include_widgets:
+        widgets = await db.widgets.find({"screen_id": screen_id, "enabled": True}).to_list(50)
+        for widget in widgets:
+            items.append({
+                "campaign_id": "widget",
+                "media_id": widget["id"],
+                "filename": widget.get("name", "Widget"),
+                "content_type": "widget",
+                "size": 0,
+                "duration": widget.get("duration", 30),
+                "rotation": 0,
+                "animation": "fade",
+                "media_url": f"/api/widgets/{widget['id']}/render",
+                "download_url": f"/api/widgets/{widget['id']}/render",
+                "checksum": None,
+            })
+    return items
 
 
 async def bump_playlist_version(screen_id: str, reason: str = ""):
@@ -1015,6 +1105,7 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         "id": file_id, "user_id": current_user["id"],
         "filename": data.filename, "content_type": data.content_type,
         "size": size, "type": kind,
+        "sha256": hashlib.sha256(file_bytes).hexdigest(),
         "created_at": datetime.utcnow(),
     }
 
@@ -1746,32 +1837,7 @@ async def get_playlist(screen_id: str):
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
     now = datetime.utcnow()
-    # Fetch every non-final campaign for this screen and let the central
-    # helper is_campaign_playable() decide eligibility — single source of
-    # truth for scheduling logic.
-    campaigns = await db.campaigns.find({
-        "screen_id": screen_id,
-        "status": {"$in": list(PLAYABLE_STATUSES)}
-    }).to_list(500)
-
-    items = []
-    for c in campaigns:
-        playable, _ = is_campaign_playable(c, now)
-        if not playable:
-            continue
-        s = c.get("schedule") or {}
-        for mid in c.get("media_ids", []):
-            media = await db.media.find_one({"id": mid})
-            if media:
-                items.append({
-                    "campaign_id": c["id"], "media_id": media["id"],
-                    "filename": media.get("filename"),
-                    "content_type": media.get("content_type"),
-                    "duration": s.get("slot_duration", 15),
-                    "rotation": media.get("rotation", 0),
-                    "animation": media.get("animation", "fade"),
-                    "media_url": f"/api/player/media/{media['id']}"
-                })
+    items = await build_screen_playlist_items(screen_id)
 
     return {
         "screen_id": screen_id,
@@ -1937,16 +2003,29 @@ async def player_media(media_id: str):
     media = await db.media.find_one({"id": media_id})
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
-    fp = os.path.join(MEDIA_DIR, media.get("stored_filename", ""))
-    if not os.path.exists(fp):
-        raise HTTPException(status_code=404, detail="File not found")
-    with open(fp, "rb") as f:
-        content = f.read()
+    if media.get("r2_key"):
+        result = open_media_for_response(media, media_dir=MEDIA_DIR)
+        return RedirectResponse(
+            url=result["value"],
+            status_code=302,
+            headers={"Cache-Control": "public, max-age=300"},
+        )
+    stored = media.get("stored_filename")
+    if stored:
+        path = os.path.join(MEDIA_DIR, stored)
+        if os.path.isfile(path):
+            return FileResponse(
+                path,
+                media_type=media.get("content_type", "application/octet-stream"),
+                filename=media.get("filename") or "media",
+                content_disposition_type="inline",
+                headers={"Cache-Control": "public, max-age=86400"},
+            )
+    result = await run_in_threadpool(open_media_for_response, media, MEDIA_DIR)
     return Response(
-        content=content,
-        media_type=media.get("content_type", "application/octet-stream"),
-        headers={"Content-Disposition": "attachment; filename=media",
-                 "Cache-Control": "public, max-age=86400"}
+        content=result["value"],
+        media_type=result.get("mime") or media.get("content_type", "application/octet-stream"),
+        headers={"Content-Disposition": "inline", "Cache-Control": "public, max-age=86400"},
     )
 
 # ============ WEB PLAYER ENGINE (Production-Grade HTML5 Digital Signage) ============
@@ -1959,17 +2038,20 @@ async def web_player(screen_id: str):
         raise HTTPException(status_code=404, detail="Screen not found")
     sn = screen.get('name', 'Screen')
     res = screen.get('specs', {}).get('resolution', '1920x1080')
-    html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"><meta name="mobile-web-app-capable" content="yes"><title>MediaView - ' + sn + '</title>'
+    sn_html = html_lib.escape(str(sn))
+    res_html = html_lib.escape(str(res))
+    sid_js, sn_js, res_js = json.dumps(screen_id), json.dumps(sn), json.dumps(res)
+    html = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"><meta name="mobile-web-app-capable" content="yes"><title>MediaView - ' + sn_html + '</title>'
     html += '<style>*{margin:0;padding:0;box-sizing:border-box}html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:Segoe UI,Arial,sans-serif;cursor:none}body.sc{cursor:default}#ml{width:100%;height:100%;position:absolute;top:0;left:0;display:flex;align-items:center;justify-content:center}#ml img,#ml video{width:100%;height:100%;object-fit:contain;position:absolute;top:0;left:0}video::-webkit-media-controls{display:none!important}video::-webkit-media-controls-play-button{display:none!important}video::-webkit-media-controls-overlay-play-button{display:none!important}video::-webkit-media-controls-start-playback-button{display:none!important}@keyframes fi{from{opacity:0}to{opacity:1}}.fi{animation:fi .8s ease}@keyframes sl{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}.sl{animation:sl .6s ease}@keyframes zm{from{transform:scale(1.2);opacity:0}to{transform:scale(1);opacity:1}}.zm{animation:zm .8s ease}'
     html += '#fb{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(135deg,#0F172A,#312E81 45%,#5B21B6);text-align:center;padding:40px;z-index:100}#fb .lg{width:110px;height:110px;border-radius:26px;background:linear-gradient(135deg,#EC4899,#8B5CF6);display:flex;align-items:center;justify-content:center;margin-bottom:28px;box-shadow:0 0 80px rgba(139,92,246,.5)}#fb .lg span{font-size:52px;font-weight:900;color:#fff;letter-spacing:-2px}#fb h1{font-size:56px;font-weight:900;color:#fff;letter-spacing:-1px;margin-bottom:8px;text-shadow:0 4px 20px rgba(0,0,0,.5)}#fb h2{font-size:22px;color:#C4B5FD;margin-top:4px;font-weight:600}#fb .dv{width:120px;height:3px;background:linear-gradient(90deg,#EC4899,#8B5CF6,#06B6D4);border-radius:2px;margin:32px 0}#fb .st{font-size:20px;color:#E9D5FF;font-weight:600;letter-spacing:.5px}#fb .su{font-size:15px;color:#A78BFA;margin-top:12px;letter-spacing:.3px;max-width:600px}#fb .bd{margin-top:36px;padding:10px 22px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:100px;font-size:12px;color:#DDD6FE;letter-spacing:2px;text-transform:uppercase;font-weight:700}.pu{animation:pu 2s ease-in-out infinite}@keyframes pu{0%,100%{opacity:1}50%{opacity:.55}}'
     html += '#hud{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.9);color:#E2E8F0;font-size:13px;padding:24px 32px;display:none;overflow-y:auto;z-index:1000}#hud.v{display:block}#hud h2{font-size:20px;font-weight:700;color:#A5B4FC;margin-bottom:16px;border-bottom:1px solid #1E293B;padding-bottom:8px}#hud .s{margin-bottom:14px}#hud .s h3{font-size:11px;font-weight:700;color:#6366F1;text-transform:uppercase;letter-spacing:1.5px;margin-bottom:6px}#hud .r{display:flex;justify-content:space-between;padding:5px 0;border-bottom:1px solid #111827}#hud .r .l{color:#64748B}#hud .r .vl{color:#E2E8F0;font-weight:600;text-align:right;max-width:60%}.g{color:#10B981!important}.rd{color:#EF4444!important}.y{color:#F59E0B!important}#hud .le{padding:3px 0;border-bottom:1px solid #111827;font-family:monospace;font-size:11px}#hud .le.er{color:#FCA5A5}#hud .ch{position:fixed;bottom:16px;right:24px;font-size:12px;color:#475569}'
     html += '#sb{position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,.7);color:#fff;padding:8px 20px;font-size:12px;display:flex;justify-content:space-between;align-items:center;opacity:0;transition:opacity .4s;z-index:500}#sb.v{opacity:1}#sb .br{display:flex;align-items:center;gap:8px}#sb .dt{width:8px;height:8px;border-radius:4px}'
-    html += '</style></head><body><div id="player"><div id="ml"></div><div id="fb"><div class="lg"><span>MV</span></div><h1>MediAd View</h1><h2>' + sn + '</h2><div class="dv"></div><p class="st pu" id="fbs">Connecting to server\u2026</p><p class="su" id="fbu">Waiting for content</p><div class="bd">Screen ready \u00b7 ' + res + '</div></div></div>'
-    html += '<div id="sb"><div class="br"><span class="dt" id="sbd" style="background:#10B981"></span><span>MediAd View</span><span style="color:#6366F1">' + sn + '</span></div><span id="sbi">Loading...</span><span id="sbt"></span></div>'
+    html += '</style></head><body><div id="player"><div id="ml"></div><div id="fb"><div class="lg"><span>MV</span></div><h1>MediAd View</h1><h2>' + sn_html + '</h2><div class="dv"></div><p class="st pu" id="fbs">Connecting to server\u2026</p><p class="su" id="fbu">Waiting for content</p><div class="bd">Screen ready \u00b7 ' + res_html + '</div></div></div>'
+    html += '<div id="sb"><div class="br"><span class="dt" id="sbd" style="background:#10B981"></span><span>MediAd View</span><span style="color:#6366F1">' + sn_html + '</span></div><span id="sbi">Loading...</span><span id="sbt"></span></div>'
     html += '<div id="hud"><h2>MediAd View Player - Diagnostics</h2><div id="hc"></div><div class="ch">Press i or click to close</div></div>'
     html += """<script>
 (function(){
-var SID='""" + screen_id + """',SN='""" + sn + """',RES='""" + res + r"""',AB=location.origin,PI=15000,HI=30000,V='2.5.1';
+var SID=""" + sid_js + """,SN=""" + sn_js + """,RES=""" + res_js + r""",AB=location.origin,PI=15000,HI=30000,V='3.0.0';
 var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false,pv=-1,DEV=(location.search.indexOf('dev=1')>=0);
 function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
 // Lightweight version check: only fetch full playlist if it actually changed.
@@ -1977,9 +2059,9 @@ async function fv(){try{var r=await fetch(AB+'/api/player/'+SID+'/version');if(!
 async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;if(d.playlist_version!=null)pv=d.playlist_version;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
-if(pl.length>0&&!ip){sf(false);pn();pdc()}else if(pl.length===0){fdr()}
+if(pl.length>0&&!ip){pn();pdc()}else if(pl.length===0){fdr()}
 }catch(e){io=true;rc++;le=e.message;log('warn','Fetch failed: '+e.message+' (#'+rc+')');
-if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);sf(false);pn()}}}catch(x){}}
+if(pl.length===0){try{var c=localStorage.getItem('mvp_'+SID);if(c){var it=JSON.parse(c);if(it.length>0){pl=it;log('info','Cache loaded: '+it.length);pn()}}}catch(x){}}
 if(pl.length===0){sf(true,'Waiting for content','Auto-retry active')}}}
 // Diagnostic fallback: in DEV mode call /diagnose to explain why the
 // playlist is empty. In production show a clean customer-friendly message
@@ -2004,8 +2086,8 @@ sf(true,msg,sub)
 function pm(i){if(mc[i.media_id])return;var u=AB+i.media_url;if(i.content_type&&i.content_type.startsWith('image/')){var img=new Image();img.src=u;mc[i.media_id]={t:'image',u:u}}else{mc[i.media_id]={t:'video',u:u}}}
 function pn(){if(pl.length===0)return;ci=(ci+1)%pl.length;var it=pl[ci],u=AB+it.media_url,ii=it.content_type&&it.content_type.startsWith('image/');ip=true;tp++;clearTimeout(pt);
 var c=document.getElementById('ml');c.innerHTML='';
-if(ii){var img=document.createElement('img');img.src=gcu(it);var ac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';img.className=ac;img.onerror=function(){log('error','Img fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(img);pt=setTimeout(pn,(it.duration||15)*1e3)}
-else{var vid=document.createElement('video');vid.src=u;vid.autoplay=true;vid.muted=true;vid.playsInline=true;vid.setAttribute('playsinline','');vid.setAttribute('webkit-playsinline','');vid.preload='auto';vid.poster='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';var vac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';vid.className=vac;vid.onended=pn;vid.onerror=function(){log('error','Vid fail: '+it.filename);pt=setTimeout(pn,2e3)};c.appendChild(vid);vid.play().catch(function(){vid.muted=true;vid.play()});pt=setTimeout(pn,Math.max((it.duration||15)*1e3,6e4))}
+if(ii){var img=document.createElement('img');img.src=gcu(it);var ac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';img.className=ac;img.onload=function(){sf(false)};img.onerror=function(){log('error','Img fail: '+it.filename);sf(true,'Image unavailable','Trying the next item');pt=setTimeout(pn,2e3)};c.appendChild(img);pt=setTimeout(pn,(it.duration||15)*1e3)}
+else{var vid=document.createElement('video');vid.src=u;vid.autoplay=true;vid.muted=true;vid.playsInline=true;vid.setAttribute('playsinline','');vid.setAttribute('webkit-playsinline','');vid.preload='auto';vid.poster='data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';var vac=it.animation==='slide'?'sl':it.animation==='zoom'?'zm':it.animation==='none'?'':'fi';vid.className=vac;vid.onplaying=function(){sf(false)};vid.onended=pn;vid.onerror=function(){log('error','Vid fail: '+it.filename);sf(true,'Video unavailable','Trying the next item');pt=setTimeout(pn,2e3)};c.appendChild(vid);vid.play().catch(function(){vid.muted=true;vid.play().catch(function(){vid.onerror()})});pt=setTimeout(pn,Math.max((it.duration||15)*1e3,6e4))}
 usb();log('info','Play: '+it.filename+' ('+(ci+1)+'/'+pl.length+')')}
 function sf(s,m,su){var el=document.getElementById('fb');el.style.display=s?'flex':'none';if(m)document.getElementById('fbs').textContent=m;if(su)document.getElementById('fbu').textContent=su;if(s)ip=false}
 async function hb(){try{await fetch(AB+'/api/player/'+SID+'/status')}catch(e){}}
@@ -2537,53 +2619,10 @@ async def device_playlist(device_id: str):
     screen = await db.screens.find_one({"id": screen_id})
 
     now = datetime.utcnow()
-    cd = now.strftime("%Y-%m-%d")
-    ct = now.strftime("%H:%M")
-
-    campaigns = await db.campaigns.find({
-        "screen_id": screen_id, "status": {"$in": ["approved", "active"]},
-        "schedule.start_date": {"$lte": cd}, "schedule.end_date": {"$gte": cd}
-    }).to_list(100)
-
-    items = []
-    for c in campaigns:
-        s = c.get("schedule", {})
-        if s.get("start_time", "00:00") <= ct <= s.get("end_time", "23:59"):
-            for mid in c.get("media_ids", []):
-                media = await db.media.find_one({"id": mid})
-                if media:
-                    items.append({
-                        "campaign_id": c["id"],
-                        "media_id": media["id"],
-                        "filename": media.get("filename"),
-                        "content_type": media.get("content_type"),
-                        "size": media.get("size", 0),
-                        "duration": s.get("slot_duration", 15),
-                        "rotation": media.get("rotation", 0),
-                        "animation": media.get("animation", "fade"),
-                        "download_url": f"/api/player/media/{media['id']}",
-                        "checksum": media.get("id"),
-                    })
+    items = await build_screen_playlist_items(screen_id, include_widgets=True)
 
     # Update last_sync
     await db.devices.update_one({"id": device_id}, {"$set": {"last_sync": datetime.utcnow()}})
-
-    # Add enabled widgets for this screen
-    widgets = await db.widgets.find({"screen_id": screen_id, "enabled": True}).to_list(50)
-    for w in widgets:
-        items.append({
-            "campaign_id": "widget",
-            "media_id": w["id"],
-            "filename": w.get("name", "Widget"),
-            "content_type": "widget",
-            "size": 0,
-            "duration": w.get("duration", 30),
-            "rotation": 0,
-            "animation": "fade",
-            "download_url": f"/api/widgets/{w['id']}/render",
-            "widget_type": w.get("widget_type"),
-            "checksum": w["id"],
-        })
 
     return {
         "device_id": device_id,
@@ -2591,6 +2630,7 @@ async def device_playlist(device_id: str):
         "screen_name": screen.get("name") if screen else "Unknown",
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080") if screen else "1920x1080",
         "generated_at": now.isoformat(),
+        "playlist_version": screen.get("playlist_version", 0) if screen else 0,
         "total_items": len(items),
         "items": items,
         "loop": True,

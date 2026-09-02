@@ -1,69 +1,59 @@
 package com.mediaview.player
 
+import android.app.AlarmManager
 import android.app.Application
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.os.SystemClock
 import android.util.Log
-import kotlinx.coroutines.launch
 
-/**
- * MediAd View Player Application class.
- * Handles global crash recovery and app initialization.
- * v2.0 - Optimized for Colorlight A40 + Android TV
- */
 class PlayerApp : Application() {
-
     companion object {
         const val TAG = "MediAdView"
-        // Default backend URL — can be overridden at runtime via SharedPreferences ("server_url")
         const val DEFAULT_SERVER_URL = "https://mediadview.com"
     }
 
     override fun onCreate() {
         super.onCreate()
-        Log.i(TAG, "========================================")
-        Log.i(TAG, "MediAd View Player v${BuildConfig.VERSION_NAME} (build ${BuildConfig.VERSION_CODE})")
-        Log.i(TAG, "Device: ${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}")
-        Log.i(TAG, "Android: ${android.os.Build.VERSION.RELEASE} (SDK ${android.os.Build.VERSION.SDK_INT})")
-        Log.i(TAG, "device_id: ${DeviceIdentity.getDeviceId(this)}")
-        Log.i(TAG, "paired: ${DeviceIdentity.isRegistered(this)}")
-        Log.i(TAG, "========================================")
-        setupCrashRecovery()
-
-        // Schedule heartbeat ONLY if device is paired
-        if (DeviceIdentity.isRegistered(this)) {
-            try { HeartbeatWorker.enqueuePeriodic(this) }
-            catch (e: Exception) { Log.e(TAG, "Failed to enqueue heartbeat: ${e.message}") }
+        DeviceIdentity.migrateLegacy(this)
+        Log.i(TAG, "Player ${BuildConfig.VERSION_NAME}; device=${DeviceIdentity.getDeviceId(this)}")
+        installCrashRecovery()
+        if (!DeviceIdentity.getBackendDeviceId(this).isNullOrBlank()) {
+            runCatching { HeartbeatWorker.enqueuePeriodic(this) }
+                .onFailure { Log.e(TAG, "Heartbeat schedule failed", it) }
         }
     }
 
-    /**
-     * Global crash handler: restarts the app automatically on unhandled exceptions.
-     * Critical for 24/7 digital signage operation.
-     * Uses multiple recovery strategies:
-     * 1. Restart main activity
-     * 2. Kill and restart process
-     */
-    private fun setupCrashRecovery() {
-        val defaultHandler = Thread.getDefaultUncaughtExceptionHandler()
-
+    private fun installCrashRecovery() {
+        val systemHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
-            Log.e(TAG, "CRASH DETECTED: ${throwable.message}", throwable)
-
-            try {
-                // Strategy 1: Restart the main activity
-                val intent = packageManager.getLaunchIntentForPackage(packageName)
-                intent?.addFlags(
-                    android.content.Intent.FLAG_ACTIVITY_NEW_TASK or
-                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
-                )
-                startActivity(intent)
-
-                // Kill current process after a short delay
-                Thread.sleep(500)
-                android.os.Process.killProcess(android.os.Process.myPid())
-            } catch (e: Exception) {
-                Log.e(TAG, "Failed to restart after crash", e)
-                defaultHandler?.uncaughtException(thread, throwable)
+            Log.e(TAG, "Uncaught player crash", throwable)
+            runCatching {
+                getSharedPreferences("player_crash", Context.MODE_PRIVATE).edit()
+                    .putString("last_crash", "${throwable.javaClass.simpleName}: ${throwable.message}")
+                    .putLong("last_crash_at", System.currentTimeMillis())
+                    .commit()
+                val launchIntent = packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                }
+                if (launchIntent != null) {
+                    val pendingIntent = PendingIntent.getActivity(
+                        this,
+                        9301,
+                        launchIntent,
+                        PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                    )
+                    val alarm = getSystemService(Context.ALARM_SERVICE) as AlarmManager
+                    alarm.set(
+                        AlarmManager.ELAPSED_REALTIME,
+                        SystemClock.elapsedRealtime() + 3_000,
+                        pendingIntent,
+                    )
+                }
             }
+            systemHandler?.uncaughtException(thread, throwable)
+                ?: android.os.Process.killProcess(android.os.Process.myPid())
         }
     }
 }

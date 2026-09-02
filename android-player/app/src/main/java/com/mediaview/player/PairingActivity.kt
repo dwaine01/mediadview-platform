@@ -63,6 +63,7 @@ class PairingActivity : AppCompatActivity() {
     private lateinit var statusText: TextView
     private lateinit var subStatusText: TextView
     private lateinit var retryButton: Button
+    private lateinit var homeButton: Button
     private lateinit var statusDot: View
 
     private var job: Job? = null
@@ -100,6 +101,7 @@ class PairingActivity : AppCompatActivity() {
                 or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
 
         clientUuid = DeviceIdentity.getDeviceId(this)
+        PlayerDiagnostics.identity(null, false)
         // Restore previous server-issued device_id + code if we already registered.
         val pairPrefs = getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE)
         serverDeviceId = pairPrefs.getString(KEY_SERVER_DEVICE_ID, "") ?: ""
@@ -291,6 +293,19 @@ class PairingActivity : AppCompatActivity() {
         retryButton.layoutParams = retryParams
         content.addView(retryButton)
 
+        homeButton = Button(this).apply {
+            text = "CONFIGURE AUTO-START"
+            setTextColor(colorTextBody)
+            setBackgroundColor(colorCardBg)
+            visibility = if (KioskSetup.isDefaultHome(this@PairingActivity)) View.GONE else View.VISIBLE
+            setOnClickListener { KioskSetup.requestHomeRole(this@PairingActivity) }
+        }
+        homeButton.layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+        ).apply { topMargin = dp(16); gravity = Gravity.CENTER }
+        content.addView(homeButton)
+
         val footer = TextView(this).apply {
             text = "v${BuildConfig.VERSION_NAME}  \u2022  mediadview.com"
             textSize = 10f
@@ -386,6 +401,7 @@ class PairingActivity : AppCompatActivity() {
             true
         } catch (e: Exception) {
             Log.e(PlayerApp.TAG, "Pairing: register failed: ${e.message}")
+            PlayerDiagnostics.playerError("pairing register: ${e.message}")
             withContext(Dispatchers.Main) {
                 // If we already had a cached code from before, keep showing it —
                 // don't nuke the code just because network is momentarily down.
@@ -430,18 +446,25 @@ class PairingActivity : AppCompatActivity() {
                         .apply()
                 }
 
-                if (status == "active") {
-                    val screenId = res.optString("screen_id", "")
+                val screenId = res.optString("screen_id", "")
+                if (PairingPolicy.decide(status, screenId) == PairingDecision.INVALID_ACTIVE_STATE) {
+                    throw IllegalStateException("active device has no screen_id")
+                }
+                if (PairingPolicy.decide(status, screenId) == PairingDecision.START_PLAYER) {
                     val screenName = res.optString("screen_name", "")
                     val serverUrl = res.optString("server_url", "")
                     if (serverUrl.isNotBlank()) {
                         PlayerApi.setBaseUrl(this@PairingActivity, serverUrl)
                     }
-                    getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE)
-                        .edit()
-                        .putString(MainActivity.PREF_SCREEN_ID, screenId)
-                        .putString(MainActivity.PREF_DEVICE_NAME, screenName)
-                        .apply()
+                    DeviceIdentity.markPaired(
+                        this@PairingActivity,
+                        pollId,
+                        lastActivationCode,
+                        screenId,
+                        screenName,
+                    )
+                    PlayerDiagnostics.identity(screenId, true)
+                    HeartbeatWorker.enqueuePeriodic(this@PairingActivity)
 
                     withContext(Dispatchers.Main) {
                         codeText.text = formatCode(lastActivationCode)
@@ -461,6 +484,7 @@ class PairingActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 Log.w(PlayerApp.TAG, "Pairing: check failed (#$checkCount): ${e.message}")
+                PlayerDiagnostics.playerError("pairing check: ${e.message}")
                 withContext(Dispatchers.Main) {
                     subStatusText.text = "check #$checkCount  \u2022  retrying network"
                 }
@@ -526,8 +550,7 @@ class PairingActivity : AppCompatActivity() {
             .setNegativeButton("Reset device") { _, _ ->
                 job?.cancel()
                 pulseAnim?.cancel()
-                getSharedPreferences("mediaview_identity", Context.MODE_PRIVATE)
-                    .edit().clear().apply()
+                DeviceIdentity.clearPairing(this)
                 getSharedPreferences(MainActivity.PREF_NAME, Context.MODE_PRIVATE)
                     .edit().clear().apply()
                 getSharedPreferences(PAIR_PREFS, Context.MODE_PRIVATE)
@@ -542,5 +565,12 @@ class PairingActivity : AppCompatActivity() {
         job?.cancel()
         pulseAnim?.cancel()
         super.onDestroy()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::homeButton.isInitialized) {
+            homeButton.visibility = if (KioskSetup.isDefaultHome(this)) View.GONE else View.VISIBLE
+        }
     }
 }

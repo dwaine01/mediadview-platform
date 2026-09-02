@@ -157,15 +157,11 @@ class SetupActivity : AppCompatActivity() {
                 val backendId = res.optString("device_id")
                 val screenName = res.optString("screen_name", "-")
                 val screenId   = res.optString("screen_id")
-                DeviceIdentity.markRegistered(this@SetupActivity, backendId, code)
-                // Save the screen_id for the player to load
-                getSharedPreferences("mediaview_identity", Context.MODE_PRIVATE).edit()
-                    .putString("screen_id", screenId)
-                    .putString("screen_name", screenName)
-                    .apply()
+                DeviceIdentity.markPaired(this@SetupActivity, backendId, code, screenId, screenName)
+                HeartbeatWorker.enqueuePeriodic(this@SetupActivity)
                 withContext(Dispatchers.Main) {
                     statusView.setTextColor(Color.parseColor("#86EFAC"))
-                    statusView.text = "✓ Connected to: $screenName\nStarting playback..."
+                    statusView.text = "Connected to: $screenName\nStarting playback..."
                     // After 1.2s, launch MainActivity
                     connectBtn.postDelayed({
                         startActivity(Intent(this@SetupActivity, MainActivity::class.java).apply {
@@ -180,7 +176,7 @@ class SetupActivity : AppCompatActivity() {
                     connectBtn.isEnabled = true
                     connectBtn.text = "Connect Device"
                     statusView.setTextColor(Color.parseColor("#FCA5A5"))
-                    statusView.text = "✗ ${msg.take(200)}"
+                    statusView.text = "Error: ${msg.take(200)}"
                 }
             }
         }

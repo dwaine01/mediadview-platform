@@ -1,11 +1,12 @@
-# MediAd View Player v2.0 - Guia de Produccion
-# Compatible con: Colorlight A40, Android TV, Google TV, Fire TV
+# MediAd View Player v3.0 - Guía de Producción
+# Compatible con: onn Android TV/Google TV, Android TV, Colorlight A40, Fire TV
 
 ## TABLA DE COMPATIBILIDAD
 
 | Dispositivo | Instalar APK | Auto-inicio | Kiosk 24/7 | Recomendado |
 |---|---|---|---|---|
-| **Colorlight A40** | SI (firmware custom) | SI (firmware) | SI | ★★★★★ |
+| **onn 4K / onn 4K Pro** | SI via ADB/red | SI como HOME | SI tras provisión | ★★★★★ |
+| Colorlight A40 | SI (firmware custom) | SI (firmware) | SI | ★★★★★ |
 | NVIDIA Shield TV Pro | SI via ADB | SI (boot receiver) | SI | ★★★★ |
 | Mecool KM2 Plus | SI via ADB | SI | SI | ★★★★ |
 | Sony BRAVIA BZ30L | SI via ADB | SI | SI (rated 24/7) | ★★★★ |
@@ -14,7 +15,28 @@
 
 ---
 
-## 1. COLORLIGHT A40 (RECOMENDADO)
+## 1. ONN ANDROID TV / GOOGLE TV (OBJETIVO DE VALIDACIÓN)
+
+### 1.1 Preparación
+1. Conectar el onn al televisor y a la misma red del computador.
+2. Activar Developer options y Wireless debugging/USB debugging.
+3. Instalar `mediaview-player-v3.0.0-diagnostic.apk` mediante ADB.
+
+```bash
+adb connect IP_DEL_ONN:5555
+adb install -r mediaview-player-v3.0.0-diagnostic.apk
+adb shell cmd package set-home-activity com.mediaview.player/.MainActivity
+adb shell am start -n com.mediaview.player/.MainActivity
+```
+
+El comando HOME es importante: Android/Google TV moderno puede bloquear el inicio
+de Activities desde `BOOT_COMPLETED`. Como HOME, el sistema inicia el player al
+arrancar. La instalación de futuras APK puede seguir mostrando confirmación del
+sistema si el onn no está provisionado como Device Owner.
+
+---
+
+## 2. COLORLIGHT A40
 
 ### 1.1 Requisitos
 - Colorlight A40 con **firmware personalizado** de Colorlight
@@ -33,7 +55,7 @@ Con el firmware actualizado:
 1. Abrir PlayerMaster
 2. Seleccionar Terminal (A40) en la lista
 3. Ir a **Advanced > Custom APK Installation**
-4. Seleccionar `mediaview-player-v2.0.0.apk`
+4. Seleccionar `mediaview-player-v3.0.0.apk`
 5. Esperar la instalacion
 
 ### 1.4 Instalar APK via ADB (Alternativa)
@@ -43,7 +65,7 @@ adb connect [IP_DEL_A40]:5555
 adb devices
 
 # Instalar
-adb install mediaview-player-v2.0.0.apk
+adb install mediaview-player-v3.0.0.apk
 
 # Configurar como launcher predeterminado
 adb shell cmd package set-home-activity com.mediaview.player/.MainActivity
@@ -52,19 +74,10 @@ adb shell cmd package set-home-activity com.mediaview.player/.MainActivity
 adb shell am start -n com.mediaview.player/.MainActivity
 ```
 
-### 1.5 Configurar Server URL
-Opcion A - Via ADB:
-```bash
-adb shell am start -n com.mediaview.player/.MainActivity \
-  --es server_url "https://app.mediadview.com" \
-  --es screen_id "TU_SCREEN_ID"
-```
-
-Opcion B - Via Menu Oculto:
-1. Con un teclado USB o control remoto, presionar **Menu 5 veces rapido**
-2. Se abre el dialogo de configuracion
-3. Ingresar URL del servidor y Screen ID
-4. Presionar Guardar
+### 1.5 Vincular dispositivo
+1. Abrir el player y anotar el código estable de seis caracteres.
+2. En el panel, abrir **Devices > Link Device by Code**.
+3. Seleccionar la pantalla; `screen_id` y URL se guardan en la identidad nativa.
 
 ### 1.6 Auto-inicio
 Con el firmware personalizado de Colorlight:
@@ -74,7 +87,7 @@ Con el firmware personalizado de Colorlight:
 
 ---
 
-## 2. ANDROID TV / GOOGLE TV
+## 3. OTROS ANDROID TV / GOOGLE TV
 
 ### 2.1 Habilitar Developer Mode
 1. Settings > System > About
@@ -89,7 +102,7 @@ adb connect [IP_DE_LA_TV]:5555
 adb devices
 
 # Instalar
-adb install mediaview-player-v2.0.0.apk
+adb install mediaview-player-v3.0.0.apk
 
 # Configurar como Home (auto-inicio)
 adb shell cmd package set-home-activity com.mediaview.player/.MainActivity
@@ -108,7 +121,7 @@ TCL tiene restricciones extra ("Safe Guard"):
 
 ---
 
-## 3. FIRE TV / FIRE TV STICK
+## 4. FIRE TV / FIRE TV STICK
 
 ### 3.1 Habilitar Developer Mode
 1. Settings > My Fire TV > About
@@ -119,7 +132,7 @@ TCL tiene restricciones extra ("Safe Guard"):
 ### 3.2 Instalar
 ```bash
 adb connect [IP]:5555
-adb install mediaview-player-v2.0.0.apk
+adb install mediaview-player-v3.0.0.apk
 ```
 
 ---
@@ -156,24 +169,21 @@ Para distribucion:
 
 ### 5.1 Menu Oculto de Configuracion
 Acceso: Presionar tecla **Menu** 5 veces rapido, o mantener presionado **OK/Enter** 5 segundos.
-- Cambiar URL del servidor
-- Cambiar Screen ID
 - Ver info del dispositivo
-- Reset completo (vuelve a pantalla de activacion)
+- Desvincular y volver a la pantalla de activación
 
-### 5.2 Diagnosticos HUD
-Presionar tecla **I** para mostrar/ocultar panel de diagnosticos en el reproductor web.
+### 5.2 Diagnósticos HUD
+La variante diagnóstica muestra el HUD y permite alternarlo con **I**. La variante
+de producción lo compila desactivado.
 
-### 5.3 Reinicio Nocturno
-El player se reinicia automaticamente a las 3:00 AM para liberar memoria y refrescar contenido.
-
-### 5.4 Recuperacion de Crashes
+### 5.3 Recuperación de crashes
 Si la app falla, se reinicia automaticamente sin intervencion humana.
 
-### 5.5 Reconexion Automatica
-Si se pierde la red, el player reintenta automaticamente con backoff exponencial (5s, 10s, 15s... hasta 60s max).
+### 5.4 Reconexión automática
+Si se pierde la red, el player conserva la reproducción y reintenta con backoff
+exponencial (5s, 10s, 20s… hasta 5 minutos), además de reaccionar al retorno de red.
 
-### 5.6 Cache Offline
+### 5.5 Caché offline
 El contenido se pre-descarga y almacena localmente. Si la red falla, el ultimo contenido sigue reproduciendose.
 
 ---
@@ -183,12 +193,12 @@ El contenido se pre-descarga y almacena localmente. Si la red falla, el ultimo c
 ### 6.1 Actualizar APK
 ```bash
 adb connect [IP]:5555
-adb install -r mediaview-player-v2.x.x.apk
+adb install -r mediaview-player-v3.x.x.apk
 adb shell am start -n com.mediaview.player/.MainActivity
 ```
 
 ### 6.2 Actualizar Contenido
-El contenido se actualiza automaticamente cada 60 segundos (polling al servidor).
+El contenido se actualiza cada 15 segundos y también al recuperar conectividad.
 
 ### 6.3 Comandos Remotos
 Desde el Admin Panel de MediAd View:
@@ -211,26 +221,44 @@ Desde el Admin Panel de MediAd View:
 
 ---
 
-## 8. ARQUITECTURA
+## 8. ARQUITECTURA v3
 
 ```
-[Colorlight A40 / TV]
-       |
-       | WebView carga Web Player
-       |
-       v
-[MediAd View Server]
-       |
-       |-- /api/player-activate (activacion por codigo)
-       |-- /api/devices/{id}/playlist (contenido)
-       |-- /api/devices/{id}/heartbeat (estado + comandos)
-       |-- /api/player/media/{id} (archivos multimedia)
-       |
-       v
-[Admin Panel] --> Gestiona pantallas, campañas, dispositivos
+[PairingActivity nativa] -> /api/devices/register + /check
+             |
+             v
+[Room: manifiesto último válido] <-> [Sync 15s + NetworkCallback]
+             |
+             v
+[Caché atómica verificada SHA-256/tamaño]
+             |
+             v
+[Media3 video | Coil imagen | WebView aislado HTML/widget]
+             |
+             v
+[Watchdog + heartbeat + actualización APK verificada]
 ```
+
+### Garantías operativas
+
+- Nunca se sustituye la playlist válida por una descarga parcial o corrupta.
+- La UI de estado permanece visible hasta recibir frame de video, imagen decodificada
+  o commit visual de HTML.
+- La pérdida de red conserva la última playlist descargada y sincroniza al reconectar.
+- Los errores SSL se cancelan; no se aceptan certificados inválidos.
+- El autoarranque en Android estándar requiere seleccionar MediAd View como HOME.
+  Para cero intervención garantizada, el equipo debe aprovisionarse como dispositivo
+  dedicado/Device Owner o usar firmware AOSP del fabricante.
+
+## 9. Protocolo de liberación
+
+1. Codemagic ejecuta pruebas JVM y genera `mediaview-player-diagnostic.apk`.
+2. Validar en A40: pairing, imagen, video, widget HTML, offline/reconexión y reboot.
+3. Registrar el resultado visible del HUD descrito en `ROOT_CAUSE_REPORT.md`.
+4. Cambiar CI a `assembleRelease`; la variante release compila con
+   `DIAGNOSTICS_ENABLED=false` y no muestra el HUD durante reproducción.
 
 ---
 
-*MediAd View Player v2.0.0 - Optimizado para Colorlight A40*
+*MediAd View Player v3.0.0 - Optimizado para Colorlight A40*
 *© MediAd View LLC*

@@ -23,6 +23,7 @@ os.environ.setdefault("JWT_SECRET", "test-secret-1234567890abcdef")
 
 from server import (  # type: ignore  # noqa: E402
     PLAYABLE_STATUSES,
+    _legacy_media_sha256,
     _norm_date,
     bump_playlist_version,
     db,
@@ -76,6 +77,15 @@ def test_normalise_schedule_strips_empty_dates():
     assert s["end_date"] is None
     assert s["start_time"] == "00:00"
     assert s["end_time"] == "23:59"
+
+
+def test_legacy_media_sha256_is_real_digest(tmp_path, monkeypatch):
+    payload = b"mediaview-cache-integrity"
+    media_file = tmp_path / "asset.bin"
+    media_file.write_bytes(payload)
+    monkeypatch.setattr("server.MEDIA_DIR", str(tmp_path))
+    digest = _legacy_media_sha256({"stored_filename": media_file.name})
+    assert digest == __import__("hashlib").sha256(payload).hexdigest()
 
 
 # ---------- is_campaign_playable — the 10 required scenarios ----------
@@ -246,6 +256,9 @@ async def test_8_playlist_returns_items_for_paired_screen_with_valid_campaign():
         pj = rp.json()
         assert pj["total_items"] >= 1, pj
         assert any(it["media_id"] == media_id for it in pj["items"])
+        selected = next(it for it in pj["items"] if it["media_id"] == media_id)
+        assert selected["media_url"] == selected["download_url"]
+        assert len(selected["checksum"]) == 64
         # /version endpoint sanity
         rv = await cli.get(f"/api/player/{sid}/version")
         assert rv.status_code == 200
@@ -279,3 +292,60 @@ async def test_10_editing_campaign_bumps_playlist_version():
         await cli.post("/api/admin/campaigns/repair", headers=h)
         v1 = (await cli.get(f"/api/player/{sid}/version")).json()["playlist_version"]
         assert v1 >= v0, f"version should not go backwards ({v0} -> {v1})"
+
+
+@pytest.mark.asyncio
+async def test_pairing_registration_is_idempotent():
+    if not _backend_up():
+        pytest.skip("backend not running")
+    import httpx
+    client_uuid = f"test-player-{uuid.uuid4().hex}"
+    async with httpx.AsyncClient(base_url="http://127.0.0.1:8001", timeout=10) as cli:
+        payload = {"client_uuid": client_uuid, "device_name": "Pairing Contract Test"}
+        first = await cli.post("/api/devices/register", json=payload)
+        second = await cli.post("/api/devices/register", json=payload)
+        assert first.status_code == second.status_code == 200
+        assert first.json()["device_id"] == second.json()["device_id"]
+        assert first.json()["activation_code"] == second.json()["activation_code"]
+    from pymongo import MongoClient
+    sync_db = MongoClient(os.environ["MONGO_URL"])[os.environ.get("DB_NAME", "mediaview_db")]
+    sync_db.devices.delete_many({"client_uuid": client_uuid})
+    sync_db.client.close()
+
+
+@pytest.mark.asyncio
+async def test_device_playlist_accepts_null_dates_and_empty_playlist_is_explicit():
+    if not _backend_up():
+        pytest.skip("backend not running")
+    import httpx
+    suffix = uuid.uuid4().hex[:10]
+    screen_id, device_id, media_id, campaign_id = [f"contract-{name}-{suffix}" for name in ("screen", "device", "media", "campaign")]
+    stored = f"{media_id}.png"
+    media_path = os.path.join("/app/backend/media", stored)
+    with open(media_path, "wb") as handle:
+        handle.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZVwAAAABJRU5ErkJggg=="))
+    from pymongo import MongoClient
+    sync_db = MongoClient(os.environ["MONGO_URL"])[os.environ.get("DB_NAME", "mediaview_db")]
+    sync_db.screens.insert_one({"id": screen_id, "name": "Contract", "specs": {"resolution": "1920x1080"}, "playlist_version": 1})
+    sync_db.devices.insert_one({"id": device_id, "screen_id": screen_id, "status": "active"})
+    try:
+        async with httpx.AsyncClient(base_url="http://127.0.0.1:8001", timeout=10) as cli:
+            empty = await cli.get(f"/api/devices/{device_id}/playlist")
+            assert empty.status_code == 200
+            assert empty.json()["items"] == []
+            sync_db.media.insert_one({"id": media_id, "filename": "pixel.png", "content_type": "image/png", "size": os.path.getsize(media_path), "storage": "legacy", "stored_filename": stored, "status": "ready"})
+            sync_db.campaigns.insert_one({"id": campaign_id, "screen_id": screen_id, "status": "approved", "schedule": {"start_date": None, "end_date": None, "start_time": "00:00", "end_time": "23:59", "slot_duration": 15}, "media_ids": [media_id]})
+            playable = await cli.get(f"/api/devices/{device_id}/playlist")
+            assert playable.status_code == 200
+            body = playable.json()
+            assert body["total_items"] == 1
+            assert body["items"][0]["media_id"] == media_id
+            assert len(body["items"][0]["checksum"]) == 64
+    finally:
+        sync_db.campaigns.delete_many({"id": campaign_id})
+        sync_db.media.delete_many({"id": media_id})
+        sync_db.devices.delete_many({"id": device_id})
+        sync_db.screens.delete_many({"id": screen_id})
+        sync_db.client.close()
+        if os.path.exists(media_path):
+            os.remove(media_path)
