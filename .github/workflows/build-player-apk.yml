@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -106,24 +106,24 @@ jobs:
             exit 1
           fi
 
-          # ─── 7. Deploy ───────────────────────────────────────────
-          echo "::group::Copy APK to backend/web/"
+          # ─── 7. Prepare immutable workflow artifacts ─────────────
+          echo "::group::Prepare artifact"
           VERSION=$(grep 'versionName' $GITHUB_WORKSPACE/android-player/app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          cp "$APK" "$GITHUB_WORKSPACE/backend/web/mediaview-player-v${VERSION}.apk"
-          cp "$APK" "$GITHUB_WORKSPACE/backend/web/mediaview-player.apk"
-          ls -lh $GITHUB_WORKSPACE/backend/web/mediaview-player*.apk
+          mkdir -p "$GITHUB_WORKSPACE/dist"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/mediaview-player-v${VERSION}.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/dist/mediaview-player-latest.apk"
+          sha256sum "$GITHUB_WORKSPACE"/dist/*.apk > "$GITHUB_WORKSPACE/dist/SHA256SUMS"
+          ls -lh "$GITHUB_WORKSPACE/dist"
           echo "::endgroup::"
 
           echo "✅ BUILD SUCCEEDED"
 
-      # ─── ALWAYS commit the log back to the repo, success or fail ───
-      - name: Commit APK and log
+      - name: Prepare build log artifact
         if: always()
         run: |
-          mkdir -p .build-logs
-          # Truncate to last ~800 lines so the repo doesn't bloat
-          tail -800 /tmp/build.log > .build-logs/latest.txt 2>/dev/null || echo "(no log)" > .build-logs/latest.txt
+          mkdir -p build-artifacts
+          tail -800 /tmp/build.log > build-artifacts/build.log 2>/dev/null || echo "(no log)" > build-artifacts/build.log
           {
             echo "=== BUILD METADATA ==="
             echo "status:   ${{ steps.build.outcome }}"
@@ -133,41 +133,32 @@ jobs:
             echo "time:     $(date -Iseconds)"
             echo "=================================="
             echo ""
-          } | cat - .build-logs/latest.txt > .build-logs/latest.tmp
-          mv .build-logs/latest.tmp .build-logs/latest.txt
+          } | cat - build-artifacts/build.log > build-artifacts/build.tmp
+          mv build-artifacts/build.tmp build-artifacts/build.log
 
-          git config user.name  "MediAd View Bot"
-          git config user.email "bot@mediadview.com"
+      - name: Upload APK artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediaview-player-${{ steps.build.outputs.version }}-${{ github.run_number }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+          compression-level: 0
 
-          # Stage log always
-          git add .build-logs/latest.txt
-
-          # Stage APK if build succeeded
-          if [ "${{ steps.build.outcome }}" = "success" ]; then
-            git add backend/web/mediaview-player*.apk 2>/dev/null || true
-          fi
-
-          if git diff --cached --quiet; then
-            echo "Nothing to commit"
-            exit 0
-          fi
-
-          if [ "${{ steps.build.outcome }}" = "success" ]; then
-            git commit -m "build(apk): mediaview-player build ok [skip ci]"
-          else
-            git commit -m "ci(apk): build FAILED — see .build-logs/latest.txt [skip ci]"
-          fi
-
-          for i in 1 2 3; do
-            git pull --rebase origin main && git push origin main && break
-            echo "Push attempt $i failed, retrying..."
-            sleep 3
-          done
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mediaview-player-build-log-${{ github.run_number }}
+          path: build-artifacts/build.log
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Fail workflow if build failed
         if: steps.build.outcome != 'success'
         run: |
-          echo "❌ Build did not succeed — see .build-logs/latest.txt in the repo for full trace"
+          echo "❌ Build did not succeed — download the build-log artifact from this run"
           exit 1
 
       - name: Summary
@@ -175,4 +166,4 @@ jobs:
         run: |
           echo "## 🎉 MediAd View Player built" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "APK available at: https://mediadview.com/apk" >> $GITHUB_STEP_SUMMARY
+          echo "APK available in this run's Artifacts section. No files were committed to main." >> $GITHUB_STEP_SUMMARY

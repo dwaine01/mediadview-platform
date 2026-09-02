@@ -13,6 +13,7 @@ object PlayerDiagnostics {
         val webViewError: String = "none",
         val playerError: String = "none",
         val connectivity: String = "unknown",
+        val realtime: String = "disconnected",
         val lastSync: String = "never",
     )
 
@@ -27,6 +28,7 @@ object PlayerDiagnostics {
     fun webError(message: String?) = update { it.copy(webViewError = message?.take(240) ?: "none") }
     fun playerError(message: String?) = update { it.copy(playerError = message?.take(240) ?: "none") }
     fun connectivity(online: Boolean) = update { it.copy(connectivity = if (online) "online" else "offline") }
+    fun realtime(connected: Boolean) = update { it.copy(realtime = if (connected) "connected" else "polling fallback") }
     fun synced(epochMs: Long = System.currentTimeMillis()) = update {
         it.copy(lastSync = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date(epochMs)))
     }
@@ -45,6 +47,7 @@ object PlayerDiagnostics {
         WebView: ${snapshot.webViewError}
         Player: ${snapshot.playerError}
         Network: ${snapshot.connectivity}
+        Realtime: ${snapshot.realtime}
         Last sync: ${snapshot.lastSync}
     """.trimIndent()
 }

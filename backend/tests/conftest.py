@@ -1,12 +1,14 @@
 """Shared fixtures for MediAd View backend tests."""
 import os
+from pathlib import Path
 
 import pytest
 import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
-load_dotenv("/app/backend/.env")
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BACKEND_DIR / ".env")
 
 BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8001").rstrip("/")
 

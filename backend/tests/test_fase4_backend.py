@@ -25,10 +25,23 @@ import requests
 
 from tests.conftest import BASE_URL  # type: ignore
 
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+BACKEND_ENV = BACKEND_DIR / ".env"
+
 # ── Credentials (from /app/memory/test_credentials.md + review request) ──
 SUPERADMIN = ("superadmin@mediadview.com", "SuperAdmin#2026")
 ADMIN_DEMO = ("admin.demo@mediadview.com", "AdminDemo#2026")
 A40_USER   = ("4h7QNZL5tnAY", "Iv7LfV4gls2DSrv")
+
+
+def _restart_backend_or_skip_ci():
+    if os.environ.get("CI", "").lower() == "true":
+        pytest.skip("requires the local Supervisor-managed backend")
+    subprocess.run(
+        ["sudo", "supervisorctl", "restart", "backend"],
+        check=True,
+        capture_output=True,
+    )
 
 
 # Skip this whole module in CI environments that don't have seed data.
@@ -41,7 +54,7 @@ def _seed_available():
     if os.environ.get("ENVIRONMENT") == "test":
         return False
     try:
-        if not Path("/app/backend/.env").exists():
+        if not BACKEND_ENV.exists():
             return False
         r = requests.get(f"{BASE_URL}/api/livez", timeout=2)
         if r.status_code != 200:
@@ -65,7 +78,7 @@ class TestJWTSecret:
     """Verifies the .env fix — JWT_SECRET is loaded, stable, non-random."""
 
     def _read_env_secret(self):
-        for line in Path("/app/backend/.env").read_text().splitlines():
+        for line in BACKEND_ENV.read_text().splitlines():
             if line.startswith("JWT_SECRET="):
                 v = line.split("=", 1)[1].strip()
                 return v.strip('"').strip("'")
@@ -106,8 +119,7 @@ class TestJWTSecret:
         assert r0.status_code == 200
 
         # Restart backend and wait for it to come back up.
-        subprocess.run(["sudo", "supervisorctl", "restart", "backend"],
-                       check=True, capture_output=True)
+        _restart_backend_or_skip_ci()
         deadline = time.time() + 30
         up = False
         while time.time() < deadline:
@@ -287,8 +299,7 @@ def superadmin_token():
         if r.status_code == 200:
             return r.json()["access_token"]
         if r.status_code == 429 and attempt == 0:
-            subprocess.run(["sudo", "supervisorctl", "restart", "backend"],
-                           check=True, capture_output=True)
+            _restart_backend_or_skip_ci()
             deadline = time.time() + 20
             while time.time() < deadline:
                 try:
@@ -337,7 +348,7 @@ class TestMedia:
                    "content_type": "application/x-msdownload",
                    "data": base64.b64encode(b"MZ\x90\x00").decode()}
         r = requests.post(f"{BASE_URL}/api/media/upload", json=payload, headers=h)
-        assert r.status_code == 400, f"expected 400 for .exe, got {r.status_code}: {r.text[:200]}"
+        assert r.status_code == 415, f"expected 415 for unsupported .exe, got {r.status_code}: {r.text[:200]}"
 
 
 # ══════════════════════════════════════════════════════════════════════
@@ -357,12 +368,12 @@ class TestStartupCheck:
         # temp workspace and running the check with that as cwd. The script
         # reads /app/backend/.env directly, so we back up & restore instead.
         backup = tmp_path / "env.bak"
-        real_env = Path("/app/backend/.env")
+        real_env = BACKEND_ENV
         backup.write_text(real_env.read_text())
         try:
             real_env.write_text(broken.read_text())
             proc = subprocess.run(
-                ["python3", "/app/backend/startup_check.py"],
+                ["python3", str(BACKEND_DIR / "startup_check.py")],
                 capture_output=True, text=True, timeout=15,
             )
             assert proc.returncode == 2, (
@@ -400,8 +411,7 @@ class TestA40Regression:
 class TestAuditLog:
     def test_audit_captures_login_success_and_failed_and_logout(self, api, mongo_db):
         # Fresh rate-limit window: restart backend to flush slowapi memory.
-        subprocess.run(["sudo", "supervisorctl", "restart", "backend"],
-                       check=True, capture_output=True)
+        _restart_backend_or_skip_ci()
         deadline = time.time() + 20
         while time.time() < deadline:
             try:

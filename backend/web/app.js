@@ -3,12 +3,15 @@
 // lives in JS memory via window.Auth (see auth-client.js). We no longer read
 // tokens from localStorage — the wrapper handles Authorization + refresh.
 const API='/api';let token=null,user=null;
-let wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,pricing:null};
+let wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,mediaName:'',mediaPreview:'',mediaType:'',pricing:null};
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
 
 // Universal API wrapper: uses Auth.api.raw so cookies travel and 401 → silent refresh.
-async function api(p,o={}){const body=o.body;const opts={method:o.method||'GET',credentials:'include',headers:{'Content-Type':'application/json',...(o.headers||{})}};if(body)opts.body=body;const r=await window.Auth.api.raw(p,opts);if(r.status===401){doLogout();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}if(r.status===204)return null;const ct=r.headers.get('content-type')||'';return ct.includes('application/json')?r.json():r.text()}
+async function api(p,o={}){const body=o.body;const opts={method:o.method||'GET',credentials:'include',headers:{'Content-Type':'application/json',...(o.headers||{})}};if(body)opts.body=body;let r;try{r=await window.Auth.api.raw(p,opts)}catch(e){if(e?.code==='SESSION_EXPIRED'){showLogin();throw new Error('Session expired')}throw e}if(r.status===401){showLogin();throw new Error('Session expired')}if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(typeof e.detail==='string'?e.detail:(e.detail?.message||e.message||'Error'))}if(r.status===204)return null;const ct=r.headers.get('content-type')||'';return ct.includes('application/json')?r.json():r.text()}
 async function doLogin(){const e=document.getElementById('in-email').value,p=document.getElementById('in-pwd').value,err=document.getElementById('login-err');err.style.display='none';try{const u=await window.Auth.login(e,p);user=u;token=null;enterApp()}catch(x){err.textContent=x.message;err.style.display='block'}}
-async function doLogout(){try{await window.Auth.logout()}catch(_){}token=null;user=null;document.getElementById('view-login').classList.remove('off');document.getElementById('view-app').classList.remove('on')}
+function showLogin(){token=null;user=null;document.getElementById('view-login').classList.remove('off');document.getElementById('view-app').classList.remove('on')}
+async function doLogout(){try{await window.Auth.logout()}catch(_){/* best-effort logout */}showLogin()}
+window.Auth.on(evt=>{if(evt==='unauthenticated'||evt==='logout')showLogin()});
 // On page load, if the refresh cookie is still valid, hydrate the session silently.
 window.addEventListener('DOMContentLoaded',async function(){const ok=await window.Auth.bootstrap();if(ok){user=window.Auth.user();enterApp()}});
 function enterApp(){
@@ -30,7 +33,9 @@ function enterApp(){
   go('dashboard');
 }
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
-function go(p){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+p)?.classList.add('on');document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.querySelector(`[data-p="${p}"]`)?.classList.add('on');loaders[p]?.()}
+function setMobileSidebar(open){const sb=document.querySelector('.sb'),bd=document.querySelector('.sb-backdrop');if(!sb)return;sb.classList.toggle('open',open);bd?.classList.toggle('on',open);if(innerWidth<=900){sb.style.setProperty('transition','none','important');sb.getAnimations().forEach(animation=>animation.cancel());sb.style.setProperty('transform',open?'translate3d(0,0,0)':'translate3d(-100%,0,0)','important')}else{sb.style.removeProperty('transition');sb.style.removeProperty('transform')}}
+window.addEventListener('resize',()=>{if(innerWidth>900)setMobileSidebar(false)});
+function go(p){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+p)?.classList.add('on');document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.querySelector(`[data-p="${p}"]`)?.classList.add('on');setMobileSidebar(false);loaders[p]?.()}
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
 function dot(s){const m={active:'#34d399',pending:'#fbbf24',approved:'#a5b4fc',rejected:'#f87171',draft:'#94a3b8',completed:'#c4b5fd'};return m[s]||'#94a3b8'}
 const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#7c3aed,#6d28d9)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#4338ca)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
@@ -54,7 +59,7 @@ const loaders={
   async dashboard(){
     const el=document.getElementById('pg-dashboard');
     try{
-      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){}
+      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){/* optional admin analytics */}
       const rev=a?.total_revenue||d.total_spent||0,scr=a?.active_screens||d.active_campaigns||0,camp=a?.total_campaigns||d.total_campaigns||0,pend=a?.pending_campaigns||d.pending_campaigns||0;
       const screens=await api('/screens');
       const recentCamps=a?.recent_campaigns||d.recent_campaigns||[];
@@ -179,21 +184,30 @@ const loaders={
         </div>
         <div style="max-width:600px">
           <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Upload Media</h2>
-          <div id="wz-media-area" style="border:2px dashed var(--border);border-radius:var(--radius);padding:48px;text-align:center;cursor:pointer" onclick="document.getElementById('wz-file').click()">
+          ${wizardData.mediaId?`
+          <div id="wz-media-area" data-testid="campaign-media-selected" style="border:2px solid rgba(52,211,153,.35);background:rgba(52,211,153,.04);border-radius:var(--radius);padding:12px;cursor:pointer" onclick="document.getElementById('wz-file').click()">
+            <img data-testid="campaign-media-preview" src="${wizardData.mediaPreview}" alt="Selected creative" style="display:block;width:100%;max-height:300px;object-fit:contain;background:#020617;border-radius:10px;margin-bottom:12px">
+            <div style="display:flex;align-items:center;gap:10px;padding:4px 6px">
+              <svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
+              <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(wizardData.mediaName)}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">Upload complete · Click image to replace</div></div>
+              <button data-testid="campaign-media-remove" type="button" onclick="clearWizardMedia(event)" style="padding:6px 10px;border-radius:7px;background:rgba(248,113,113,.1);color:var(--red);border:none;font-size:11px;font-weight:700;cursor:pointer">Remove</button>
+            </div>
+          </div>`:`
+          <div id="wz-media-area" data-testid="campaign-media-dropzone" style="border:2px dashed var(--border);border-radius:var(--radius);padding:48px;text-align:center;cursor:pointer" onclick="document.getElementById('wz-file').click()">
             <svg width="48" height="48" fill="none" stroke="var(--t-4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
             <p style="color:var(--t-2);font-weight:600">Click to upload image</p>
-            <p style="color:var(--t-4);font-size:12px;margin-top:4px">JPG, PNG — Optimized for 1920×1080</p>
-          </div>
-          <input type="file" id="wz-file" accept="image/*" style="display:none" onchange="uploadMedia(this)">
-          <div id="wz-media-status" style="margin-top:12px"></div>
+            <p style="color:var(--t-4);font-size:12px;margin-top:4px">JPG, PNG, WebP or GIF · Maximum 20 MB</p>
+          </div>`}
+          <input data-testid="campaign-media-file-input" type="file" id="wz-file" accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif" style="display:none" onchange="uploadMedia(this)">
+          <div data-testid="campaign-media-status" id="wz-media-status" style="margin-top:12px">${wizardData.mediaId?'<p style="color:var(--green);font-size:12px;font-weight:600">Image ready. Continue to Review.</p>':''}</div>
           <div style="display:flex;justify-content:space-between;margin-top:24px">
             <button onclick="wizardData.step=1;loaders.create()" style="padding:10px 20px;border-radius:var(--radius-sm);background:var(--bg-2);border:1px solid var(--border);color:var(--t-2);font-weight:600;font-size:13px;cursor:pointer">← Back</button>
-            <button class="btn-p" onclick="wizardNext()" ${!wizardData.mediaId?'disabled style="opacity:.4"':''}>Next: Review →</button>
+            <button data-testid="campaign-media-next" class="btn-p" onclick="wizardNext()" ${!wizardData.mediaId?'disabled style="opacity:.4"':''}>Next: Review →</button>
           </div>
         </div>`;
     } else if(wizardData.step===3){
       let pricing=null;
-      try{pricing=await api('/screens/'+wizardData.screen.id+'/calculate-price',{method:'POST',body:JSON.stringify({start_date:wizardData.startDate,end_date:wizardData.endDate,start_time:wizardData.startTime,end_time:wizardData.endTime,slot_duration:wizardData.duration,frequency:5})});wizardData.pricing=pricing}catch(e){}
+      try{pricing=await api('/screens/'+wizardData.screen.id+'/calculate-price',{method:'POST',body:JSON.stringify({start_date:wizardData.startDate,end_date:wizardData.endDate,start_time:wizardData.startTime,end_time:wizardData.endTime,slot_duration:wizardData.duration,frequency:5})});wizardData.pricing=pricing}catch(e){/* review still renders without pricing */}
       el.innerHTML=`
         <h1 style="font-size:28px;font-weight:800;margin-bottom:24px">Create Campaign</h1>
         <div class="wz-steps">
@@ -221,7 +235,7 @@ const loaders={
   async analytics(){
     const el=document.getElementById('pg-analytics');
     try{
-      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){}
+      const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){/* optional admin analytics */}
       const rev=a?.total_revenue||d.total_spent||0;const monthly=a?.monthly_revenue||{};
       const months=Object.keys(monthly).sort().slice(-6);const maxVal=Math.max(...Object.values(monthly).map(Number),1);
       const activeC=a?.active_campaigns??d.active_campaigns??0;
@@ -507,21 +521,36 @@ function wizardNext(){
   wizardData.step++;loaders.create()
 }
 async function uploadMedia(input){
-  const file=input.files[0];if(!file)return;
-  const st=document.getElementById('wz-media-status');st.innerHTML='<p style="color:var(--brand-l)">Uploading...</p>';
-  const reader=new FileReader();reader.onload=async function(){
-    const b64=reader.result.split(',')[1];
-    try{const r=await api('/media/upload',{method:'POST',body:JSON.stringify({filename:file.name,content_type:file.type,data:b64})});wizardData.mediaId=r.id;
-      st.innerHTML=`<div class="card" style="padding:12px;display:flex;align-items:center;gap:10px"><svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><span style="font-size:13px;font-weight:600;color:var(--green)">${file.name} uploaded</span></div>`;
-      loaders.create()
-    }catch(e){st.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}
-  };reader.readAsDataURL(file)
+  const file=input.files&&input.files[0];if(!file)return;
+  const st=document.getElementById('wz-media-status');
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  const mimeByExt={jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',webp:'image/webp',gif:'image/gif'};
+  const contentType=file.type||mimeByExt[ext]||'application/octet-stream';
+  if(!mimeByExt[ext]){st.innerHTML='<p style="color:var(--red);font-weight:600">Unsupported image. Choose JPG, PNG, WebP or GIF.</p>';input.value='';return}
+  if(file.size>20*1024*1024){st.innerHTML='<p style="color:var(--red);font-weight:600">Image exceeds the 20 MB limit.</p>';input.value='';return}
+  st.innerHTML=`<div style="display:flex;align-items:center;gap:10px;color:var(--brand-l);font-size:13px;font-weight:600"><span class="spin" style="width:16px;height:16px;border-width:2px"></span>Uploading ${escapeHtml(file.name)}…</div>`;
+  const reader=new FileReader();
+  reader.onerror=function(){st.innerHTML='<p style="color:var(--red);font-weight:600">The browser could not read this image. Try another file.</p>';input.value=''};
+  reader.onabort=reader.onerror;
+  reader.onload=async function(){
+    const b64=String(reader.result||'').split(',')[1];
+    if(!b64){reader.onerror();return}
+    try{
+      const r=await api('/media/upload',{method:'POST',body:JSON.stringify({filename:file.name,content_type:contentType,data:b64})});
+      if(wizardData.mediaPreview)URL.revokeObjectURL(wizardData.mediaPreview);
+      wizardData.mediaId=r.id;wizardData.mediaName=file.name;wizardData.mediaType=r.content_type||contentType;wizardData.mediaPreview=URL.createObjectURL(file);
+      loaders.create();
+    }catch(e){st.innerHTML=`<p style="color:var(--red);font-weight:600">Upload failed: ${escapeHtml(e.message)}</p>`;input.value=''}
+  };
+  reader.readAsDataURL(file)
 }
+function clearWizardMedia(e){if(e){e.preventDefault();e.stopPropagation()}if(wizardData.mediaPreview)URL.revokeObjectURL(wizardData.mediaPreview);wizardData.mediaId=null;wizardData.mediaName='';wizardData.mediaPreview='';wizardData.mediaType='';loaders.create()}
 async function submitCampaign(){
   try{
     const r=await api('/campaigns',{method:'POST',body:JSON.stringify({name:wizardData.name,screen_id:wizardData.screen.id,schedule:{start_date:wizardData.startDate,end_date:wizardData.endDate,start_time:wizardData.startTime,end_time:wizardData.endTime,slot_duration:wizardData.duration,frequency:5},media_ids:wizardData.mediaId?[wizardData.mediaId]:[]})});
     await api('/payments',{method:'POST',body:JSON.stringify({campaign_id:r.id,method:'card',card_last4:'4242'})});
-    wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,pricing:null};
+    if(wizardData.mediaPreview)URL.revokeObjectURL(wizardData.mediaPreview);
+    wizardData={step:0,screen:null,name:'',startDate:'',endDate:'',startTime:'08:00',endTime:'22:00',duration:15,mediaId:null,mediaName:'',mediaPreview:'',mediaType:'',pricing:null};
     alert('Campaign submitted for review!');go('campaigns')
   }catch(e){alert('Error: '+e.message)}
 }
@@ -819,7 +848,7 @@ async function showScreenPlaylist(screenId){
   try{
     var screen=await api('/screens/'+screenId);
     var playlist=await api('/player/'+screenId+'/playlist');
-    var widgets=[];try{widgets=await api('/admin/widgets?screen_id='+screenId)}catch(e){}
+    var widgets=[];try{widgets=await api('/admin/widgets?screen_id='+screenId)}catch(e){/* widgets are optional */}
     var items=playlist.items||[];
     el.innerHTML='<div style="margin-bottom:20px"><button onclick="window._adminView=\'screens\';loaders.admin()" style="font-size:13px;color:#6366f1;cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>Back to Screens</button></div>'+
     '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+(screen.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
@@ -1112,6 +1141,11 @@ function renderMenuEditor(menu){
   html+='<input class="inp" value="'+(menu.subtitle||'')+'" onchange="updateMenuField(\''+menu.id+'\',\'subtitle\',this.value)" style="margin-bottom:10px">';
   html+='<label class="inp-label">Currency Symbol</label>';
   html+='<input class="inp" value="'+(menu.currency_symbol||'$')+'" onchange="updateMenuField(\''+menu.id+'\',\'currency_symbol\',this.value)" style="width:80px">';
+  var mt=menu.theme||{};
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:14px">';
+  html+='<label class="inp-label">Background<input type="color" value="'+(mt.bg||'#09090b')+'" onchange="updateMenuTheme(\''+menu.id+'\',\'bg\',this.value)" style="display:block;width:100%;height:38px;margin-top:6px;border:0;background:none"></label>';
+  html+='<label class="inp-label">Accent<input type="color" value="'+(mt.accent||'#eab308')+'" onchange="updateMenuTheme(\''+menu.id+'\',\'accent\',this.value)" style="display:block;width:100%;height:38px;margin-top:6px;border:0;background:none"></label>';
+  html+='<label class="inp-label">Text<input type="color" value="'+(mt.text||'#ffffff')+'" onchange="updateMenuTheme(\''+menu.id+'\',\'text\',this.value)" style="display:block;width:100%;height:38px;margin-top:6px;border:0;background:none"></label></div>';
   html+='</div>';
   
   html+='<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Live Preview</h2>';
@@ -1158,12 +1192,13 @@ async function updateMenuField(menuId,field,value){
   }catch(e){alert(e.message)}
 }
 
+async function updateMenuTheme(menuId,field,value){
+  try{var menu=await api('/menus/'+menuId);var theme=menu.theme||{};theme[field]=value;await api('/menus/'+menuId,{method:'PUT',body:JSON.stringify({theme:theme})});editMenu(menuId)}catch(e){alert(e.message)}
+}
+
 async function publishMenu(menuId){
-  try{
-    await api('/menus/'+menuId,{method:'PUT',body:JSON.stringify({status:'published'})});
-    alert('Menu published! URL: '+location.origin+API+'/menus/'+menuId+'/render');
-    editMenu(menuId);
-  }catch(e){alert(e.message)}
+  if(typeof window.openMenuPlaylistPublish==='function')return window.openMenuPlaylistPublish(menuId);
+  alert('Playlist publishing is still loading. Please try again.');
 }
 
 function addCategory(menuId){
@@ -1333,7 +1368,7 @@ if(token&&user){enterApp()}
 async function openPowerSchedule(deviceId,deviceName,e){
   if(e)e.stopPropagation();
   let cur={enabled:false,power_on:'08:00',power_off:'22:00',days:['mon','tue','wed','thu','fri','sat','sun']};
-  try{cur=await api('/admin/devices/'+deviceId+'/power-schedule')}catch(err){}
+  try{cur=await api('/admin/devices/'+deviceId+'/power-schedule')}catch(err){/* use default schedule */}
   const dayLabels=[['mon','Mon'],['tue','Tue'],['wed','Wed'],['thu','Thu'],['fri','Fri'],['sat','Sat'],['sun','Sun']];
   const html=`<div id="ps-modal" style="position:fixed;inset:0;background:rgba(2,6,18,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px">
     <div style="width:100%;max-width:480px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden">
@@ -1403,7 +1438,7 @@ function copyText(btn,text){
   }).catch(()=>{
     // Fallback for non-secure contexts
     const ta=document.createElement('textarea');ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
-    document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();
+    document.body.appendChild(ta);ta.select();try{document.execCommand('copy')}catch(e){/* clipboard fallback unavailable */}ta.remove();
     btn.innerHTML='✓';setTimeout(()=>btn.innerHTML='📋',1000);
   });
 }
@@ -1619,7 +1654,7 @@ async function refreshPairStatus(screenId, deviceId){
 
 async function openScheduleModal(deviceId, deviceName){
   let sched={};
-  try{sched=await api('/cls/schedule/'+deviceId)}catch(e){}
+  try{sched=await api('/cls/schedule/'+deviceId)}catch(e){/* schedule may not exist */}
   const w=sched.wakeup_time||'07:00',sl=sched.sleep_time||'22:00';
   const days=sched.days||[1,1,1,1,1,1,1];
   const dn=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -1691,7 +1726,7 @@ async function regenDirectCreds(screenId){
     const screen=await api('/screens/'+screenId);
     if(screen.colorlight && screen.colorlight.device_id){
       // Delete old terminal entry
-      try{await api('/admin/screens/'+screenId+'/unlink-colorlight',{method:'POST'})}catch(e){}
+      try{await api('/admin/screens/'+screenId+'/unlink-colorlight',{method:'POST'})}catch(e){/* continue local unlink */}
     }
     // Reload editor — autoLoadPairing will generate new ones
     editAdminScreen(screenId);
@@ -1915,7 +1950,7 @@ async function saveColorlightSettings(){
 
 async function resetColorlightSettings(){
   if(!confirm('Reset ColorlightCloud connection? You will need to re-enter credentials.'))return;
-  try{await api('/colorlight/settings',{method:'POST',body:JSON.stringify({server:'',username:'',password:''})})}catch(e){}
+  try{await api('/colorlight/settings',{method:'POST',body:JSON.stringify({server:'',username:'',password:''})})}catch(e){/* local disconnect still applies */}
   // Just re-render setup form by treating as not configured
   document.getElementById('cl-panel').innerHTML='<div style="padding:24px;text-align:center;color:var(--t-4)">Resetting…</div>';
   setTimeout(async()=>{

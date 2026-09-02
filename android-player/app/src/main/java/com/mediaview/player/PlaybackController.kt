@@ -62,7 +62,7 @@ class PlaybackController(
         val currentId = currentItem?.mediaId
         items = accepted
         signature = newSignature
-        index = currentId?.let { id -> newItems.indexOfFirst { it.mediaId == id } } ?: -1
+        index = currentId?.let { id -> accepted.indexOfFirst { it.mediaId == id } } ?: -1
         if (index < 0) index = 0
         if (items.isEmpty()) {
             clearSurface()

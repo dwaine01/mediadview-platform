@@ -22,14 +22,12 @@ import base64
 import hashlib
 import html as html_lib
 import json
-import html as html_lib
-import json
 import logging
 import os
 import re
+import secrets
 import uuid
 from datetime import datetime, timedelta
-from pathlib import Path
 from typing import List, Optional
 
 import bcrypt
@@ -38,9 +36,13 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
-
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+from playlist_domain import (
+    PLAYLIST_MODES,
+    normalize_playlist_items,
+    normalize_schedule,
+    scheduled_playlist_key,
+    select_winning_playlist,
+)
 
 # ============ CONFIGURATION ============
 
@@ -72,7 +74,7 @@ db = client[DB_NAME]
 
 app = FastAPI(title="MediaView Digital Signage API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
-security = HTTPBearer()
+security = HTTPBearer(auto_error=False)
 
 # Rate limiter (imported early because @_rl.limit decorators are evaluated
 # at module load time). LIMITS provides central rate-limit strings.
@@ -90,7 +92,7 @@ def serialize_doc(doc):
         result = {}
         for key, value in doc.items():
             if key == '_id':
-                result['_id'] = str(value)
+                continue
             elif isinstance(value, ObjectId):
                 result[key] = str(value)
             elif isinstance(value, datetime):
@@ -195,6 +197,35 @@ class MediaUpload(BaseModel):
     filename: str
     content_type: str
     data: str
+
+class PlaylistCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    management_mode: str = "admin"
+    client_user_id: Optional[str] = None
+    allow_client_publish: bool = False
+    allowed_screen_ids: List[str] = Field(default_factory=list)
+    items: List[dict] = Field(default_factory=list)
+
+class PlaylistUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    management_mode: Optional[str] = None
+    client_user_id: Optional[str] = None
+    allow_client_publish: Optional[bool] = None
+    allowed_screen_ids: Optional[List[str]] = None
+    items: Optional[List[dict]] = None
+
+class PlaylistPublish(BaseModel):
+    screen_ids: List[str]
+    schedule: Optional[dict] = None
+    priority: int = 10
+
+class PlaylistShare(BaseModel):
+    permission: str = "editor"
+    require_approval: bool = True
+    expires_days: int = 30
+    allow_upload: bool = True
 
 class PaymentCreate(BaseModel):
     campaign_id: str
@@ -353,6 +384,59 @@ def _legacy_media_sha256(media: dict) -> Optional[str]:
     return digest.hexdigest()
 
 
+async def _build_owned_playlist_items(screen_id: str) -> list:
+    playlists = await db.playlists.find(
+        {"screen_ids": screen_id, "status": "published"}, {"_id": 0}
+    ).to_list(200)
+    winner = select_winning_playlist(playlists)
+    if not winner:
+        return []
+    rendered = []
+    for item in sorted(winner.get("items") or [], key=lambda value: value.get("order", 0)):
+        item_type = item.get("type")
+        ref_id = item.get("ref_id")
+        base = {
+            "campaign_id": f"playlist:{winner['id']}",
+            "playlist_id": winner["id"],
+            "playlist_name": winner.get("name"),
+            "duration": item.get("duration", 15),
+            "rotation": 0,
+            "animation": item.get("transition", "fade"),
+            "size": 0,
+            "checksum": None,
+        }
+        if item_type == "menu":
+            menu = await db.menus.find_one({"id": ref_id}, {"_id": 0, "name": 1})
+            if not menu:
+                continue
+            url = f"/api/menus/{ref_id}/render"
+            rendered.append({
+                **base, "media_id": f"menu:{ref_id}", "filename": menu.get("name", "Menu"),
+                "content_type": "widget", "media_url": url, "download_url": url,
+            })
+        elif item_type == "webpage":
+            rendered.append({
+                **base, "media_id": item["id"], "filename": item.get("title", "Web page"),
+                "content_type": "widget", "media_url": ref_id, "download_url": ref_id,
+            })
+        elif item_type == "media":
+            media = await db.media.find_one({"id": ref_id, "status": {"$ne": "pending"}})
+            if not media:
+                continue
+            if media.get("storage", "legacy") == "legacy":
+                stored = media.get("stored_filename")
+                if not stored or not os.path.isfile(os.path.join(MEDIA_DIR, stored)):
+                    continue
+            checksum = await run_in_threadpool(_legacy_media_sha256, media)
+            url = f"/api/player/media/{ref_id}"
+            rendered.append({
+                **base, "media_id": ref_id, "filename": media.get("filename"),
+                "content_type": media.get("content_type"), "size": media.get("size", 0),
+                "checksum": checksum, "media_url": url, "download_url": url,
+            })
+    return rendered
+
+
 async def build_screen_playlist_items(screen_id: str, include_widgets: bool = False) -> list:
     """Canonical playlist builder shared by screen and device contracts.
 
@@ -365,7 +449,7 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
         "screen_id": screen_id,
         "status": {"$in": list(PLAYABLE_STATUSES)},
     }).to_list(500)
-    items = []
+    items = await _build_owned_playlist_items(screen_id)
     for campaign in campaigns:
         playable, reason = is_campaign_playable(campaign, now)
         if not playable:
@@ -434,8 +518,25 @@ async def bump_playlist_version(screen_id: str, reason: str = ""):
         )
         if r.matched_count:
             logger.info(f"playlist_version bumped for screen={screen_id} reason={reason}")
+            try:
+                from realtime import manager as realtime_manager
+                await realtime_manager.broadcast_screen(
+                    screen_id,
+                    "playlist.updated",
+                    {"reason": reason},
+                )
+            except Exception as event_error:
+                logger.warning("playlist realtime event failed for %s: %s", screen_id, event_error)
     except Exception as e:
         logger.warning(f"bump_playlist_version failed for {screen_id}: {e}")
+
+
+async def effective_playlist_schedule_key(screen_id: str) -> str:
+    playlists = await db.playlists.find(
+        {"screen_ids": screen_id, "status": "published"}, {"_id": 0, "id": 1, "priority": 1, "schedule": 1,
+                                                                  "published_at": 1, "updated_at": 1}
+    ).to_list(200)
+    return scheduled_playlist_key(playlists)
 
 # ============ AUTH HELPERS ============
 
@@ -453,9 +554,15 @@ def create_token(user_id: str, role: str) -> str:
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
     """Legacy decoder that ALSO accepts Auth v2 tokens (aud/iss/typ) for compat.
     Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss)."""
+    if credentials is None or credentials.scheme.lower() != "bearer":
+        raise HTTPException(
+            status_code=401,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     try:
         token = credentials.credentials
         try:
@@ -474,14 +581,14 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         user_id = payload.get("sub")
         user = await db.users.find_one({"id": user_id})
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            raise HTTPException(status_code=401, detail="User not found", headers={"WWW-Authenticate": "Bearer"})
         if not user.get("active", True):
-            raise HTTPException(status_code=401, detail="Account deactivated")
+            raise HTTPException(status_code=401, detail="Account deactivated", headers={"WWW-Authenticate": "Bearer"})
         return user
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
+        raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
     except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
     if current_user.get("role") not in ("admin", "superadmin"):
@@ -1843,6 +1950,7 @@ async def get_playlist(screen_id: str):
         "screen_id": screen_id,
         "screen_name": screen.get("name"),
         "playlist_version": screen.get("playlist_version", 0),
+        "schedule_key": await effective_playlist_schedule_key(screen_id),
         "generated_at": now.isoformat(),
         "total_items": len(items),
         "items": items,
@@ -1864,6 +1972,7 @@ async def get_playlist_version(screen_id: str):
     return {
         "screen_id": screen_id,
         "playlist_version": screen.get("playlist_version", 0),
+        "schedule_key": await effective_playlist_schedule_key(screen_id),
         "server_time": datetime.utcnow().isoformat(),
     }
 
@@ -2052,11 +2161,11 @@ async def web_player(screen_id: str):
     html += """<script>
 (function(){
 var SID=""" + sid_js + """,SN=""" + sn_js + """,RES=""" + res_js + r""",AB=location.origin,PI=15000,HI=30000,V='3.0.0';
-var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false,pv=-1,DEV=(location.search.indexOf('dev=1')>=0);
+var pl=[],ci=-1,ip=false,io=false,ls=null,le=null,st=Date.now(),rc=0,tp=0,lg=[],mc={},pt=null,hv=false,pv='',DEV=(location.search.indexOf('dev=1')>=0);
 function log(l,m){lg.unshift({t:new Date().toISOString(),l:l,m:m});if(lg.length>100)lg.pop();console[l==='error'?'error':'log']('[MV]',m)}
 // Lightweight version check: only fetch full playlist if it actually changed.
-async function fv(){try{var r=await fetch(AB+'/api/player/'+SID+'/version');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var v=d.playlist_version;io=false;if(v!==pv){log('info','version '+pv+' -> '+v);pv=v;await fp()}else{ls=new Date();rc=0}}catch(e){io=true;rc++;le=e.message;log('warn','version fetch failed: '+e.message);if(pl.length===0){await fp()}}}
-async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;if(d.playlist_version!=null)pv=d.playlist_version;try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
+async function fv(){try{var r=await fetch(AB+'/api/player/'+SID+'/version');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var v=String(d.playlist_version)+':'+(d.schedule_key||'');io=false;if(v!==pv){log('info','version '+pv+' -> '+v);pv=v;await fp()}else{ls=new Date();rc=0}}catch(e){io=true;rc++;le=e.message;log('warn','version fetch failed: '+e.message);if(pl.length===0){await fp()}}}
+async function fp(){try{var r=await fetch(AB+'/api/player/'+SID+'/playlist');if(!r.ok)throw new Error('HTTP '+r.status);var d=await r.json();var it=d.items||[];io=false;ls=new Date();rc=0;le=null;if(d.playlist_version!=null)pv=String(d.playlist_version)+':'+(d.schedule_key||'');try{localStorage.setItem('mvp_'+SID,JSON.stringify(it))}catch(e){}
 var ni=it.map(function(i){return i.media_id}).join(',');var oi=pl.map(function(i){return i.media_id}).join(',');
 if(ni!==oi){log('info','Playlist updated: '+it.length+' items');pl=it;ci=-1;it.forEach(function(i){pm(i)})}
 if(pl.length>0&&!ip){pn();pdc()}else if(pl.length===0){fdr()}
@@ -2631,6 +2740,7 @@ async def device_playlist(device_id: str):
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080") if screen else "1920x1080",
         "generated_at": now.isoformat(),
         "playlist_version": screen.get("playlist_version", 0) if screen else 0,
+        "schedule_key": await effective_playlist_schedule_key(screen_id),
         "total_items": len(items),
         "items": items,
         "loop": True,
@@ -3545,6 +3655,392 @@ MENU_TEMPLATES = [
     }
 ]
 
+# ============ OWNED CONTENT PLAYLISTS ============
+
+def _is_platform_admin(user: dict) -> bool:
+    return user.get("role") in ("admin", "superadmin")
+
+
+def _can_view_playlist(playlist: dict, user: dict) -> bool:
+    return _is_platform_admin(user) or user.get("id") in {
+        playlist.get("owner_user_id"), playlist.get("client_user_id"), playlist.get("created_by_user_id")
+    }
+
+
+def _can_edit_playlist(playlist: dict, user: dict) -> bool:
+    if _is_platform_admin(user) or playlist.get("owner_user_id") == user.get("id"):
+        return True
+    return playlist.get("management_mode") == "client" and playlist.get("client_user_id") == user.get("id")
+
+
+def _can_publish_playlist(playlist: dict, user: dict) -> bool:
+    if _is_platform_admin(user):
+        return True
+    return bool(playlist.get("allow_client_publish")) and playlist.get("client_user_id") == user.get("id")
+
+
+def _safe_playlist(playlist: dict) -> dict:
+    result = serialize_doc(dict(playlist))
+    if isinstance(result.get("public_access"), dict):
+        result["public_access"] = {
+            key: value for key, value in result["public_access"].items()
+            if key not in ("token_hash", "created_by_user_id")
+        }
+    return result
+
+
+async def _playlist_or_404(playlist_id: str, user: dict, edit: bool = False) -> dict:
+    playlist = await db.playlists.find_one({"id": playlist_id}, {"_id": 0})
+    if not playlist:
+        raise HTTPException(404, "Playlist not found")
+    allowed = _can_edit_playlist(playlist, user) if edit else _can_view_playlist(playlist, user)
+    if not allowed:
+        raise HTTPException(403, "Access denied")
+    return playlist
+
+
+async def _validate_playlist_refs(items: list[dict]) -> None:
+    for item in items:
+        collection = db.menus if item["type"] == "menu" else db.media if item["type"] == "media" else None
+        if collection is not None and not await collection.find_one({"id": item["ref_id"]}, {"_id": 0, "id": 1}):
+            raise HTTPException(400, f"Missing {item['type']} content: {item['ref_id']}")
+
+
+async def _bump_playlist_screens(screen_ids: list[str], reason: str) -> None:
+    for screen_id in set(screen_ids or []):
+        await bump_playlist_version(screen_id, reason=reason)
+
+
+async def _notify_menu_change(menu_id: str, reason: str = "menu updated") -> None:
+    """Refresh every published screen whose owned playlist renders this menu."""
+    playlists = await db.playlists.find(
+        {"items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
+        {"_id": 0, "id": 1, "status": 1, "screen_ids": 1},
+    ).to_list(500)
+    if playlists:
+        await db.playlists.update_many(
+            {"id": {"$in": [playlist["id"] for playlist in playlists]}},
+            {"$inc": {"version": 1}, "$set": {"updated_at": datetime.utcnow()}},
+        )
+    screen_ids = [
+        screen_id
+        for playlist in playlists
+        if playlist.get("status") == "published"
+        for screen_id in playlist.get("screen_ids", [])
+    ]
+    await _bump_playlist_screens(screen_ids, reason)
+    try:
+        from realtime import manager as realtime_manager
+        await realtime_manager.broadcast_menu(menu_id, "updated")
+    except Exception as event_error:
+        logger.warning("menu realtime event failed for %s: %s", menu_id, event_error)
+
+
+def _public_token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+async def _public_playlist(token: str) -> dict:
+    playlist = await db.playlists.find_one({"public_access.token_hash": _public_token_hash(token)}, {"_id": 0})
+    if not playlist or not playlist.get("public_access", {}).get("enabled"):
+        raise HTTPException(404, "Public playlist link not found")
+    expires_at = playlist.get("public_access", {}).get("expires_at")
+    if expires_at and expires_at < datetime.utcnow():
+        raise HTTPException(410, "Public playlist link expired")
+    return playlist
+
+
+@api_router.get("/playlists")
+async def list_owned_playlists(current_user: dict = Depends(get_current_user)):
+    query = {} if _is_platform_admin(current_user) else {"$or": [
+        {"owner_user_id": current_user["id"]}, {"client_user_id": current_user["id"]}
+    ]}
+    playlists = await db.playlists.find(query, {"_id": 0}).sort("updated_at", -1).to_list(500)
+    return [_safe_playlist(playlist) for playlist in playlists]
+
+
+@api_router.post("/playlists")
+async def create_owned_playlist(data: PlaylistCreate, current_user: dict = Depends(get_current_user)):
+    mode = data.management_mode if data.management_mode in PLAYLIST_MODES else "admin"
+    client_user_id = data.client_user_id
+    if not _is_platform_admin(current_user):
+        mode = "client"
+        client_user_id = current_user["id"]
+    elif client_user_id and not await db.users.find_one({"id": client_user_id}, {"_id": 0, "id": 1}):
+        raise HTTPException(400, "Client account not found")
+    try:
+        items = normalize_playlist_items(data.items)
+    except ValueError as error:
+        raise HTTPException(400, str(error))
+    await _validate_playlist_refs(items)
+    now = datetime.utcnow()
+    playlist = {
+        "id": gen_id(), "name": data.name.strip()[:160], "description": (data.description or "")[:500],
+        "created_by_user_id": current_user["id"], "owner_user_id": current_user["id"],
+        "client_user_id": client_user_id, "management_mode": mode,
+        "allow_client_publish": data.allow_client_publish if _is_platform_admin(current_user) else False,
+        "allowed_screen_ids": list(dict.fromkeys(data.allowed_screen_ids)), "screen_ids": [],
+        "items": items, "schedule": normalize_schedule(None), "priority": 10,
+        "status": "draft", "version": 1, "pending_items": [],
+        "created_at": now, "updated_at": now,
+    }
+    if not playlist["name"]:
+        raise HTTPException(400, "Playlist name is required")
+    await db.playlists.insert_one(playlist)
+    return serialize_doc(playlist)
+
+
+@api_router.get("/playlists/{playlist_id}")
+async def get_owned_playlist(playlist_id: str, current_user: dict = Depends(get_current_user)):
+    return _safe_playlist(await _playlist_or_404(playlist_id, current_user))
+
+
+@api_router.put("/playlists/{playlist_id}")
+async def update_owned_playlist(playlist_id: str, data: PlaylistUpdate,
+                                current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user, edit=True)
+    incoming = data.dict(exclude_none=True)
+    if not _is_platform_admin(current_user):
+        for protected in ("management_mode", "client_user_id", "allow_client_publish", "allowed_screen_ids"):
+            incoming.pop(protected, None)
+    if "management_mode" in incoming and incoming["management_mode"] not in PLAYLIST_MODES:
+        raise HTTPException(400, "Invalid management mode")
+    if "items" in incoming:
+        try:
+            incoming["items"] = normalize_playlist_items(incoming["items"])
+        except ValueError as error:
+            raise HTTPException(400, str(error))
+        await _validate_playlist_refs(incoming["items"])
+    if "allowed_screen_ids" in incoming:
+        incoming["allowed_screen_ids"] = list(dict.fromkeys(incoming["allowed_screen_ids"]))
+    incoming.update({"updated_at": datetime.utcnow()})
+    if "items" in incoming:
+        incoming["version"] = int(playlist.get("version") or 0) + 1
+    await db.playlists.update_one({"id": playlist_id}, {"$set": incoming})
+    if "items" in incoming and playlist.get("screen_ids"):
+        await _bump_playlist_screens(playlist["screen_ids"], "owned playlist content updated")
+    return _safe_playlist(await db.playlists.find_one({"id": playlist_id}, {"_id": 0}))
+
+
+@api_router.delete("/playlists/{playlist_id}")
+async def delete_owned_playlist(playlist_id: str, current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user, edit=True)
+    await db.playlists.delete_one({"id": playlist_id})
+    await _bump_playlist_screens(playlist.get("screen_ids", []), "owned playlist deleted")
+    return {"message": "Playlist deleted"}
+
+
+@api_router.get("/playlists/{playlist_id}/available-screens")
+async def playlist_available_screens(playlist_id: str, current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user)
+    query = {"status": {"$ne": "deleted"}}
+    if not _is_platform_admin(current_user):
+        query["id"] = {"$in": playlist.get("allowed_screen_ids") or playlist.get("screen_ids") or []}
+    screens = await db.screens.find(query, {"_id": 0, "id": 1, "name": 1, "location": 1, "status": 1}).to_list(500)
+    return screens
+
+
+@api_router.post("/playlists/{playlist_id}/publish")
+async def publish_owned_playlist(playlist_id: str, data: PlaylistPublish,
+                                 current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user, edit=True)
+    if not _can_publish_playlist(playlist, current_user):
+        raise HTTPException(403, "This playlist requires administrator publishing")
+    if not playlist.get("items"):
+        raise HTTPException(400, "Add at least one item before publishing")
+    screen_ids = list(dict.fromkeys(data.screen_ids))
+    if not screen_ids:
+        raise HTTPException(400, "Select at least one screen")
+    if not _is_platform_admin(current_user):
+        allowed = set(playlist.get("allowed_screen_ids") or playlist.get("screen_ids") or [])
+        if not set(screen_ids).issubset(allowed):
+            raise HTTPException(403, "One or more screens are not assigned to this client")
+    found = await db.screens.count_documents({"id": {"$in": screen_ids}, "status": {"$ne": "deleted"}})
+    if found != len(screen_ids):
+        raise HTTPException(400, "One or more screens were not found")
+    previous = playlist.get("screen_ids") or []
+    now = datetime.utcnow()
+    update = {
+        "screen_ids": screen_ids, "schedule": normalize_schedule(data.schedule),
+        "priority": max(0, min(data.priority, 100)), "status": "published",
+        "published_at": now, "published_by_user_id": current_user["id"], "updated_at": now,
+        "version": int(playlist.get("version") or 0) + 1,
+    }
+    if _is_platform_admin(current_user):
+        update["allowed_screen_ids"] = list(dict.fromkeys((playlist.get("allowed_screen_ids") or []) + screen_ids))
+    await db.playlists.update_one({"id": playlist_id}, {"$set": update})
+    await _bump_playlist_screens(previous + screen_ids, "owned playlist published")
+    return {"message": "Playlist published", "playlist_id": playlist_id,
+            "screen_ids": screen_ids, "published_at": now.isoformat()}
+
+
+@api_router.post("/playlists/{playlist_id}/unpublish")
+async def unpublish_owned_playlist(playlist_id: str, current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user, edit=True)
+    if not _can_publish_playlist(playlist, current_user):
+        raise HTTPException(403, "Administrator publishing required")
+    await db.playlists.update_one({"id": playlist_id}, {"$set": {
+        "screen_ids": [], "status": "draft", "updated_at": datetime.utcnow()
+    }})
+    await _bump_playlist_screens(playlist.get("screen_ids", []), "owned playlist unpublished")
+    return {"message": "Playlist unpublished"}
+
+
+@api_router.get("/playlists/{playlist_id}/delivery-status")
+async def playlist_delivery_status(playlist_id: str, current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user)
+    screen_ids = playlist.get("screen_ids") or []
+    screens = await db.screens.find({"id": {"$in": screen_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+    devices = await db.devices.find(
+        {"screen_id": {"$in": screen_ids}},
+        {"_id": 0, "screen_id": 1, "status": 1, "last_heartbeat": 1},
+    ).sort("last_heartbeat", -1).to_list(500)
+    by_screen = {}
+    for device in devices:
+        by_screen.setdefault(device.get("screen_id"), device)
+    now = datetime.utcnow()
+    delivery = []
+    for screen in screens:
+        device = by_screen.get(screen["id"], {})
+        last_heartbeat = device.get("last_heartbeat")
+        is_online = bool(last_heartbeat and (now - last_heartbeat).total_seconds() < 120)
+        delivery.append({
+            **screen,
+            "device_status": "online" if is_online else "offline",
+            "device_state": device.get("status", "unassigned"),
+            "last_seen": serialize_doc(last_heartbeat),
+        })
+    return delivery
+
+
+@api_router.post("/menus/{menu_id}/prepare-playlist")
+async def prepare_menu_playlist(menu_id: str, current_user: dict = Depends(get_current_user)):
+    menu = await db.menus.find_one({"id": menu_id}, {"_id": 0})
+    if not menu:
+        raise HTTPException(404, "Menu not found")
+    if not _is_platform_admin(current_user) and menu.get("user_id") != current_user["id"]:
+        raise HTTPException(403, "Access denied")
+    playlist = await db.playlists.find_one({"source_menu_id": menu_id}, {"_id": 0})
+    if playlist and _can_view_playlist(playlist, current_user):
+        return playlist
+    now = datetime.utcnow()
+    playlist = {
+        "id": gen_id(), "name": f"{menu.get('name', 'Menu')} Playlist", "description": "Digital menu playlist",
+        "source_menu_id": menu_id, "created_by_user_id": current_user["id"], "owner_user_id": current_user["id"],
+        "client_user_id": menu.get("user_id"), "management_mode": "client",
+        "allow_client_publish": _is_platform_admin(current_user), "allowed_screen_ids": [], "screen_ids": [],
+        "items": normalize_playlist_items([{"type": "menu", "ref_id": menu_id, "title": menu.get("name"), "duration": 60}]),
+        "schedule": normalize_schedule(None), "priority": 10, "status": "draft", "version": 1,
+        "pending_items": [], "created_at": now, "updated_at": now,
+    }
+    await db.playlists.insert_one(playlist)
+    return serialize_doc(playlist)
+
+
+@api_router.post("/playlists/{playlist_id}/share")
+async def share_owned_playlist(playlist_id: str, data: PlaylistShare, request: Request,
+                               current_user: dict = Depends(get_current_user)):
+    await _playlist_or_404(playlist_id, current_user, edit=True)
+    token = secrets.token_urlsafe(24)
+    access = {
+        "enabled": True, "token_hash": _public_token_hash(token),
+        "permission": "editor" if data.permission == "editor" else "uploader",
+        "require_approval": data.require_approval, "allow_upload": data.allow_upload,
+        "expires_at": datetime.utcnow() + timedelta(days=max(1, min(data.expires_days, 365))),
+        "created_at": datetime.utcnow(), "created_by_user_id": current_user["id"],
+    }
+    await db.playlists.update_one({"id": playlist_id}, {"$set": {"public_access": access}})
+    origin = str(request.base_url).rstrip("/")
+    url = f"{origin}/api/public/playlist?token={token}"
+    return {"url": url, "qr_url": f"{origin}/api/public/playlists/{token}/qr",
+            "expires_at": access["expires_at"].isoformat(), "require_approval": data.require_approval}
+
+
+@api_router.get("/public/playlists/{token}")
+async def get_public_playlist(token: str):
+    playlist = await _public_playlist(token)
+    return {"id": playlist["id"], "name": playlist["name"], "description": playlist.get("description"),
+            "items": playlist.get("items", []), "pending_count": len(playlist.get("pending_items", [])),
+            "access": {key: value for key, value in playlist.get("public_access", {}).items()
+                       if key not in ("token_hash", "created_by_user_id")}}
+
+
+@api_router.get("/public/playlists/{token}/qr")
+async def public_playlist_qr(token: str, request: Request):
+    await _public_playlist(token)
+    import io
+    import qrcode
+    url = f"{str(request.base_url).rstrip('/')}/api/public/playlist?token={token}"
+    image = qrcode.make(url)
+    buffer = io.BytesIO(); image.save(buffer, format="PNG")
+    return Response(buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
+
+
+@api_router.post("/public/playlists/{token}/media")
+@_rl.limit(_LIMITS.media_upload)
+async def public_playlist_media(token: str, request: Request, response: Response, data: MediaUpload):
+    playlist = await _public_playlist(token)
+    access = playlist.get("public_access", {})
+    if not access.get("allow_upload"):
+        raise HTTPException(403, "Uploads are disabled for this link")
+    owner = await db.users.find_one({"id": playlist.get("client_user_id") or playlist.get("owner_user_id")}, {"_id": 0})
+    if not owner:
+        raise HTTPException(409, "Playlist owner account is unavailable")
+    uploaded = await upload_media(request=request, response=response, data=data, current_user=owner)
+    item = normalize_playlist_items([{
+        "type": "media", "ref_id": uploaded["id"], "title": uploaded["filename"], "duration": 15,
+    }])[0]
+    if access.get("require_approval", True):
+        item.update({"submitted_at": datetime.utcnow(), "submission_status": "pending"})
+        await db.playlists.update_one({"id": playlist["id"]}, {"$push": {"pending_items": item}})
+        return {"message": "Content submitted for approval", "status": "pending", "item": serialize_doc(item)}
+    item["order"] = len(playlist.get("items") or [])
+    await db.playlists.update_one({"id": playlist["id"]}, {
+        "$push": {"items": item}, "$inc": {"version": 1}, "$set": {"updated_at": datetime.utcnow()},
+    })
+    await _bump_playlist_screens(playlist.get("screen_ids", []), "public playlist upload")
+    return {"message": "Content published", "status": "published", "item": item}
+
+
+@api_router.delete("/public/playlists/{token}/items/{item_id}")
+async def public_remove_playlist_item(token: str, item_id: str):
+    playlist = await _public_playlist(token)
+    if playlist.get("public_access", {}).get("permission") != "editor":
+        raise HTTPException(403, "This link can upload but cannot remove content")
+    if not any(item.get("id") == item_id for item in playlist.get("items", [])):
+        raise HTTPException(404, "Playlist item not found")
+    await db.playlists.update_one({"id": playlist["id"]}, {
+        "$pull": {"items": {"id": item_id}}, "$inc": {"version": 1}, "$set": {"updated_at": datetime.utcnow()},
+    })
+    await _bump_playlist_screens(playlist.get("screen_ids", []), "public playlist item removed")
+    return {"message": "Content removed"}
+
+
+@api_router.post("/playlists/{playlist_id}/pending/{item_id}/approve")
+async def approve_public_playlist_item(playlist_id: str, item_id: str,
+                                       current_user: dict = Depends(get_current_user)):
+    playlist = await _playlist_or_404(playlist_id, current_user, edit=True)
+    pending = next((item for item in playlist.get("pending_items", []) if item.get("id") == item_id), None)
+    if not pending:
+        raise HTTPException(404, "Pending item not found")
+    clean = {key: value for key, value in pending.items() if key not in ("submitted_at", "submission_status")}
+    clean["order"] = len(playlist.get("items") or [])
+    await db.playlists.update_one({"id": playlist_id}, {
+        "$set": {"updated_at": datetime.utcnow()}, "$inc": {"version": 1}, "$push": {"items": clean},
+        "$pull": {"pending_items": {"id": item_id}},
+    })
+    await _bump_playlist_screens(playlist.get("screen_ids", []), "public submission approved")
+    return {"message": "Submission approved"}
+
+
+@api_router.delete("/playlists/{playlist_id}/pending/{item_id}")
+async def reject_public_playlist_item(playlist_id: str, item_id: str,
+                                      current_user: dict = Depends(get_current_user)):
+    await _playlist_or_404(playlist_id, current_user, edit=True)
+    await db.playlists.update_one({"id": playlist_id}, {"$pull": {"pending_items": {"id": item_id}}})
+    return {"message": "Submission rejected"}
+
+
 @api_router.get("/menu-templates")
 async def get_menu_templates():
     """Get all available menu design templates."""
@@ -3838,6 +4334,7 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
         "subtitle": data.get("subtitle", ""),
         "currency": data.get("currency", "USD"),
         "currency_symbol": data.get("currency_symbol", "$"),
+        "theme": data.get("theme") or {},
         "categories": categories,
         "status": "draft",
         "created_at": datetime.utcnow(),
@@ -3879,16 +4376,13 @@ async def update_menu(menu_id: str, data: dict, current_user: dict = Depends(get
                   "currency", "currency_symbol", "status", "categories",
                   "slideshow_enabled", "slideshow_interval",
                   "split_screen_enabled", "split_screen_layout",
-                  "split_promo_media", "split_widget_id"]:
+                  "split_promo_media", "split_widget_id", "theme"]:
         if field in data:
             update[field] = data[field]
 
     await db.menus.update_one({"id": menu_id}, {"$set": update})
     updated = await db.menus.find_one({"id": menu_id})
-    try:
-        await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception:
-        pass
+    await _notify_menu_change(menu_id)
     return serialize_doc(updated)
 
 @api_router.delete("/menus/{menu_id}")
@@ -3899,6 +4393,15 @@ async def delete_menu(menu_id: str, current_user: dict = Depends(get_current_use
         raise HTTPException(status_code=404, detail="Menu not found")
     if current_user.get("role") not in ("admin", "superadmin") and menu["user_id"] != current_user["id"]:
         raise HTTPException(status_code=403, detail="Access denied")
+    used_by = await db.playlists.find(
+        {"items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
+        {"_id": 0, "id": 1, "name": 1, "status": 1},
+    ).to_list(200)
+    if used_by:
+        raise HTTPException(status_code=409, detail={
+            "message": f"This menu is used by {len(used_by)} playlist(s). Remove it from those playlists first.",
+            "used_by": used_by,
+        })
     await db.menus.delete_one({"id": menu_id})
     return {"message": "Menu deleted"}
 
@@ -3924,8 +4427,7 @@ async def add_menu_category(menu_id: str, data: dict, current_user: dict = Depen
 
     await db.menus.update_one({"id": menu_id}, {"$push": {"categories": category}, "$set": {"updated_at": datetime.utcnow()}})
     updated = await db.menus.find_one({"id": menu_id})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     return serialize_doc(updated)
 
 @api_router.put("/menus/{menu_id}/categories/{category_id}")
@@ -3945,8 +4447,7 @@ async def update_menu_category(menu_id: str, category_id: str, data: dict, curre
             break
 
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -3961,8 +4462,7 @@ async def delete_menu_category(menu_id: str, category_id: str, current_user: dic
 
     categories = [c for c in menu.get("categories", []) if c["id"] != category_id]
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     return {"message": "Category deleted"}
 
 # --- Menu Item Management ---
@@ -3995,8 +4495,7 @@ async def add_menu_item(menu_id: str, category_id: str, data: dict, current_user
             break
 
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -4020,8 +4519,7 @@ async def update_menu_item(menu_id: str, category_id: str, item_id: str, data: d
             break
 
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -4041,8 +4539,7 @@ async def delete_menu_item(menu_id: str, category_id: str, item_id: str, current
             break
 
     await db.menus.update_one({"id": menu_id}, {"$set": {"categories": categories, "updated_at": datetime.utcnow()}})
-    try: await ws_manager.broadcast_menu(menu_id, "updated")
-    except Exception: pass
+    await _notify_menu_change(menu_id)
     return {"message": "Item deleted"}
 
 # --- Menu Render (for player/screen display) ---
@@ -4071,6 +4568,7 @@ async def add_promo_media(menu_id: str, data: dict, current_user: dict = Depends
         "$push": {"promo_media": media_item},
         "$set": {"updated_at": datetime.utcnow()}
     })
+    await _notify_menu_change(menu_id)
     updated = await db.menus.find_one({"id": menu_id})
     return serialize_doc(updated)
 
@@ -4087,6 +4585,7 @@ async def delete_promo_media(menu_id: str, media_id: str, current_user: dict = D
     await db.menus.update_one({"id": menu_id}, {
         "$set": {"promo_media": promo_media, "updated_at": datetime.utcnow()}
     })
+    await _notify_menu_change(menu_id)
     return {"message": "Promo media deleted"}
 
 
@@ -4173,7 +4672,12 @@ async def render_menu(menu_id: str):
         "premium_dark": {"bg": "#000000", "bg2": "#0a0a0a", "text": "#e2e8f0", "text2": "#71717a", "accent": "#d4af37", "cat_bg": "rgba(212,175,55,.06)", "item_bg": "rgba(255,255,255,.02)", "item_border": "rgba(212,175,55,.08)", "font": "'Playfair Display',Georgia,serif", "name_size": "44px", "featured_bg": "rgba(212,175,55,.05)", "img_bg": "rgba(212,175,55,.06)", "grid": True}
     }
 
-    t = templates.get(template_id, templates["classic"])
+    t = dict(templates.get(template_id, templates["classic"]))
+    custom_theme = menu.get("theme") or {}
+    for key in ("bg", "bg2", "text", "text2", "accent"):
+        value = str(custom_theme.get(key) or "")
+        if re.fullmatch(r"#[0-9a-fA-F]{6}", value):
+            t[key] = value
 
     is_grid = t.get('grid', False)
 
@@ -4464,6 +4968,10 @@ WEB_DIR = str(ROOT_DIR / 'web')
 @api_router.get("/dashboard")
 async def serve_dashboard():
     return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+
+@api_router.get("/public/playlist")
+async def serve_public_playlist_editor():
+    return FileResponse(os.path.join(WEB_DIR, 'public-playlist.html'), media_type='text/html')
 
 @api_router.get("/download")
 async def serve_download():

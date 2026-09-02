@@ -4,11 +4,8 @@ workflows:
     max_build_duration: 30
     environment:
       java: 17
-      groups:
-        - github_secrets
       vars:
         PACKAGE_NAME: "com.mediaview.player"
-        GITHUB_REPO: "dwaine01/mediadview-platform"
     triggering:
       events:
         - push
@@ -44,47 +41,22 @@ workflows:
           fi
       - name: Locate and rename APK
         script: |
+          set -euo pipefail
           APK_SRC=$(find android-player/app/build/outputs/apk/diagnostic -type f -name "*.apk" | head -1)
           echo "Built APK: $APK_SRC"
-          ls -lh "$APK_SRC"
           if [ -z "$APK_SRC" ]; then
             echo "No APK found!"
             exit 1
           fi
-          echo "APK_SRC_PATH=$APK_SRC" >> $CM_ENV
-      - name: Auto-commit APK back to repo
-        script: |
-          set -e
-          echo "Auto-publishing APK to backend/web/..."
-          cp "$APK_SRC_PATH" "backend/web/mediaview-player-v${APK_VERSION}-diagnostic.apk"
-          cp "$APK_SRC_PATH" "backend/web/mediaview-player-diagnostic.apk"
-          ls -lh backend/web/mediaview-player*-diagnostic.apk
-          git config user.name  "Codemagic Bot"
-          git config user.email "bot@mediadview.com"
-          git add "backend/web/mediaview-player-v${APK_VERSION}-diagnostic.apk" \
-                  "backend/web/mediaview-player-diagnostic.apk"
-          if git diff --cached --quiet; then
-            echo "No APK changes to commit (same binary)"
-            exit 0
-          fi
-          git commit -m "build(apk): mediaview-player-v${APK_VERSION}-diagnostic [skip ci]"
-          REMOTE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
-          PUSHED=false
-          for i in 1 2 3; do
-            if git pull --rebase --autostash "$REMOTE_URL" main && git push "$REMOTE_URL" main; then
-              PUSHED=true
-              break
-            fi
-            echo "Push attempt $i failed, retrying..."
-            sleep 3
-          done
-          if [ "$PUSHED" != "true" ]; then
-            echo "Failed to push APK after 3 attempts"
-            exit 1
-          fi
-          echo "Diagnostic APK v${APK_VERSION} published. Production alias remains unchanged."
+          mkdir -p dist
+          cp "$APK_SRC" "dist/mediaview-player-v${APK_VERSION}-diagnostic.apk"
+          cp "$APK_SRC" "dist/mediaview-player-latest-diagnostic.apk"
+          sha256sum dist/*.apk > dist/SHA256SUMS
+          ls -lh dist/
+          echo "APK v${APK_VERSION} ready as a Codemagic artifact; main remains source-only."
     artifacts:
-      - android-player/app/build/outputs/apk/**/*.apk
+      - dist/*.apk
+      - dist/SHA256SUMS
     publishing:
       email:
         recipients:

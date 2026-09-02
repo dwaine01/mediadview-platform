@@ -12,11 +12,14 @@ import os
 import sys
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 
 import pytest
 
-# Make the backend importable
-sys.path.insert(0, "/app/backend")
+# Make the backend importable from any checkout location.
+BACKEND_DIR = Path(__file__).resolve().parent.parent
+MEDIA_DIR = BACKEND_DIR / "media"
+sys.path.insert(0, str(BACKEND_DIR))
 
 # Bypass strict env checks
 os.environ.setdefault("JWT_SECRET", "test-secret-1234567890abcdef")
@@ -321,7 +324,7 @@ async def test_device_playlist_accepts_null_dates_and_empty_playlist_is_explicit
     suffix = uuid.uuid4().hex[:10]
     screen_id, device_id, media_id, campaign_id = [f"contract-{name}-{suffix}" for name in ("screen", "device", "media", "campaign")]
     stored = f"{media_id}.png"
-    media_path = os.path.join("/app/backend/media", stored)
+    media_path = os.path.join(MEDIA_DIR, stored)
     with open(media_path, "wb") as handle:
         handle.write(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+AvzZVwAAAABJRU5ErkJggg=="))
     from pymongo import MongoClient

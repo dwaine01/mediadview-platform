@@ -28,9 +28,9 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
-BASE = "http://localhost:8001"
-ADMIN_EMAIL = "admin.demo@mediadview.com"
-ADMIN_PASS  = "AdminDemo#2026"
+BASE = os.environ.get("TEST_BASE_URL", "http://localhost:8001").rstrip("/")
+ADMIN_EMAIL = os.environ.get("TEST_ADMIN_EMAIL", os.environ.get("SEED_ADMIN_EMAIL", "admin.demo@mediadview.com"))
+ADMIN_PASS = os.environ.get("TEST_ADMIN_PASSWORD", os.environ.get("SEED_ADMIN_PASSWORD", "AdminDemo#2026"))
 
 
 def _login() -> str:

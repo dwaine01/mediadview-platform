@@ -1130,3 +1130,10 @@ button:focus-visible { box-shadow: var(--ds-sh-focus); }
   .stat-value, .val, .st-value { font-size: 22px !important; }
   .pg { padding: 12px !important; }
 }
+
+/* Final mobile drawer authority: overrides legacy transform/left rules. */
+@media (max-width: 900px) {
+  #view-app .sb { left: 0 !important; transform: translate3d(-100%,0,0) !important; }
+  #view-app .sb.open { left: 0 !important; transform: translate3d(0,0,0) !important; }
+  #view-app .sb nav { min-height: 0 !important; overflow-y: auto !important; }
+}

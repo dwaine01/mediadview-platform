@@ -10,14 +10,16 @@ Requirements from review request:
   6. /about mobile portrait sized full-width with height between 340-480px, background-position center top.
   7. Regression: admin panel at panel.mediadview.com/ still responsive at 390x844.
 """
+import os
 import re
 
 import pytest
 import requests
 from bs4 import BeautifulSoup
 
-PUBLIC_URL = "https://mediadview.com"
-PANEL_URL = "https://panel.mediadview.com"
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://mediadview.com").rstrip("/")
+PANEL_URL = os.environ.get("PANEL_URL", "https://panel.mediadview.com").rstrip("/")
+PANEL_API_URL = os.environ.get("PANEL_API_URL", PANEL_URL).rstrip("/")
 MEGAPHONE = "\U0001F4E2"
 
 
@@ -151,7 +153,7 @@ class TestAdminPanelRegression:
         # Live auth may be rate-limited by prior testing; accept 200/401/429 as
         # 'endpoint is up and returning JSON'. A 500/404 would indicate breakage.
         r = requests.post(
-            f"{PANEL_URL}/api/auth/v2/login",
+            f"{PANEL_API_URL}/api/auth/v2/login",
             json={"email": "admin.demo@mediadview.com", "password": "AdminDemo#2026"},
             timeout=15,
         )

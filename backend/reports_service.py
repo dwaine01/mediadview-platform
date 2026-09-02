@@ -585,7 +585,7 @@ async def sla_metrics(
             if tta_pub >= 0:
                 time_to_publish_sec.append(tta_pub)
         samples.append({
-            "order_id": o["_id"],
+            "order_id": str(o["_id"]),
             "guest_email": o.get("guest_email"),
             "paid_at": paid_at,
             "approved_at": approved_at,
@@ -652,7 +652,7 @@ async def flat_invoices(db: AsyncIOMotorDatabase, f: Filters, limit: int = 5000)
     rows = []
     async for i in db.fin_invoices.find(q).sort("issued_at", -1).limit(limit):
         rows.append({
-            "invoice_number": i["_id"],
+            "invoice_number": i.get("invoice_number") or str(i["_id"]),
             "status": i.get("status"),
             "order_id": i.get("order_id"),
             "order_number": i.get("order_number"),
@@ -676,7 +676,7 @@ async def flat_refunds(db: AsyncIOMotorDatabase, f: Filters, limit: int = 5000) 
     rows = []
     async for r in db.refunds.find(q).sort("created_at", -1).limit(limit):
         rows.append({
-            "refund_number": r["_id"],
+            "refund_number": r.get("refund_number") or str(r["_id"]),
             "order_id": r.get("order_id"),
             "invoice_id": r.get("invoice_id"),
             "status": r.get("status"),

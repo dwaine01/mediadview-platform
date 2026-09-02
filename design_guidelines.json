@@ -1,0 +1,92 @@
+{
+  "project_name": "MediaView Digital Signage Platform",
+  "app_type": "hybrid_fullstack_digital_signage_saas",
+  "archetype": "THE PERFORMANCE PRO & SWISS HIGH-CONTRAST",
+  "theme": {
+    "default": "dark",
+    "has_toggle": true,
+    "primary_dark_bg": "#0B0F19",
+    "secondary_dark_bg": "#111827",
+    "surface_dark": "#1F2937",
+    "primary_accent": "#3B82F6",
+    "accent_hover": "#2563EB",
+    "success_color": "#10B981",
+    "warning_color": "#F59E0B",
+    "danger_color": "#EF4444",
+    "text_primary": "#F9FAFB",
+    "text_secondary": "#9CA3AF",
+    "text_muted": "#6B7280",
+    "border_color": "#374151"
+  },
+  "typography": {
+    "font_family_heading": "'Outfit', 'Cabinet Grotesk', system-ui, sans-serif",
+    "font_family_body": "'Plus Jakarta Sans', 'Inter', system-ui, sans-serif",
+    "font_family_mono": "'JetBrains Mono', monospace",
+    "headline_hero": "text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight",
+    "headline_section": "text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight",
+    "headline_card": "text-lg sm:text-xl font-semibold",
+    "body_text": "text-base leading-relaxed",
+    "small_text": "text-sm text-gray-400",
+    "label_text": "text-xs uppercase tracking-widest font-semibold text-gray-400"
+  },
+  "grids": {
+    "dashboard": "grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6",
+    "playlist_editor": "grid grid-cols-1 lg:grid-cols-12 gap-6",
+    "screen_grid": "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6",
+    "mobile_stack": "flex flex-col gap-4"
+  },
+  "layout_strategies": {
+    "header_nav": "Sticky or fixed top bar with glassmorphism backdrop-blur-md bg-slate-900/80 border-b border-gray-800 z-50 px-6 py-4 flex items-center justify-between",
+    "sidebar": "Hidden on mobile, fixed width on desktop w-64 bg-slate-900 border-r border-gray-800 flex flex-col p-4 space-y-2",
+    "content_area": "flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-8",
+    "modal_dialog": "fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+  },
+  "three_management_modes": {
+    "client_managed": "Self-service client dashboard allowing restaurant & supermarket owners (e.g., Pizzeria Tony) to edit menus, upload food photos/videos, set item durations, and publish to assigned screens directly.",
+    "admin_managed": "Centralized company/operator console to control all client playlists, screen assignments, system health, offline player diagnostics, and manual overrides.",
+    "public_qr_link": "Tokenized browser portal accessible via public URL or QR code, allowing staff or users with temporary authorization to safely edit menus and trigger instant screen updates without login credentials."
+  },
+  "key_features_and_components": {
+    "playlist_library": "Grouped by client/tenant (e.g., Pizzeria Tony, Supermarket Express). Supports filtering by type (menu, promotional, announcements).",
+    "playlist_editor": "Interactive reorderable item list mixing digital menus, high-res images, and video clips. Allows specifying per-item duration in seconds, transition effects, and live preview window.",
+    "publish_modal_flow": "Step 1: Select target screen(s) or screen groups. Step 2: Confirmation summary with instant broadcast vs schedule toggle. Step 3: Published success status badge with live per-screen receipt indicator. Copy URL is secondary under Advanced Options.",
+    "screen_management": "Grid view showing screen online/offline status, current playing playlist, thumbnail preview, ping latency, and resolution.",
+    "public_qr_portal": "Simplified mobile-first web view with brand logo, quick item price/availability toggles, media upload zone, and instant 'Publish Now' button.",
+    "campaigns_vs_playlists": "Campaigns remain reserved for time-bounded paid ad spots with impression tracking, whereas Playlists are permanent owned menu/content loops."
+  },
+  "image_urls": {
+    "restaurant_menu_display": {
+      "url": "https://images.unsplash.com/photo-1629341948402-42a2d20577a6?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHwyfHxkaWdpdGFsJTIwc2lnbmFnZSUyMGRpc3BsYXklMjByZXN0YXVyYW50JTIwbWVudSUyMHBpenphfGVufDB8fHx8MTc4ODM1NjMxM3ww&ixlib=rb-4.1.0&q=85",
+      "category": "menu_header_preview",
+      "description": "Digital menu board preview for Pizzeria Tony"
+    },
+    "pizza_neon_sign": {
+      "url": "https://images.unsplash.com/photo-1572635148997-b388f80f6a39?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzB8MHwxfHNlYXJjaHw0fHxkaWdpdGFsJTIwc2lnbmFnZSUyMGRpc3BsYXklMjByZXN0YXVyYW50JTIwbWVudSUyMHBpenphfGVufDB8fHx8MTc4ODM1NjMxM3ww&ixlib=rb-4.1.0&q=85",
+      "category": "client_banner",
+      "description": "Neon pizza sign for food service category"
+    },
+    "supermarket_produce_display": {
+      "url": "https://images.unsplash.com/photo-1542838132-92c53300491e?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1NzV8MHwxfHNlYXJjaHwxfHxzdXBlcm1hcmtldCUyMGZyZXNoJTIwcHJvZHVjZSUyMGRpc3BsYXklMjBzY3JlZW58ZW58MHx8fHwxNzg4MzU2MzE4fDA&ixlib=rb-4.1.0&q=85",
+      "category": "supermarket_header_preview",
+      "description": "Fresh produce screen display for Supermarket client"
+    }
+  },
+  "motion_and_interactions": {
+    "hover_effects": "transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-blue-500/50",
+    "active_state": "active:scale-[0.98]",
+    "focus_state": "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-slate-900",
+    "modal_animation": "animate-in fade-in zoom-in-95 duration-150 ease-out"
+  },
+  "general_ui_ux_guidelines": {
+    "data_testid_rule": "ALL interactive components, buttons, inputs, menu items, and modals MUST include data-testid attributes formatted in kebab-case (e.g. data-testid='publish-playlist-btn', data-testid='screen-select-checkbox-1').",
+    "no_transparent_header_rule": "Header or floating bars must never have fully transparent backgrounds; use backdrop-blur with minimum opacity bg-slate-900/80.",
+    "hover_contrast_rule": "Hover states must explicitly declare text color along with background changes (e.g. hover:bg-blue-600 hover:text-white).",
+    "mobile_first_rule": "Ensure touch targets are at least 44x44px for easy mobile usage by restaurant staff in noisy kitchen/counter environments."
+  },
+  "instructions_to_main_agent": [
+    "Follow vanilla JS / HTML / CSS architecture as specified in backend/web structure.",
+    "Ensure playlist publish flow triggers per-screen deployment confirmation dialogs with clear delivery receipt status.",
+    "Provide three distinct operational entry points: Admin Control Panel, Client Self-Service Dashboard, and Public QR Portal.",
+    "Include option under advanced publishing settings to copy direct URL for web player deployment while default flow pushes directly to assigned Android/Roku/Web screens."
+  ]
+}

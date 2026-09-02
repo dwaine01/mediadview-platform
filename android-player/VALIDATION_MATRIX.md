@@ -1,4 +1,6 @@
-# MediaView Player v3 — Validation Matrix
+# MediaView Player v3.1 — Validation Matrix
+
+Diagnostic target: `v3.1.0-diagnostic` (`versionCode 16`).
 
 ## Automated gates before APK
 
@@ -12,7 +14,7 @@
 | Network loss | Bounded retry test | Last Room playlist remains active; retry capped at 5 minutes |
 | Reconnection | NetworkCallback + retry contract | Immediate sync when connectivity returns |
 | Device reboot | Boot action policy test | Boot/package replacement trigger one recovery request |
-| Playlist update | Signature + backend version tests | Changed duration/hash/order replaces manifest atomically |
+| Playlist update | SSE event + 15 s polling fallback + backend version tests | Changes sync immediately; polling recovers missed events |
 | Corrupt content | SHA/size + atomic swap test | `.tmp` rejected; last known-good file remains untouched |
 
 ## Required physical onn Android TV acceptance before production release
@@ -25,7 +27,7 @@
 6. Disconnect WAN for 10 minutes: cached content continues.
 7. Reconnect WAN: HUD updates HTTP/last-sync and applies playlist change.
 8. Power-cycle the onn box: default HOME launches player and cached content starts.
-9. Publish a changed playlist: atomic download completes before switching.
+9. Publish a changed playlist: SSE triggers immediate sync and atomic download completes before switching.
 10. Serve a truncated/bad file: player rejects it, shows controlled status, and
     advances or keeps the last valid playlist.
 
