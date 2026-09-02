@@ -14,6 +14,16 @@ async def main():
     client = AsyncIOMotorClient(os.environ["MONGO_URL"])
     db = client[os.environ["DB_NAME"]]
 
+    # Ensure the indexes we later assert on actually exist. In dev the
+    # web-api startup handler creates them, but standalone smoke runs
+    # (and CI ephemeral Mongo) never boot the server, so we call the
+    # ensure_* helpers directly here. Idempotent.
+    try:
+        from stripe_indexes import ensure_stripe_indexes
+        await ensure_stripe_indexes(db)
+    except Exception as e:
+        print(f"  warn: ensure_stripe_indexes failed: {e}")
+
     print("── invoice number generator ──")
     # Reset counter so numbers are predictable in the smoke run.
     await db.counters.delete_one({"_id": "invoice_number:2999"})

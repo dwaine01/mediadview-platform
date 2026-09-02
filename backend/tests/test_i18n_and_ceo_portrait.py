@@ -27,6 +27,23 @@ def _choose_base():
 BASE, HEADERS = _choose_base()
 
 
+# Skip suite when target lacks /about HTML (e.g. CI test job — backend
+# running but frontend not built).
+def _about_reachable():
+    import os
+    if os.environ.get("ENVIRONMENT") == "test":
+        return False
+    try:
+        r = requests.get(f"{BASE}/about", headers=HEADERS, timeout=6)
+        return r.status_code == 200 and len(r.text) > 500
+    except Exception:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _about_reachable(),
+    reason="requires /about HTML deployed (skipped in CI test job)")
+
+
 @pytest.fixture(scope="module")
 def s():
     sess = requests.Session()

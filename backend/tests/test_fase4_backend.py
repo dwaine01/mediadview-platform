@@ -23,13 +23,40 @@ import jwt as pyjwt
 import pytest
 import requests
 
-from conftest import BASE_URL  # type: ignore
+from tests.conftest import BASE_URL  # type: ignore
 
 
 # ── Credentials (from /app/memory/test_credentials.md + review request) ──
 SUPERADMIN = ("superadmin@mediadview.com", "SuperAdmin#2026")
 ADMIN_DEMO = ("admin.demo@mediadview.com", "AdminDemo#2026")
 A40_USER   = ("4h7QNZL5tnAY", "Iv7LfV4gls2DSrv")
+
+
+# Skip this whole module in CI environments that don't have seed data.
+# The tests are integration-style and require the seeded users +
+# the /app/backend/.env file. E2E job (SKIP_SEED=false + running
+# server) runs them via a separate step.
+def _seed_available():
+    if os.environ.get("SKIP_SEED", "").lower() == "true":
+        return False
+    if os.environ.get("ENVIRONMENT") == "test":
+        return False
+    try:
+        if not Path("/app/backend/.env").exists():
+            return False
+        r = requests.get(f"{BASE_URL}/api/livez", timeout=2)
+        if r.status_code != 200:
+            return False
+        r = requests.post(f"{BASE_URL}/api/auth/v2/login",
+                          json={"email": SUPERADMIN[0], "password": SUPERADMIN[1],
+                                "client_type": "web"}, timeout=5)
+        return r.status_code == 200
+    except Exception:
+        return False
+
+
+pytestmark = pytest.mark.skipif(not _seed_available(),
+    reason="requires seeded users + running backend (skipped in CI test job)")
 
 
 # ══════════════════════════════════════════════════════════════════════
