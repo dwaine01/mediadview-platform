@@ -161,13 +161,18 @@ class MainActivity : Activity() {
             setBackgroundColor(Color.BLACK)
         }
 
-        // Status overlay (shown during loading/errors)
+        // Status overlay — ALWAYS visible until WebView reports success.
+        // This is the safety net: if the WebView never renders (network
+        // failure, old WebView, TLS mismatch...) the TV still shows a
+        // legible status message with the URL it's trying to reach.
         statusView = TextView(this).apply {
-            setTextColor(Color.parseColor("#64748B"))
-            textSize = 14f
-            text = "MediAd View Player v${BuildConfig.VERSION_NAME} - Initializing..."
-            setPadding(32, 32, 32, 32)
-            visibility = View.GONE
+            setTextColor(Color.parseColor("#E9D5FF"))
+            textSize = 22f
+            gravity = Gravity.CENTER
+            setPadding(48, 96, 48, 48)
+            text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\nConnecting to $serverUrl\u2026"
+            setBackgroundColor(Color.parseColor("#0F172A"))
+            visibility = View.VISIBLE
         }
 
         // WebView
@@ -199,10 +204,35 @@ class MainActivity : Activity() {
 
             // Handle page events
             webViewClient = object : WebViewClient() {
+                override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                    super.onPageStarted(view, url, favicon)
+                    Log.i(PlayerApp.TAG, "Page start: $url")
+                    runOnUiThread {
+                        statusView.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\nLoading\u2026\n\n${url ?: ""}"
+                        statusView.visibility = View.VISIBLE
+                    }
+                }
+
                 override fun onPageFinished(view: WebView?, url: String?) {
                     super.onPageFinished(view, url)
                     Log.i(PlayerApp.TAG, "Page loaded: $url")
-                    statusView.visibility = View.GONE
+                    // Confirm the WebView actually painted something meaningful
+                    // by evaluating document.body.innerText size. If empty, keep
+                    // the status view visible so the TV doesn't go blank.
+                    view?.evaluateJavascript("(document.body && document.body.innerText || '').length") { r ->
+                        val len = (r ?: "0").trim('"').toIntOrNull() ?: 0
+                        runOnUiThread {
+                            if (len > 20) {
+                                statusView.visibility = View.GONE
+                            } else {
+                                Log.w(PlayerApp.TAG, "Page loaded but body is empty (len=$len). Keeping status visible.")
+                                statusView.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                                    "Loaded page is empty.\n\n" +
+                                    "URL: ${url ?: ""}\n\n" +
+                                    "Reintentando..."
+                            }
+                        }
+                    }
                     isConnected = true
                     reconnectAttempts = 0
                 }
@@ -211,8 +241,33 @@ class MainActivity : Activity() {
                     view: WebView?, errorCode: Int, description: String?, failingUrl: String?
                 ) {
                     Log.e(PlayerApp.TAG, "WebView error: $description ($errorCode) url=$failingUrl")
+                    runOnUiThread {
+                        statusView.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                            "Cannot load page\n\n" +
+                            "Error: $description (code $errorCode)\n" +
+                            "URL: $failingUrl\n\n" +
+                            "Check WiFi / DNS. Auto-retry active."
+                        statusView.visibility = View.VISIBLE
+                    }
                     isConnected = false
                     scheduleReconnect()
+                }
+
+                override fun onReceivedSslError(
+                    view: WebView?,
+                    handler: android.webkit.SslErrorHandler?,
+                    error: android.net.http.SslError?
+                ) {
+                    Log.e(PlayerApp.TAG, "SSL error: ${error?.primaryError} url=${error?.url}")
+                    runOnUiThread {
+                        statusView.text = "MediAd View Player v${BuildConfig.VERSION_NAME}\n\n" +
+                            "SSL certificate error\n\n" +
+                            "The TV's date may be wrong.\n" +
+                            "Check TV date & time and try again."
+                        statusView.visibility = View.VISIBLE
+                    }
+                    // Try to proceed anyway so the TV isn't fully bricked
+                    handler?.proceed()
                 }
 
                 override fun onReceivedHttpError(
@@ -225,8 +280,6 @@ class MainActivity : Activity() {
                     val url = request?.url?.toString() ?: ""
                     // If we are trying to load THIS screen's main player page
                     // and it returns 404, the screen was deleted server-side.
-                    // Kick back to PairingActivity so the user can re-pair with
-                    // a fresh activation code instead of black-screening forever.
                     val isMainDoc = request?.isForMainFrame == true &&
                         url.contains("/api/player/") && url.endsWith("/web")
                     if (isMainDoc && status == 404) {
@@ -256,7 +309,12 @@ class MainActivity : Activity() {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT
         ))
-        root.addView(statusView)
+        // Make the status overlay FILL the screen when visible so it fully
+        // covers the WebView (never leaving a blank/blue frame under it).
+        root.addView(statusView, FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT
+        ))
         setContentView(root)
 
         // ===== START =====
