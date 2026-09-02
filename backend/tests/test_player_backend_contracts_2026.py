@@ -17,9 +17,13 @@ from pymongo import MongoClient
 
 def _public_base_url() -> str:
     env = dotenv_values("/app/frontend/.env")
-    base_url = env.get("EXPO_PUBLIC_BACKEND_URL")
+    base_url = (
+        os.environ.get("TEST_BASE_URL")
+        or os.environ.get("EXPO_PUBLIC_BACKEND_URL")
+        or env.get("EXPO_PUBLIC_BACKEND_URL")
+    )
     if not base_url:
-        pytest.fail("EXPO_PUBLIC_BACKEND_URL is missing in /app/frontend/.env")
+        pytest.fail("TEST_BASE_URL/EXPO_PUBLIC_BACKEND_URL is missing")
     return base_url.rstrip("/")
 
 
