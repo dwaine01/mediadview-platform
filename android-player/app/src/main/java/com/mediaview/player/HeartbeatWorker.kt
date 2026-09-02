@@ -12,7 +12,7 @@ import java.net.NetworkInterface
 import java.util.concurrent.TimeUnit
 
 /**
- * Periodic heartbeat (every 5 minutes) that reports player status and processes server commands
+ * Periodic fallback heartbeat (every 15 minutes, Android's supported minimum)
  * (restart, update, etc.).
  */
 class HeartbeatWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
@@ -100,7 +100,7 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
 
     companion object {
         const val UNIQUE_NAME = "mediaview-heartbeat"
-        const val INTERVAL_MIN = 5L
+        const val INTERVAL_MIN = 15L
 
         fun enqueuePeriodic(ctx: Context) {
             val req = PeriodicWorkRequestBuilder<HeartbeatWorker>(INTERVAL_MIN, TimeUnit.MINUTES)

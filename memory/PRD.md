@@ -1,29 +1,81 @@
-# MediaView / MediAd View — PRD
+# MediaView / MediAd View — PRD técnico
 
-SaaS de digital signage. Backend FastAPI + MongoDB Atlas, frontend Vanilla HTML/CSS/JS, Android Player nativo Kotlin, CI/CD Codemagic, deploy Render.
+## Problema
 
-## Objetivos de la sesión
-- Estabilizar el código de emparejamiento del Player Android (bug crítico reportado por usuario).
-- Fix visual: fuente grande que corta el código de 6 chars, orientación bloqueada a landscape.
+El APK Android TV se emparejaba pero podía quedar en pantalla negra. El objetivo es
+un player de digital signage 24/7, offline-first y recuperable, comparable en
+robustez operativa con OptiSigns, ScreenCloud o Yodeck.
 
-## Bug arreglado en esta sesión (P0)
-### Emparejamiento inestable + "código ya usado"
-- **Root cause 1 (backend)**: `POST /api/devices/register` creaba SIEMPRE un registro nuevo con código nuevo → cada relanzamiento/rotación del Player generaba un código distinto y dejaba pendientes acumulados.
-- **Root cause 2 (Android)**: `PairingActivity` hacía polling contra `/api/devices/{LOCAL_UUID}/check` en vez del `device_id` que devuelve el servidor → el polling nunca encontraba el registro → nunca detectaba activación.
+## Arquitectura
 
-### Fix
-- Backend: `/devices/register` ahora es **idempotente por `client_uuid`**. Devuelve el mismo `device_id` + `activation_code` en llamadas repetidas. `/devices/{id}/check` acepta ambos: server device_id y client_uuid.
-- Android `PairingActivity.kt`: persiste el server device_id en SharedPreferences (`mediaview_pairing`), usa ESE id para el polling. Envía `client_uuid` en el payload. Muestra el código cacheado al inicio para que no parpadee.
-- Fuente del código: 84sp → 56sp (una sola línea).
-- Manifest: quitado `screenOrientation="landscape"` de PairingActivity (soporta vertical).
-- Versión: 2.4.1 (versionCode 7).
+- **Backend:** FastAPI + MongoDB; contratos públicos `/api/devices/*` y
+  `/api/player/*` preservados.
+- **Panel:** HTML/CSS/JS servido por FastAPI.
+- **Player Android:** Kotlin, Media3/ExoPlayer para video, Coil para imágenes,
+  WebView aislado para HTML/widgets, Room para manifiesto persistente.
+- **Entrega Android:** Codemagic; el contenedor local no compila Android.
 
-## Estado
-- APK compilando en Codemagic tras push a main (commit `0d2ad2d`).
-- Backend redeployando en Render.
+## Causas raíz confirmadas
 
-## Tareas backlog
-- P1: Colorlight API Sprint 1–5 (esperando pruebas físicas usuario en A35/A40).
-- P2: Cloudflare R2 para media persistente.
-- P2: Stripe LIVE cutover.
-- P2: D-04 (consolidado multi-moneda), D-05 (magic numbers presign worker).
+1. El player web ocultaba el fallback antes de confirmar imagen/frame/video; un
+   404 o fallo de decoder quedaba como superficie negra.
+2. Las playlists por `screen_id` y `device_id` aplicaban reglas de fechas distintas;
+   el endpoint de dispositivo descartaba campañas abiertas con fechas nulas.
+3. `/api/player/media/{id}` no utilizaba la capa de almacenamiento R2 y fallaba para
+   objetos cloud o archivos legacy ausentes.
+4. Pairing e identidad estaban fragmentados entre Web localStorage y dos archivos
+   SharedPreferences; una migración borraba el vínculo.
+
+Detalle y correcciones: `/app/android-player/ROOT_CAUSE_REPORT.md`.
+
+## Implementado
+
+- Pairing nativo idempotente y una identidad canónica persistente.
+- Playlist canónica compartida, checksums SHA-256, versión y URLs compatibles.
+- Render nativo por tipo, estado visible hasta `first frame`/decode/commit visual.
+- Room + descargas `.tmp`, validación de integridad, reemplazo con respaldo y
+  conservación de la última playlist válida.
+- Red: NetworkCallback, polling 15 s, backoff acotado y recuperación inmediata.
+- Watchdog de playback, timeout de preparación, cuarentena temporal de corruptos,
+  recuperación de crash y heartbeat en foreground/fallback WorkManager.
+- BootReceiver único y flujo para configurar la app como HOME.
+- SSL inválido bloqueado; HTTP y muerte del renderer WebView quedan visibles.
+- HUD diagnóstico con URL, screen_id, pairing, HTTP, WebView/player error, red y
+  última sincronización. `release` lo compila desactivado.
+- CI separada: primero pruebas Kotlin, luego `assembleDiagnostic`; no reemplaza el
+  alias APK de producción.
+- Matriz de pruebas: `/app/android-player/VALIDATION_MATRIX.md`.
+
+## Verificación actual
+
+- Backend/contratos: **22 passed, 1 skipped**, ruff y py_compile correctos.
+- Revisión estática Android/CI: sin bloqueador conocido tras añadir `org.json` a
+  tests JVM.
+- R2 real, decoders y boot no pueden verificarse en este contenedor.
+
+## Prioridades
+
+### P0 — actual
+
+- Ejecutar Codemagic mediante **Save to Github** y confirmar que pruebas Kotlin +
+  `assembleDiagnostic` terminan verdes.
+- Instalar `mediaview-player-v3.0.0-diagnostic.apk` en el onn Android TV conectado al televisor.
+- Completar los 10 checks físicos y reportar el HUD ante cualquier fallo.
+
+### P1 — después de validar A40
+
+- Corregir cualquier incompatibilidad específica del firmware/codec del onn detectada.
+- Cambiar CI a `assembleRelease`, conservar `DIAGNOSTICS_ENABLED=false` y publicar
+  el APK final sin sobrescribirlo antes de la aceptación.
+- Prueba soak 24–72 horas con cortes de WAN y cambios de playlist.
+
+### P2 — flota administrada
+
+- Aprovisionamiento Device Owner/OEM para autoarranque e instalación silenciosa
+  garantizados en Android moderno.
+- Métricas remotas de decoder, almacenamiento, caché y recuperación por dispositivo.
+- Validación end-to-end de Cloudflare R2 con objeto real.
+
+### Backlog ajeno al player
+
+- Stripe LIVE, D-04 multi-moneda, D-05 presign worker y mejoras de borrado en cascada.

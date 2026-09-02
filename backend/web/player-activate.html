@@ -165,6 +165,7 @@ function playItem() {
   var url = getCachedUrl(item);
   var isImg = item.content_type && item.content_type.indexOf('image') >= 0;
   clearTimeout(playTimer);
+  document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#94a3b8">Loading content...</p></div>';
 
   // Handle widgets
   if (item.content_type === 'widget') {
@@ -183,15 +184,23 @@ function playItem() {
   if (isImg) {
     var anim = item.animation || 'fade';
     var animClass = anim !== 'none' ? 'anim-' + anim : '';
-    document.getElementById('player').innerHTML = '<div class="' + esc(animClass) + '" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img src="' + esc(url) + '" style="' + esc(rotStyle) + '"></div>';
+    document.getElementById('player').innerHTML = '<div class="' + esc(animClass) + '" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img id="active-image" src="' + esc(url) + '" style="' + esc(rotStyle) + '"></div>';
+    var image = document.getElementById('active-image');
+    image.onerror = function() {
+      document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#fca5a5">Image unavailable</p><p style="margin-top:12px;color:#64748b">Trying the next item...</p></div>';
+      setTimeout(nextItem, 2000);
+    };
   } else {
     // Video: use direct video element with muted+playsinline
     document.getElementById('player').innerHTML = '<video id="vid" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="' + esc(rotStyle) + 'background:#000" src="' + esc(url) + '"></video>';
     var v = document.getElementById('vid');
     if (v) {
       v.onended = function() { nextItem(); };
-      v.onerror = function() { nextItem(); };
-      v.play().catch(function() { v.muted = true; v.play().catch(function() { nextItem(); }); });
+      v.onerror = function() {
+        document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#fca5a5">Video unavailable</p><p style="margin-top:12px;color:#64748b">Trying the next item...</p></div>';
+        setTimeout(nextItem, 2000);
+      };
+      v.play().catch(function() { v.muted = true; v.play().catch(function() { v.onerror(); }); });
     }
   }
 

@@ -25,18 +25,26 @@ workflows:
           VERSION=$(grep 'versionName' app/build.gradle.kts | head -1 | sed 's/.*"\(.*\)".*/\1/')
           echo "APK_VERSION=$VERSION" >> $CM_ENV
           echo "Building version: $VERSION"
-      - name: Build release APK
+      - name: Run Android contract tests
         script: |
           cd android-player
           if [ -f ./gradlew ]; then
             chmod +x ./gradlew
-            ./gradlew assembleRelease --stacktrace
+            ./gradlew testDiagnosticUnitTest --stacktrace
           else
-            gradle assembleRelease --stacktrace
+            gradle testDiagnosticUnitTest --stacktrace
+          fi
+      - name: Build diagnostic APK
+        script: |
+          cd android-player
+          if [ -f ./gradlew ]; then
+            ./gradlew assembleDiagnostic --stacktrace
+          else
+            gradle assembleDiagnostic --stacktrace
           fi
       - name: Locate and rename APK
         script: |
-          APK_SRC=$(find android-player/app/build/outputs/apk -type f -name "*.apk" | head -1)
+          APK_SRC=$(find android-player/app/build/outputs/apk/diagnostic -type f -name "*.apk" | head -1)
           echo "Built APK: $APK_SRC"
           ls -lh "$APK_SRC"
           if [ -z "$APK_SRC" ]; then
@@ -48,18 +56,18 @@ workflows:
         script: |
           set -e
           echo "Auto-publishing APK to backend/web/..."
-          cp "$APK_SRC_PATH" "backend/web/mediaview-player-v${APK_VERSION}.apk"
-          cp "$APK_SRC_PATH" "backend/web/mediaview-player.apk"
-          ls -lh backend/web/mediaview-player*.apk
+          cp "$APK_SRC_PATH" "backend/web/mediaview-player-v${APK_VERSION}-diagnostic.apk"
+          cp "$APK_SRC_PATH" "backend/web/mediaview-player-diagnostic.apk"
+          ls -lh backend/web/mediaview-player*-diagnostic.apk
           git config user.name  "Codemagic Bot"
           git config user.email "bot@mediadview.com"
-          git add "backend/web/mediaview-player-v${APK_VERSION}.apk" \
-                  "backend/web/mediaview-player.apk"
+          git add "backend/web/mediaview-player-v${APK_VERSION}-diagnostic.apk" \
+                  "backend/web/mediaview-player-diagnostic.apk"
           if git diff --cached --quiet; then
             echo "No APK changes to commit (same binary)"
             exit 0
           fi
-          git commit -m "build(apk): mediaview-player-v${APK_VERSION} [skip ci]"
+          git commit -m "build(apk): mediaview-player-v${APK_VERSION}-diagnostic [skip ci]"
           REMOTE_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPO}.git"
           PUSHED=false
           for i in 1 2 3; do
@@ -74,8 +82,7 @@ workflows:
             echo "Failed to push APK after 3 attempts"
             exit 1
           fi
-          echo "APK v${APK_VERSION} published to repo. Render will redeploy in ~3 min."
-          echo "Verify at: https://mediadview.com/apk"
+          echo "Diagnostic APK v${APK_VERSION} published. Production alias remains unchanged."
     artifacts:
       - android-player/app/build/outputs/apk/**/*.apk
     publishing:
