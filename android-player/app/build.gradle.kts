@@ -15,8 +15,8 @@ android {
         applicationId = "com.mediaview.player"
         minSdk = 21
         targetSdk = 34
-        versionCode = 10
-        versionName = "2.5.0"
+        versionCode = 11
+        versionName = "2.5.1"
 
         // =============================================================
         // CONFIGURACION DE PRODUCCION

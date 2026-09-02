@@ -230,6 +230,10 @@ class MainActivity : Activity() {
 
         // ===== START =====
         checkOverlayPermission()
+        // First-run guidance: if MediAd View isn't the default HOME launcher yet,
+        // prompt the installer to set it. This makes auto-start-on-boot bulletproof
+        // (Android will launch the HOME app on every power-on).
+        promptSetAsHomeIfNeeded()
         // Always load the OptiSigns-style WebView pairing/player page.
         // It handles register + poll + activate + play + auto-unpair all
         // in one HTML page. If a screen_id is already saved we jump
@@ -251,6 +255,64 @@ class MainActivity : Activity() {
             startLockTask()
         } catch (e: Exception) {
             Log.w(PlayerApp.TAG, "Lock task not available: ${e.message}")
+        }
+    }
+
+    /**
+     * If MediAd View is NOT the current default HOME launcher, show a
+     * full-screen prompt guiding the installer to set it. This is the
+     * ONE manual step needed for reliable auto-start on every boot.
+     *
+     * The prompt appears at most once per install (skips if the user
+     * already dismissed it or if we're already the default HOME).
+     */
+    private fun promptSetAsHomeIfNeeded() {
+        try {
+            val prefs = getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
+            // Check if we're already the default HOME launcher
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            val defaultHome = packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
+            val amDefault = defaultHome == packageName
+            if (amDefault) {
+                prefs.edit().putBoolean("is_home_launcher", true).apply()
+                return
+            }
+            prefs.edit().putBoolean("is_home_launcher", false).apply()
+
+            // Show the guidance dialog on every launch until they set it.
+            // Instaladores agradecen NO tener que buscar dónde configurarlo.
+            AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("Set MediAd View as Home")
+                .setMessage(
+                    "To make this TV start MediAd View automatically every time it is powered on, " +
+                    "set MediAd View as the default Home / Launcher app.\n\n" +
+                    "STEPS:\n" +
+                    "  1) Press the HOME button on the remote\n" +
+                    "  2) Android will ask 'Choose home app'\n" +
+                    "  3) Pick 'MediAd View Player'\n" +
+                    "  4) Tap 'Always'\n\n" +
+                    "After this, the TV will never need manual interaction again."
+                )
+                .setPositiveButton("Open Home settings") { _, _ ->
+                    // Best-effort: open the exact Android settings screen where
+                    // the user picks the default Home app.
+                    try {
+                        startActivity(Intent(android.provider.Settings.ACTION_HOME_SETTINGS))
+                    } catch (e: Exception) {
+                        // Fallback: fire a HOME intent, which triggers the picker.
+                        try {
+                            val i = Intent(Intent.ACTION_MAIN)
+                                .addCategory(Intent.CATEGORY_HOME)
+                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                            startActivity(i)
+                        } catch (_: Exception) {}
+                    }
+                }
+                .setNegativeButton("Later") { d, _ -> d.dismiss() }
+                .setCancelable(true)
+                .show()
+        } catch (e: Exception) {
+            Log.w(PlayerApp.TAG, "promptSetAsHomeIfNeeded failed: ${e.message}")
         }
     }
 
