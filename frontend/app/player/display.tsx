@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, Image, Dimensions, TouchableOpacity,
   ActivityIndicator, AppState,
@@ -33,7 +33,6 @@ export default function PlayerDisplay() {
   const [deviceId, setDeviceId] = useState('');
   const [screenName, setScreenName] = useState('');
   const [uptime, setUptime] = useState(0);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const timerRef = useRef<any>(null);
   const pollRef = useRef<any>(null);
@@ -45,6 +44,7 @@ export default function PlayerDisplay() {
 
   useEffect(() => {
     activateKeepAwakeAsync().catch(() => {});
+    // init runs once on mount — intentional single-run effect
     init();
     return () => {
       deactivateKeepAwake();
@@ -52,6 +52,7 @@ export default function PlayerDisplay() {
         if (r.current) clearInterval(r.current);
       });
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Track app state for reconnection
@@ -62,6 +63,8 @@ export default function PlayerDisplay() {
       }
     });
     return () => sub.remove();
+  // fetchPlaylist is defined in scope; deviceId is the reactive dep we care about
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deviceId]);
 
   const init = async () => {
@@ -85,7 +88,6 @@ export default function PlayerDisplay() {
       setLastSync(new Date().toLocaleTimeString());
       setScreenName(res.data.screen_name || '');
       retryCount.current = 0;
-      setErrorMsg(null);
 
       await AsyncStorage.setItem('mv_cached_playlist', JSON.stringify(items));
 
@@ -99,7 +101,6 @@ export default function PlayerDisplay() {
     } catch (e: any) {
       setOffline(true);
       retryCount.current++;
-      setErrorMsg(`Connection lost (retry #${retryCount.current})`);
 
       // Load from cache
       if (playlist.length === 0) {
@@ -112,14 +113,14 @@ export default function PlayerDisplay() {
               setIdx(0);
             }
           }
-        } catch (ce) {}
+        } catch {}
       }
       setLoading(false);
 
       // Send error log
       try {
         await devicesAPI.heartbeat(id, { status: 'error', last_error: `Playlist fetch failed: ${e.message}` });
-      } catch (he) {}
+      } catch {}
     }
   };
 
@@ -137,7 +138,7 @@ export default function PlayerDisplay() {
         // Device was unlinked - go back to activation
         router.replace('/player/activate');
       }
-    } catch (e) {}
+    } catch {}
   };
 
   // Auto-advance

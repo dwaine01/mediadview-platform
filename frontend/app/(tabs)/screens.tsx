@@ -31,7 +31,7 @@ export default function ScreensScreen() {
       ]);
       setScreens(sr.data);
       setCities(cr.data);
-    } catch (e) {} finally { setLoading(false); setRefreshing(false); }
+    } catch {} finally { setLoading(false); setRefreshing(false); }
   }, [selectedCity]);
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);

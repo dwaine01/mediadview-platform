@@ -29,9 +29,9 @@ export default function DashboardScreen() {
         try {
           const adm = await adminAPI.analytics();
           setData((p: any) => ({ ...p, total_revenue: adm.data.total_revenue, total_screens: adm.data.total_screens, active_screens: adm.data.active_screens }));
-        } catch (e) {}
+        } catch {}
       }
-    } catch (e) {} finally { setLoading(false); setRefreshing(false); }
+    } catch {} finally { setLoading(false); setRefreshing(false); }
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

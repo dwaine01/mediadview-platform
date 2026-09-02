@@ -8,6 +8,8 @@ export default function RootLayout() {
 
   useEffect(() => {
     initialize();
+  // initialize is a stable zustand action — intentional single run on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
