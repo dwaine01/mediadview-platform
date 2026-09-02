@@ -76,11 +76,11 @@ class PlayerRepository(private val context: Context) {
 
     private fun CachedMediaEntity.toModel() = PlaylistItemModel(
         mediaId, campaignId, filename, contentType, durationSeconds, rotation,
-        sourceUrl, checksum, expectedBytes, orderIndex, localPath,
+        DisplayMode.parse(displayMode), sourceUrl, checksum, expectedBytes, orderIndex, localPath,
     )
 
     private fun PlaylistItemModel.toEntity(now: Long) = CachedMediaEntity(
         mediaId, campaignId, filename, contentType, durationSeconds, rotation,
-        sourceUrl, checksum, expectedBytes, orderIndex, localPath, now,
+        displayMode.wireValue, sourceUrl, checksum, expectedBytes, orderIndex, localPath, now,
     )
 }

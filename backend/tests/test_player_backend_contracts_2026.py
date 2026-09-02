@@ -171,6 +171,7 @@ def test_device_and_screen_playlist_fields_support_null_dates_and_media_contract
         assert item["media_url"] == f"/api/player/media/{media_id}"
         assert item["download_url"] == f"/api/player/media/{media_id}"
         assert len(item["checksum"]) == 64
+        assert item["display_mode"] == "cover"
 
         screen_playlist = api_session.get(f"{BASE_URL}/api/player/{screen_id}/playlist", timeout=20)
         assert screen_playlist.status_code == 200
@@ -179,6 +180,7 @@ def test_device_and_screen_playlist_fields_support_null_dates_and_media_contract
         s_item = s_body["items"][0]
         assert s_item["media_url"] == s_item["download_url"]
         assert len(s_item["checksum"]) == 64
+        assert s_item["display_mode"] == "cover"
         assert s_body["playlist_version"] == 5
     finally:
         mongo_db.campaigns.delete_many({"id": campaign_id})
@@ -242,3 +244,46 @@ def test_playlist_version_never_goes_back_for_same_screen(api_session, mongo_db)
         assert v2 >= v1
     finally:
         mongo_db.screens.delete_many({"id": screen_id})
+
+
+def test_heartbeat_persists_player_health_contract(api_session, mongo_db):
+    device_id = f"TEST-health-{uuid.uuid4().hex[:10]}"
+    screen_id = f"TEST-health-screen-{uuid.uuid4().hex[:10]}"
+    mongo_db.devices.insert_one({"id": device_id, "screen_id": screen_id, "status": "active"})
+    try:
+        response = api_session.post(
+            f"{BASE_URL}/api/devices/{device_id}/heartbeat",
+            json={
+                "device_id": device_id,
+                "screen_id": screen_id,
+                "status": "online",
+                "app_version": "3.2.0",
+                "current_playlist": "playlist:owned-1",
+                "current_media_id": "media-1",
+                "network": "online",
+                "storage": "1024 MB free",
+                "resolution": "1920x1080",
+                "orientation": "landscape",
+                "uptime_seconds": 120,
+                "last_sync": "2026-09-02T20:00:00Z",
+            },
+            timeout=20,
+        )
+        assert response.status_code == 200, response.text
+        diagnostics = mongo_db.devices.find_one({"id": device_id})["diagnostics"]
+        assert diagnostics["current_playlist"] == "playlist:owned-1"
+        assert diagnostics["current_media_id"] == "media-1"
+        assert diagnostics["resolution"] == "1920x1080"
+        assert diagnostics["orientation"] == "landscape"
+
+        partial = api_session.post(
+            f"{BASE_URL}/api/devices/{device_id}/heartbeat",
+            json={"status": "online", "device_id": device_id, "screen_id": screen_id},
+            timeout=20,
+        )
+        assert partial.status_code == 200
+        preserved = mongo_db.devices.find_one({"id": device_id})["diagnostics"]
+        assert preserved["current_playlist"] == "playlist:owned-1"
+        assert preserved["resolution"] == "1920x1080"
+    finally:
+        mongo_db.devices.delete_many({"id": device_id})

@@ -4,6 +4,7 @@ import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
 import android.content.pm.ActivityInfo
 import android.graphics.Color
 import android.os.Bundle
@@ -11,13 +12,16 @@ import android.os.Handler
 import android.os.Looper
 import android.os.StatFs
 import android.os.SystemClock
+import android.text.InputType
 import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
 import android.view.WindowManager
 import android.widget.FrameLayout
+import android.widget.EditText
 import android.widget.TextView
+import android.widget.Toast
 import androidx.work.WorkManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +47,6 @@ class MainActivity : Activity(), PlaybackEvents {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var contentHost: FrameLayout
-    private lateinit var statusView: TextView
     private lateinit var diagnosticsView: TextView
     private lateinit var renderer: PlaybackController
     private lateinit var repository: PlayerRepository
@@ -57,6 +60,7 @@ class MainActivity : Activity(), PlaybackEvents {
     private var retryRunnable: Runnable? = null
     private var menuPresses = 0
     private var lastMenuPress = 0L
+    private var diagnosticsHideRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -69,7 +73,6 @@ class MainActivity : Activity(), PlaybackEvents {
             runOnUiThread {
                 refreshDiagnostics()
                 if (online) syncNow("network-restored")
-                else if (renderer.currentItem == null) showStatus("Sin conexión", "Esperando red; reintento automático")
             }
         }
 
@@ -77,7 +80,6 @@ class MainActivity : Activity(), PlaybackEvents {
         PlayerDiagnostics.identity(screenId, DeviceIdentity.isPaired(this))
         showPreviousCrashIfPresent()
         if (!DeviceIdentity.isPaired(this)) {
-            showStatus("Dispositivo sin vincular", "Abriendo emparejamiento seguro…")
             launchPairing()
             return
         }
@@ -97,23 +99,15 @@ class MainActivity : Activity(), PlaybackEvents {
     private fun buildUi() {
         val root = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
         contentHost = FrameLayout(this).apply { setBackgroundColor(Color.BLACK) }
-        statusView = TextView(this).apply {
-            setBackgroundColor(Color.rgb(8, 15, 30))
-            setTextColor(Color.WHITE)
-            textSize = 28f
-            gravity = Gravity.CENTER
-            setPadding(64, 64, 64, 64)
-        }
         diagnosticsView = TextView(this).apply {
             setBackgroundColor(Color.argb(220, 2, 6, 23))
             setTextColor(Color.rgb(165, 243, 252))
             textSize = 13f
             gravity = Gravity.START
             setPadding(24, 18, 24, 18)
-            visibility = if (BuildConfig.DIAGNOSTICS_ENABLED) View.VISIBLE else View.GONE
+            visibility = View.GONE
         }
         root.addView(contentHost, fillParams())
-        root.addView(statusView, fillParams())
         root.addView(diagnosticsView, FrameLayout.LayoutParams(
             resources.displayMetrics.widthPixels.coerceAtLeast(640) / 2,
             FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -132,9 +126,6 @@ class MainActivity : Activity(), PlaybackEvents {
             if (!cached?.items.isNullOrEmpty()) {
                 applyOrientation(cached!!.resolution)
                 renderer.setPlaylist(cached.items)
-                showStatus("Contenido local", "Sincronizando cambios…")
-            } else {
-                showStatus("Preparando contenido", "Validando playlist y archivos…")
             }
             syncNow("startup")
         }
@@ -202,7 +193,6 @@ class MainActivity : Activity(), PlaybackEvents {
                 applyOrientation(result.snapshot.resolution)
                 if (result.snapshot.items.isEmpty()) {
                     renderer.setPlaylist(emptyList())
-                    showStatus("Sin contenido programado", "El player seguirá sincronizando automáticamente")
                 } else {
                     renderer.setPlaylist(result.snapshot.items)
                 }
@@ -228,7 +218,6 @@ class MainActivity : Activity(), PlaybackEvents {
 
     private fun handleSyncFailure(reason: String, error: Exception) {
         PlayerDiagnostics.playerError("sync/$reason: ${error.message}")
-        if (renderer.currentItem == null) showStatus("Servicio no disponible", "Usando caché local o reintentando…")
         scheduleRetry()
     }
 
@@ -250,6 +239,14 @@ class MainActivity : Activity(), PlaybackEvents {
                 put("cached_media_count", File(filesDir, "media-cache").listFiles()?.size ?: 0)
                 put("app_version", BuildConfig.VERSION_NAME)
                 put("last_error", PlayerDiagnostics.current().playerError.takeUnless { it == "none" })
+                put("device_id", DeviceIdentity.getDeviceId(this@MainActivity))
+                put("screen_id", DeviceIdentity.getScreenId(this@MainActivity))
+                put("current_playlist", renderer.currentItem?.campaignId)
+                put("network", if (PlayerApi.hasInternet(this@MainActivity)) "online" else "offline")
+                put("storage", "${StatFs(filesDir.path).availableBytes / 1024 / 1024} MB free")
+                put("resolution", "${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}")
+                put("orientation", if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "portrait" else "landscape")
+                put("last_sync", PlayerDiagnostics.current().lastSync)
             }
             val response = PlayerApi.postJson(this@MainActivity, "/api/devices/$deviceId/heartbeat", payload)
             response.optJSONObject("update_available")?.let { AutoUpdater.tryUpdate(this@MainActivity, it) }
@@ -258,12 +255,12 @@ class MainActivity : Activity(), PlaybackEvents {
                 "clear_cache" -> {
                     repository.clearCache()
                     runOnUiThread {
-                        renderer.setPlaylist(emptyList())
-                        showStatus("Caché limpiada", "Descargando contenido validado…")
                         syncNow("clear-cache")
                     }
                 }
                 "restart" -> runOnUiThread { restartApp() }
+                "show_diagnostics" -> runOnUiThread { unlockDiagnostics(showMenu = false) }
+                "hide_diagnostics" -> runOnUiThread { lockDiagnostics() }
             }
             if (response.optString("action") == "wait") {
                 DeviceIdentity.clearPairing(this@MainActivity)
@@ -275,23 +272,16 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     override fun onPreparing(item: PlaylistItemModel) {
-        showStatus("Cargando contenido", item.filename)
+        // The active surface remains visible while this item preloads.
     }
 
     override fun onReady(item: PlaylistItemModel) {
-        statusView.visibility = View.GONE
         PlayerDiagnostics.playerError(null)
         if (item.kind != MediaKind.HTML) PlayerDiagnostics.webError(null)
     }
 
     override fun onError(item: PlaylistItemModel, message: String) {
-        showStatus("Contenido no reproducible", "$message\nSaltando y recuperando automáticamente…")
         scope.launch { repository.invalidate(item) }
-    }
-
-    private fun showStatus(title: String, detail: String) {
-        statusView.text = "$title\n\n$detail"
-        statusView.visibility = View.VISIBLE
     }
 
     private fun applyOrientation(resolution: String) {
@@ -326,8 +316,8 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_I && BuildConfig.DIAGNOSTICS_ENABLED) {
-            diagnosticsView.visibility = if (diagnosticsView.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        if (keyCode == KeyEvent.KEYCODE_I) {
+            requestDiagnosticAccess()
             return true
         }
         if (keyCode == KeyEvent.KEYCODE_MENU || keyCode == KeyEvent.KEYCODE_F1) {
@@ -336,7 +326,7 @@ class MainActivity : Activity(), PlaybackEvents {
             lastMenuPress = now
             if (++menuPresses >= 5) {
                 menuPresses = 0
-                showInstallerMenu()
+                requestDiagnosticAccess()
             }
             return true
         }
@@ -355,6 +345,43 @@ class MainActivity : Activity(), PlaybackEvents {
                 launchPairing()
             }
             .show()
+    }
+
+    private fun requestDiagnosticAccess() {
+        val input = EditText(this).apply {
+            hint = "Device PIN"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Admin access")
+            .setView(input)
+            .setPositiveButton("Unlock") { _, _ ->
+                val allowed = DiagnosticAccessPolicy.matches(
+                    input.text?.toString(),
+                    DeviceIdentity.getActivationCode(this),
+                    BuildConfig.DIAGNOSTICS_PIN,
+                )
+                if (allowed) unlockDiagnostics(showMenu = true)
+                else Toast.makeText(this, "Access denied", Toast.LENGTH_SHORT).show()
+            }
+            .setNegativeButton("Cancel", null)
+            .show()
+    }
+
+    private fun unlockDiagnostics(showMenu: Boolean) {
+        diagnosticsHideRunnable?.let(handler::removeCallbacks)
+        diagnosticsView.visibility = View.VISIBLE
+        diagnosticsView.bringToFront()
+        diagnosticsHideRunnable = Runnable { lockDiagnostics() }.also {
+            handler.postDelayed(it, 5 * 60_000L)
+        }
+        if (showMenu) showInstallerMenu()
+    }
+
+    private fun lockDiagnostics() {
+        diagnosticsHideRunnable?.let(handler::removeCallbacks)
+        diagnosticsHideRunnable = null
+        diagnosticsView.visibility = View.GONE
     }
 
     private val watchdog = object : Runnable {

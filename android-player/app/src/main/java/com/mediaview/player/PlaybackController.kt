@@ -5,6 +5,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.view.View
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
@@ -19,6 +20,7 @@ import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import coil.load
 import java.io.File
@@ -29,17 +31,25 @@ interface PlaybackEvents {
     fun onError(item: PlaylistItemModel, message: String)
 }
 
+/** Keeps the active surface visible until the next surface is fully rendered. */
 class PlaybackController(
     private val activity: Activity,
     private val host: FrameLayout,
     private val events: PlaybackEvents,
 ) {
+    private data class RenderSession(
+        val item: PlaylistItemModel,
+        val view: View,
+        val player: ExoPlayer? = null,
+        val page: WebView? = null,
+    )
+
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var items: List<PlaylistItemModel> = emptyList()
     private var index = -1
     private var signature = ""
-    private var exoPlayer: ExoPlayer? = null
-    private var webView: WebView? = null
+    private var activeSession: RenderSession? = null
+    private var pendingSession: RenderSession? = null
     private var advanceRunnable: Runnable? = null
     private var failureRunnable: Runnable? = null
     private var prepareTimeoutRunnable: Runnable? = null
@@ -48,7 +58,7 @@ class PlaybackController(
     private var lastProgressAt = System.currentTimeMillis()
 
     val currentItem: PlaylistItemModel?
-        get() = items.getOrNull(index)
+        get() = activeSession?.item ?: items.getOrNull(index)
 
     fun setPlaylist(newItems: List<PlaylistItemModel>) {
         val now = System.currentTimeMillis()
@@ -57,28 +67,43 @@ class PlaybackController(
             val blocked = quarantine[item.mediaId]
             blocked == null || blocked.first != item.checksum || blocked.second <= now
         }
-        val newSignature = PlaylistUpdatePolicy.signature(accepted)
-        if (!PlaylistUpdatePolicy.shouldApply(signature, accepted) && currentItem != null) return
-        val currentId = currentItem?.mediaId
+        if (!PlaylistUpdatePolicy.shouldApply(signature, accepted) && activeSession != null) return
+
+        val playing = activeSession?.item
         items = accepted
-        signature = newSignature
-        index = currentId?.let { id -> accepted.indexOfFirst { it.mediaId == id } } ?: -1
-        if (index < 0) index = 0
+        signature = PlaylistUpdatePolicy.signature(accepted)
         if (items.isEmpty()) {
+            index = -1
             clearSurface()
-        } else {
-            playCurrent()
+            return
         }
+
+        val preserved = playing?.let { active -> items.indexOfFirst { it.mediaId == active.mediaId } } ?: -1
+        if (preserved >= 0) {
+            index = preserved
+            val incoming = items[preserved]
+            if (playing != null && visualMatches(playing, incoming)) {
+                scheduleAdvance(incoming.durationSeconds)
+                return
+            }
+        } else {
+            index = 0
+        }
+        prepareCurrent()
     }
 
     fun pause() {
-        exoPlayer?.pause()
-        webView?.onPause()
+        activeSession?.player?.pause()
+        pendingSession?.player?.pause()
+        activeSession?.page?.onPause()
+        pendingSession?.page?.onPause()
     }
 
     fun resume() {
-        exoPlayer?.play()
-        webView?.onResume()
+        activeSession?.player?.play()
+        pendingSession?.player?.play()
+        activeSession?.page?.onResume()
+        pendingSession?.page?.onResume()
     }
 
     fun release() {
@@ -87,7 +112,7 @@ class PlaybackController(
     }
 
     fun watchdogTick() {
-        val player = exoPlayer ?: return
+        val player = activeSession?.player ?: return
         if (!player.isPlaying) return
         val position = player.currentPosition
         if (position > lastPosition + 250) {
@@ -96,67 +121,75 @@ class PlaybackController(
             return
         }
         if (System.currentTimeMillis() - lastProgressAt > 30_000) {
-            failCurrent("video stalled for 30 seconds")
+            failCurrent("video stalled for 30 seconds", activeSession)
         }
     }
 
-    private fun playCurrent() {
-        val item = currentItem ?: return
-        clearSurface()
+    private fun prepareCurrent() {
+        val item = items.getOrNull(index) ?: return
+        pendingSession?.let(::disposeSession)
+        pendingSession = null
+        cancelPrepareTimeout()
+        advanceRunnable?.let(handler::removeCallbacks)
+        advanceRunnable = null
         events.onPreparing(item)
-        prepareTimeoutRunnable = Runnable { failCurrent("renderer did not become ready in 30 seconds") }.also {
-            handler.postDelayed(it, 30_000)
-        }
+        prepareTimeoutRunnable = Runnable {
+            failCurrent("renderer did not become ready in 30 seconds", pendingSession)
+        }.also { handler.postDelayed(it, 30_000) }
         when (item.kind) {
-            MediaKind.IMAGE -> showImage(item)
-            MediaKind.VIDEO -> showVideo(item)
-            MediaKind.HTML -> showHtml(item)
+            MediaKind.IMAGE -> prepareImage(item)
+            MediaKind.VIDEO -> prepareVideo(item)
+            MediaKind.HTML -> prepareHtml(item)
         }
     }
 
-    private fun showImage(item: PlaylistItemModel) {
+    private fun prepareImage(item: PlaylistItemModel) {
         val image = ImageView(activity).apply {
             setBackgroundColor(Color.BLACK)
-            scaleType = ImageView.ScaleType.FIT_CENTER
+            scaleType = imageScaleType(item.displayMode)
             rotation = item.rotation.toFloat()
             alpha = 0f
         }
+        val session = RenderSession(item, image)
+        pendingSession = session
         host.addView(image, fillParams())
         val source: Any = item.localPath?.let(::File) ?: item.sourceUrl
         image.load(source) {
             listener(
-                onSuccess = { _, _ ->
-                    image.animate().alpha(1f).setDuration(300).start()
-                    markReady(item)
-                },
-                onError = { _, result -> failCurrent("image decode: ${result.throwable.message}") },
+                onSuccess = { _, _ -> activatePending(item) },
+                onError = { _, result -> failCurrent("image decode: ${result.throwable.message}", session) },
             )
         }
     }
 
-    private fun showVideo(item: PlaylistItemModel) {
+    private fun prepareVideo(item: PlaylistItemModel) {
         val player = ExoPlayer.Builder(activity).build()
-        exoPlayer = player
         val view = PlayerView(activity).apply {
             useController = false
-            setShutterBackgroundColor(Color.BLACK)
+            setShutterBackgroundColor(Color.TRANSPARENT)
+            resizeMode = videoResizeMode(item.displayMode)
             this.player = player
             rotation = item.rotation.toFloat()
+            alpha = 0f
         }
+        val session = RenderSession(item, view, player = player)
+        pendingSession = session
         host.addView(view, fillParams())
         player.addListener(object : Player.Listener {
             override fun onRenderedFirstFrame() {
                 lastPosition = player.currentPosition
                 lastProgressAt = System.currentTimeMillis()
-                markReady(item)
+                activatePending(item)
             }
 
             override fun onPlaybackStateChanged(playbackState: Int) {
-                if (playbackState == Player.STATE_ENDED) next()
+                if (playbackState == Player.STATE_ENDED &&
+                    activeSession?.player === player && pendingSession == null
+                ) next()
             }
 
             override fun onPlayerError(error: PlaybackException) {
-                failCurrent("video ${error.errorCodeName}: ${error.message}")
+                failCurrent("video ${error.errorCodeName}: ${error.message}", session)
             }
         })
         val uri = item.localPath?.let { Uri.fromFile(File(it)) } ?: Uri.parse(item.sourceUrl)
@@ -167,10 +200,13 @@ class PlaybackController(
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun showHtml(item: PlaylistItemModel) {
-        val page = WebView(activity)
-        webView = page
-        page.setBackgroundColor(Color.BLACK)
+    private fun prepareHtml(item: PlaylistItemModel) {
+        val page = WebView(activity).apply {
+            setBackgroundColor(Color.BLACK)
+            alpha = 0f
+        }
+        val session = RenderSession(item, page, page = page)
+        pendingSession = session
         page.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
@@ -189,40 +225,40 @@ class PlaybackController(
         page.webViewClient = object : WebViewClient() {
             override fun onPageCommitVisible(view: WebView?, url: String?) {
                 PlayerDiagnostics.http(url ?: item.sourceUrl, 200)
-                markReady(item)
+                activatePending(item)
             }
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                    markReady(item)
-                }
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) activatePending(item)
             }
 
             override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
-                if (request?.isForMainFrame == true) failCurrent("WebView ${error?.errorCode}: ${error?.description}")
+                if (request?.isForMainFrame == true) {
+                    failCurrent("WebView ${error?.errorCode}: ${error?.description}", session)
+                }
             }
 
             @Suppress("DEPRECATION")
             override fun onReceivedError(view: WebView?, errorCode: Int, description: String?, failingUrl: String?) {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) failCurrent("WebView $errorCode: $description")
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+                    failCurrent("WebView $errorCode: $description", session)
+                }
             }
 
             override fun onReceivedHttpError(view: WebView?, request: WebResourceRequest?, response: WebResourceResponse?) {
                 if (request?.isForMainFrame == true) {
                     PlayerDiagnostics.http(request.url.toString(), response?.statusCode ?: 0)
-                    failCurrent("WebView HTTP ${response?.statusCode}")
+                    failCurrent("WebView HTTP ${response?.statusCode}", session)
                 }
             }
 
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: android.net.http.SslError?) {
                 handler?.cancel()
-                failCurrent("SSL ${error?.primaryError} at ${error?.url}")
+                failCurrent("SSL ${error?.primaryError} at ${error?.url}", session)
             }
 
             override fun onRenderProcessGone(view: WebView?, detail: RenderProcessGoneDetail?): Boolean {
-                webView = null
-                view?.let { host.removeView(it); it.destroy() }
-                failCurrent("WebView renderer terminated; crashed=${detail?.didCrash()}")
+                failCurrent("WebView renderer terminated; crashed=${detail?.didCrash()}", session)
                 return true
             }
         }
@@ -232,39 +268,74 @@ class PlaybackController(
         page.loadUrl(url)
     }
 
-    private fun failCurrent(message: String) {
-        if (failureRunnable != null) return
-        val failed = currentItem ?: return
+    private fun activatePending(item: PlaylistItemModel) {
+        val incoming = pendingSession ?: return
+        if (incoming.item.mediaId != item.mediaId || items.getOrNull(index)?.mediaId != item.mediaId) return
+        cancelPrepareTimeout()
+        pendingSession = null
+        val previous = activeSession
+        activeSession = incoming
+        incoming.view.bringToFront()
+        lastPosition = -1L
+        lastProgressAt = System.currentTimeMillis()
+
+        if (previous == null) {
+            incoming.view.alpha = 1f
+            events.onReady(item)
+            scheduleAdvance(item.durationSeconds)
+            return
+        }
+
+        previous.view.animate().alpha(0f).setDuration(220).start()
+        incoming.view.animate().alpha(1f).setDuration(220).withEndAction {
+            disposeSession(previous)
+            events.onReady(item)
+            scheduleAdvance(item.durationSeconds)
+        }.start()
+    }
+
+    private fun failCurrent(message: String, session: RenderSession?) {
+        if (failureRunnable != null || session == null) return
+        if (session !== pendingSession && session !== activeSession) return
+        val failed = session.item
         quarantine[failed.mediaId] = failed.checksum to (System.currentTimeMillis() + 5 * 60_000L)
         PlayerDiagnostics.playerError(message)
         PlayerDiagnostics.webError(if (failed.kind == MediaKind.HTML) message else null)
+        if (pendingSession === session) {
+            pendingSession = null
+            disposeSession(session)
+        }
+        cancelPrepareTimeout()
         events.onError(failed, message)
+        if (session === activeSession && pendingSession != null) return
         failureRunnable = Runnable {
             failureRunnable = null
             items = items.filterNot { it.mediaId == failed.mediaId }
             signature = PlaylistUpdatePolicy.signature(items)
             if (items.isEmpty()) {
                 index = -1
-                clearSurface()
-            } else {
-                if (index >= items.size) index = 0
-                playCurrent()
+                return@Runnable
             }
-        }.also { handler.postDelayed(it, 2_000) }
-    }
-
-    private fun markReady(item: PlaylistItemModel) {
-        if (failureRunnable != null || currentItem?.mediaId != item.mediaId) return
-        prepareTimeoutRunnable?.let(handler::removeCallbacks)
-        prepareTimeoutRunnable = null
-        events.onReady(item)
-        scheduleAdvance(item.durationSeconds)
+            val activeIndex = activeSession?.item?.let { active ->
+                items.indexOfFirst { it.mediaId == active.mediaId }
+            } ?: -1
+            index = if (activeIndex >= 0) (activeIndex + 1) % items.size else 0
+            prepareCurrent()
+        }.also { handler.postDelayed(it, 250) }
     }
 
     private fun next() {
-        if (items.isEmpty()) return
-        index = (index + 1) % items.size
-        playCurrent()
+        if (items.isEmpty() || pendingSession != null) return
+        if (items.size == 1) {
+            activeSession?.player?.let { player -> player.seekTo(0); player.play() }
+            scheduleAdvance(items.first().durationSeconds)
+            return
+        }
+        val activeIndex = activeSession?.item?.let { active ->
+            items.indexOfFirst { it.mediaId == active.mediaId }
+        } ?: index
+        index = (activeIndex + 1) % items.size
+        prepareCurrent()
     }
 
     private fun scheduleAdvance(seconds: Int) {
@@ -279,13 +350,43 @@ class PlaybackController(
         advanceRunnable = null
         failureRunnable?.let(handler::removeCallbacks)
         failureRunnable = null
+        cancelPrepareTimeout()
+        pendingSession?.let(::disposeSession)
+        activeSession?.let(::disposeSession)
+        pendingSession = null
+        activeSession = null
+        host.removeAllViews()
+    }
+
+    private fun disposeSession(session: RenderSession) {
+        session.view.animate().cancel()
+        session.player?.release()
+        session.page?.let { page -> page.stopLoading(); page.destroy() }
+        host.removeView(session.view)
+    }
+
+    private fun cancelPrepareTimeout() {
         prepareTimeoutRunnable?.let(handler::removeCallbacks)
         prepareTimeoutRunnable = null
-        exoPlayer?.release()
-        exoPlayer = null
-        webView?.let { view -> host.removeView(view); view.stopLoading(); view.destroy() }
-        webView = null
-        host.removeAllViews()
+    }
+
+    private fun visualMatches(current: PlaylistItemModel, incoming: PlaylistItemModel): Boolean =
+        current.mediaId == incoming.mediaId &&
+            current.checksum == incoming.checksum &&
+            current.sourceUrl == incoming.sourceUrl &&
+            current.rotation == incoming.rotation &&
+            current.displayMode == incoming.displayMode
+
+    private fun imageScaleType(mode: DisplayMode): ImageView.ScaleType = when (mode) {
+        DisplayMode.COVER -> ImageView.ScaleType.CENTER_CROP
+        DisplayMode.CONTAIN -> ImageView.ScaleType.FIT_CENTER
+        DisplayMode.STRETCH -> ImageView.ScaleType.FIT_XY
+    }
+
+    private fun videoResizeMode(mode: DisplayMode): Int = when (mode) {
+        DisplayMode.COVER -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+        DisplayMode.CONTAIN -> AspectRatioFrameLayout.RESIZE_MODE_FIT
+        DisplayMode.STRETCH -> AspectRatioFrameLayout.RESIZE_MODE_FILL
     }
 
     private fun fillParams() = FrameLayout.LayoutParams(

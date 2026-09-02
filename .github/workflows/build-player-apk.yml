@@ -6,6 +6,11 @@ on:
     paths:
       - 'android-player/**'
       - '.github/workflows/build-player-apk.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'android-player/**'
+      - '.github/workflows/build-player-apk.yml'
   workflow_dispatch:
 
 permissions:
@@ -27,7 +32,7 @@ jobs:
       # so that even if a setup step dies early we still have the trace.
       - name: Build APK (self-contained, all logs captured)
         id: build
-        continue-on-error: true  # so the log-commit step below always runs
+        continue-on-error: true  # diagnostics artifact must upload even after failure
         run: |
           set +e   # never abort — we want to reach the commit step
           exec > >(tee -a /tmp/build.log) 2>&1
@@ -148,7 +153,7 @@ jobs:
           compression-level: 0
 
       - name: Publish stable direct-download release
-        if: steps.build.outcome == 'success'
+        if: github.event_name == 'push' && steps.build.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -56,6 +56,20 @@ class PlayerContractTest {
         assertFalse(RealtimeEventPolicy.shouldSync("keepalive"))
     }
 
+    @Test fun displayModeDefaultsToCoverAndSupportsAllModes() {
+        assertEquals(DisplayMode.COVER, DisplayMode.parse(null))
+        assertEquals(DisplayMode.COVER, DisplayMode.parse("invalid"))
+        assertEquals(DisplayMode.CONTAIN, DisplayMode.parse("contain"))
+        assertEquals(DisplayMode.STRETCH, DisplayMode.parse("STRETCH"))
+    }
+
+    @Test fun diagnosticsRequireConfiguredPinOrPairingCode() {
+        assertTrue(DiagnosticAccessPolicy.matches("2468", null, "2468"))
+        assertTrue(DiagnosticAccessPolicy.matches("AB12CD", "ab12cd", null))
+        assertFalse(DiagnosticAccessPolicy.matches("wrong", "AB12CD", "2468"))
+        assertFalse(DiagnosticAccessPolicy.matches("", "AB12CD", "2468"))
+    }
+
     @Test fun nativePairingOnlyStartsWithAnAssignedScreen() {
         assertEquals(PairingDecision.WAIT, PairingPolicy.decide("pending", null))
         assertEquals(PairingDecision.INVALID_ACTIVE_STATE, PairingPolicy.decide("active", ""))
@@ -89,6 +103,6 @@ class PlayerContractTest {
 
     private fun model(id: String, duration: Int) = PlaylistItemModel(
         id, "c", "$id.mp4", "video/mp4", duration, 0,
-        "https://example.com/$id.mp4", null, 0, 0,
+        DisplayMode.COVER, "https://example.com/$id.mp4", null, 0, 0,
     )
 }

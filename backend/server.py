@@ -260,6 +260,14 @@ class DeviceHeartbeat(BaseModel):
     memory_usage: Optional[float] = None
     app_version: Optional[str] = None
     temperature: Optional[float] = None
+    device_id: Optional[str] = None
+    screen_id: Optional[str] = None
+    current_playlist: Optional[str] = None
+    network: Optional[str] = None
+    storage: Optional[str] = None
+    resolution: Optional[str] = None
+    orientation: Optional[str] = None
+    last_sync: Optional[str] = None
 
 class DeviceActivate(BaseModel):
     activation_code: str
@@ -402,6 +410,7 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
             "duration": item.get("duration", 15),
             "rotation": 0,
             "animation": item.get("transition", "fade"),
+            "display_mode": item.get("display_mode", "cover"),
             "size": 0,
             "checksum": None,
         }
@@ -479,6 +488,7 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 "duration": schedule.get("slot_duration", 15),
                 "rotation": media.get("rotation", 0),
                 "animation": media.get("animation", "fade"),
+                "display_mode": media.get("display_mode", "cover"),
                 "media_url": media_url,
                 "download_url": media_url,
                 "checksum": checksum,
@@ -496,6 +506,7 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 "duration": widget.get("duration", 30),
                 "rotation": 0,
                 "animation": "fade",
+                "display_mode": "stretch",
                 "media_url": f"/api/widgets/{widget['id']}/render",
                 "download_url": f"/api/widgets/{widget['id']}/render",
                 "checksum": None,
@@ -2463,18 +2474,30 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
     update = {
         "last_heartbeat": datetime.utcnow(),
         "status": "active" if device.get("screen_id") else "pending",
-        "diagnostics": {
-            "uptime_seconds": data.uptime_seconds,
-            "free_storage_mb": data.free_storage_mb,
-            "cached_media_count": data.cached_media_count,
-            "cpu_usage": data.cpu_usage,
-            "memory_usage": data.memory_usage,
-            "ip_address": data.ip_address,
-            "app_version": data.app_version,
-            "temperature": data.temperature,
-            "reported_at": datetime.utcnow(),
-        }
+        "diagnostics.reported_at": datetime.utcnow(),
+        "diagnostics.device_id": data.device_id or device_id,
+        "diagnostics.screen_id": data.screen_id or device.get("screen_id"),
     }
+    diagnostic_fields = {
+        "uptime_seconds": data.uptime_seconds,
+        "free_storage_mb": data.free_storage_mb,
+        "cached_media_count": data.cached_media_count,
+        "cpu_usage": data.cpu_usage,
+        "memory_usage": data.memory_usage,
+        "ip_address": data.ip_address,
+        "app_version": data.app_version,
+        "temperature": data.temperature,
+        "current_playlist": data.current_playlist,
+        "current_media_id": data.current_media_id,
+        "network": data.network,
+        "storage": data.storage,
+        "resolution": data.resolution,
+        "orientation": data.orientation,
+        "last_sync": data.last_sync,
+    }
+    for field, value in diagnostic_fields.items():
+        if value is not None:
+            update[f"diagnostics.{field}"] = value
     if data.last_error:
         update["last_error"] = data.last_error
 
@@ -2935,9 +2958,10 @@ async def get_play_logs(screen_id: Optional[str] = None, days: int = 7, admin: d
 
 @api_router.put("/admin/devices/{device_id}/command")
 async def send_device_command(device_id: str, command: str, admin: dict = Depends(require_admin)):
-    """Send command to device: restart, reload, update."""
-    if command not in ["restart", "reload", "update", "clear_cache"]:
-        raise HTTPException(status_code=400, detail="Invalid command")
+    """Send an authenticated command to a paired player."""
+    allowed = ["restart", "reload", "update", "clear_cache", "show_diagnostics", "hide_diagnostics"]
+    if command not in allowed:
+        raise HTTPException(status_code=400, detail=f"Invalid command. Use: {', '.join(allowed)}")
     device = await db.devices.find_one({"id": device_id})
     if not device:
         raise HTTPException(status_code=404, detail="Device not found")

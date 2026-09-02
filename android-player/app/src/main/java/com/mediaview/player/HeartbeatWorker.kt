@@ -37,6 +37,10 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
                 put("app_version",        BuildConfig.VERSION_NAME)
                 put("app_version_code",   BuildConfig.VERSION_CODE)
                 put("temperature",        0)
+                put("device_id",          DeviceIdentity.getDeviceId(ctx))
+                put("screen_id",          DeviceIdentity.getScreenId(ctx))
+                put("network",            "online")
+                put("storage",            "${freeStorageMb()} MB free")
             }
             val res = PlayerApi.postJson(ctx, "/api/devices/$backendId/heartbeat", payload)
             Log.i(PlayerApp.TAG, "♥ Heartbeat OK · action=${res.optString("action")} screen=${res.optString("screen_id", "-")}")

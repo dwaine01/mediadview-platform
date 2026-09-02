@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo
 
 PLAYLIST_ITEM_TYPES = {"menu", "media", "webpage"}
 PLAYLIST_MODES = {"admin", "client", "public"}
+DISPLAY_MODES = {"cover", "contain", "stretch"}
 
 
 def normalize_playlist_item(raw: dict[str, Any], index: int) -> dict[str, Any]:
@@ -20,6 +21,9 @@ def normalize_playlist_item(raw: dict[str, Any], index: int) -> dict[str, Any]:
     ref_id = str(raw.get("ref_id") or "").strip()
     if not ref_id:
         raise ValueError("Playlist item ref_id is required")
+    display_mode = str(raw.get("display_mode") or "cover").lower()
+    if display_mode not in DISPLAY_MODES:
+        display_mode = "cover"
     return {
         "id": str(raw.get("id") or uuid4()),
         "type": item_type,
@@ -27,6 +31,7 @@ def normalize_playlist_item(raw: dict[str, Any], index: int) -> dict[str, Any]:
         "title": str(raw.get("title") or "Content")[:160],
         "duration": max(3, min(int(raw.get("duration") or 15), 86_400)),
         "transition": str(raw.get("transition") or "fade")[:24],
+        "display_mode": display_mode,
         "order": index,
     }
 

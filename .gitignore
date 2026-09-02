@@ -90,6 +90,7 @@ out/
 # ─── Expo / React Native ───────────────────────────────────────────
 .expo/
 .expo-shared/
+.metro-cache/
 web-build/
 expo-env.d.ts
 
