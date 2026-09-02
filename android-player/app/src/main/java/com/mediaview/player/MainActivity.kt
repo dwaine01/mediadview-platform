@@ -115,6 +115,37 @@ class MainActivity : Activity() {
         serverUrl = prefs.getString(PREF_SERVER_URL, DEFAULT_SERVER) ?: DEFAULT_SERVER
         screenId = prefs.getString(PREF_SCREEN_ID, "") ?: ""
 
+        // ===== MIGRATION: v2.4.x -> v2.5.x =====
+        // v2.4.x used a native PairingActivity + saved state across multiple
+        // SharedPreferences files that no longer apply. Detect first launch
+        // on this build and wipe stale pairing state so the TV lands on the
+        // fresh pairing screen instead of getting stuck on an obsolete
+        // cached WebView state.
+        val schemaVersion = prefs.getInt("schema_version", 0)
+        if (schemaVersion < 2) {
+            Log.i(PlayerApp.TAG, "Migrating prefs schema $schemaVersion -> 2 (clearing pre-v2.5 state)")
+            try {
+                // Drop the old native-pairing prefs bucket
+                getSharedPreferences("mediaview_pairing", Context.MODE_PRIVATE)
+                    .edit().clear().apply()
+                // Clear WebView storage (localStorage/cookies with stale mv_did/mv_sid)
+                try {
+                    android.webkit.WebStorage.getInstance().deleteAllData()
+                    android.webkit.CookieManager.getInstance().removeAllCookies(null)
+                } catch (e: Exception) { }
+            } catch (e: Exception) {
+                Log.w(PlayerApp.TAG, "migration cleanup failed: ${e.message}")
+            }
+            // Clear the paired screen_id so v2.5 lands on the pairing screen
+            // (fresh code). The user pairs once, then never again on updates.
+            prefs.edit()
+                .remove(PREF_SCREEN_ID)
+                .remove(PREF_DEVICE_NAME)
+                .putInt("schema_version", 2)
+                .apply()
+            screenId = ""
+        }
+
         // Check intent extras (for initial setup via ADB)
         intent?.getStringExtra("server_url")?.let {
             serverUrl = it
