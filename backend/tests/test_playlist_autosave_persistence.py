@@ -9,9 +9,17 @@ import requests
 from dotenv import load_dotenv
 from pymongo import MongoClient
 
+# Try loading .env from the local dev environment; silently ignored in CI (env vars are set directly)
+_env_candidates = [
+    Path(__file__).parents[3] / "frontend" / ".env",  # /app/frontend/.env (Emergent local)
+    Path(__file__).parents[2] / ".env",                # /app/backend/.env fallback
+]
+for _env_path in _env_candidates:
+    if _env_path.exists():
+        load_dotenv(_env_path)
+        break
 
-load_dotenv(Path("/app/frontend/.env"))
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL") or os.environ.get("TEST_BASE_URL")
 TEST_EMAIL = os.environ.get("TEST_SUPERADMIN_EMAIL", "superadmin@mediadview.com")
 TEST_PASSWORD = os.environ.get("TEST_SUPERADMIN_PASSWORD", "SuperAdmin#2026")
 
