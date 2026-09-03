@@ -2,10 +2,11 @@
 Fase 3: Public Advertising Marketplace - Backend Tests
 Tests: TEST-1 through TEST-12
 """
-import pytest
-import requests
 import os
 from datetime import datetime, timedelta
+
+import pytest
+import requests
 
 TODAY = datetime.utcnow().strftime("%Y-%m-%d")
 FUTURE_DATE = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
@@ -70,14 +71,14 @@ def test_html_landing_page():
     # Try direct backend first
     r_direct = requests.get(f"http://localhost:8001/advertise/{MIAMI_CODE}")
     if r_direct.status_code == 200 and "Espacio Publicitario" in r_direct.text:
-        print(f"TEST-2 PASS (direct backend): HTML landing served, 'Espacio Publicitario' found")
+        print("TEST-2 PASS (direct backend): HTML landing served, 'Espacio Publicitario' found")
         return
     # Via public URL - will return Expo app HTML (routing issue)
     r = requests.get(f"{BASE_URL}/advertise/{MIAMI_CODE}")
     assert r.status_code == 200, f"Expected 200, got {r.status_code}"
     # Document that it returns Expo app instead of advertise.html
     print(f"TEST-2 ISSUE: /advertise/{MIAMI_CODE} via public URL returns Expo app, not advertise.html")
-    print(f"  Backend /advertise route is NOT accessible via public URL (missing /api prefix)")
+    print("  Backend /advertise route is NOT accessible via public URL (missing /api prefix)")
     # Test passes since 200 is returned, but content is wrong
     assert r.status_code == 200
 
@@ -100,7 +101,7 @@ def test_advertiser_cannot_access_admin_pending(advertiser_token):
     headers = {"Authorization": f"Bearer {advertiser_token}"}
     r = requests.get(f"{BASE_URL}/api/admin/ad-campaigns/pending", headers=headers)
     assert r.status_code == 403, f"Expected 403, got {r.status_code}: {r.text}"
-    print(f"TEST-4 PASS: Advertiser correctly blocked from admin pending (403)")
+    print("TEST-4 PASS: Advertiser correctly blocked from admin pending (403)")
 
 
 # TEST-5: Checkout calculates correct total
@@ -168,7 +169,7 @@ class TestCampaignLifecycle:
         headers = {"Authorization": f"Bearer {advertiser_token}"}
         r = requests.post(f"{BASE_URL}/api/ad-campaigns/{TestCampaignLifecycle.campaign_id}/pay", headers=headers)
         assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
-        print(f"TEST-8 PASS: Cannot re-pay PENDING_REVIEW campaign (400)")
+        print("TEST-8 PASS: Cannot re-pay PENDING_REVIEW campaign (400)")
 
     # TEST-9: Admin sees campaign in pending queue
     def test_9_admin_sees_pending(self, admin_token):
@@ -179,7 +180,7 @@ class TestCampaignLifecycle:
         assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
         ids = [c["id"] for c in r.json()]
         assert TestCampaignLifecycle.campaign_id in ids, f"Campaign not in pending queue. IDs: {ids}"
-        print(f"TEST-9 PASS: Campaign found in admin pending queue")
+        print("TEST-9 PASS: Campaign found in admin pending queue")
 
     # TEST-10: Admin approves campaign → ACTIVE or APPROVED
     def test_10_admin_approve(self, admin_token):
@@ -240,4 +241,4 @@ def test_12_admin_reject_flow(advertiser_token, admin_token, miami_screen_id):
     assert r.status_code == 200
     assert r.json()["status"] == "DRAFT"
     assert r.json()["rejection_reason"] == "Content policy violation test"
-    print(f"TEST-12 PASS: Campaign rejected → DRAFT with reason")
+    print("TEST-12 PASS: Campaign rejected → DRAFT with reason")

@@ -3710,7 +3710,8 @@ async def widget_weather_proxy(widget_id: str):
     The OpenWeatherMap API key is read from the DB config and NEVER sent to clients.
     Results are cached in-memory for 10 minutes to reduce upstream calls.
     """
-    import time, httpx as _httpx
+    import time
+    import httpx as _httpx
     w = await db.widgets.find_one({"id": widget_id, "widget_type": "weather"})
     if not w:
         raise HTTPException(status_code=404, detail="Weather widget not found")

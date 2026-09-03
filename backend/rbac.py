@@ -21,9 +21,11 @@ USAGE:
 """
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
 from functools import lru_cache
 from typing import Optional
+
+from fastapi import Depends, HTTPException, status
+
 
 # ── Operation Types ────────────────────────────────────────────────────────
 class OperationType:

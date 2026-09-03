@@ -12,6 +12,7 @@ Why this matters:
 from __future__ import annotations
 
 import logging
+
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import ASCENDING, DESCENDING, IndexModel
 

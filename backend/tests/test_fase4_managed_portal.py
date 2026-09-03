@@ -10,8 +10,10 @@ Tests 1-13 from the Phase 4 review request:
   • Admin managed summary
 """
 import os
+
 import pytest
 import requests
+
 from tests.conftest import BASE_URL  # type: ignore
 
 # ── Credentials ──────────────────────────────────────────────────────────────
@@ -275,7 +277,7 @@ class TestAdminListRequests:
             headers=_headers(superadmin_token),
         )
         ids = [req["id"] for req in r.json()]
-        assert created_request_id in ids, f"Created request not visible to admin"
+        assert created_request_id in ids, "Created request not visible to admin"
 
 
 # ══════════════════════════════════════════════════════════════════════════════

@@ -172,7 +172,7 @@ class TestT3ActiveInPlaylist:
             items = data.get("items") or data.get("playlist") or []
             ad_items = [i for i in items if i.get("is_ad") and f"ad:{c['id']}" == i.get("campaign_id")]
             assert len(ad_items) >= 1, f"Active campaign not found in playlist. Items: {items}"
-            print(f"TEST-3 PASS: Active campaign appears in playlist with is_ad=true")
+            print("TEST-3 PASS: Active campaign appears in playlist with is_ad=true")
         finally:
             delete_campaign(db_client, c["id"])
 
@@ -213,7 +213,7 @@ class TestT5CompletedNotInPlaylist:
             items = data.get("items") or data.get("playlist") or []
             ad_items = [i for i in items if f"ad:{c['id']}" == i.get("campaign_id")]
             assert len(ad_items) == 0, f"COMPLETED campaign should NOT be in playlist: {ad_items}"
-            print(f"TEST-5 PASS: COMPLETED campaign excluded from playlist")
+            print("TEST-5 PASS: COMPLETED campaign excluded from playlist")
         finally:
             delete_campaign(db_client, c["id"])
 
@@ -232,7 +232,7 @@ class TestT6RejectedStaysRejected:
             assert new_status == "REJECTED", f"Expected REJECTED, got {new_status}"
             count = get_transition_count(db_client, c["id"])
             assert count == 0, f"REJECTED campaign should not have transitions, got {count}"
-            print(f"TEST-6 PASS: REJECTED campaign stays REJECTED")
+            print("TEST-6 PASS: REJECTED campaign stays REJECTED")
         finally:
             delete_campaign(db_client, c["id"])
 
@@ -251,7 +251,7 @@ class TestT7PendingReviewNotActivated:
             assert new_status == "PENDING_REVIEW", f"Expected PENDING_REVIEW, got {new_status}"
             count = get_transition_count(db_client, c["id"])
             assert count == 0, f"PENDING_REVIEW should not have transitions, got {count}"
-            print(f"TEST-7 PASS: PENDING_REVIEW stays PENDING_REVIEW")
+            print("TEST-7 PASS: PENDING_REVIEW stays PENDING_REVIEW")
         finally:
             delete_campaign(db_client, c["id"])
 
@@ -273,7 +273,7 @@ class TestT8Idempotency:
         t3 = result3["result"]["total"]
         assert t2 == 0, f"Run 2 should have 0 transitions, got {t2}"
         assert t3 == 0, f"Run 3 should have 0 transitions, got {t3}"
-        print(f"TEST-8 PASS: Idempotency confirmed — runs 2 and 3 have 0 transitions")
+        print("TEST-8 PASS: Idempotency confirmed — runs 2 and 3 have 0 transitions")
 
 
 # ── TEST-9: Concurrency — only 1 transition for same campaign ─────────────────
@@ -356,7 +356,7 @@ class TestT10MultiScreenCampaign:
                 ad_items = [i for i in items if f"ad:{c['id']}" == i.get("campaign_id")]
                 assert len(ad_items) == 0, f"COMPLETED campaign still in playlist for screen {screen_id}"
 
-            print(f"TEST-10 PASS: Multi-screen campaign appears in all 3 playlists when ACTIVE, disappears when COMPLETED")
+            print("TEST-10 PASS: Multi-screen campaign appears in all 3 playlists when ACTIVE, disappears when COMPLETED")
         finally:
             delete_campaign(db_client, c["id"])
 

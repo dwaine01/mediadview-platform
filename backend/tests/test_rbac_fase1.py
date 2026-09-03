@@ -4,9 +4,10 @@ test_rbac_fase1.py — FASE 1 RBAC Acceptance Tests A-H
 Valida tenant isolation y RBAC enforcement en MediaView.
 Tests: A, B, C, D, E, F, G, H + BONUS
 """
+import os
+
 import pytest
 import requests
-import os
 
 BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com").rstrip("/")
 
@@ -164,7 +165,7 @@ class TestE_TenantIsolation:
         )
         assert resp.status_code == 403, \
             f"TEST E FALLÓ — esperado 403, recibido {resp.status_code}: {resp.text[:300]}"
-        print(f"[TEST E] ✅ PASS — 403 recibido correctamente (tenant isolation OK)")
+        print("[TEST E] ✅ PASS — 403 recibido correctamente (tenant isolation OK)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -185,7 +186,7 @@ class TestF_AdvertiserBloqueado:
         )
         assert resp.status_code == 403, \
             f"TEST F-1 FALLÓ — esperado 403, recibido {resp.status_code}: {resp.text[:300]}"
-        print(f"[TEST F-1] ✅ PASS — ADVERTISER bloqueado de /admin/screens")
+        print("[TEST F-1] ✅ PASS — ADVERTISER bloqueado de /admin/screens")
 
     def test_advertiser_no_puede_self_service_screens(self):
         """TEST F-2: ADVERTISER POST /api/screens/self-service → 403"""
@@ -201,7 +202,7 @@ class TestF_AdvertiserBloqueado:
         )
         assert resp.status_code == 403, \
             f"TEST F-2 FALLÓ — esperado 403, recibido {resp.status_code}: {resp.text[:300]}"
-        print(f"[TEST F-2] ✅ PASS — ADVERTISER bloqueado de /screens/self-service")
+        print("[TEST F-2] ✅ PASS — ADVERTISER bloqueado de /screens/self-service")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -238,7 +239,7 @@ class TestG_ManagedViewerNoPublica:
         )
         assert publish_resp.status_code == 403, \
             f"TEST G FALLÓ — esperado 403 en publish, recibido {publish_resp.status_code}: {publish_resp.text[:300]}"
-        print(f"[TEST G] ✅ PASS — MANAGED_VIEWER bloqueado de publicar playlist (403)")
+        print("[TEST G] ✅ PASS — MANAGED_VIEWER bloqueado de publicar playlist (403)")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -280,7 +281,7 @@ class TestH_MediaviewAdminGestionaPantallas:
         )
         assert resp.status_code == 200, \
             f"TEST H-2 FALLÓ: {resp.status_code} — {resp.text[:300]}"
-        print(f"[TEST H-2] ✅ PASS — Screen actualizada correctamente")
+        print("[TEST H-2] ✅ PASS — Screen actualizada correctamente")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -301,4 +302,4 @@ class TestBonus_SelfServiceOwnerNoAdmin:
         )
         assert resp.status_code == 403, \
             f"BONUS FALLÓ — esperado 403, recibido {resp.status_code}: {resp.text[:300]}"
-        print(f"[BONUS] ✅ PASS — SELF_SERVICE_OWNER bloqueado de /admin/screens")
+        print("[BONUS] ✅ PASS — SELF_SERVICE_OWNER bloqueado de /admin/screens")
