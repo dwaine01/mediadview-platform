@@ -57,6 +57,12 @@ COOKIE_DOMAIN      = os.environ.get("COOKIE_DOMAIN") or None
 LOCKOUT_WINDOW_MIN = int(os.environ.get("LOCKOUT_WINDOW_MIN", "15"))
 LOCKOUT_MAX_FAIL   = int(os.environ.get("LOCKOUT_MAX_FAIL", "5"))
 
+# H2: Trusted-proxy config.
+# Set TRUST_PROXY=true ONLY when the app is behind a known trusted reverse proxy
+# (Cloudflare, Render, Nginx, AWS ALB, etc.) that sets X-Forwarded-For reliably.
+# When false (default), the direct TCP connection IP is used — cannot be spoofed.
+TRUST_PROXY = os.environ.get("TRUST_PROXY", "false").lower() == "true"
+
 # Cookie name (use __Host- prefix in prod to enforce Secure+Path=/+no Domain)
 REFRESH_COOKIE_NAME = "__Host-mediadview_refresh" if IS_PROD and not COOKIE_DOMAIN else "mediadview_refresh"
 
@@ -66,10 +72,28 @@ def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 def _ip(request: Request) -> str:
-    """Best-effort client IP behind Cloudflare / Render / proxies."""
-    xff = request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for")
-    if xff:
-        return xff.split(",")[0].strip()
+    """
+    H2: Return the best-effort client IP for brute-force tracking.
+
+    - When TRUST_PROXY=true the app is expected to sit behind a trusted proxy
+      (Cloudflare, Render, Nginx, AWS ALB) that writes cf-connecting-ip or
+      x-forwarded-for.  We read the leftmost IP from x-forwarded-for (the
+      original client), or the Cloudflare-specific header.
+    - When TRUST_PROXY=false (default) we use the direct TCP connection IP,
+      which cannot be spoofed by a client-supplied header.
+
+    WARNING: never set TRUST_PROXY=true on a server directly exposed to the
+    internet, or an attacker can spoof their IP by sending a custom
+    X-Forwarded-For header, bypassing brute-force lockouts.
+    """
+    if TRUST_PROXY:
+        cf_ip = request.headers.get("cf-connecting-ip")
+        if cf_ip:
+            return cf_ip.strip()
+        xff = request.headers.get("x-forwarded-for", "")
+        if xff:
+            return xff.split(",")[0].strip()
+    # Fallback: direct TCP connection — tamper-proof
     return (request.client.host if request.client else "unknown")
 
 def _ua(request: Request) -> str:

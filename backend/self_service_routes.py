@@ -8,6 +8,7 @@ Endpoints for:
   • Team Members & Invitations
   • Subscriptions  (SELF_SERVICE_SUBSCRIPTION — mocked billing, full lifecycle)
 """
+import os
 import re
 import secrets
 import uuid
@@ -15,10 +16,20 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 import bcrypt
+import jwt as _jwt_lib
 from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from rbac import Role, assert_permission, assert_tenant, get_effective_role
+
+# Roles that must NEVER be modified or moved via an invite.
+# An invitation can never degrade, move, or co-opt these accounts.
+_PROTECTED_ROLES = frozenset({
+    Role.SUPER_ADMIN,
+    Role.MEDIAVIEW_ADMIN,
+    Role.SUPPORT,
+})
 
 # ── Subscription plan catalogue ────────────────────────────────────────────────
 PLANS: dict = {
@@ -490,45 +501,145 @@ def create_self_service_routes(db, get_current_user, require_admin, require_supe
             "expires_at": exp.isoformat() if isinstance(exp, datetime) else str(exp),
         }
 
+    # Stateless Bearer checker used ONLY inside accept_invite
+    _opt_bearer = HTTPBearer(auto_error=False)
+
     @router.post("/invites/{token}/accept")
-    async def accept_invite(token: str, data: InviteAccept):
-        """Accept invite. No auth required — creates/links user account."""
+    async def accept_invite(
+        token: str,
+        data: InviteAccept,
+        credentials: Optional[HTTPAuthorizationCredentials] = Depends(_opt_bearer),
+    ):
+        """
+        SEC-002: Accept invite.
+
+        Security rules enforced:
+        - Token must be pending, unexpired, and single-use.
+        - If the invited email already has an account:
+            • Caller MUST authenticate as that exact email.
+            • Privileged accounts (SUPER_ADMIN, MEDIAVIEW_ADMIN, SUPPORT) are NEVER modified.
+            • The invite cannot demote an existing account's role unless that role is lower.
+        - If the invited email has no account:
+            • A new account is created using the email from the invite (not from the request body).
+        - The invite role must never be a privileged role.
+        - Tokens are marked single-use immediately on acceptance.
+        """
+        _JWT_SECRET = os.environ.get("JWT_SECRET", "")
+        _JWT_ALG = "HS256"
+
         inv = await db.org_invites.find_one({"token": token})
         if not inv or inv.get("status") != "pending":
             raise HTTPException(status_code=410, detail="Invite not found, already used, or expired")
+
+        # Expiration check (also expire in DB for audit)
         exp = inv.get("expires_at")
         if exp and isinstance(exp, datetime) and datetime.utcnow() > exp:
+            await db.org_invites.update_one({"token": token}, {"$set": {"status": "expired"}})
             raise HTTPException(status_code=410, detail="This invite has expired")
-        email = inv.get("email")
+
+        # All values come exclusively from the invite — never from request body
+        inv_email = (inv.get("email") or "").lower().strip()
         org_id = inv.get("org_id")
         role = inv.get("role", "SELF_SERVICE_MANAGER")
-        existing = await db.users.find_one({"email": email})
+
+        # The invite role must never be a privileged role
+        if role in {r.value if hasattr(r, "value") else r for r in _PROTECTED_ROLES}:
+            raise HTTPException(
+                status_code=400,
+                detail="This invite assigns an invalid role. Contact a system administrator.",
+            )
+
+        existing = await db.users.find_one({"email": inv_email})
+
         if existing:
+            # ── Existing-account path: REQUIRE AUTHENTICATION ──────────────────
+            if not credentials:
+                raise HTTPException(
+                    status_code=401,
+                    detail=(
+                        "You already have an account. Please log in to accept this invite. "
+                        "Your Bearer token is required."
+                    ),
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            # Decode and validate the caller's token
+            try:
+                _payload = _jwt_lib.decode(
+                    credentials.credentials,
+                    _JWT_SECRET,
+                    algorithms=[_JWT_ALG],
+                    options={"verify_aud": False, "verify_iss": False},
+                )
+                _uid = _payload.get("sub")
+                auth_user = await db.users.find_one({"id": _uid}) if _uid else None
+            except Exception as exc:
+                raise HTTPException(status_code=401, detail=f"Invalid or expired token: {exc}")
+
+            if not auth_user or not auth_user.get("active", True):
+                raise HTTPException(status_code=401, detail="Authenticated user not found or inactive")
+
+            # Email must match (normalized)
+            if auth_user.get("email", "").lower().strip() != inv_email:
+                raise HTTPException(
+                    status_code=403,
+                    detail="The authenticated account email does not match the invite email.",
+                )
+
+            # CRITICAL: Never touch privileged accounts
+            current_role = get_effective_role(existing)
+            if current_role in _PROTECTED_ROLES:
+                raise HTTPException(
+                    status_code=403,
+                    detail="This account cannot be modified by an invitation.",
+                )
+
+            # Update org and role (non-privileged only)
             await db.users.update_one(
                 {"id": existing["id"]},
                 {"$set": {"organization_id": org_id, "rbac_role": role, "role": "customer"}},
             )
             uid = existing["id"]
+
         else:
+            # ── New-account path: create user with invite email ─────────────────
             if not data.name or not data.password:
                 raise HTTPException(status_code=400, detail="name and password are required for new users")
             if len(data.password) < 8:
                 raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+
             new_user = {
-                "id": _gen_id(), "name": data.name, "email": email,
+                "id": _gen_id(),
+                "name": data.name,
+                "email": inv_email,        # always from invite, not request body
                 "password_hash": _hash_password(data.password),
-                "role": "customer", "rbac_role": role, "organization_id": org_id,
-                "company_name": "", "phone": None, "language": "en",
-                "active": True, "session_epoch": 0, "created_at": datetime.utcnow(),
+                "role": "customer",
+                "rbac_role": role,
+                "organization_id": org_id,
+                "company_name": "",
+                "phone": None,
+                "language": "en",
+                "active": True,
+                "session_epoch": 0,
+                "created_at": datetime.utcnow(),
             }
             await db.users.insert_one(new_user)
             uid = new_user["id"]
+
+        # Single-use: mark accepted immediately
         await db.org_invites.update_one(
             {"token": token},
-            {"$set": {"status": "accepted", "accepted_by_user_id": uid, "accepted_at": datetime.utcnow()}},
+            {"$set": {
+                "status": "accepted",
+                "accepted_by_user_id": uid,
+                "accepted_at": datetime.utcnow(),
+            }},
         )
         org = await db.organizations.find_one({"id": org_id})
-        return {"success": True, "message": f"Successfully joined {org.get('name', 'the organization')}", "org_name": org.get("name") if org else ""}
+        return {
+            "success": True,
+            "message": f"Successfully joined {org.get('name', 'the organization')}",
+            "org_name": org.get("name") if org else "",
+        }
 
     # ══════════════════════════════════════════════════════════════════════════
     #  SUBSCRIPTIONS
