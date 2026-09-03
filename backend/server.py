@@ -3992,7 +3992,12 @@ async def seed_data():
             await db.screens.insert_many(demo_pub_screens)
             logger.info("FASE3: Created %d demo PUBLIC_ADVERTISING screens", len(demo_pub_screens))
 
-    if await db.screens.count_documents({}) == 0:
+    # Only seed regular screens if none exist yet (exclude PUBLIC_ADVERTISING screens
+    # seeded by FASE 3 migration above, which runs first and would otherwise block this).
+    _regular_screen_count = await db.screens.count_documents(
+        {"operation_type": {"$ne": "PUBLIC_ADVERTISING"}}
+    )
+    if _regular_screen_count == 0:
         screens = [
             {
                 "id": gen_id(), "name": "Times Square Center Display",
@@ -4136,9 +4141,10 @@ async def seed_data():
         await db.users.insert_many(demo_users)
         logger.info("Created demo users")
 
-        # Demo campaigns
-        all_screens = await db.screens.find({}).to_list(10)
-        if all_screens:
+        # Demo campaigns — fetch all screens (not just 10) and guard against short list
+        all_screens = await db.screens.find({}).to_list(1000)
+        _n = len(all_screens)
+        if _n >= 7:
             demo_campaigns = [
                 {"id": gen_id(), "user_id": demo_users[0]["id"], "screen_id": all_screens[0]["id"], "name": "Holiday Season Grand Sale", "status": "active", "schedule": {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[0].get("pricing", {}), {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": "Approved by MediaView Admin", "created_at": datetime.utcnow() - timedelta(days=20), "updated_at": datetime.utcnow()},
                 {"id": gen_id(), "user_id": demo_users[1]["id"], "screen_id": all_screens[2]["id"], "name": "Summer Collection Launch", "status": "approved", "schedule": {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[2].get("pricing", {}), {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=10), "updated_at": datetime.utcnow()},
