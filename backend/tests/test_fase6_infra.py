@@ -97,9 +97,11 @@ class TestEnvironmentValidation:
 
     # ── TEST A: development accepts local Mongo ───────────────────────────
     def test_A_development_accepts_local_mongo(self):
-        """Development environment should accept mongodb://localhost:27017"""
-        # We're running in development already; just verify the validator passes
-        assert os.environ.get("ENVIRONMENT", "development") == "development"
+        """Non-production environment (development or test) should accept mongodb://localhost:27017"""
+        # CI sets ENVIRONMENT=test; local dev defaults to "development" — both are non-prod
+        env = os.environ.get("ENVIRONMENT", "development")
+        assert env in ("development", "test"), \
+            f"Expected a non-production ENVIRONMENT, got {env!r}"
         r = httpx.get(f"{BASE}/health", timeout=5)
         assert r.status_code == 200
         assert r.json()["ok"] is True or r.json().get("status") == "healthy"

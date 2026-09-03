@@ -130,6 +130,22 @@ jobs:
         working-directory: backend
         run: python -m tests.smoke_c4_reports
 
+      # ── Seed RBAC test users (needed by test_fase3_advertising + test_rbac_fase1) ──
+      - name: Seed RBAC test users
+        run: |
+          SA_TOKEN=$(curl -sf -X POST http://127.0.0.1:8001/api/auth/v2/login \
+            -H "Content-Type: application/json" \
+            -d "{\"email\":\"$SEED_SUPERADMIN_EMAIL\",\"password\":\"$SEED_SUPERADMIN_PASSWORD\"}" \
+            | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+          STATUS=$(curl -sf -X POST http://127.0.0.1:8001/api/admin/rbac/seed-test-users \
+            -H "Authorization: Bearer $SA_TOKEN" \
+            -H "Content-Type: application/json" \
+            -w "%{http_code}" -o /tmp/rbac-seed.json)
+          cat /tmp/rbac-seed.json
+          echo ""
+          echo "RBAC seed status: $STATUS"
+          [ "$STATUS" -eq 200 ] || [ "$STATUS" -eq 201 ] || exit 1
+
       # ── pytest suite (if present) ────────────────────────────────
       - name: pytest (if any)
         working-directory: backend

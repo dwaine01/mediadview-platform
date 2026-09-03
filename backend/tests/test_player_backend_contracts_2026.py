@@ -60,7 +60,9 @@ def test_health_endpoint_contract(api_session):
     response = api_session.get(f"{BASE_URL}/api/health", timeout=20)
     assert response.status_code == 200
     body = response.json()
-    assert body == {"status": "healthy", "service": "MediaView API"}
+    # Check required fields — extra fields (e.g. "ok": true added later) are allowed
+    assert body.get("status") == "healthy", f"Expected status=healthy, got: {body}"
+    assert body.get("service") == "MediaView API", f"Expected service=MediaView API, got: {body}"
 
 
 # pairing/register module
