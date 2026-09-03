@@ -637,7 +637,11 @@ def create_token(user_id: str, role: str) -> str:
 
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
     """Legacy decoder that ALSO accepts Auth v2 tokens (aud/iss/typ) for compat.
-    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss)."""
+    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss).
+    
+    SEC-002 fix: Legacy tokens now also validate session_epoch to honour revocation
+    (password change, logout, role change all bump epoch → old tokens rejected).
+    """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=401,
@@ -646,6 +650,7 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         )
     try:
         token = credentials.credentials
+        is_v2_token = False
         try:
             # v2 tokens carry aud/iss and must be verified — do that first.
             payload = jwt.decode(
@@ -653,6 +658,7 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
                 audience=os.environ.get("JWT_AUDIENCE", "mediadview-frontend"),
                 issuer=os.environ.get("JWT_ISSUER", "mediadview-api"),
             )
+            is_v2_token = True
         except jwt.InvalidTokenError:
             # v1 legacy tokens: no aud/iss claims → decode without verification of those.
             payload = jwt.decode(
@@ -665,6 +671,16 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
             raise HTTPException(status_code=401, detail="User not found", headers={"WWW-Authenticate": "Bearer"})
         if not user.get("active", True):
             raise HTTPException(status_code=401, detail="Account deactivated", headers={"WWW-Authenticate": "Bearer"})
+        # SEC-002: enforce session epoch on LEGACY tokens so that password-change /
+        # logout / role revocation invalidates all outstanding legacy access tokens.
+        # v2 tokens already carry 'ver' and are validated inside auth_v2 decoder.
+        if not is_v2_token:
+            token_ver = payload.get("ver", 0)
+            db_epoch  = user.get("session_epoch", 0)
+            if token_ver < db_epoch:
+                raise HTTPException(status_code=401,
+                                    detail="Session revoked — please login again",
+                                    headers={"WWW-Authenticate": "Bearer"})
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
@@ -3677,77 +3693,84 @@ async def seed_data():
             await db.users.insert_one(sa)
             logger.info("Super Admin created: %s", sa_email)
 
-    # ── FASE 3: Seed ADVERTISER test user ────────────────────────────────────
+    # ── FASE 3: Seed ADVERTISER test user (DEV/DEMO ONLY — never in production) ─
     adv_email = "advertiser@test.mediaview.com"
     adv_pass = "Advertiser#2026"
-    if not await db.users.find_one({"email": adv_email}):
-        adv = {
-            "id": gen_id(), "name": "Test Advertiser",
-            "email": adv_email,
-            "password_hash": hash_password(adv_pass),
-            "role": "advertiser", "company_name": "Test Ads Inc.",
-            "phone": None, "language": "es", "active": True,
-            "session_epoch": 0,
-            "rbac_role": "ADVERTISER",
-            "created_at": datetime.utcnow()
-        }
-        await db.users.insert_one(adv)
-        logger.info("Advertiser test user created: %s", adv_email)
+    seed_demo = os.environ.get("SEED_DEMO", "").lower() == "true"
+    # P0-SEC-001: NEVER create test/demo accounts in production unless explicitly opted in
+    if not is_prod or seed_demo:
+        if not await db.users.find_one({"email": adv_email}):
+            adv = {
+                "id": gen_id(), "name": "Test Advertiser",
+                "email": adv_email,
+                "password_hash": hash_password(adv_pass),
+                "role": "advertiser", "company_name": "Test Ads Inc.",
+                "phone": None, "language": "es", "active": True,
+                "session_epoch": 0,
+                "rbac_role": "ADVERTISER",
+                "created_at": datetime.utcnow()
+            }
+            await db.users.insert_one(adv)
+            logger.info("Advertiser test user created: %s", adv_email)
 
-    # ── FASE 4: Seed MANAGED_VIEWER demo user + org + managed screens ─────────
+    # ── FASE 4: Seed MANAGED_VIEWER demo user + org + managed screens ──────────
+    # P0-SEC-001: NEVER create demo accounts in production unless explicitly opted in
     ORG_MANAGED_DEMO = "org_managed_demo_v4"
     mv_email = "managed.viewer@demo.mediaview.com"
     mv_pass = "ManagedView#2026"
-    if not await db.users.find_one({"email": mv_email}):
-        mv_user = {
-            "id": gen_id(), "name": "Managed Client Demo",
-            "email": mv_email,
-            "password_hash": hash_password(mv_pass),
-            "role": "viewer", "company_name": "Demo Managed Corp.",
-            "phone": None, "language": "en", "active": True,
-            "session_epoch": 0,
-            "rbac_role": "MANAGED_VIEWER",
-            "organization_id": ORG_MANAGED_DEMO,
-            "created_at": datetime.utcnow()
-        }
-        await db.users.insert_one(mv_user)
-        logger.info("Fase 4: Managed Viewer demo user created: %s", mv_email)
-
-    # Also update the RBAC test viewer to have the demo org (idempotent)
-    await db.users.update_one(
-        {"email": "rbac.viewer@test.com", "organization_id": None},
-        {"$set": {"organization_id": ORG_MANAGED_DEMO}},
-    )
-
-    # Seed 2 demo MEDIAVIEW_MANAGED screens for that org
-    managed_screen_names = [
-        "Pantalla Lobby Principal — Demo Corp",
-        "Pantalla Cafetería — Demo Corp",
-    ]
-    for sname in managed_screen_names:
-        if not await db.screens.find_one({"name": sname}):
-            _code = gen_pairing_code()
-            while await db.screens.find_one({"pairing_code": _code}):
-                _code = gen_pairing_code()
-            _loc_code = await get_unique_location_code()
-            _scr = {
-                "id": gen_id(), "name": sname,
-                "description": "Pantalla gestionada por MediaView para Demo Managed Corp.",
-                "location": {
-                    "city": "Miami", "address": "100 Brickell Ave",
-                    "state": "FL", "country": "US", "lat": 25.7617, "lng": -80.1918,
-                },
-                "pricing": {"per_hour": 0.0, "per_day": 0.0, "per_slot": 0.0, "currency": "USD"},
-                "specs": {"size": "55in", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
-                "preview_image": None, "status": "active", "active": True,
-                "location_code": _loc_code, "pairing_code": _code, "pairing_secret": gen_pairing_secret(),
-                "paired_device_id": None, "paired_at": None,
-                "operation_type": OperationType.MEDIAVIEW_MANAGED,
+    if not is_prod or seed_demo:
+        if not await db.users.find_one({"email": mv_email}):
+            mv_user = {
+                "id": gen_id(), "name": "Managed Client Demo",
+                "email": mv_email,
+                "password_hash": hash_password(mv_pass),
+                "role": "viewer", "company_name": "Demo Managed Corp.",
+                "phone": None, "language": "en", "active": True,
+                "session_epoch": 0,
+                "rbac_role": "MANAGED_VIEWER",
                 "organization_id": ORG_MANAGED_DEMO,
-                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+                "created_at": datetime.utcnow()
             }
-            await db.screens.insert_one(_scr)
-            logger.info("Fase 4: Created demo managed screen: %s", sname)
+            await db.users.insert_one(mv_user)
+            logger.info("Fase 4: Managed Viewer demo user created: %s", mv_email)
+
+        # Also update the RBAC test viewer to have the demo org (idempotent)
+        await db.users.update_one(
+            {"email": "rbac.viewer@test.com", "organization_id": None},
+            {"$set": {"organization_id": ORG_MANAGED_DEMO}},
+        )
+
+        # Seed 2 demo MEDIAVIEW_MANAGED screens for that org
+        managed_screen_names = [
+            "Pantalla Lobby Principal — Demo Corp",
+            "Pantalla Cafetería — Demo Corp",
+        ]
+        for sname in managed_screen_names:
+            if not await db.screens.find_one({"name": sname}):
+                _code = gen_pairing_code()
+                while await db.screens.find_one({"pairing_code": _code}):
+                    _code = gen_pairing_code()
+                _loc_code = await get_unique_location_code()
+                _scr = {
+                    "id": gen_id(), "name": sname,
+                    "description": "Pantalla gestionada por MediaView para Demo Managed Corp.",
+                    "location": {
+                        "city": "Miami", "address": "100 Brickell Ave",
+                        "state": "FL", "country": "US", "lat": 25.7617, "lng": -80.1918,
+                    },
+                    "pricing": {"per_hour": 0.0, "per_day": 0.0, "per_slot": 0.0, "currency": "USD"},
+                    "specs": {"size": "55in", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                    "preview_image": None, "status": "active", "active": True,
+                    "location_code": _loc_code, "pairing_code": _code, "pairing_secret": gen_pairing_secret(),
+                    "paired_device_id": None, "paired_at": None,
+                    "operation_type": OperationType.MEDIAVIEW_MANAGED,
+                    "organization_id": ORG_MANAGED_DEMO,
+                    "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+                }
+                await db.screens.insert_one(_scr)
+                logger.info("Fase 4: Created demo managed screen: %s", sname)
+    else:
+        logger.info("P0-SEC-001: Demo user seeding skipped (ENVIRONMENT=production, SEED_DEMO not set)")
 
     # ── FASE 3: Migration — Assign public_screen_code to existing PUBLIC_ADVERTISING screens ──
     existing_pa_screens = await db.screens.find({
@@ -3944,8 +3967,8 @@ async def seed_data():
         await db.screens.insert_many(screens)
         logger.info(f"Created {len(screens)} sample screens (incl. 2 PUBLIC_ADVERTISING demo screens)")
 
-    # Demo users
-    if await db.users.count_documents({"role": "customer"}) == 0:
+    # Demo users — P0-SEC-001: NEVER create demo accounts in production
+    if (not is_prod or seed_demo) and await db.users.count_documents({"role": "customer"}) == 0:
         demo_users = [
             {"id": gen_id(), "name": "Sarah Mitchell", "email": "sarah@brightagency.com", "password_hash": hash_password("Demo123!"), "role": "customer", "company_name": "Bright Agency", "phone": "+1 (212) 555-0142", "language": "en", "active": True, "created_at": datetime.utcnow() - timedelta(days=45)},
             {"id": gen_id(), "name": "Carlos Mendez", "email": "carlos@urbanmedia.co", "password_hash": hash_password("Demo123!"), "role": "customer", "company_name": "Urban Media Group", "phone": "+1 (305) 555-0198", "language": "en", "active": True, "created_at": datetime.utcnow() - timedelta(days=30)},
@@ -6033,15 +6056,13 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup():
+    # ── Fase 5: Ensure all MongoDB indexes exist (idempotent) ────────────────
+    from db_indexes import ensure_indexes
+    await ensure_indexes(db)
+
     await seed_data()
 
-    # ── Fase 3: Start Campaign Lifecycle Scheduler ────────────────────────────
-    try:
-        from campaign_scheduler import start_campaign_scheduler
-        start_campaign_scheduler(db)
-    except Exception as e:
-        logger.error("Failed to start campaign_scheduler: %s", e)
-    logger.info("MediaView Digital Signage API started")
+    # ── Fase 3 + Fase 5: Campaign Lifecycle Scheduler ─────────────────────────
     # SCHEDULER_MODE controls where cron jobs run:
     #   "apscheduler" (default): jobs live inside the web-api process
     #   "arq"                  : jobs live in the ARQ worker; web-api DOES NOT
@@ -6051,6 +6072,20 @@ async def startup():
     #                            idempotent by design)
     scheduler_mode = os.environ.get("SCHEDULER_MODE", "apscheduler").lower()
     run_apscheduler = scheduler_mode in ("apscheduler", "both")
+
+    # P0-SCHED-001: campaign_scheduler MUST honour SCHEDULER_MODE to prevent
+    # dual execution when the ARQ worker is deployed alongside the web-api.
+    if run_apscheduler:
+        try:
+            from campaign_scheduler import start_campaign_scheduler
+            start_campaign_scheduler(db)
+            logger.info("Campaign scheduler started in-process (SCHEDULER_MODE=%s)", scheduler_mode)
+        except Exception as e:
+            logger.error("Failed to start campaign_scheduler: %s", e)
+    else:
+        logger.info("P0-SCHED-001: campaign_scheduler skipped (SCHEDULER_MODE=%s → ARQ worker handles it)", scheduler_mode)
+
+    logger.info("MediaView Digital Signage API started (SCHEDULER_MODE=%s)", scheduler_mode)
 
     if run_apscheduler:
         try:

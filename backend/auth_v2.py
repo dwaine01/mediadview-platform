@@ -406,6 +406,7 @@ def build_auth_router(db, get_current_user_dep):
         }
 
     @router.post("/register")
+    @_rl.limit(_LIMITS.register)
     async def register(body: RegisterReq, request: Request):
         email = body.email.lower().strip()
         existing = await db.users.find_one({"email": email})
