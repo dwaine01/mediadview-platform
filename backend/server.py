@@ -521,21 +521,14 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 "checksum": checksum,
             })
 
-    # ── FASE 3: Inyectar campañas publicitarias aprobadas/activas ─────────────
+    # ── FASE 3: Inject ACTIVE ad campaigns into the playlist ──────────────────
     try:
+        today = now.strftime("%Y-%m-%d")
         ad_campaigns = await db.ad_campaigns.find({
             "selected_screens": screen_id,
-            "status": {"$in": ["APPROVED", "ACTIVE"]},
+            "status": "ACTIVE",   # Only ACTIVE — scheduler manages all transitions
         }).to_list(100)
         for ad in ad_campaigns:
-            # Verificar rango de fechas
-            start = ad.get("start_date")
-            end = ad.get("end_date")
-            if start and start > today:
-                continue  # aún no comienza
-            if end and end < today:
-                continue  # ya expiró
-
             creative_url = ad.get("creative_url")
             if not creative_url:
                 continue
@@ -5566,6 +5559,49 @@ app.include_router(create_self_service_routes(db, get_current_user, require_admi
 from advertising_routes import create_advertising_routes
 app.include_router(create_advertising_routes(db, get_current_user, require_admin))
 
+# ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────
+from campaign_scheduler import run_campaign_scheduler, get_campaign_scheduler
+
+@api_router.get("/admin/campaign-scheduler/status")
+async def campaign_scheduler_status(admin: dict = Depends(require_admin)):
+    """Estado y estadísticas del Campaign Scheduler."""
+    sched = get_campaign_scheduler()
+    pending = await db.ad_campaigns.count_documents({"status": "PENDING_REVIEW"})
+    approved = await db.ad_campaigns.count_documents({"status": "APPROVED"})
+    scheduled = await db.ad_campaigns.count_documents({"status": "SCHEDULED"})
+    active = await db.ad_campaigns.count_documents({"status": "ACTIVE"})
+    completed = await db.ad_campaigns.count_documents({"status": "COMPLETED"})
+    last_transitions = await db.campaign_transitions.find().sort("transition_time", -1).to_list(10)
+    return {
+        "scheduler_running": sched.running if sched else False,
+        "counts": {
+            "PENDING_REVIEW": pending,
+            "APPROVED": approved,
+            "SCHEDULED": scheduled,
+            "ACTIVE": active,
+            "COMPLETED": completed,
+        },
+        "last_transitions": [
+            {
+                "campaign_id": t.get("campaign_id"),
+                "old_status": t.get("old_status"),
+                "new_status": t.get("new_status"),
+                "transition_time": t.get("transition_time").isoformat() if isinstance(t.get("transition_time"), datetime) else str(t.get("transition_time")),
+                "reason": t.get("reason"),
+            }
+            for t in last_transitions
+        ],
+    }
+
+@api_router.post("/admin/campaign-scheduler/run-now")
+async def campaign_scheduler_run_now(admin: dict = Depends(require_admin)):
+    """Fuerza una ejecución inmediata del scheduler (útil para testing)."""
+    result = await run_campaign_scheduler(db)
+    return {
+        "message": f"Scheduler executed: {result['total']} transition(s)",
+        "result": result,
+    }
+
 @api_router.get("/public/playlist")
 async def serve_public_playlist_editor():
     return FileResponse(os.path.join(WEB_DIR, 'public-playlist.html'), media_type='text/html')
@@ -5899,6 +5935,13 @@ logger = logging.getLogger(__name__)
 @app.on_event("startup")
 async def startup():
     await seed_data()
+
+    # ── Fase 3: Start Campaign Lifecycle Scheduler ────────────────────────────
+    try:
+        from campaign_scheduler import start_campaign_scheduler
+        start_campaign_scheduler(db)
+    except Exception as e:
+        logger.error("Failed to start campaign_scheduler: %s", e)
     logger.info("MediaView Digital Signage API started")
     # SCHEDULER_MODE controls where cron jobs run:
     #   "apscheduler" (default): jobs live inside the web-api process
@@ -5939,3 +5982,9 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
+    # ── Fase 3: Stop Campaign Scheduler ──────────────────────────────────────
+    try:
+        from campaign_scheduler import stop_campaign_scheduler
+        stop_campaign_scheduler()
+    except Exception:
+        pass

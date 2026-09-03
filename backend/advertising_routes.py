@@ -22,15 +22,26 @@ from pydantic import BaseModel
 from rbac import Role, assert_permission, get_effective_role
 
 # ── State Machine ─────────────────────────────────────────────────────────────
+# ── State Machine ─────────────────────────────────────────────────────────────
 AD_STATUS_DRAFT = "DRAFT"
 AD_STATUS_PENDING_REVIEW = "PENDING_REVIEW"
 AD_STATUS_APPROVED = "APPROVED"
+AD_STATUS_SCHEDULED = "SCHEDULED"    # Aprobada, fecha futura — manejada por campaign_scheduler
 AD_STATUS_ACTIVE = "ACTIVE"
+AD_STATUS_COMPLETED = "COMPLETED"    # End_date superada — manejada por campaign_scheduler
 AD_STATUS_REJECTED = "REJECTED"
 AD_STATUS_CANCELLED = "CANCELLED"
-AD_STATUS_EXPIRED = "EXPIRED"
+AD_STATUS_EXPIRED = "EXPIRED"        # Alias legacy → COMPLETED
 
-AD_PLAYABLE_STATUSES = {AD_STATUS_APPROVED, AD_STATUS_ACTIVE}
+# Solo ACTIVE aparece en el playlist del player (el scheduler gestiona transiciones)
+AD_PLAYABLE_STATUSES = {AD_STATUS_ACTIVE}
+
+# Statuses que "ocupan" un slot (para control de capacidad max_ad_slots)
+AD_SLOT_OCCUPYING_STATUSES = {
+    AD_STATUS_PENDING_REVIEW, AD_STATUS_APPROVED,
+    AD_STATUS_SCHEDULED, AD_STATUS_ACTIVE,
+}
+
 PERIOD_DAYS = {"weekly": 7, "monthly": 30, "yearly": 365}
 
 
@@ -147,7 +158,7 @@ def create_advertising_routes(db, get_current_user, require_admin):
         # Contar slots ocupados actualmente
         occupied = await db.ad_campaigns.count_documents({
             "selected_screens": screen["id"],
-            "status": {"$in": [AD_STATUS_PENDING_REVIEW, AD_STATUS_APPROVED, AD_STATUS_ACTIVE]},
+            "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
         })
         max_slots = screen.get("max_ad_slots", 4)
         ap = screen.get("advertising_pricing") or {}
@@ -187,7 +198,7 @@ def create_advertising_routes(db, get_current_user, require_admin):
         for s in screens:
             occupied = await db.ad_campaigns.count_documents({
                 "selected_screens": s["id"],
-                "status": {"$in": [AD_STATUS_PENDING_REVIEW, AD_STATUS_APPROVED, AD_STATUS_ACTIVE]},
+                "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
             })
             max_slots = s.get("max_ad_slots", 4)
             ap = s.get("advertising_pricing") or {}
@@ -264,7 +275,7 @@ def create_advertising_routes(db, get_current_user, require_admin):
             # Disponibilidad
             occupied = await db.ad_campaigns.count_documents({
                 "selected_screens": sid,
-                "status": {"$in": [AD_STATUS_PENDING_REVIEW, AD_STATUS_APPROVED, AD_STATUS_ACTIVE]},
+                "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
             })
             max_slots = screen.get("max_ad_slots", 4)
 
@@ -334,7 +345,7 @@ def create_advertising_routes(db, get_current_user, require_admin):
 
             occupied = await db.ad_campaigns.count_documents({
                 "selected_screens": sid,
-                "status": {"$in": [AD_STATUS_PENDING_REVIEW, AD_STATUS_APPROVED, AD_STATUS_ACTIVE]},
+                "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
             })
             max_slots = screen.get("max_ad_slots", 4)
             if occupied >= max_slots:
