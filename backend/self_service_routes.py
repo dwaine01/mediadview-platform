@@ -329,9 +329,9 @@ def create_self_service_routes(db, get_current_user, require_admin, require_supe
             locs = await db.locations.find({"org_id": org_id}).sort("name", 1).to_list(500)
         out = []
         for loc in locs:
-            l = _ser(loc)
-            l["screen_count"] = await db.screens.count_documents({"location_id": loc["id"]})
-            out.append(l)
+            loc_data = _ser(loc)
+            loc_data["screen_count"] = await db.screens.count_documents({"location_id": loc["id"]})
+            out.append(loc_data)
         return out
 
     @router.post("/locations")
@@ -378,11 +378,11 @@ def create_self_service_routes(db, get_current_user, require_admin, require_supe
         locs = await db.locations.find({}).sort("city", 1).to_list(10000)
         out = []
         for loc in locs:
-            l = _ser(loc)
-            l["screen_count"] = await db.screens.count_documents({"location_id": loc["id"]})
+            loc_data = _ser(loc)
+            loc_data["screen_count"] = await db.screens.count_documents({"location_id": loc["id"]})
             org = await db.organizations.find_one({"id": loc.get("org_id")}, {"name": 1, "_id": 0})
-            l["org_name"] = org.get("name", "—") if org else "—"
-            out.append(l)
+            loc_data["org_name"] = org.get("name", "—") if org else "—"
+            out.append(loc_data)
         return out
 
     @router.put("/screens/self-service/{screen_id}/link-location")

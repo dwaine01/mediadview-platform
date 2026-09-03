@@ -1,6 +1,7 @@
 # Fase 2 Self-Service Portal — Backend tests
 # Tests: Organizations, Locations, Subscriptions, Team/Invites, Admin, Tenant Isolation, RBAC
 import os
+
 import pytest
 import requests
 
@@ -160,7 +161,7 @@ class TestLocations:
                         headers=auth_headers(token_sso_orga))
         assert r.status_code == 200, f"Update location failed: {r.text}"
         assert r.json().get("name") == "TEST_Location Updated"
-        print(f"PASS: location updated")
+        print("PASS: location updated")
 
     def test_delete_location_with_no_screens_ok(self, session, token_sso_orga):
         """DELETE /api/locations/{id} sin screens vinculadas → OK"""
@@ -171,7 +172,7 @@ class TestLocations:
         assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
         assert r.json().get("success") is True
         TestLocations.created_loc_id = None
-        print(f"PASS: location deleted successfully")
+        print("PASS: location deleted successfully")
 
     def test_delete_location_with_screen_linked_409(self, session, token_sso_orga):
         """DELETE /api/locations/{id} con screen vinculada → 409"""
@@ -208,7 +209,7 @@ class TestLocations:
         # Now try to delete location — should get 409
         rd = session.delete(f"{BASE_URL}/api/locations/{loc_id}", headers=auth_headers(token_sso_orga))
         assert rd.status_code == 409, f"Expected 409, got {rd.status_code}: {rd.text}"
-        print(f"PASS: 409 when deleting location with linked screen")
+        print("PASS: 409 when deleting location with linked screen")
 
         # Cleanup: unlink screen then delete
         session.put(f"{BASE_URL}/api/screens/self-service/{screen_id}/link-location",
@@ -229,7 +230,7 @@ class TestLocations:
                          json={"name": "Org A Hacked!"},
                          headers=auth_headers(token_sso_orga))
         assert ra.status_code == 403, f"Expected 403 for tenant isolation, got {ra.status_code}: {ra.text}"
-        print(f"PASS: Org A cannot modify Org B location (403)")
+        print("PASS: Org A cannot modify Org B location (403)")
 
         # Cleanup: OrgB deletes its location
         session.delete(f"{BASE_URL}/api/locations/{orgb_loc_id}", headers=auth_headers(token_sso_orgb))
@@ -331,7 +332,7 @@ class TestSubscriptions:
         r = session.post(f"{BASE_URL}/api/subscriptions/{TestSubscriptions.created_sub_id}/cancel",
                          headers=auth_headers(token_sso_orga))
         assert r.status_code == 400, f"Expected 400, got {r.status_code}: {r.text}"
-        print(f"PASS: 400 on double-cancel")
+        print("PASS: 400 on double-cancel")
 
     def test_duplicate_subscription_409(self, session, token_sso_orga):
         """POST /api/subscriptions con screen que ya tiene sub activa → 409"""
@@ -353,7 +354,7 @@ class TestSubscriptions:
                           json={"screen_id": screen_id, "plan": "pro", "billing_cycle": "monthly"},
                           headers=auth_headers(token_sso_orga))
         assert r2.status_code == 409, f"Expected 409 duplicate sub, got {r2.status_code}: {r2.text}"
-        print(f"PASS: 409 on duplicate subscription")
+        print("PASS: 409 on duplicate subscription")
 
         # Cleanup
         session.post(f"{BASE_URL}/api/subscriptions/{new_sub_id}/cancel", headers=auth_headers(token_sso_orga))
@@ -426,13 +427,13 @@ class TestTeamInvites:
         r = session.post(f"{BASE_URL}/api/invites/{TestTeamInvites.created_invite_token}/accept",
                          json={"name": "Again", "password": "TestPass#2026"})
         assert r.status_code == 410, f"Expected 410 on re-use, got {r.status_code}: {r.text}"
-        print(f"PASS: 410 on re-accepting invite")
+        print("PASS: 410 on re-accepting invite")
 
     def test_invalid_invite_token_404(self, session):
         """GET invite with invalid token → 404"""
         r = session.get(f"{BASE_URL}/api/invites/totally-invalid-token-xyz999")
         assert r.status_code == 404, f"Expected 404, got {r.status_code}: {r.text}"
-        print(f"PASS: 404 for invalid invite token")
+        print("PASS: 404 for invalid invite token")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -497,9 +498,9 @@ class TestTenantIsolation:
         rb = session.get(f"{BASE_URL}/api/locations", headers=auth_headers(token_sso_orgb))
         assert rb.status_code == 200
         orgb_locs = rb.json()
-        orgb_loc_ids = [l["id"] for l in orgb_locs]
+        orgb_loc_ids = [loc["id"] for loc in orgb_locs]
         assert orga_loc_id not in orgb_loc_ids, "Tenant isolation violated: Org B sees Org A's location!"
-        print(f"PASS: Org B cannot see Org A locations")
+        print("PASS: Org B cannot see Org A locations")
 
         # Cleanup
         session.delete(f"{BASE_URL}/api/locations/{orga_loc_id}", headers=auth_headers(token_sso_orga))

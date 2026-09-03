@@ -26,6 +26,7 @@ import pytest
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
+
 load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 
 BASE = "http://localhost:8001/api"
@@ -216,8 +217,9 @@ class TestSec002InviteAcceptance:
         """C: Expired token (manually expired in DB) → 410."""
         # This test requires direct DB manipulation; skip if DB not accessible
         try:
-            from motor.motor_asyncio import AsyncIOMotorClient
             import asyncio
+
+            from motor.motor_asyncio import AsyncIOMotorClient
             client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
             db = client["mediaview_db"]
 
@@ -286,8 +288,10 @@ class TestSec002InviteAcceptance:
 
         # First, create the target user so they have an account (makes existing=True path)
         try:
+            import asyncio
+
+            import bcrypt as _bcrypt
             from motor.motor_asyncio import AsyncIOMotorClient
-            import asyncio, bcrypt as _bcrypt
             client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
             db_motor = client["mediaview_db"]
 
@@ -353,8 +357,9 @@ class TestSec002InviteAcceptance:
 
         # Attempt to force a privileged role via direct DB insertion (bypass API validation)
         try:
-            from motor.motor_asyncio import AsyncIOMotorClient
             import asyncio
+
+            from motor.motor_asyncio import AsyncIOMotorClient
             client = AsyncIOMotorClient(os.environ.get("MONGO_URL", "mongodb://localhost:27017"))
             db_motor = client["mediaview_db"]
             exp = datetime.utcnow() + timedelta(days=7)
@@ -619,7 +624,8 @@ class TestH1CSP:
         r = httpx.get(f"{BASE}/health", timeout=TIMEOUT)
         csp = r.headers.get("content-security-policy", "")
         # Read the docstring from security_headers.py to verify P1 is documented
-        import importlib.util, pathlib
+        import importlib.util
+        import pathlib
         sh_path = pathlib.Path(__file__).parent.parent / "security_headers.py"
         content = sh_path.read_text()
         assert "P1" in content and "unsafe-inline" in content, \
@@ -646,7 +652,8 @@ class TestH2TrustedProxy:
         """When TRUST_PROXY=false, a spoofed X-Forwarded-For must not bypass rate limiting.
         This is a code-level inspection test — we verify _ip() does NOT read XFF
         when TRUST_PROXY=false."""
-        import importlib, pathlib
+        import importlib
+        import pathlib
         av2_path = pathlib.Path(__file__).parent.parent / "auth_v2.py"
         content = av2_path.read_text()
         # When TRUST_PROXY is false, the function must use request.client.host

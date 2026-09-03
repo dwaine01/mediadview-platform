@@ -20,10 +20,9 @@ import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import pytest
-import pytest_asyncio
 import httpx
 import pytest
+import pytest_asyncio
 
 # ── paths ──────────────────────────────────────────────────────────────
 BACKEND_DIR = Path(__file__).parent.parent
@@ -70,6 +69,7 @@ class TestEnvironmentValidation:
         problems = []
         try:
             import importlib
+
             import startup_check as sc
             importlib.reload(sc)  # reload so functions re-read os.environ
 
@@ -108,6 +108,7 @@ class TestEnvironmentValidation:
     def test_B_production_rejects_localhost_mongo(self):
         """ENVIRONMENT=production + localhost MONGO_URL must FAIL FAST."""
         import importlib
+
         import startup_check as sc
         importlib.reload(sc)
 
@@ -140,8 +141,10 @@ class TestEnvironmentValidation:
                     ("JWT_SECRET", saved_jwt), ("CORS_ORIGINS", saved_cors),
                     ("ORDER_LINK_SECRET", saved_order),
                 ]:
-                    if v is None: os.environ.pop(k, None)
-                    else: os.environ[k] = v
+                    if v is None:
+                        os.environ.pop(k, None)
+                    else:
+                        os.environ[k] = v
                 sys.exit = orig_exit
                 importlib.reload(sc)
         except Exception:
@@ -154,6 +157,7 @@ class TestEnvironmentValidation:
     def test_C_production_rejects_weak_jwt(self):
         """ENVIRONMENT=production + short JWT_SECRET must FAIL FAST."""
         import importlib
+
         import startup_check as sc
         importlib.reload(sc)
 
@@ -177,8 +181,10 @@ class TestEnvironmentValidation:
                 problems_found.append(2)
         finally:
             for k, v in saved.items():
-                if v is None: os.environ.pop(k, None)
-                else: os.environ[k] = v
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
             sys.exit = orig_exit
             importlib.reload(sc)
 
@@ -188,6 +194,7 @@ class TestEnvironmentValidation:
     def test_D_production_rejects_missing_order_link_secret(self):
         """ENVIRONMENT=production without ORDER_LINK_SECRET must FAIL FAST."""
         import importlib
+
         import startup_check as sc
         importlib.reload(sc)
 
@@ -211,8 +218,10 @@ class TestEnvironmentValidation:
                 problems_found.append(2)
         finally:
             for k, v in saved.items():
-                if v is None: os.environ.pop(k, None)
-                else: os.environ[k] = v
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
             sys.exit = orig_exit
             importlib.reload(sc)
 
@@ -222,6 +231,7 @@ class TestEnvironmentValidation:
     def test_E_production_rejects_cors_wildcard(self):
         """ENVIRONMENT=production + CORS_ORIGINS=* must FAIL FAST."""
         import importlib
+
         import startup_check as sc
         importlib.reload(sc)
 
@@ -245,8 +255,10 @@ class TestEnvironmentValidation:
                 problems_found.append(2)
         finally:
             for k, v in saved.items():
-                if v is None: os.environ.pop(k, None)
-                else: os.environ[k] = v
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
             sys.exit = orig_exit
             importlib.reload(sc)
 
@@ -385,6 +397,7 @@ class TestHealthReadiness:
     async def test_K_db_indexes_idempotent(self):
         """Running ensure_indexes() twice must not raise or duplicate indexes."""
         from motor.motor_asyncio import AsyncIOMotorClient
+
         from db_indexes import ensure_indexes
         client = AsyncIOMotorClient("mongodb://localhost:27017")
         db = client["mediaview_db"]
@@ -484,7 +497,7 @@ class TestRegression:
         """
         # Fetch a screen that exists (use demo managed screen)
         admin = _admin_token()
-        screens_r = httpx.get(f"{BASE}/admin/screens", 
+        screens_r = httpx.get(f"{BASE}/admin/screens",
                                headers={"Authorization": f"Bearer {admin}"}, timeout=10)
         if screens_r.status_code != 200 or not screens_r.json():
             pytest.skip("No screens available for player test")
