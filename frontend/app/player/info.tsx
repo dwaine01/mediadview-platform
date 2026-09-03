@@ -32,14 +32,14 @@ export default function PlayerInfo() {
     try {
       const c = await AsyncStorage.getItem('mv_cached_playlist');
       if (c) setCachedCount(JSON.parse(c).length);
-    } catch (e) {}
+    } catch {}
 
     // Network info
     try {
       const ip = await Network.getIpAddressAsync();
       const state = await Network.getNetworkStateAsync();
       setNetInfo({ ip, type: state.type, isConnected: state.isConnected });
-    } catch (e) {
+    } catch {
       setNetInfo({ ip: 'Unknown', type: 'Unknown', isConnected: false });
     }
 

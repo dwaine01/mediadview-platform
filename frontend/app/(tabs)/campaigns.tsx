@@ -27,7 +27,7 @@ export default function CampaignsScreen() {
       const params = filter !== 'all' ? { status: filter } : {};
       const res = await campaignsAPI.list(params);
       setCampaigns(res.data);
-    } catch (e) {} finally { setLoading(false); setRefreshing(false); }
+    } catch {} finally { setLoading(false); setRefreshing(false); }
   }, [filter]);
 
   useEffect(() => { setLoading(true); fetchData(); }, [fetchData]);

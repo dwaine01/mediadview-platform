@@ -152,10 +152,10 @@ code { font-family:'JetBrains Mono',ui-monospace,Menlo,monospace; font-size:.85e
 
 .btn-icon {
   display:inline-flex; align-items:center; justify-content:center;
-  width:36px; height:36px;
+  min-width:44px; min-height:44px;
   border-radius:var(--rs);
   color:var(--t-3);
-  transition:all .15s;
+  transition:background .15s, color .15s, border-color .15s;
   border:1px solid transparent;
 }
 .btn-icon:hover { background:var(--bg-1); color:var(--t-1); border-color:var(--border) }
