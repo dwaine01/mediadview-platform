@@ -3992,10 +3992,12 @@ async def seed_data():
             await db.screens.insert_many(demo_pub_screens)
             logger.info("FASE3: Created %d demo PUBLIC_ADVERTISING screens", len(demo_pub_screens))
 
-    # Only seed regular screens if none exist yet (exclude PUBLIC_ADVERTISING screens
-    # seeded by FASE 3 migration above, which runs first and would otherwise block this).
+    # Only seed regular (untyped) screens if none exist yet.
+    # We check specifically for screens WITHOUT an operation_type field, because
+    # FASE 3 (PUBLIC_ADVERTISING) and FASE 4 (MEDIAVIEW_MANAGED) run first and
+    # insert screens that have operation_type set — those must NOT block this block.
     _regular_screen_count = await db.screens.count_documents(
-        {"operation_type": {"$ne": "PUBLIC_ADVERTISING"}}
+        {"operation_type": {"$exists": False}}
     )
     if _regular_screen_count == 0:
         screens = [
@@ -4173,8 +4175,8 @@ async def seed_data():
 
     # Demo devices
     if await db.devices.count_documents({}) == 0:
-        all_screens = await db.screens.find({}).to_list(10)
-        if len(all_screens) >= 4:
+        all_screens = await db.screens.find({}).to_list(1000)
+        if len(all_screens) >= 6:  # need indices 0, 2, 5 — so min 6 items required
             demo_devices = [
                 {"id": gen_id(), "activation_code": "MV7K2N", "device_name": "Lobby Main Screen", "device_info": {"model": "TCL P755", "os_version": "Google TV 14", "app_version": "1.0.0", "resolution": "3840x2160"}, "screen_id": all_screens[0]["id"], "status": "active", "tier": "tv_direct", "reboot_time": "03:00", "last_heartbeat": datetime.utcnow() - timedelta(minutes=2), "last_sync": datetime.utcnow() - timedelta(minutes=1), "activated_at": datetime.utcnow() - timedelta(days=15), "diagnostics": {"uptime_seconds": 345600, "ip_address": "192.168.1.101", "app_version": "1.0.0"}, "created_at": datetime.utcnow() - timedelta(days=15)},
                 {"id": gen_id(), "activation_code": "HX4P9R", "device_name": "Store Window Display", "device_info": {"model": "Philips PUS7608", "os_version": "Google TV 13", "app_version": "1.0.0", "resolution": "1920x1080"}, "screen_id": all_screens[2]["id"], "status": "active", "tier": "tv_direct", "reboot_time": "03:00", "last_heartbeat": datetime.utcnow() - timedelta(minutes=5), "last_sync": datetime.utcnow() - timedelta(minutes=3), "activated_at": datetime.utcnow() - timedelta(days=10), "diagnostics": {"uptime_seconds": 172800, "ip_address": "192.168.1.105", "app_version": "1.0.0"}, "created_at": datetime.utcnow() - timedelta(days=10)},
