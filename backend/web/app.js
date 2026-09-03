@@ -291,7 +291,17 @@ const loaders={
       // ===== SCREENS TAB =====
       if(window._adminTab==='screens'){
         el.innerHTML='<div class="ph"><div><h1>Screens</h1><p>Manage your screens and playlists</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
-        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div><div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
+        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div>'
+        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div>'
+        +'<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:8px">Screen Operation Type</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+        +'<label id="ot-ss" onclick="selectOpType(\'SELF_SERVICE\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #6366F1;border-radius:10px;cursor:pointer;background:#6366F110"><span style="font-size:12px;font-weight:800;color:#6366F1">SELF SERVICE</span><span style="font-size:11px;color:#94a3b8">Client manages own screens</span><input type="radio" name="op_type" value="SELF_SERVICE" checked style="display:none"></label>'
+        +'<label id="ot-pa" onclick="selectOpType(\'PUBLIC_ADVERTISING\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">PUBLIC ADS</span><span style="font-size:11px;color:#94a3b8">Advertisers buy slots via QR</span><input type="radio" name="op_type" value="PUBLIC_ADVERTISING" style="display:none"></label>'
+        +'<label id="ot-mm" onclick="selectOpType(\'MEDIAVIEW_MANAGED\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">MV MANAGED</span><span style="font-size:11px;color:#94a3b8">MediaView controls content</span><input type="radio" name="op_type" value="MEDIAVIEW_MANAGED" style="display:none"></label>'
+        +'</div></div>'
+        +'<div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create Screen</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
         '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>
           '<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')">'+
             '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div>'+
@@ -578,13 +588,27 @@ async function modalReject(id){var reason=document.getElementById('modal-reason'
 async function rejectWithNote(id){var reason=document.getElementById('reject-'+id)?.value||'';try{await api('/admin/campaigns/'+id+'/reject?notes='+encodeURIComponent(reason),{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function rejectCamp(id,e){if(e)e.stopPropagation();if(!confirm('Reject this campaign?'))return;try{await api('/admin/campaigns/'+id+'/reject',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+function selectOpType(type) {
+  var types = ['SELF_SERVICE','PUBLIC_ADVERTISING','MEDIAVIEW_MANAGED'];
+  var ids = {SELF_SERVICE:'ot-ss',PUBLIC_ADVERTISING:'ot-pa',MEDIAVIEW_MANAGED:'ot-mm'};
+  var colors = {SELF_SERVICE:'#6366F1',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#F59E0B'};
+  types.forEach(function(t){
+    var el = document.getElementById(ids[t]);
+    if (!el) return;
+    el.style.borderColor = t === type ? colors[t] : '#e2e8f0';
+    el.style.background = t === type ? colors[t]+'18' : 'transparent';
+    el.querySelector('span').style.color = t === type ? colors[t] : '#64748b';
+    el.querySelector('input[type=radio]').checked = t === type;
+  });
+}
 async function addScreen(){
   var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value;
+  var opType=document.querySelector('input[name="op_type"]:checked')?.value||'SELF_SERVICE';
   var msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active'})});
-    msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
+    await api('/admin/screens',{method:'POST',body:JSON.stringify({name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',operation_type:opType})});
+    msg.textContent='Screen created ('+opType.replace(/_/g,' ')+')!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
 async function editAdminScreen(id){

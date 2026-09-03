@@ -65,18 +65,40 @@ player), pero tres operaciones estrictamente separadas por backend RBAC:
   WAN offline; actualización atómica; PIN diagnostics.
 - Configurar `MEDIAVIEW_DIAGNOSTICS_PIN` como secreto CI si se desea PIN distinto al activation code.
 
-## P1 — tres modelos operativos
+## P1 — Fase 1: RBAC + Tenant Isolation ✅ COMPLETADO
 
-- Migración compatible de `screens`: `organization_id`, `location_id`, `operation_type`,
-  ownership, orientation/resolution y campos public advertising.
-- Migrar Columbus a `PUBLIC_ADVERTISING` de forma idempotente.
-- RBAC: `SUPER_ADMIN`, `MEDIAVIEW_ADMIN`, `SUPPORT`, `SELF_SERVICE_OWNER`,
-  `SELF_SERVICE_MANAGER`, `MANAGED_VIEWER`, `ADVERTISER`.
-- Backend ownership obligatorio: customer A→screen B = 403; advertiser no administra;
-  viewer no publica.
-- Portales diferenciados dentro de la misma plataforma.
-- Self-Service completo; Managed portal viewer; Public QR `/advertise/{public_code}`,
-  marketplace multi-screen, creative y aprobación.
+### Implementado y testeado (100% — Acceptance Tests A-H PASS):
+
+- **rbac.py**: Matriz de 7 roles (SUPER_ADMIN, MEDIAVIEW_ADMIN, SUPPORT, SELF_SERVICE_OWNER, SELF_SERVICE_MANAGER, MANAGED_VIEWER, ADVERTISER). Funciones `assert_permission`, `assert_tenant`, `assert_can_manage_screen`, `get_effective_role`.
+- **require_admin / require_superadmin**: Migrados a RBAC. Mapeo automático de roles legacy via `ROLE_MIGRATION_MAP`.
+- **_is_platform_admin**: Migrado a RBAC.
+- **Tenant isolation**: DELETE /admin/screens, PUT /admin/screens, PUT /admin/screens/{id}/advertising — todos llaman `assert_can_manage_screen` que verifica organización.
+- **Nuevos endpoints self-service**: POST /screens/self-service (crear), PUT /screens/self-service/{id} (actualizar con tenant isolation), GET /screens/self-service/mine.
+- **MANAGED_VIEWER bloqueado**: _can_publish_playlist rechaza MANAGED_VIEWER explícitamente.
+- **Seed test users**: POST /admin/rbac/seed-test-users crea 6 usuarios RBAC + 4 screens test.
+- **operation_type** validado en create/update screens (SELF_SERVICE/PUBLIC_ADVERTISING/MEDIAVIEW_MANAGED).
+
+### Resultados acceptance tests:
+- TEST A (SUPER_ADMIN → SELF_SERVICE): ✅ 200
+- TEST B (SUPER_ADMIN → PUBLIC_ADVERTISING): ✅ 200
+- TEST C (SUPER_ADMIN → MEDIAVIEW_MANAGED): ✅ 200
+- TEST D (SELF_SERVICE_OWNER → propio org): ✅ 200
+- TEST E (SELF_SERVICE_OWNER → otro org): ✅ 403
+- TEST F (ADVERTISER → admin screens): ✅ 403
+- TEST G (MANAGED_VIEWER → publish): ✅ 403
+- TEST H (MEDIAVIEW_ADMIN → Public/Managed): ✅ 200
+
+## P1 — Fase 2: Self-Service Portal (PENDIENTE)
+
+- Organización, locations, y billing por pantalla (`SELF_SERVICE_SUBSCRIPTION`).
+
+## P1 — Fase 3: Public Advertising (PENDIENTE)
+
+- `/advertise/{screen_code}` landing pages, Advertiser dashboard, Ad Approval Workflow.
+
+## P1 — Fase 4: MediaView Managed (PENDIENTE)
+
+- `MANAGED_VIEWER` portal View-Only.
 
 ## P2 — billing y operación comercial
 

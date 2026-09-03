@@ -43,6 +43,12 @@ from playlist_domain import (
     scheduled_playlist_key,
     select_winning_playlist,
 )
+from rbac import (
+    OperationType, Role, ALL_OPERATION_TYPES,
+    get_effective_role, has_permission,
+    assert_permission, assert_tenant,
+    assert_can_manage_screen, effective_operation_type,
+)
 
 # ============ CONFIGURATION ============
 
@@ -159,6 +165,9 @@ class ScreenCreate(BaseModel):
     preview_image: Optional[str] = None
     status: str = "active"
     location_code: Optional[str] = None
+    # ── FASE 1: operation type ────────────────────────────────────────────
+    operation_type: Optional[str] = None   # SELF_SERVICE | PUBLIC_ADVERTISING | MEDIAVIEW_MANAGED
+    organization_id: Optional[str] = None  # owning org (tenant isolation)
 
 class ScreenUpdate(BaseModel):
     name: Optional[str] = None
@@ -169,6 +178,9 @@ class ScreenUpdate(BaseModel):
     preview_image: Optional[str] = None
     status: Optional[str] = None
     location_code: Optional[str] = None
+    # ── FASE 1: operation type ────────────────────────────────────────────
+    operation_type: Optional[str] = None
+    organization_id: Optional[str] = None
 
 class CampaignSchedule(BaseModel):
     # start_date / end_date now optional. `null` (or missing) means
@@ -602,12 +614,18 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") not in ("admin", "superadmin"):
+    """RBAC-aware gate: accepts SUPER_ADMIN, MEDIAVIEW_ADMIN and SUPPORT roles.
+    Legacy role strings ('admin', 'superadmin') are automatically mapped via ROLE_MIGRATION_MAP."""
+    role = get_effective_role(current_user)
+    if role not in (Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
 async def require_superadmin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "superadmin":
+    """RBAC-aware gate: only SUPER_ADMIN passes.
+    Legacy role string 'superadmin' is mapped automatically."""
+    role = get_effective_role(current_user)
+    if role != Role.SUPER_ADMIN:
         raise HTTPException(status_code=403, detail="Super Admin access required")
     return current_user
 
@@ -663,6 +681,8 @@ async def register(request: Request, response: Response, req: RegisterRequest):
     user = {
         "id": gen_id(), "name": req.name, "email": req.email.lower(),
         "password_hash": hash_password(req.password), "role": "customer",
+        # ── FASE 1: new RBAC role field ────────────────────────────────────
+        "rbac_role": Role.SELF_SERVICE_OWNER,
         "company_name": req.company_name, "phone": None,
         "language": "en", "active": True, "session_epoch": 0,
         "created_at": datetime.utcnow()
@@ -910,6 +930,8 @@ async def update_screen_advertising(screen_id: str, payload: ScreenAdvertisingUp
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────────
+    assert_can_manage_screen(admin, screen)
     current = screen.get("advertising") or {}
     if payload.price_per_ad_per_month is not None:
         if payload.price_per_ad_per_month < 0:
@@ -1416,6 +1438,11 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
     media = await db.media.find_one({"id": media_id})
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
+    # ── FASE 1: ownership check ─────────────────────────────────────────────
+    # Platform admins can rotate any media; other users can only rotate their own.
+    if not has_permission(current_user, "admin.all_screens"):
+        if media.get("user_id") != current_user.get("id"):
+            raise HTTPException(status_code=403, detail="You do not own this media item")
     await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
 
     # Find all campaigns using this media and force restart their devices
@@ -1653,6 +1680,19 @@ def gen_pairing_secret() -> str:
 
 @api_router.post("/admin/screens")
 async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
+    # ── FASE 1: Validate operation_type and permissions ──────────────────
+    op_type = (data.operation_type or OperationType.SELF_SERVICE).upper()
+    if op_type not in ALL_OPERATION_TYPES:
+        raise HTTPException(400, f"Invalid operation_type. Must be one of: {ALL_OPERATION_TYPES}")
+
+    # Enforce permissions: only SUPER_ADMIN/MEDIAVIEW_ADMIN can create PUBLIC or MANAGED
+    if op_type == OperationType.PUBLIC_ADVERTISING:
+        assert_permission(admin, "screen.create.public")
+    elif op_type == OperationType.MEDIAVIEW_MANAGED:
+        assert_permission(admin, "screen.create.managed")
+    else:
+        assert_permission(admin, "screen.create.self_service")
+
     # Auto-generate permanent location code
     location_code = await get_unique_location_code()
     # Generate the device pairing credentials (ColorlightCloud style)
@@ -1669,6 +1709,10 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
         "pairing_code": pairing_code, "pairing_secret": pairing_secret,
         "paired_device_id": None, "paired_at": None,
         "active": True,
+        # ── FASE 1 fields ─────────────────────────────────────────────────
+        "operation_type": op_type,
+        "organization_id": data.organization_id or None,
+        "created_by": admin.get("id") or admin.get("_id"),
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
@@ -1802,9 +1846,18 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────
+    assert_can_manage_screen(admin, screen)
+
     update = {k: v for k, v in data.dict(exclude_none=True).items()}
     # location_code is permanent - cannot be changed
     update.pop("location_code", None)
+    # If operation_type is being changed, validate it
+    if "operation_type" in update:
+        new_op = update["operation_type"].upper()
+        if new_op not in ALL_OPERATION_TYPES:
+            raise HTTPException(400, f"Invalid operation_type. Must be one of: {ALL_OPERATION_TYPES}")
+        update["operation_type"] = new_op
     update["updated_at"] = datetime.utcnow()
     await db.screens.update_one({"id": screen_id}, {"$set": update})
     updated = await db.screens.find_one({"id": screen_id})
@@ -1812,6 +1865,11 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
 
 @api_router.delete("/admin/screens/{screen_id}")
 async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict = Depends(require_admin)):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────────
+    assert_can_manage_screen(admin, screen)
     active = await db.campaigns.count_documents(
         {"screen_id": screen_id, "status": {"$in": ["pending", "approved", "active"]}}
     )
@@ -1845,6 +1903,185 @@ async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict
         raise HTTPException(status_code=404, detail="Screen not found")
     return {"message": "Screen deleted", "cascaded_campaigns": active if cascade else 0, "devices_unpaired": len(orphans)}
 
+# ============ FASE 1: RBAC INFO + MIGRATION ENDPOINTS ============
+
+@api_router.get("/admin/rbac/info")
+async def rbac_info(admin: dict = Depends(require_admin)):
+    """Return the current user's effective RBAC role and all permissions they hold."""
+    from rbac import PERMISSIONS
+    role = get_effective_role(admin)
+    granted = [p for p, roles in PERMISSIONS.items() if role in roles]
+    return {
+        "legacy_role": admin.get("role"),
+        "rbac_role": role,
+        "permissions": sorted(granted),
+    }
+
+@api_router.post("/admin/migrate-operation-types")
+async def migrate_operation_types(admin: dict = Depends(require_admin)):
+    """
+    One-time migration: set operation_type on screens that don't have it yet.
+    Migration rules:
+      - advertising.is_public == True  → PUBLIC_ADVERTISING
+      - everything else                → SELF_SERVICE  (safe default)
+    Super Admin can change individual screens afterward via PUT /admin/screens/{id}.
+    """
+    assert_permission(admin, "admin.all_screens")
+    screens = await db.screens.find({"operation_type": {"$exists": False}}).to_list(10000)
+    updated = 0
+    for s in screens:
+        is_pub = s.get("advertising", {}).get("is_public", False)
+        op_type = OperationType.PUBLIC_ADVERTISING if is_pub else OperationType.SELF_SERVICE
+        await db.screens.update_one(
+            {"id": s["id"]},
+            {"$set": {"operation_type": op_type, "updated_at": datetime.utcnow()}}
+        )
+        updated += 1
+    return {
+        "migrated": updated,
+        "message": f"Set operation_type on {updated} screens. Review SELF_SERVICE screens that may actually be MEDIAVIEW_MANAGED."
+    }
+
+@api_router.get("/admin/rbac/screens-by-type")
+async def screens_by_operation_type(admin: dict = Depends(require_admin)):
+    """Summary of screens grouped by operation_type (with effective type inference)."""
+    assert_permission(admin, "admin.all_screens")
+    screens = await db.screens.find({}, {"id": 1, "name": 1, "operation_type": 1, "advertising": 1, "status": 1}).to_list(10000)
+    groups: dict = {t: [] for t in [OperationType.SELF_SERVICE, OperationType.PUBLIC_ADVERTISING, OperationType.MEDIAVIEW_MANAGED]}
+    for s in screens:
+        t = effective_operation_type(s)
+        groups[t].append({"id": s.get("id"), "name": s.get("name"), "status": s.get("status"), "has_operation_type_field": bool(s.get("operation_type"))})
+    return {t: {"count": len(v), "screens": v} for t, v in groups.items()}
+
+
+@api_router.post("/admin/rbac/seed-test-users")
+async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
+    """Dev-only: seed one user per RBAC role (plus two SELF_SERVICE_OWNER users in
+    different organisations) and a matching test screen per org.
+    Idempotent — existing accounts are skipped.
+    Returns all created / existing credentials so the test suite can log in."""
+    if IS_PROD:
+        raise HTTPException(status_code=403, detail="Endpoint not available in production")
+
+    ORG_A = "org_rbac_test_a"
+    ORG_B = "org_rbac_test_b"
+    TEST_PW = "RbacTest#2026"
+
+    test_users = [
+        {
+            "email": "rbac.mwadmin@test.com",
+            "name": "RBAC MediaView Admin",
+            "role": "admin",
+            "rbac_role": Role.MEDIAVIEW_ADMIN,
+            "organization_id": None,
+        },
+        {
+            "email": "rbac.ssowner.orga@test.com",
+            "name": "RBAC Self-Service Owner Org A",
+            "role": "customer",
+            "rbac_role": Role.SELF_SERVICE_OWNER,
+            "organization_id": ORG_A,
+        },
+        {
+            "email": "rbac.ssowner.orgb@test.com",
+            "name": "RBAC Self-Service Owner Org B",
+            "role": "customer",
+            "rbac_role": Role.SELF_SERVICE_OWNER,
+            "organization_id": ORG_B,
+        },
+        {
+            "email": "rbac.advertiser@test.com",
+            "name": "RBAC Advertiser",
+            "role": "advertiser",
+            "rbac_role": Role.ADVERTISER,
+            "organization_id": None,
+        },
+        {
+            "email": "rbac.viewer@test.com",
+            "name": "RBAC Managed Viewer",
+            "role": "viewer",
+            "rbac_role": Role.MANAGED_VIEWER,
+            "organization_id": None,
+        },
+    ]
+
+    created_users: list[str] = []
+    user_ids: dict[str, str] = {}
+
+    for u in test_users:
+        existing = await db.users.find_one({"email": u["email"]})
+        if existing:
+            user_ids[u["email"]] = existing["id"]
+        else:
+            uid = gen_id()
+            doc = {
+                "id": uid, "name": u["name"], "email": u["email"],
+                "password_hash": hash_password(TEST_PW),
+                "role": u["role"], "rbac_role": u["rbac_role"],
+                "organization_id": u.get("organization_id"),
+                "company_name": f"Test — {u['rbac_role']}",
+                "phone": None, "language": "en",
+                "active": True, "session_epoch": 0,
+                "created_at": datetime.utcnow(),
+            }
+            await db.users.insert_one(doc)
+            user_ids[u["email"]] = uid
+            created_users.append(u["email"])
+
+    # ── Create test screens (one per org, one PUBLIC, one MANAGED) ──────────
+    created_screens: dict[str, str] = {}
+
+    async def _ensure_screen(key: str, name: str, op_type: str, org: Optional[str]) -> str:
+        existing = await db.screens.find_one({"name": name})
+        if existing:
+            return existing["id"]
+        code = gen_pairing_code()
+        while await db.screens.find_one({"pairing_code": code}):
+            code = gen_pairing_code()
+        loc_code = await get_unique_location_code()
+        screen = {
+            "id": gen_id(), "name": name,
+            "description": f"Auto-created test screen for RBAC Acceptance Tests — {op_type}",
+            "location": {"city": "Test City", "address": "123 Test St", "state": "TC", "country": "US", "lat": 0.0, "lng": 0.0},
+            "pricing": {"per_hour": 10.0, "per_day": 80.0, "per_slot": 1.0, "currency": "USD"},
+            "specs": {"size": "32in", "type": "LCD", "resolution": "1920x1080", "orientation": "landscape"},
+            "preview_image": None, "status": "active", "location_code": loc_code,
+            "pairing_code": code, "pairing_secret": gen_pairing_secret(),
+            "paired_device_id": None, "paired_at": None, "active": True,
+            "operation_type": op_type,
+            "organization_id": org,
+            "created_by": sa.get("id"),
+            "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+        }
+        await db.screens.insert_one(screen)
+        created_screens[key] = screen["id"]
+        return screen["id"]
+
+    screen_org_a = await _ensure_screen("screen_org_a", "RBAC Test Screen — Org A (SELF_SERVICE)", OperationType.SELF_SERVICE, ORG_A)
+    screen_org_b = await _ensure_screen("screen_org_b", "RBAC Test Screen — Org B (SELF_SERVICE)", OperationType.SELF_SERVICE, ORG_B)
+    screen_public = await _ensure_screen("screen_public", "RBAC Test Screen — PUBLIC_ADVERTISING", OperationType.PUBLIC_ADVERTISING, None)
+    screen_managed = await _ensure_screen("screen_managed", "RBAC Test Screen — MEDIAVIEW_MANAGED", OperationType.MEDIAVIEW_MANAGED, None)
+
+    return {
+        "created_users": created_users,
+        "created_screens": created_screens,
+        "password": TEST_PW,
+        "credentials": {
+            "super_admin":              {"email": "superadmin@mediadview.com",  "password": "SuperAdmin#2026",  "rbac_role": "SUPER_ADMIN"},
+            "mediaview_admin":          {"email": "rbac.mwadmin@test.com",      "password": TEST_PW,            "rbac_role": "MEDIAVIEW_ADMIN"},
+            "self_service_owner_org_a": {"email": "rbac.ssowner.orga@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_A},
+            "self_service_owner_org_b": {"email": "rbac.ssowner.orgb@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_B},
+            "advertiser":               {"email": "rbac.advertiser@test.com",   "password": TEST_PW,            "rbac_role": "ADVERTISER"},
+            "managed_viewer":           {"email": "rbac.viewer@test.com",       "password": TEST_PW,            "rbac_role": "MANAGED_VIEWER"},
+        },
+        "test_screens": {
+            "screen_org_a":   {"id": screen_org_a,  "org": ORG_A, "type": "SELF_SERVICE"},
+            "screen_org_b":   {"id": screen_org_b,  "org": ORG_B, "type": "SELF_SERVICE"},
+            "screen_public":  {"id": screen_public, "org": None,  "type": "PUBLIC_ADVERTISING"},
+            "screen_managed": {"id": screen_managed,"org": None,  "type": "MEDIAVIEW_MANAGED"},
+        },
+    }
+
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):
     total_users = await db.users.count_documents({"role": "customer"})
@@ -1870,6 +2107,104 @@ async def admin_analytics(admin: dict = Depends(require_admin)):
         "total_revenue": round(total_revenue, 2), "monthly_revenue": monthly,
         "recent_campaigns": serialize_doc(recent)
     }
+
+# ── FASE 1: Self-Service customer can create their own screens ─────────────
+@api_router.post("/screens/self-service")
+async def customer_create_screen(data: ScreenCreate, current_user: dict = Depends(get_current_user)):
+    """
+    Allows a SELF_SERVICE_OWNER to add a screen within their own organization.
+    Only SELF_SERVICE type is permitted here — no PUBLIC or MANAGED.
+    """
+    assert_permission(current_user, "screen.create.self_service")
+    # Force SELF_SERVICE — customers cannot create PUBLIC or MANAGED
+    op_type = OperationType.SELF_SERVICE
+    user_org = current_user.get("organization_id")
+    pairing_code = gen_pairing_code()
+    while await db.screens.find_one({"pairing_code": pairing_code}):
+        pairing_code = gen_pairing_code()
+    location_code = await get_unique_location_code()
+    screen = {
+        "id": gen_id(), "name": data.name, "description": data.description,
+        "location": data.location.dict(), "pricing": data.pricing.dict(),
+        "specs": data.specs.dict(), "preview_image": data.preview_image,
+        "status": "active", "location_code": location_code,
+        "pairing_code": pairing_code, "pairing_secret": gen_pairing_secret(),
+        "paired_device_id": None, "paired_at": None,
+        "active": True,
+        "operation_type": op_type,
+        # ── FASE 1: always use the user's own org — ignore any organization_id
+        # that the client may have sent in the request body.
+        "organization_id": user_org,
+        "created_by": current_user.get("id"),
+        "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+    }
+    await db.screens.insert_one(screen)
+    return serialize_doc(screen)
+
+
+# ── FASE 1: Self-Service customer can update their own org's screens ─────────
+class SelfServiceScreenUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    specs: Optional[dict] = None
+
+@api_router.put("/screens/self-service/{screen_id}")
+async def customer_update_screen(
+    screen_id: str,
+    data: SelfServiceScreenUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Allows SELF_SERVICE_OWNER / SELF_SERVICE_MANAGER to update a screen
+    that belongs to their own organization.
+
+    Tenant isolation is enforced server-side:
+      - organization_id is validated against the authenticated user's org.
+      - Cross-org modification raises HTTP 403.
+      - Only SELF_SERVICE screens can be modified via this endpoint.
+    """
+    assert_permission(current_user, "screen.configure")
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    # ── Tenant isolation: user can only touch screens in their own org ───────
+    assert_tenant(current_user, screen.get("organization_id"))
+    # ── Operation-type guard: cannot modify PUBLIC or MANAGED screens here ───
+    if effective_operation_type(screen) != OperationType.SELF_SERVICE:
+        raise HTTPException(
+            status_code=403,
+            detail="This screen is managed by MediaView and cannot be modified via self-service."
+        )
+    update = {k: v for k, v in data.dict(exclude_none=True).items()}
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update["updated_at"] = datetime.utcnow()
+    await db.screens.update_one({"id": screen_id}, {"$set": update})
+    updated = await db.screens.find_one({"id": screen_id})
+    return serialize_doc(updated)
+
+
+# ── FASE 1: Self-Service customer can list their own org's screens ────────────
+@api_router.get("/screens/self-service/mine")
+async def customer_list_my_screens(current_user: dict = Depends(get_current_user)):
+    """
+    Returns only the SELF_SERVICE screens that belong to the authenticated user's
+    organization. Platform admins see ALL screens.
+    """
+    if _is_platform_admin(current_user):
+        screens = await db.screens.find({"operation_type": OperationType.SELF_SERVICE}).to_list(500)
+    else:
+        assert_permission(current_user, "screen.view")
+        user_org = current_user.get("organization_id")
+        query: dict = {"operation_type": OperationType.SELF_SERVICE}
+        if user_org:
+            query["organization_id"] = user_org
+        else:
+            # No org assigned yet — return only screens created by this user
+            query["created_by"] = current_user.get("id")
+        screens = await db.screens.find(query).to_list(500)
+    return serialize_doc(screens)
 
 @api_router.get("/admin/payments")
 async def admin_list_payments(admin: dict = Depends(require_admin)):
@@ -3682,7 +4017,9 @@ MENU_TEMPLATES = [
 # ============ OWNED CONTENT PLAYLISTS ============
 
 def _is_platform_admin(user: dict) -> bool:
-    return user.get("role") in ("admin", "superadmin")
+    """RBAC-aware: true for SUPER_ADMIN, MEDIAVIEW_ADMIN and SUPPORT roles.
+    Maps legacy role strings automatically via ROLE_MIGRATION_MAP."""
+    return get_effective_role(user) in (Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT)
 
 
 def _can_view_playlist(playlist: dict, user: dict) -> bool:
@@ -3700,6 +4037,9 @@ def _can_edit_playlist(playlist: dict, user: dict) -> bool:
 def _can_publish_playlist(playlist: dict, user: dict) -> bool:
     if _is_platform_admin(user):
         return True
+    # MANAGED_VIEWER is strictly read-only — cannot publish even if allow_client_publish is set
+    if get_effective_role(user) == Role.MANAGED_VIEWER:
+        return False
     return bool(playlist.get("allow_client_publish")) and playlist.get("client_user_id") == user.get("id")
 
 
