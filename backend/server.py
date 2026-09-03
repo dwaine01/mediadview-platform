@@ -2238,30 +2238,10 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
     screen_public = await _ensure_screen("screen_public", "RBAC Test Screen — PUBLIC_ADVERTISING", OperationType.PUBLIC_ADVERTISING, None)
     screen_managed = await _ensure_screen("screen_managed", "RBAC Test Screen — MEDIAVIEW_MANAGED", OperationType.MEDIAVIEW_MANAGED, None)
 
-    return {
-        "created_users": created_users,
-        "created_screens": created_screens,
-        "password": TEST_PW,
-        "credentials": {
-            "super_admin":              {"email": "superadmin@mediadview.com",  "password": "SuperAdmin#2026",  "rbac_role": "SUPER_ADMIN"},
-            "mediaview_admin":          {"email": "rbac.mwadmin@test.com",      "password": TEST_PW,            "rbac_role": "MEDIAVIEW_ADMIN"},
-            "self_service_owner_org_a": {"email": "rbac.ssowner.orga@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_A},
-            "self_service_owner_org_b": {"email": "rbac.ssowner.orgb@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_B},
-            "advertiser":               {"email": "rbac.advertiser@test.com",   "password": TEST_PW,            "rbac_role": "ADVERTISER"},
-            "managed_viewer":           {"email": "rbac.viewer@test.com",       "password": TEST_PW,            "rbac_role": "MANAGED_VIEWER"},
-        },
-        "test_screens": {
-            "screen_org_a":   {"id": screen_org_a,  "org": ORG_A, "type": "SELF_SERVICE"},
-            "screen_org_b":   {"id": screen_org_b,  "org": ORG_B, "type": "SELF_SERVICE"},
-            "screen_public":  {"id": screen_public, "org": None,  "type": "PUBLIC_ADVERTISING"},
-            "screen_managed": {"id": screen_managed,"org": None,  "type": "MEDIAVIEW_MANAGED"},
-        },
-    }
-
     # ── Ensure test organizations exist in db.organizations ──────────────
-    # seed_rbac_test_users sets organization_id on users but previously did NOT
-    # create the org document, so create_organization's owner_user_id check
-    # found nothing and returned 200 instead of 409.
+    # IMPORTANT: must run BEFORE the return so create_organization's
+    # owner_user_id check finds the org doc and returns 409 (not 200).
+    created_orgs: list[str] = []
     for org_id, org_name, owner_email in [
         (ORG_A, "Test Org A", "rbac.ssowner.orga@test.com"),
         (ORG_B, "Test Org B", "rbac.ssowner.orgb@test.com"),
@@ -2280,12 +2260,34 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
             })
+            created_orgs.append(org_id)
         elif owner_uid:
             # Idempotent: ensure owner_user_id is correct on existing org
             await db.organizations.update_one(
                 {"id": org_id},
                 {"$set": {"owner_user_id": owner_uid}},
             )
+
+    return {
+        "created_users": created_users,
+        "created_orgs": created_orgs,
+        "created_screens": created_screens,
+        "password": TEST_PW,
+        "credentials": {
+            "super_admin":              {"email": "superadmin@mediadview.com",  "password": "SuperAdmin#2026",  "rbac_role": "SUPER_ADMIN"},
+            "mediaview_admin":          {"email": "rbac.mwadmin@test.com",      "password": TEST_PW,            "rbac_role": "MEDIAVIEW_ADMIN"},
+            "self_service_owner_org_a": {"email": "rbac.ssowner.orga@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_A},
+            "self_service_owner_org_b": {"email": "rbac.ssowner.orgb@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_B},
+            "advertiser":               {"email": "rbac.advertiser@test.com",   "password": TEST_PW,            "rbac_role": "ADVERTISER"},
+            "managed_viewer":           {"email": "rbac.viewer@test.com",       "password": TEST_PW,            "rbac_role": "MANAGED_VIEWER"},
+        },
+        "test_screens": {
+            "screen_org_a":   {"id": screen_org_a,  "org": ORG_A, "type": "SELF_SERVICE"},
+            "screen_org_b":   {"id": screen_org_b,  "org": ORG_B, "type": "SELF_SERVICE"},
+            "screen_public":  {"id": screen_public, "org": None,  "type": "PUBLIC_ADVERTISING"},
+            "screen_managed": {"id": screen_managed,"org": None,  "type": "MEDIAVIEW_MANAGED"},
+        },
+    }
 
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):
