@@ -44,6 +44,12 @@ def test_owned_playlist_publish_player_and_public_approval(client, mongo_db):
     assert menu.status_code == 200, menu.text
     menu_id = menu.json()["id"]
 
+    # H3 security fix: draft menus are excluded from player playlists.
+    # Publish the menu first so it appears correctly in the player.
+    menu_publish = client.put(f"{BASE_URL}/api/menus/{menu_id}",
+                              json={"status": "published"}, timeout=20)
+    assert menu_publish.status_code == 200, f"Menu publish failed: {menu_publish.text}"
+
     screens = client.get(f"{BASE_URL}/api/screens", timeout=20)
     assert screens.status_code == 200
     screen_list = screens.json()

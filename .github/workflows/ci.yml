@@ -78,6 +78,7 @@ jobs:
       TEST_BASE_URL: http://127.0.0.1:8001
       EXPO_PUBLIC_BACKEND_URL: http://127.0.0.1:8001
       PUBLIC_URL: http://127.0.0.1:8001
+      STORAGE_DRIVER: local
       PANEL_URL: http://127.0.0.1:8001/api/dashboard
       PANEL_API_URL: http://127.0.0.1:8001
       SCHEDULER_MODE: apscheduler

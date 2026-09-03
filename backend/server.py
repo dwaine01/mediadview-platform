@@ -632,11 +632,13 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-def create_token(user_id: str, role: str) -> str:
+def create_token(user_id: str, role: str, ver: int = 0) -> str:
+    """Legacy v1 token. Includes 'ver' so SEC-002 session_epoch check works for existing users."""
     payload = {
-        "sub": user_id,
+        "sub":  user_id,
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+        "ver":  ver,   # must equal user.session_epoch at login time
+        "exp":  datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
@@ -812,7 +814,7 @@ async def login(request: Request, response: Response, req: LoginRequest):
     await record_attempt(db, email, ip, success=True)
     try: await audit(db, user_id=user["id"], action="login_success_legacy", request=request)
     except Exception: pass
-    token = create_token(user["id"], user["role"])
+    token = create_token(user["id"], user["role"], ver=user.get("session_epoch", 0))
     return {
         "access_token": token, "token_type": "bearer",
         "user": {"id": user["id"], "name": user["name"], "email": user["email"],
@@ -2255,6 +2257,35 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
             "screen_managed": {"id": screen_managed,"org": None,  "type": "MEDIAVIEW_MANAGED"},
         },
     }
+
+    # ── Ensure test organizations exist in db.organizations ──────────────
+    # seed_rbac_test_users sets organization_id on users but previously did NOT
+    # create the org document, so create_organization's owner_user_id check
+    # found nothing and returned 200 instead of 409.
+    for org_id, org_name, owner_email in [
+        (ORG_A, "Test Org A", "rbac.ssowner.orga@test.com"),
+        (ORG_B, "Test Org B", "rbac.ssowner.orgb@test.com"),
+    ]:
+        owner_uid = user_ids.get(owner_email)
+        if owner_uid and not await db.organizations.find_one({"id": org_id}):
+            await db.organizations.insert_one({
+                "id": org_id,
+                "name": org_name,
+                "slug": org_id.replace("_", "-"),
+                "owner_user_id": owner_uid,
+                "plan": "free",
+                "status": "active",
+                "billing_email": owner_email,
+                "settings": {},
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            })
+        elif owner_uid:
+            # Idempotent: ensure owner_user_id is correct on existing org
+            await db.organizations.update_one(
+                {"id": org_id},
+                {"$set": {"owner_user_id": owner_uid}},
+            )
 
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):
@@ -3969,6 +4000,19 @@ async def seed_data():
         )
         logger.info("FASE3 migration: assigned public_screen_code %s to screen %s", code, ps.get("name"))
 
+    # ── FASE 3: Ensure Miami Airport has fixed known code (runs always, idempotent) ─
+    _miami_existing = await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"})
+    if _miami_existing and _miami_existing.get("public_screen_code") != "MV-ADV-MIAMI1":
+        # Only update if the fixed code is not already taken by another screen
+        if not await db.screens.find_one(
+            {"public_screen_code": "MV-ADV-MIAMI1", "id": {"$ne": _miami_existing["id"]}}
+        ):
+            await db.screens.update_one(
+                {"id": _miami_existing["id"]},
+                {"$set": {"public_screen_code": "MV-ADV-MIAMI1"}}
+            )
+            logger.info("FASE3: Migrated Miami Airport screen code to MV-ADV-MIAMI1")
+
     # ── FASE 3: Add demo PUBLIC_ADVERTISING screens if none exist ─────────────
     demo_pub_count = await db.screens.count_documents({
         "operation_type": "PUBLIC_ADVERTISING",
@@ -3976,8 +4020,14 @@ async def seed_data():
     })
     if demo_pub_count < 2:
         demo_pub_screens = []
-        if not await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"}):
-            miami_code = await _get_unique_public_screen_code()
+        _miami_existing2 = await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"})
+        if _miami_existing2:
+            pass  # already migrated above; skip creation
+        else:
+            # Use a well-known fixed code so test_fase3_advertising.py can rely on it
+            miami_code = "MV-ADV-MIAMI1"
+            if await db.screens.find_one({"public_screen_code": miami_code}):
+                miami_code = await _get_unique_public_screen_code()  # fallback if already taken
             demo_pub_screens.append({
                 "id": gen_id(), "name": "Miami Airport Terminal A — Digital Ad",
                 "description": "Alta visibilidad en Terminal A del Aeropuerto Internacional de Miami. Más de 50,000 pasajeros diarios.",

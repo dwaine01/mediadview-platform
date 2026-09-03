@@ -18,7 +18,7 @@ ADVERTISER_PASS = "Advertiser#2026"
 ADMIN_EMAIL = "rbac.mwadmin@test.com"
 ADMIN_PASS = "RbacTest#2026"
 
-MIAMI_CODE = "MV-ADV-DW6F8R"
+MIAMI_CODE = "MV-ADV-MIAMI1"  # Fixed code assigned in seed_data for CI reproducibility
 PENN_CODE = "MV-ADV-2BVHWZ"
 CREATIVE_URL = "https://example.com/test-creative.mp4"
 
