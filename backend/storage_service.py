@@ -307,7 +307,11 @@ def get_storage_service(force_driver: Optional[str] = None) -> StorageService:
     elif driver_name == "memory":
         driver = _MemoryDriver()
     else:
-        media_dir = os.environ.get("MEDIA_DIR", "/app/backend/media")
+        # Default: same directory as server.py (backend/media).
+        # Using Path(__file__).parent avoids the hardcoded /app/backend/media
+        # absolute path that does not exist in GitHub Actions runners.
+        _default_media = str(Path(__file__).resolve().parent / "media")
+        media_dir = os.environ.get("MEDIA_DIR", _default_media)
         driver = _LocalDriver(media_dir)
 
     svc = StorageService(driver)
