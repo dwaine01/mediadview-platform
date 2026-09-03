@@ -26,11 +26,21 @@ function enterApp(){
   document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
   document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
   document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();
+  // ── RBAC-aware role detection ──────────────────────────────────────────────
+  const ADMIN_RBAC=['SUPER_ADMIN','MEDIAVIEW_ADMIN','SUPPORT'];
+  const SS_RBAC=['SELF_SERVICE_OWNER','SELF_SERVICE_MANAGER'];
+  const isAdm=ADMIN_RBAC.includes(user?.rbac_role)||user?.role==='admin'||user?.role==='superadmin';
+  const isSS=SS_RBAC.includes(user?.rbac_role)||(user?.role==='customer'&&!isAdm);
+  const isSA=user?.rbac_role==='SUPER_ADMIN'||user?.role==='superadmin';
+  // Expose globally for other modules (self-service.js etc.)
+  window._isAdmin=()=>isAdm;
+  window._isSS=()=>isSS;
+  window._isSA=()=>isSA;
   // Show/hide role-specific nav items + section labels
-  const isAdmin=user?.role==='admin'||user?.role==='superadmin';
-  document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdmin?'':'none');
-  document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=user?.role==='superadmin'?'':'none');
-  go('dashboard');
+  document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdm?'':'none');
+  document.querySelectorAll('[data-role-ss]').forEach(e=>e.style.display=isSS?'':'none');
+  document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=isSA?'':'none');
+  if(isSS&&!isAdm)go('my-org');else go('dashboard');
 }
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 function setMobileSidebar(open){const sb=document.querySelector('.sb'),bd=document.querySelector('.sb-backdrop');if(!sb)return;sb.classList.toggle('open',open);bd?.classList.toggle('on',open);if(innerWidth<=900){sb.style.setProperty('transition','none','important');sb.getAnimations().forEach(animation=>animation.cancel());sb.style.setProperty('transform',open?'translate3d(0,0,0)':'translate3d(-100%,0,0)','important')}else{sb.style.removeProperty('transition');sb.style.removeProperty('transform')}}

@@ -726,7 +726,9 @@ async def login(request: Request, response: Response, req: LoginRequest):
     return {
         "access_token": token, "token_type": "bearer",
         "user": {"id": user["id"], "name": user["name"], "email": user["email"],
-                 "role": user["role"], "company_name": user.get("company_name"),
+                 "role": user["role"], "rbac_role": user.get("rbac_role"),
+                 "organization_id": user.get("organization_id"),
+                 "company_name": user.get("company_name"),
                  "language": user.get("language", "en")}
     }
 
@@ -735,6 +737,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "id": current_user["id"], "name": current_user["name"],
         "email": current_user["email"], "role": current_user["role"],
+        "rbac_role": current_user.get("rbac_role"),
+        "organization_id": current_user.get("organization_id"),
         "company_name": current_user.get("company_name"),
         "phone": current_user.get("phone"),
         "language": current_user.get("language", "en"),
@@ -5572,6 +5576,10 @@ app.include_router(create_corporate_routes(db, get_current_user))
 from sign_permits import create_sign_permit_routes
 
 app.include_router(create_sign_permit_routes(db, require_admin))
+
+# ── Fase 2: Self-Service Portal (organizations, locations, team, subscriptions)
+from self_service_routes import create_self_service_routes
+app.include_router(create_self_service_routes(db, get_current_user, require_admin, require_superadmin))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
