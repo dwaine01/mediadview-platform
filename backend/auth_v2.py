@@ -398,6 +398,9 @@ def build_auth_router(db, get_current_user_dep):
                 "language": user.get("language", "en"),
                 "client_id": user.get("client_id"),
                 "must_change_password": bool(user.get("must_change_password", False)),
+                # ── Fase 4: RBAC + Tenant isolation fields ────────────────────
+                "rbac_role": user.get("rbac_role"),
+                "organization_id": user.get("organization_id"),
             },
             **payload_out,
         }
@@ -527,6 +530,9 @@ def build_auth_router(db, get_current_user_dep):
             "language":     current_user.get("language", "en"),
             "client_id":    current_user.get("client_id"),
             "must_change_password": bool(current_user.get("must_change_password", False)),
+            # ── Fase 4: RBAC + Tenant isolation fields ────────────────────────
+            "rbac_role":     current_user.get("rbac_role"),
+            "organization_id": current_user.get("organization_id"),
         }
 
     return router

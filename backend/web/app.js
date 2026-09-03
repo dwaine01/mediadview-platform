@@ -30,22 +30,35 @@ function enterApp(){
   const ADMIN_RBAC=['SUPER_ADMIN','MEDIAVIEW_ADMIN','SUPPORT'];
   const SS_RBAC=['SELF_SERVICE_OWNER','SELF_SERVICE_MANAGER'];
   const ADV_RBAC=['ADVERTISER'];
+  const MV_RBAC=['MANAGED_VIEWER'];
   const isAdm=ADMIN_RBAC.includes(user?.rbac_role)||user?.role==='admin'||user?.role==='superadmin';
   const isSS=SS_RBAC.includes(user?.rbac_role)||(user?.role==='customer'&&!isAdm);
   const isSA=user?.rbac_role==='SUPER_ADMIN'||user?.role==='superadmin';
   const isAdv=ADV_RBAC.includes(user?.rbac_role)||isAdm;  // admins also see advertiser portal
+  const isMV=MV_RBAC.includes(user?.rbac_role)||user?.role==='viewer';
   // Expose globally for other modules (self-service.js, advertising.js etc.)
   window._isAdmin=()=>isAdm;
   window._isSS=()=>isSS;
   window._isSA=()=>isSA;
   window._isAdv=()=>isAdv;
+  window._isMV=()=>isMV;
   window._user=()=>user;
   // Show/hide role-specific nav items + section labels
   document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdm?'':'none');
   document.querySelectorAll('[data-role-ss]').forEach(e=>e.style.display=isSS?'':'none');
   document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=isSA?'':'none');
   document.querySelectorAll('[data-role-advertiser]').forEach(e=>e.style.display=isAdv?'':'none');
-  if(isSS&&!isAdm)go('my-org');
+  document.querySelectorAll('[data-role-mv]').forEach(e=>e.style.display=isMV?'':'none');
+  // ── MANAGED_VIEWER gets their own portal — hide general nav items ───────────
+  if(isMV&&!isAdm){
+    // Hide all nav items NOT tagged as managed-viewer
+    document.querySelectorAll('.ni:not([data-role-mv])').forEach(e=>e.style.display='none');
+    document.querySelectorAll('.sb-section:not([data-role-mv])').forEach(e=>e.style.display='none');
+    // Hide the topbar CTA (New Campaign) for managed viewers
+    const cta=document.querySelector('.tb-cta');
+    if(cta)cta.style.display='none';
+    go('managed-dashboard');
+  } else if(isSS&&!isAdm)go('my-org');
   else if(isAdv&&!isAdm&&!isSS)go('advertiser');
   else go('dashboard');
 }
@@ -299,7 +312,8 @@ const loaders={
         {id:'screens',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',name:'Screens'},
         {id:'pending',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',name:'Pending'},
         {id:'users',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',name:'Users'},
-        {id:'colorlight',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',name:'LED Cloud'}
+        {id:'colorlight',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',name:'LED Cloud'},
+        {id:'managed',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>',name:'Managed Clients'},
       ];
 
       var tabHtml='<div style="display:flex;gap:6px;margin-bottom:24px">'+tabs.map(t=>
@@ -386,6 +400,32 @@ const loaders={
         el.innerHTML='<div class="ph"><div><h1>LED Cloud</h1><p>Direct push to ColorlightCloud LED screens</p></div></div>'+tabHtml+
           '<div id="cl-panel"><div style="padding:60px;text-align:center;color:var(--t-4)">Loading ColorlightCloud…</div></div>';
         loadColorlightPanel();
+      }else if(window._adminTab==='managed'){
+        // ── Fase 4: Managed Clients tab ─────────────────────────────────────
+        const summary = await api('/admin/managed/summary').catch(()=>({}));
+        el.innerHTML=`
+          <div class="ph">
+            <div><h1>Clientes Gestionados</h1><p>Solicitudes de cambio y log de auditoría</p></div>
+          </div>${tabHtml}
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:26px">
+            ${[
+              ['Pantallas Gestionadas', summary.managed_screens||0, '#6366f1'],
+              ['Clientes Activos',      summary.managed_viewers||0, '#22d3ee'],
+              ['Solicitudes Totales',   summary.total_requests||0,  '#a78bfa'],
+              ['Pendientes',           summary.pending||0,          '#fbbf24'],
+              ['En Proceso',           summary.in_progress||0,      '#60a5fa'],
+              ['Completadas',          summary.completed||0,        '#34d399'],
+            ].map(([l,v,c])=>`
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+                <div style="font-size:11px;font-weight:600;color:var(--t-4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${l}</div>
+                <div style="font-size:28px;font-weight:800;color:${c}">${v}</div>
+              </div>`).join('')}
+          </div>
+          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Solicitudes de Cambio</h2>
+          <div id="mv-admin-requests-container"></div>`;
+        if(typeof window._mvAdminLoadRequests==='function'){
+          window._mvAdminLoadRequests('mv-admin-requests-container');
+        }
       }
     }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },

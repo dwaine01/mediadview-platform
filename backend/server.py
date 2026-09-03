@@ -50,6 +50,9 @@ from rbac import (
     assert_can_manage_screen, effective_operation_type,
 )
 
+# Fase 4: Audit log helper (imported early, used in screen/device/playlist handlers)
+from managed_portal_routes import create_audit_log as _audit
+
 # ============ CONFIGURATION ============
 
 MONGO_URL = os.environ['MONGO_URL']
@@ -743,6 +746,13 @@ async def register(request: Request, response: Response, req: RegisterRequest):
         "created_at": datetime.utcnow()
     }
     await db.users.insert_one(user)
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="user.created",
+        user_id=user["id"], user_email=user["email"],
+        resource_type="user", resource_id=user["id"],
+        details={"name": user["name"], "role": user.get("rbac_role", user["role"])},
+    )
     token = create_token(user["id"], user["role"])
     return {
         "access_token": token, "token_type": "bearer",
@@ -1272,6 +1282,12 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
     """Legacy small-file upload. Accepts base64 JSON; stores in R2 if configured,
     otherwise writes to legacy disk + base64 (backwards-compat). Big files should
     use /media/presign instead."""
+    # ── Fase 4: MANAGED_VIEWER is strictly read-only — no uploads ────────────
+    if get_effective_role(current_user) == Role.MANAGED_VIEWER:
+        raise HTTPException(
+            status_code=403,
+            detail="Managed Viewer accounts cannot upload media. Contact your MediaView administrator."
+        )
     try:
         file_bytes = base64.b64decode(data.data)
     except Exception:
@@ -1809,6 +1825,14 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="screen.created",
+        user_id=admin.get("id"), user_email=admin.get("email"),
+        resource_type="screen", resource_id=screen["id"],
+        org_id=screen.get("organization_id"),
+        details={"name": screen["name"], "operation_type": op_type},
+    )
     return serialize_doc(screen)
 
 # ============ DEVICE PAIRING (ColorlightCloud-style flow) ============
@@ -1866,6 +1890,13 @@ async def device_pair(data: DevicePair):
         {"$set": {"paired_device_id": device_id, "paired_at": datetime.utcnow()}}
     )
     logger.info(f"✓ Device paired: code={code} → screen={screen['id'][:8]} ({screen.get('name')})")
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="device.paired",
+        resource_type="screen", resource_id=screen["id"],
+        org_id=screen.get("organization_id"),
+        details={"device_id": device_id, "screen_name": screen.get("name"), "code": code},
+    )
     return {
         "ok": True,
         "device_id": device_id,
@@ -2094,7 +2125,8 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
             "name": "RBAC Managed Viewer",
             "role": "viewer",
             "rbac_role": Role.MANAGED_VIEWER,
-            "organization_id": None,
+            # ── Fase 4: assign to the demo managed org so GET /managed/* works ─
+            "organization_id": "org_managed_demo_v4",
         },
     ]
 
@@ -3662,6 +3694,61 @@ async def seed_data():
         await db.users.insert_one(adv)
         logger.info("Advertiser test user created: %s", adv_email)
 
+    # ── FASE 4: Seed MANAGED_VIEWER demo user + org + managed screens ─────────
+    ORG_MANAGED_DEMO = "org_managed_demo_v4"
+    mv_email = "managed.viewer@demo.mediaview.com"
+    mv_pass = "ManagedView#2026"
+    if not await db.users.find_one({"email": mv_email}):
+        mv_user = {
+            "id": gen_id(), "name": "Managed Client Demo",
+            "email": mv_email,
+            "password_hash": hash_password(mv_pass),
+            "role": "viewer", "company_name": "Demo Managed Corp.",
+            "phone": None, "language": "en", "active": True,
+            "session_epoch": 0,
+            "rbac_role": "MANAGED_VIEWER",
+            "organization_id": ORG_MANAGED_DEMO,
+            "created_at": datetime.utcnow()
+        }
+        await db.users.insert_one(mv_user)
+        logger.info("Fase 4: Managed Viewer demo user created: %s", mv_email)
+
+    # Also update the RBAC test viewer to have the demo org (idempotent)
+    await db.users.update_one(
+        {"email": "rbac.viewer@test.com", "organization_id": None},
+        {"$set": {"organization_id": ORG_MANAGED_DEMO}},
+    )
+
+    # Seed 2 demo MEDIAVIEW_MANAGED screens for that org
+    managed_screen_names = [
+        "Pantalla Lobby Principal — Demo Corp",
+        "Pantalla Cafetería — Demo Corp",
+    ]
+    for sname in managed_screen_names:
+        if not await db.screens.find_one({"name": sname}):
+            _code = gen_pairing_code()
+            while await db.screens.find_one({"pairing_code": _code}):
+                _code = gen_pairing_code()
+            _loc_code = await get_unique_location_code()
+            _scr = {
+                "id": gen_id(), "name": sname,
+                "description": "Pantalla gestionada por MediaView para Demo Managed Corp.",
+                "location": {
+                    "city": "Miami", "address": "100 Brickell Ave",
+                    "state": "FL", "country": "US", "lat": 25.7617, "lng": -80.1918,
+                },
+                "pricing": {"per_hour": 0.0, "per_day": 0.0, "per_slot": 0.0, "currency": "USD"},
+                "specs": {"size": "55in", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "location_code": _loc_code, "pairing_code": _code, "pairing_secret": gen_pairing_secret(),
+                "paired_device_id": None, "paired_at": None,
+                "operation_type": OperationType.MEDIAVIEW_MANAGED,
+                "organization_id": ORG_MANAGED_DEMO,
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+            }
+            await db.screens.insert_one(_scr)
+            logger.info("Fase 4: Created demo managed screen: %s", sname)
+
     # ── FASE 3: Migration — Assign public_screen_code to existing PUBLIC_ADVERTISING screens ──
     existing_pa_screens = await db.screens.find({
         "operation_type": "PUBLIC_ADVERTISING",
@@ -4445,6 +4532,13 @@ async def publish_owned_playlist(playlist_id: str, data: PlaylistPublish,
         update["allowed_screen_ids"] = list(dict.fromkeys((playlist.get("allowed_screen_ids") or []) + screen_ids))
     await db.playlists.update_one({"id": playlist_id}, {"$set": update})
     await _bump_playlist_screens(previous + screen_ids, "owned playlist published")
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="playlist.published",
+        user_id=current_user.get("id"), user_email=current_user.get("email"),
+        resource_type="playlist", resource_id=playlist_id,
+        details={"playlist_name": playlist.get("name"), "screen_count": len(screen_ids)},
+    )
     return {"message": "Playlist published", "playlist_id": playlist_id,
             "screen_ids": screen_ids, "published_at": now.isoformat()}
 
@@ -5849,6 +5943,11 @@ app.include_router(create_sign_permit_routes(db, require_admin))
 
 # ── Fase 3: Public Advertising Marketplace already registered above ──────────
 # Note: duplicate route registrations removed here to avoid FastAPI conflicts
+
+# ── Fase 4: MediaView Managed Portal ─────────────────────────────────────────
+from managed_portal_routes import create_managed_portal_routes
+
+app.include_router(create_managed_portal_routes(db, get_current_user, require_admin))
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
