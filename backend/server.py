@@ -168,6 +168,11 @@ class ScreenCreate(BaseModel):
     # ── FASE 1: operation type ────────────────────────────────────────────
     operation_type: Optional[str] = None   # SELF_SERVICE | PUBLIC_ADVERTISING | MEDIAVIEW_MANAGED
     organization_id: Optional[str] = None  # owning org (tenant isolation)
+    # ── FASE 3: Public Advertising ────────────────────────────────────────
+    max_ad_slots: int = 4                  # cuántos anunciantes simultáneos
+    price_per_week: Optional[float] = None
+    price_per_month: Optional[float] = None
+    price_per_year: Optional[float] = None
 
 class ScreenUpdate(BaseModel):
     name: Optional[str] = None
@@ -181,6 +186,11 @@ class ScreenUpdate(BaseModel):
     # ── FASE 1: operation type ────────────────────────────────────────────
     operation_type: Optional[str] = None
     organization_id: Optional[str] = None
+    # ── FASE 3: Public Advertising ────────────────────────────────────────
+    max_ad_slots: Optional[int] = None
+    price_per_week: Optional[float] = None
+    price_per_month: Optional[float] = None
+    price_per_year: Optional[float] = None
 
 class CampaignSchedule(BaseModel):
     # start_date / end_date now optional. `null` (or missing) means
@@ -464,8 +474,13 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
     Null schedule bounds are intentionally supported through
     ``is_campaign_playable``. Missing/corrupt legacy files are excluded so a
     player receives either playable content or a controlled empty state.
+
+    ── FASE 3: También incluye campañas publicitarias (ad_campaigns) ACTIVE/APPROVED
+       que apuntan a esta pantalla.
     """
     now = datetime.utcnow()
+    today = now.strftime("%Y-%m-%d")
+
     campaigns = await db.campaigns.find({
         "screen_id": screen_id,
         "status": {"$in": list(PLAYABLE_STATUSES)},
@@ -505,6 +520,53 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 "download_url": media_url,
                 "checksum": checksum,
             })
+
+    # ── FASE 3: Inyectar campañas publicitarias aprobadas/activas ─────────────
+    try:
+        ad_campaigns = await db.ad_campaigns.find({
+            "selected_screens": screen_id,
+            "status": {"$in": ["APPROVED", "ACTIVE"]},
+        }).to_list(100)
+        for ad in ad_campaigns:
+            # Verificar rango de fechas
+            start = ad.get("start_date")
+            end = ad.get("end_date")
+            if start and start > today:
+                continue  # aún no comienza
+            if end and end < today:
+                continue  # ya expiró
+
+            creative_url = ad.get("creative_url")
+            if not creative_url:
+                continue
+
+            # Inferir content_type por extensión de URL
+            url_lower = creative_url.lower().split("?")[0]
+            if any(url_lower.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".webm", ".mkv"]):
+                content_type = "video/mp4"
+            elif any(url_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]):
+                content_type = "image/jpeg"
+            else:
+                content_type = "video/mp4"  # suposición conservadora
+
+            items.append({
+                "campaign_id": f"ad:{ad['id']}",
+                "media_id": f"ad-creative:{ad['id']}",
+                "filename": ad.get("name", "Ad Campaign"),
+                "content_type": content_type,
+                "size": 0,
+                "duration": ad.get("slot_duration_seconds", 30),
+                "rotation": 0,
+                "animation": "fade",
+                "display_mode": "cover",
+                "media_url": creative_url,
+                "download_url": creative_url,
+                "checksum": None,
+                "is_ad": True,
+                "advertiser_name": ad.get("advertiser_name"),
+            })
+    except Exception as e:
+        logger.warning("Fase 3 ad_campaigns playlist injection failed for %s: %s", screen_id, e)
 
     if include_widgets:
         widgets = await db.widgets.find({"screen_id": screen_id, "enabled": True}).to_list(50)
@@ -1682,6 +1744,21 @@ def gen_pairing_secret() -> str:
     import secrets
     return secrets.token_urlsafe(18)
 
+def _gen_public_screen_code() -> str:
+    """Genera un código para pantallas PUBLIC_ADVERTISING: MV-ADV-XXXXXX"""
+    import secrets as _s
+    chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    part = ''.join(_s.choice(chars) for _ in range(6))
+    return f"MV-ADV-{part}"
+
+async def _get_unique_public_screen_code() -> str:
+    """Genera un public_screen_code único."""
+    for _ in range(100):
+        code = _gen_public_screen_code()
+        if not await db.screens.find_one({"public_screen_code": code}):
+            return code
+    return f"MV-ADV-{uuid.uuid4().hex[:6].upper()}"
+
 @api_router.post("/admin/screens")
 async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
     # ── FASE 1: Validate operation_type and permissions ──────────────────
@@ -1705,6 +1782,21 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
     while await db.screens.find_one({"pairing_code": pairing_code}):
         pairing_code = gen_pairing_code()
     pairing_secret = gen_pairing_secret()
+
+    # ── FASE 3: Public Advertising fields ────────────────────────────────
+    public_screen_code = None
+    advertising_pricing = {}
+    max_ad_slots = data.max_ad_slots or 4
+
+    if op_type == OperationType.PUBLIC_ADVERTISING:
+        public_screen_code = await _get_unique_public_screen_code()
+        if data.price_per_week is not None:
+            advertising_pricing["price_per_week"] = float(data.price_per_week)
+        if data.price_per_month is not None:
+            advertising_pricing["price_per_month"] = float(data.price_per_month)
+        if data.price_per_year is not None:
+            advertising_pricing["price_per_year"] = float(data.price_per_year)
+
     screen = {
         "id": gen_id(), "name": data.name, "description": data.description,
         "location": data.location.dict(), "pricing": data.pricing.dict(),
@@ -1717,6 +1809,10 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
         "operation_type": op_type,
         "organization_id": data.organization_id or None,
         "created_by": admin.get("id") or admin.get("_id"),
+        # ── FASE 3 fields ─────────────────────────────────────────────────
+        "public_screen_code": public_screen_code,
+        "max_ad_slots": max_ad_slots,
+        "advertising_pricing": advertising_pricing,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
@@ -3534,6 +3630,7 @@ async def seed_data():
                 "role": "admin", "company_name": "MediaView Inc.",
                 "phone": None, "language": "en", "active": True,
                 "session_epoch": 0,
+                "rbac_role": "MEDIAVIEW_ADMIN",
                 "created_at": datetime.utcnow()
             }
             await db.users.insert_one(admin)
@@ -3549,10 +3646,90 @@ async def seed_data():
                 "role": "superadmin", "company_name": "MediaView Platform",
                 "phone": None, "language": "en", "active": True,
                 "session_epoch": 0,
+                "rbac_role": "SUPER_ADMIN",
                 "created_at": datetime.utcnow()
             }
             await db.users.insert_one(sa)
             logger.info("Super Admin created: %s", sa_email)
+
+    # ── FASE 3: Seed ADVERTISER test user ────────────────────────────────────
+    adv_email = "advertiser@test.mediaview.com"
+    adv_pass = "Advertiser#2026"
+    if not await db.users.find_one({"email": adv_email}):
+        adv = {
+            "id": gen_id(), "name": "Test Advertiser",
+            "email": adv_email,
+            "password_hash": hash_password(adv_pass),
+            "role": "advertiser", "company_name": "Test Ads Inc.",
+            "phone": None, "language": "es", "active": True,
+            "session_epoch": 0,
+            "rbac_role": "ADVERTISER",
+            "created_at": datetime.utcnow()
+        }
+        await db.users.insert_one(adv)
+        logger.info("Advertiser test user created: %s", adv_email)
+
+    # ── FASE 3: Migration — Assign public_screen_code to existing PUBLIC_ADVERTISING screens ──
+    existing_pa_screens = await db.screens.find({
+        "operation_type": "PUBLIC_ADVERTISING",
+        "$or": [{"public_screen_code": None}, {"public_screen_code": {"$exists": False}}],
+    }).to_list(100)
+    for ps in existing_pa_screens:
+        code = await _get_unique_public_screen_code()
+        await db.screens.update_one(
+            {"id": ps["id"]},
+            {"$set": {
+                "public_screen_code": code,
+                "max_ad_slots": ps.get("max_ad_slots") or 4,
+                "advertising_pricing": ps.get("advertising_pricing") or {
+                    "price_per_week": 150.0,
+                    "price_per_month": 500.0,
+                    "price_per_year": 5000.0,
+                },
+            }}
+        )
+        logger.info("FASE3 migration: assigned public_screen_code %s to screen %s", code, ps.get("name"))
+
+    # ── FASE 3: Add demo PUBLIC_ADVERTISING screens if none exist ─────────────
+    demo_pub_count = await db.screens.count_documents({
+        "operation_type": "PUBLIC_ADVERTISING",
+        "name": {"$in": ["Miami Airport Terminal A — Digital Ad", "New York Penn Station — Public Screen"]}
+    })
+    if demo_pub_count < 2:
+        demo_pub_screens = []
+        if not await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"}):
+            miami_code = await _get_unique_public_screen_code()
+            demo_pub_screens.append({
+                "id": gen_id(), "name": "Miami Airport Terminal A — Digital Ad",
+                "description": "Alta visibilidad en Terminal A del Aeropuerto Internacional de Miami. Más de 50,000 pasajeros diarios.",
+                "location": {"city": "Miami", "address": "2100 NW 42nd Ave, MIA", "state": "FL", "country": "US", "lat": 25.7959, "lng": -80.2870},
+                "pricing": {"per_hour": 200.0, "per_day": 1600.0, "per_slot": 20.0, "currency": "USD"},
+                "specs": {"size": "20ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": miami_code,
+                "max_ad_slots": 4,
+                "advertising_pricing": {"price_per_week": 200.0, "price_per_month": 700.0, "price_per_year": 7000.0},
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            })
+        if not await db.screens.find_one({"name": "New York Penn Station — Public Screen"}):
+            penn_code = await _get_unique_public_screen_code()
+            demo_pub_screens.append({
+                "id": gen_id(), "name": "New York Penn Station — Public Screen",
+                "description": "Pantalla en Penn Station, Nueva York. Tráfico diario de más de 600,000 personas.",
+                "location": {"city": "New York", "address": "341 W 31st St, Penn Station", "state": "NY", "country": "US", "lat": 40.7506, "lng": -73.9971},
+                "pricing": {"per_hour": 600.0, "per_day": 5000.0, "per_slot": 60.0, "currency": "USD"},
+                "specs": {"size": "30ft x 15ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": penn_code,
+                "max_ad_slots": 6,
+                "advertising_pricing": {"price_per_week": 500.0, "price_per_month": 1800.0, "price_per_year": 18000.0},
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            })
+        if demo_pub_screens:
+            await db.screens.insert_many(demo_pub_screens)
+            logger.info("FASE3: Created %d demo PUBLIC_ADVERTISING screens", len(demo_pub_screens))
 
     if await db.screens.count_documents({}) == 0:
         screens = [
@@ -3645,10 +3822,47 @@ async def seed_data():
                 "specs": {"size": "24ft x 12ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
                 "preview_image": None, "status": "active", "active": True,
                 "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
-            }
+            },
+            # ── FASE 3: Demo PUBLIC_ADVERTISING screen ────────────────────────────
+            {
+                "id": gen_id(), "name": "Miami Airport Terminal A — Digital Ad",
+                "description": "Alta visibilidad en el Terminal A del Aeropuerto Internacional de Miami. Más de 50,000 pasajeros diarios. Ideal para marcas premium y publicidad de destino.",
+                "location": {"city": "Miami", "address": "2100 NW 42nd Ave, Miami International Airport", "state": "FL", "country": "US", "lat": 25.7959, "lng": -80.2870},
+                "pricing": {"per_hour": 200.0, "per_day": 1600.0, "per_slot": 20.0, "currency": "USD"},
+                "specs": {"size": "20ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                # FASE 3 fields
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": "MV-ADV-MIAMI1",
+                "max_ad_slots": 4,
+                "advertising_pricing": {
+                    "price_per_week": 200.0,
+                    "price_per_month": 700.0,
+                    "price_per_year": 7000.0,
+                },
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "New York Penn Station — Public Screen",
+                "description": "Pantalla en el corazón de Penn Station, Nueva York. Tráfico diario de más de 600,000 personas. El billboard digital más transitado del noreste de EE.UU.",
+                "location": {"city": "New York", "address": "341 W 31st St, New York Penn Station", "state": "NY", "country": "US", "lat": 40.7506, "lng": -73.9971},
+                "pricing": {"per_hour": 600.0, "per_day": 5000.0, "per_slot": 60.0, "currency": "USD"},
+                "specs": {"size": "30ft x 15ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                # FASE 3 fields
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": "MV-ADV-PENN01",
+                "max_ad_slots": 6,
+                "advertising_pricing": {
+                    "price_per_week": 500.0,
+                    "price_per_month": 1800.0,
+                    "price_per_year": 18000.0,
+                },
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
         ]
         await db.screens.insert_many(screens)
-        logger.info(f"Created {len(screens)} sample screens")
+        logger.info(f"Created {len(screens)} sample screens (incl. 2 PUBLIC_ADVERTISING demo screens)")
 
     # Demo users
     if await db.users.count_documents({"role": "customer"}) == 0:
@@ -5333,9 +5547,24 @@ setTimeout(function(){{location.reload()}},300000);
 # Serve web dashboard
 WEB_DIR = str(ROOT_DIR / 'web')
 
-@api_router.get("/dashboard")
-async def serve_dashboard():
-    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+@app.get("/advertise/{screen_code}", include_in_schema=False)
+async def advertise_landing(screen_code: str):
+    """URL corta /advertise/{code} — sirve la landing pública del QR (local dev)."""
+    return FileResponse(os.path.join(WEB_DIR, 'advertise.html'), media_type='text/html')
+
+@app.get("/api/adpage/{screen_code}", include_in_schema=False)
+async def advertise_page_public(screen_code: str):
+    """Landing pública QR via /api/adpage/* — accesible a través del ingress Kubernetes.
+    ESTE es el URL que se usa en los QR codes de pantallas PUBLIC_ADVERTISING."""
+    return FileResponse(os.path.join(WEB_DIR, 'advertise.html'), media_type='text/html')
+
+# ── Fase 2: Self-Service Portal (organizations, locations, team, subscriptions)
+from self_service_routes import create_self_service_routes
+app.include_router(create_self_service_routes(db, get_current_user, require_admin, require_superadmin))
+
+# ── Fase 3: Public Advertising Marketplace
+from advertising_routes import create_advertising_routes
+app.include_router(create_advertising_routes(db, get_current_user, require_admin))
 
 @api_router.get("/public/playlist")
 async def serve_public_playlist_editor():
@@ -5397,6 +5626,11 @@ async def serve_menu_editor():
 @api_router.get("/design-studio")
 async def serve_design_studio():
     return FileResponse(os.path.join(WEB_DIR, 'design-studio.html'), media_type='text/html')
+
+@api_router.get("/dashboard")
+async def serve_dashboard():
+    """Dashboard principal del sistema."""
+    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
 
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
@@ -5577,9 +5811,8 @@ from sign_permits import create_sign_permit_routes
 
 app.include_router(create_sign_permit_routes(db, require_admin))
 
-# ── Fase 2: Self-Service Portal (organizations, locations, team, subscriptions)
-from self_service_routes import create_self_service_routes
-app.include_router(create_self_service_routes(db, get_current_user, require_admin, require_superadmin))
+# ── Fase 3: Public Advertising Marketplace already registered above ──────────
+# Note: duplicate route registrations removed here to avoid FastAPI conflicts
 
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
