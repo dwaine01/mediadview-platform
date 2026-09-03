@@ -20,7 +20,9 @@ Score breakdown:
 
 ---
 
-## P0 BLOCKERS (must resolve before ANY production traffic)
+## P0 BLOCKERS — 9 total (5 FIXED in Fase 5, 4 PENDING)
+
+> Corrección: el resumen anterior decía "5/8" — la tabla tiene **9 filas** (5 FIXED + 4 PENDING).
 
 | ID | Component | Description | Status |
 |----|-----------|-------------|--------|

@@ -1,6 +1,7 @@
 # MediaView — Go-Live Checklist
-> Version: 1.0 — Generated: Fase 5 Pre-Production Audit
-> Status: DRAFT — Review before each deployment to production
+> Version: 1.1 — Updated: Fase 6 Production Infrastructure Hardening
+> Status: UPDATED — Phase 6 items incorporated
+> Previous version: 1.0 (Fase 5 Pre-Production Audit)
 
 ---
 
@@ -12,7 +13,72 @@ Items marked 🔵 are P2 AFTER LAUNCH — resolve within first 30 days.
 
 ---
 
-## 1. INFRASTRUCTURE & ENVIRONMENT
+## 0. FASE 6 INFRASTRUCTURE HARDENING (NEW — Must complete before Go-Live)
+
+> These items were added during Fase 6 — Production Infrastructure.
+> All code is READY. Real credentials/environments still required for final validation.
+
+### Environment Validation (startup_check.py — DONE ✅)
+- [x] ✅ `startup_check.py` validates all critical env vars at boot
+- [x] ✅ FAIL FAST: `ENVIRONMENT=production` + localhost `MONGO_URL` → `sys.exit(1)`
+- [x] ✅ FAIL FAST: `ENVIRONMENT=production` + weak `JWT_SECRET` (< 32 chars or default) → `sys.exit(1)`
+- [x] ✅ FAIL FAST: `ENVIRONMENT=production` + missing `ORDER_LINK_SECRET` → `sys.exit(1)`
+- [x] ✅ FAIL FAST: `ENVIRONMENT=production` + `CORS_ORIGINS=*` → `sys.exit(1)`
+- [x] ✅ Staging (`ENVIRONMENT=staging`) enforces same rules as production for infra
+- [ ] 🔴 Verify startup_check passes on real production deployment with Atlas MONGO_URL
+
+### StorageService Abstraction (storage_service.py — DONE ✅)
+- [x] ✅ `StorageService` with `LocalStorageDriver` (dev) and `R2StorageDriver` (prod) implemented
+- [x] ✅ `MemoryDriver` for unit testing (no filesystem dependency)
+- [x] ✅ No boto3/S3 logic scattered in routes — all goes through `StorageService`
+- [x] ✅ `upload_media` route uses `StorageService` exclusively
+- [x] ✅ Path traversal protection in upload route (sanitize filename, block `../`)
+- [x] ✅ MIME magic-byte validation (blocks spoofed uploads)
+- [ ] 🔴 Provide R2 credentials → `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`, `R2_PUBLIC_URL`
+- [ ] 🔴 Real R2 upload test with actual bucket (Code Ready / Real Test Pending)
+
+### Liveness vs Readiness Probes (health.py — DONE ✅)
+- [x] ✅ `GET /api/livez` — pure liveness (never touches DB, always fast)
+- [x] ✅ `GET /api/ready` — readiness (pings Mongo, Storage, Redis, Worker)
+- [x] ✅ `GET /api/health` — legacy endpoint preserved (Android Player compat)
+- [x] ✅ Readiness returns `{"ok": false}` with 503 if any critical check fails
+- [ ] 🟡 Wire `/api/livez` as liveness probe in Kubernetes/Render health check config
+- [ ] 🟡 Wire `/api/ready` as readiness probe in Kubernetes/Render routing config
+
+### MongoDB Atlas Migration (DONE — Code Ready ✅ / Real Test Pending ⏳)
+- [x] ✅ `startup_check.py` rejects localhost Mongo in production
+- [x] ✅ `db_indexes.py` ensure_indexes() is idempotent (tested in Fase 6)
+- [x] ✅ `/api/ready` pings Atlas via `db.command("ping")`
+- [x] ✅ `docs/MONGODB_ATLAS_MIGRATION.md` created with full step-by-step guide
+- [ ] 🔴 Create Atlas cluster + provision credentials → see `docs/MONGODB_ATLAS_MIGRATION.md`
+- [ ] 🔴 Update `MONGO_URL` in production environment to Atlas connection string
+- [ ] 🔴 Run `mongodump` + `mongorestore` to migrate local data
+- [ ] 🔴 Verify `/api/ready` returns `mongo.ok=true` against Atlas
+
+### Fase 6 Acceptance Tests (DONE ✅ — 17 PASSED)
+- [x] ✅ Test A: Development accepts local Mongo
+- [x] ✅ Test B: Production rejects localhost Mongo (FAIL FAST)
+- [x] ✅ Test C: Production rejects weak JWT_SECRET
+- [x] ✅ Test D: Production rejects missing ORDER_LINK_SECRET
+- [x] ✅ Test E: Production rejects CORS wildcard (`*`)
+- [x] ✅ Test F: LocalDriver upload / get_url / delete works
+- [x] ✅ Test G: R2Driver mock contract passes (MemoryDriver)
+- [x] ✅ Test H: Invalid MIME type rejected (415)
+- [x] ✅ Test I: Path traversal filename rejected (400)
+- [x] ✅ Test J: Oversized upload rejected (400/413)
+- [x] ✅ Test K: DB indexes idempotent (run twice, no duplicates)
+- [x] ✅ Test L: Scheduler mode respected
+- [x] ✅ Readiness probe returns 200 + storage.ok + mongo.ok
+- [x] ✅ Liveness probe always 200 (never touches DB)
+- [x] ✅ Legacy /health still works (Android Player compat)
+- [x] ✅ Test N: Fase 3 /marketplace/screens regression (PUBLIC_ADVERTISING)
+- [x] ✅ Test O: Fase 4 /managed/dashboard regression
+- [ ] ⏳ Test M: Fase 2 self-service (skipped — test user needed in env)
+- [ ] ⏳ Test P: Player playlist regression (skipped — screen data needed in env)
+
+---
+
+
 
 ### DNS & TLS
 - [ ] 🔴 Custom domain configured (e.g., `api.mediaview.io`) and DNS propagated
@@ -133,9 +199,11 @@ This is ephemeral in containerized environments and will be lost on redeploy.
 - [ ] 🔴 Configure Cloudflare R2 (or equivalent) before accepting real media uploads:
   - Set `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET` in env
   - Set `R2_PUBLIC_URL` for serving
-  - Verify `storage.py` R2 backend is active (check `USE_R2` flag)
+  - Verify `StorageService` R2 driver is active (check `R2_ENABLED` flag in `storage.py`)
+- [x] ✅ `StorageService` abstraction implemented (Fase 6) — no scattered boto3 in routes
+- [x] ✅ Upload security: MIME magic-byte validation + path traversal protection (Fase 6)
 - [ ] 🔴 Ensure media upload path uses R2 when env vars are set
-- [ ] 🟡 Set max upload file size in environment (currently ~100MB per request)
+- [ ] 🟡 Set max upload file size in environment (currently ~50MB per request)
 - [ ] 🟡 Media CDN (Cloudflare) configured for public serving
 - [ ] 🟡 Signed URLs for private media (advertiser creatives)
 - [ ] 🔵 Old filesystem media migrated to R2 (non-destructive)
@@ -238,9 +306,12 @@ Each test requires a physical Android device or emulator:
 - [ ] 🔵 Alert on campaign scheduler tick failures
 - [ ] 🔵 Alert on offline screens (>30 min without heartbeat)
 
-### Health Endpoints
-- [ ] ✅ `GET /api/health` — returns `{"status":"healthy"}`
-- [ ] ✅ `GET /api/ready` — returns readiness status (DB ping)
+### Health Endpoints (Updated — Fase 6)
+- [x] ✅ `GET /api/health` — Legacy liveness (returns `{"status":"healthy","ok":true}`) — **VERIFIED FASE 6**
+- [x] ✅ `GET /api/livez` — Full liveness probe (uptime, env, version) — **NEW FASE 6**
+- [x] ✅ `GET /api/ready` — Readiness probe: checks Mongo + Storage + Redis + Worker — **NEW FASE 6**
+- [ ] 🟡 Configure K8s/Render liveness on `/api/livez` (never touches DB — fast)
+- [ ] 🟡 Configure K8s/Render readiness on `/api/ready` (touches DB — gates traffic)
 
 ---
 
@@ -328,5 +399,6 @@ curl -H "Origin: https://attacker.com" https://api.mediaview.io/api/health
 | Product Owner | | | |
 
 ---
-*This checklist was auto-generated during MediaView Fase 5 Pre-Production Audit.*
+*This checklist was auto-generated during MediaView Fase 5 Pre-Production Audit.*  
+*Updated during Fase 6 — Production Infrastructure Hardening.*  
 *Last updated: 2026-06 — Review and update before each major release.*

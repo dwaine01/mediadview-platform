@@ -737,7 +737,11 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    return {"status": "healthy", "service": "MediaView API"}
+    # NOTE: This route is superseded by health.py build_health_router() which provides
+    # the full liveness + readiness implementation. This simple route is kept as a fallback
+    # for code paths that register api_router before health.py is loaded.
+    # The full response (with ok, uptime, etc.) is served by /api/livez.
+    return {"status": "healthy", "service": "MediaView API", "ok": True}
 
 # ============ ROUTES: AUTH ============
 
@@ -1310,6 +1314,24 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         raise HTTPException(400, "Invalid base64 data")
     size = len(file_bytes)
 
+    # ── Fase 6: SEC — Filename sanitization (path traversal + dangerous names) ─
+    raw_fn = data.filename or ""
+    # Strip any directory components — only the basename is safe
+    safe_fn = os.path.basename(raw_fn.replace("\\", "/").replace("..", ""))
+    if not safe_fn or safe_fn.startswith(".") or ".." in raw_fn:
+        raise HTTPException(400, "Invalid filename — path traversal detected")
+    # Reject executables and script extensions
+    _BLOCKED_EXTS = {
+        ".exe", ".dll", ".bat", ".sh", ".php", ".py", ".rb", ".pl",
+        ".js", ".ts", ".bin", ".com", ".msi", ".dmg", ".apk", ".deb",
+        ".rpm", ".jar", ".war", ".ear", ".ps1", ".vbs", ".cmd",
+    }
+    fn_ext = os.path.splitext(safe_fn)[1].lower()
+    if fn_ext in _BLOCKED_EXTS:
+        raise HTTPException(415, f"File type {fn_ext!r} not allowed")
+    # Assign the sanitized filename back
+    data.filename = safe_fn
+
     # P0-A3: MAGIC-NUMBER validation — verify the actual bytes match the
     # declared content_type. Rejects MIME-spoofed uploads (e.g. .exe
     # pretending to be image/jpeg, or SVG with <script>).
@@ -1341,19 +1363,25 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
     }
 
     if R2_ENABLED:
-        # ── Modern path: put in R2, keep only metadata in Mongo ──────
-        key = build_key(tenant_id=tenant, client_id=current_user["id"],
-                        campaign_id="unassigned", ext=ext)
+        # ── Modern path: put in R2 via StorageService ─────────────────────
+        from storage_service import get_storage_service as _get_ss
+        ss = _get_ss()
+        folder = f"{tenant}/{current_user['id']}/campaign/unassigned"
         try:
-            info = await r2_put_bytes(key, file_bytes, data.content_type)
+            result = await ss.upload(
+                data=file_bytes,
+                filename=data.filename,
+                content_type=data.content_type,
+                folder=folder,
+            )
         except Exception as e:
-            logger.exception("R2 upload failed: %s", e)
+            logger.exception("StorageService upload failed: %s", e)
             raise HTTPException(502, "Media storage temporarily unavailable")
         media_doc.update({
             "storage":    "r2",
-            "r2_key":     key,
-            "r2_etag":    info.get("etag"),
-            "public_url": public_url_for_key(key),
+            "r2_key":     result.key,
+            "r2_etag":    result.etag,
+            "public_url": result.url,
             "status":     "ready",
         })
     else:
