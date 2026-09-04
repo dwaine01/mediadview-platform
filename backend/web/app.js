@@ -1051,7 +1051,10 @@ loaders.menus = async function(){
     var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">';
     html+='<div><h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Digital Menus</h1>';
     html+='<p style="color:var(--t-3);font-size:14px">Create and manage restaurant menus for your screens</p></div>';
+    html+='<div style="display:flex;gap:10px">';
+    html+='<button class="btn-s" style="font-size:13px;padding:10px 16px;display:flex;align-items:center;gap:6px;background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;border-radius:10px;cursor:pointer;font-weight:600" onclick="showImportMenu()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1 1 .03 2.7-1.5 2.7H4.26c-1.53 0-2.5-1.7-1.5-2.7l1.402-1.402M5 14.5l-.002.001"/></svg>✨ Importar desde Imagen</button>';
     html+='<button class="btn-p" onclick="showCreateMenu()"><svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14m7-7H5"/></svg>Create Menu</button>';
+    html+='</div>';
     html+='</div>';
     
     if(menus.length===0){
@@ -1059,7 +1062,10 @@ loaders.menus = async function(){
       html+='<svg width="48" height="48" fill="none" stroke="var(--t-4)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 16px"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>';
       html+='<h3 style="font-size:18px;font-weight:700;margin-bottom:8px">No menus yet</h3>';
       html+='<p style="color:var(--t-4);margin-bottom:20px">Create your first digital menu for your restaurant</p>';
-      html+='<button class="btn-p" onclick="showCreateMenu()">+ Create Your First Menu</button>';
+      html+='<div style="display:flex;gap:12px;justify-content:center">';
+      html+='<button style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer" onclick="showImportMenu()">✨ Importar desde Imagen</button>';
+      html+='<button class="btn-p" onclick="showCreateMenu()">+ Crear Nuevo Menú</button>';
+      html+='</div>';
       html+='</div>';
     } else {
       html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">';
@@ -1154,6 +1160,290 @@ async function createMenu(){
     document.getElementById('menu-modal').remove();
     editMenu(m.id);
   }catch(e){alert(e.message)}
+}
+
+// ============ AI MENU IMPORT FROM IMAGE ============
+
+// Global state for image import
+var _importFile = null;
+var _importExtracted = null;
+var _importSelectedTpl = 'classic';
+
+function showImportMenu(){
+  var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px)" id="import-modal">';
+  html+='<div style="width:680px;max-height:90vh;overflow-y:auto;background:#0f172a;border:1px solid #334155;border-radius:20px;padding:36px">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">';
+  html+='<div>';
+  html+='<h2 style="font-size:22px;font-weight:800;background:linear-gradient(135deg,#6366f1,#a78bfa);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:2px">✨ Importar Menú desde Imagen</h2>';
+  html+='<p style="font-size:13px;color:#64748b">Sube la imagen del menú diseñado por tu diseñador — la IA extrae todos los productos, categorías y precios automáticamente.</p>';
+  html+='</div>';
+  html+='<button onclick="document.getElementById(\'import-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:22px;cursor:pointer;flex-shrink:0">✕</button>';
+  html+='</div>';
+
+  // Upload area
+  html+='<div id="import-drop-zone" onclick="document.getElementById(\'import-file-input\').click()" ondragover="event.preventDefault();this.style.borderColor=\'#6366f1\'" ondragleave="this.style.borderColor=\'#334155\'" ondrop="handleImportDrop(event)" style="border:2px dashed #334155;border-radius:14px;padding:40px;text-align:center;cursor:pointer;transition:border-color .2s;margin:20px 0">';
+  html+='<div id="import-drop-content">';
+  html+='<svg width="40" height="40" fill="none" stroke="#6366f1" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px;display:block"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>';
+  html+='<p style="font-size:15px;font-weight:600;color:#e2e8f0;margin-bottom:4px">Arrastra tu imagen aquí o haz clic</p>';
+  html+='<p style="font-size:12px;color:#64748b">PNG, JPG o WEBP · máx. 10 MB</p>';
+  html+='</div>';
+  html+='</div>';
+  html+='<input type="file" id="import-file-input" accept="image/png,image/jpeg,image/webp" style="display:none" onchange="handleImportFileSelect(this)">';
+
+  html+='<div id="import-preview-wrap" style="display:none;margin-bottom:20px">';
+  html+='<img id="import-preview-img" style="width:100%;max-height:260px;object-fit:contain;border-radius:10px;border:1px solid #1e293b">';
+  html+='<p id="import-file-name" style="font-size:12px;color:#64748b;margin-top:6px;text-align:center"></p>';
+  html+='</div>';
+
+  html+='<div id="import-result-wrap" style="display:none"></div>';
+
+  html+='<div id="import-actions" style="display:flex;gap:10px;justify-content:flex-end;margin-top:4px">';
+  html+='<button onclick="document.getElementById(\'import-modal\').remove()" style="background:none;border:1px solid #334155;color:#94a3b8;padding:10px 20px;border-radius:8px;cursor:pointer">Cancelar</button>';
+  html+='<button id="import-analyze-btn" onclick="analyzeMenuImage()" disabled style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;cursor:not-allowed;opacity:.5">Analizar con IA ✨</button>';
+  html+='</div>';
+
+  html+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+  _importFile=null;
+  _importExtracted=null;
+  _importSelectedTpl='classic';
+}
+
+function handleImportDrop(e){
+  e.preventDefault();
+  var file=e.dataTransfer.files[0];
+  if(file)handleImportFileSelected(file);
+}
+
+function handleImportFileSelect(input){
+  var file=input.files[0];
+  if(file)handleImportFileSelected(file);
+}
+
+function handleImportFileSelected(file){
+  if(!file.type.startsWith('image/')){alert('Solo se permiten imágenes PNG, JPG o WEBP');return}
+  _importFile=file;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    document.getElementById('import-preview-img').src=e.target.result;
+    document.getElementById('import-file-name').textContent=file.name+' ('+Math.round(file.size/1024)+'KB)';
+    document.getElementById('import-drop-zone').style.display='none';
+    document.getElementById('import-preview-wrap').style.display='block';
+    var btn=document.getElementById('import-analyze-btn');
+    btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';
+  };
+  reader.readAsDataURL(file);
+}
+
+async function analyzeMenuImage(){
+  if(!_importFile){return}
+  var btn=document.getElementById('import-analyze-btn');
+  var resultWrap=document.getElementById('import-result-wrap');
+  var actionsDiv=document.getElementById('import-actions');
+
+  btn.disabled=true;btn.style.opacity='.5';btn.style.cursor='not-allowed';
+  btn.textContent='Analizando...';
+
+  // Loading UI
+  resultWrap.style.display='block';
+  resultWrap.innerHTML='<div style="background:#0a0f1e;border:1px solid #1e293b;border-radius:14px;padding:32px;text-align:center;margin-bottom:16px">'
+    +'<div style="width:48px;height:48px;border:3px solid #6366f1;border-top-color:transparent;border-radius:50%;margin:0 auto 16px;animation:spin 1s linear infinite"></div>'
+    +'<p style="font-size:15px;font-weight:600;color:#e2e8f0;margin-bottom:4px">✨ La IA está analizando tu menú...</p>'
+    +'<p style="font-size:12px;color:#64748b">Extrayendo categorías, platos y precios. Puede tomar 10-20 segundos.</p>'
+    +'</div>';
+
+  // Add spin animation if not present
+  if(!document.getElementById('spin-style')){
+    var s=document.createElement('style');
+    s.id='spin-style';
+    s.textContent='@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+  }
+
+  try{
+    var formData=new FormData();
+    formData.append('image',_importFile,_importFile.name);
+
+    var r=await window.Auth.api.raw('/menus/parse-image',{
+      method:'POST',
+      credentials:'include',
+      body:formData
+    });
+    if(!r.ok){
+      var err=await r.json().catch(()=>({}));
+      throw new Error(err.detail||'Error al analizar la imagen');
+    }
+    var data=await r.json();
+    _importExtracted=data;
+    showExtractedEditor(data);
+  }catch(e){
+    resultWrap.innerHTML='<div style="background:#1a0a0a;border:1px solid #7f1d1d;border-radius:10px;padding:20px;color:#fca5a5;font-size:14px">❌ '+e.message+'</div>';
+    btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';btn.textContent='Reintentar ✨';
+  }
+}
+
+function showExtractedEditor(data){
+  var resultWrap=document.getElementById('import-result-wrap');
+  var actionsDiv=document.getElementById('import-actions');
+
+  var cats=data.categories||[];
+  var totalItems=cats.reduce(function(s,c){return s+(c.items||[]).length},0);
+
+  var html='<div style="background:#0a0f1e;border:1px solid #1e293b;border-radius:14px;padding:24px;margin-bottom:16px">';
+  html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">';
+  html+='<div style="width:10px;height:10px;background:#10b981;border-radius:50%"></div>';
+  html+='<p style="font-size:14px;font-weight:700;color:#10b981">IA extrajo '+totalItems+' producto'+(totalItems!==1?'s':'')+' en '+cats.length+' categoría'+(cats.length!==1?'s':'')+'</p>';
+  html+='</div>';
+
+  // Restaurant name + menu name
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">';
+  html+='<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">NOMBRE DEL RESTAURANTE</label>';
+  html+='<input id="ai-restaurant-name" class="inp" value="'+escapeHtml(data.restaurant_name||'')+'" placeholder="e.g. Casa Bella" style="margin-bottom:0"></div>';
+  html+='<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">NOMBRE DEL MENÚ</label>';
+  html+='<input id="ai-menu-name" class="inp" value="'+escapeHtml(data.restaurant_name?data.restaurant_name+' Menu':'Menu Principal')+'" placeholder="e.g. Menú Principal" style="margin-bottom:0"></div>';
+  html+='</div>';
+
+  // Currency + template
+  html+='<div style="display:grid;grid-template-columns:100px 1fr;gap:12px;margin-bottom:20px">';
+  html+='<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">MONEDA</label>';
+  html+='<input id="ai-currency" class="inp" value="'+escapeHtml(data.currency_symbol||'$')+'" style="margin-bottom:0"></div>';
+  html+='<div><label style="font-size:11px;color:#64748b;display:block;margin-bottom:4px">PLANTILLA</label>';
+  html+='<select id="ai-template-select" class="inp" style="margin-bottom:0" onchange="_importSelectedTpl=this.value"><option value="classic">Clásico Elegante</option><option value="modern">Moderno Minimalista</option><option value="fast_food">Comida Rápida</option><option value="mexican">Mexicano Festivo</option><option value="sushi">Sushi & Asian</option><option value="italian">Pizzería Italiana</option><option value="premium">Premium Dark</option><option value="arabic">Bar & Lounge</option></select></div>';
+  html+='</div>';
+
+  // Set suggested template
+  var tplMap={classic:'classic',modern:'modern',fast_food:'fast_food',mexican:'mexican',sushi:'sushi',italian:'italian',premium:'premium',arabic:'arabic'};
+  var suggestedTpl=tplMap[data.suggested_template]||'classic';
+  _importSelectedTpl=suggestedTpl;
+  // Will set the select value after innerHTML
+  
+  // Items editor
+  html+='<div style="max-height:340px;overflow-y:auto;border:1px solid #1e293b;border-radius:10px">';
+  cats.forEach(function(cat,ci){
+    html+='<div style="background:#0f172a;padding:12px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between">';
+    html+='<div style="display:flex;align-items:center;gap:8px">';
+    html+='<svg width="14" height="14" fill="#6366f1" viewBox="0 0 24 24"><path d="M3 7h18M3 12h18M3 17h18"/></svg>';
+    html+='<input class="inp" style="background:transparent;border:none;font-weight:700;font-size:13px;padding:2px 4px;color:#e2e8f0;width:200px;margin:0" value="'+escapeHtml(cat.name)+'" id="ai-cat-'+ci+'" placeholder="Categoría">';
+    html+='</div>';
+    html+='<span style="font-size:11px;color:#64748b">'+(cat.items||[]).length+' platos</span>';
+    html+='</div>';
+    (cat.items||[]).forEach(function(item,ii){
+      html+='<div id="ai-item-'+ci+'-'+ii+'" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #0f172a;background:#070d1a">';
+      html+='<div style="width:40px;height:40px;border-radius:8px;background:#1e293b;display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;overflow:hidden" onclick="triggerItemPhotoUpload('+ci+','+ii+')" title="Click para subir foto">';
+      html+='<svg width="18" height="18" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>';
+      html+='</div>';
+      html+='<input style="flex:1;background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;color:#e2e8f0;font-size:13px;margin:0" value="'+escapeHtml(item.name)+'" id="ai-item-name-'+ci+'-'+ii+'" placeholder="Nombre del plato">';
+      html+='<input style="width:90px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;color:#10b981;font-size:13px;font-weight:700;text-align:right;margin:0" value="'+escapeHtml(item.price||'')+'" id="ai-item-price-'+ci+'-'+ii+'" placeholder="0.00">';
+      html+='<button onclick="removeAiItem('+ci+','+ii+')" style="background:none;border:none;color:#475569;cursor:pointer;padding:4px;font-size:16px" title="Eliminar">✕</button>';
+      html+='</div>';
+    });
+    html+='<div style="padding:8px 16px;border-bottom:1px solid #0f172a;background:#040912">';
+    html+='<button onclick="addAiItem('+ci+')" style="background:none;border:none;color:#6366f1;font-size:12px;cursor:pointer;font-weight:600">+ Añadir plato</button>';
+    html+='</div>';
+  });
+  html+='</div>';
+
+  html+='</div>';
+
+  resultWrap.innerHTML=html;
+
+  // Set the template dropdown
+  var tplSel=document.getElementById('ai-template-select');
+  if(tplSel){tplSel.value=suggestedTpl||'classic';}
+
+  // Update actions bar
+  actionsDiv.innerHTML='<button onclick="document.getElementById(\'import-modal\').remove()" style="background:none;border:1px solid #334155;color:#94a3b8;padding:10px 20px;border-radius:8px;cursor:pointer">Cancelar</button>'
+    +'<button onclick="analyzeMenuImage()" style="background:none;border:1px solid #334155;color:#6366f1;padding:10px 20px;border-radius:8px;cursor:pointer">← Reintentar</button>'
+    +'<button onclick="createMenuFromImage()" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);border:none;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer">✅ Crear Menú →</button>';
+}
+
+function removeAiItem(ci,ii){
+  var el=document.getElementById('ai-item-'+ci+'-'+ii);
+  if(el)el.style.display='none';
+}
+
+function addAiItem(ci){
+  // Add a new empty item row
+  var container=document.querySelector('#ai-item-'+ci+'-0')?.parentElement;
+  if(!container)return;
+  var ii=Date.now();
+  var rowHtml='<div id="ai-item-'+ci+'-n'+ii+'" style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #0f172a;background:#070d1a">'
+    +'<div style="width:40px;height:40px;border-radius:8px;background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0">'
+    +'<svg width="18" height="18" fill="none" stroke="#64748b" stroke-width="1.5" viewBox="0 0 24 24"><path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>'
+    +'</div>'
+    +'<input style="flex:1;background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;color:#e2e8f0;font-size:13px;margin:0" value="" id="ai-item-name-'+ci+'-n'+ii+'" placeholder="Nombre del plato">'
+    +'<input style="width:90px;background:#0f172a;border:1px solid #1e293b;border-radius:6px;padding:6px 8px;color:#10b981;font-size:13px;font-weight:700;text-align:right;margin:0" value="" id="ai-item-price-'+ci+'-n'+ii+'" placeholder="0.00">'
+    +'<button onclick="this.closest(\'div\').remove()" style="background:none;border:none;color:#475569;cursor:pointer;padding:4px;font-size:16px">✕</button>'
+    +'</div>';
+  var addBtn=container.querySelector('button[onclick*="addAiItem"]')?.closest('div');
+  if(addBtn)addBtn.insertAdjacentHTML('beforebegin',rowHtml);
+}
+
+function triggerItemPhotoUpload(ci,ii){
+  // For now show a toast — full photo upload can be done inside the menu editor after creation
+  var d=document.createElement('div');
+  d.style='position:fixed;bottom:24px;right:24px;background:#1e293b;color:#e2e8f0;padding:12px 20px;border-radius:10px;font-size:13px;z-index:9999;border:1px solid #334155';
+  d.textContent='📸 Las fotos se pueden subir dentro del editor de menú, ¡después de crear el menú!';
+  document.body.appendChild(d);
+  setTimeout(function(){d.remove()},3500);
+}
+
+async function createMenuFromImage(){
+  var restaurantName=(document.getElementById('ai-restaurant-name')||{}).value||'';
+  var menuName=(document.getElementById('ai-menu-name')||{}).value||'Menu Principal';
+  var currency=(document.getElementById('ai-currency')||{}).value||'$';
+  var tplSel=document.getElementById('ai-template-select');
+  var tplId=tplSel?tplSel.value:(_importSelectedTpl||'classic');
+
+  if(!menuName){alert('Ingresa un nombre para el menú');return}
+
+  // Collect categories and items from the editor
+  var cats=_importExtracted?(_importExtracted.categories||[]):[];
+  var builtCats=[];
+  cats.forEach(function(cat,ci){
+    var catNameEl=document.getElementById('ai-cat-'+ci);
+    var catName=catNameEl?catNameEl.value:cat.name;
+    var items=[];
+    (cat.items||[]).forEach(function(item,ii){
+      var row=document.getElementById('ai-item-'+ci+'-'+ii);
+      if(row&&row.style.display==='none')return; // removed
+      var nameEl=document.getElementById('ai-item-name-'+ci+'-'+ii);
+      var priceEl=document.getElementById('ai-item-price-'+ci+'-'+ii);
+      var n=nameEl?nameEl.value:item.name;
+      var p=priceEl?priceEl.value:item.price;
+      if(n)items.push({name:n,description:item.description||'',price:p||''});
+    });
+    // Also collect any dynamically added items (id format n<timestamp>)
+    var allInputs=document.querySelectorAll('[id^="ai-item-name-'+ci+'-n"]');
+    allInputs.forEach(function(inp){
+      var ts=inp.id.replace('ai-item-name-'+ci+'-n','');
+      var row=document.getElementById('ai-item-'+ci+'-n'+ts);
+      if(row&&row.style.display==='none')return;
+      var priceEl=document.getElementById('ai-item-price-'+ci+'-n'+ts);
+      var n=inp.value.trim();var p=priceEl?priceEl.value.trim():'';
+      if(n)items.push({name:n,description:'',price:p});
+    });
+    if(items.length>0||catName)builtCats.push({name:catName,items:items});
+  });
+
+  var btn=document.querySelector('#import-modal button[onclick="createMenuFromImage()"]');
+  if(btn){btn.disabled=true;btn.textContent='Creando menú...';}
+  try{
+    var m=await api('/menus',{method:'POST',body:JSON.stringify({
+      name:menuName,
+      restaurant_name:restaurantName,
+      subtitle:'',
+      currency_symbol:currency,
+      template_id:tplId,
+      preset_categories:builtCats
+    })});
+    window.dispatchEvent(new CustomEvent('mediaview:sources-changed',{detail:{type:'menu',id:m.id}}));
+    document.getElementById('import-modal').remove();
+    editMenu(m.id);
+  }catch(e){
+    if(btn){btn.disabled=false;btn.textContent='✅ Crear Menú →';}
+    alert('Error al crear el menú: '+e.message);
+  }
 }
 
 async function deleteMenu(id){

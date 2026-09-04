@@ -4976,6 +4976,123 @@ async def get_menu_templates():
     """Get all available menu design templates."""
     return MENU_TEMPLATES
 
+
+@api_router.post("/menus/parse-image")
+async def parse_menu_image(
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Accept a restaurant menu image (PNG/JPEG/WEBP) and use GPT-4o to extract
+    structured data: categories, item names, prices and descriptions.
+    Returns JSON ready to pre-populate the menu editor.
+    """
+    from fastapi import UploadFile
+    import tempfile
+
+    EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
+    if not EMERGENT_LLM_KEY:
+        raise HTTPException(status_code=503, detail="AI service not configured")
+
+    # Parse multipart form data
+    form = await request.form()
+    file_field = form.get("image")
+    if file_field is None:
+        raise HTTPException(status_code=400, detail="No image field in form data")
+
+    content_type = getattr(file_field, "content_type", "image/jpeg") or "image/jpeg"
+    allowed = {"image/jpeg", "image/png", "image/webp", "image/jpg"}
+    if content_type not in allowed and not content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="Only JPEG, PNG or WEBP images are accepted")
+
+    image_bytes = await file_field.read()
+    if len(image_bytes) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must be under 10 MB")
+
+    # Save to a temp file so emergentintegrations can read it by path
+    suffix = ".jpg" if "jpeg" in content_type or "jpg" in content_type else ".png"
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=suffix)
+    tmp.write(image_bytes)
+    tmp.close()
+
+    try:
+        from emergentintegrations.llm.chat import LlmChat, UserMessage, FileContentWithMimeType
+
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"menu-parse-{uuid.uuid4().hex}",
+            system_message=(
+                "You are a restaurant menu data extractor. "
+                "Analyze the image and return ONLY valid JSON with no extra text."
+            ),
+        ).with_model("openai", "gpt-4o")
+
+        image_file = FileContentWithMimeType(
+            file_path=tmp.name,
+            mime_type=content_type if content_type != "image/jpg" else "image/jpeg",
+        )
+
+        prompt = (
+            "Analyze this restaurant menu image. Extract ALL menu items you can see. "
+            "Return a JSON object with this EXACT structure:\n"
+            "{\n"
+            '  "restaurant_name": "detected restaurant name or empty string",\n'
+            '  "categories": [\n'
+            '    {\n'
+            '      "name": "Category name (e.g. Entradas, Pizzas, Bebidas)",\n'
+            '      "items": [\n'
+            '        {\n'
+            '          "name": "Item name",\n'
+            '          "description": "Short description if visible, else empty string",\n'
+            '          "price": "Price as string (e.g. 12.99), empty if not visible"\n'
+            '        }\n'
+            '      ]\n'
+            '    }\n'
+            '  ],\n'
+            '  "currency_symbol": "$ or detected currency symbol",\n'
+            '  "suggested_template": "one of: classic, modern, fast_food, mexican, sushi, italian, premium, arabic"\n'
+            "}\n"
+            "If you cannot find a restaurant name return empty string. "
+            "Always return valid JSON only, no markdown, no explanation."
+        )
+
+        response = await chat.send_message(UserMessage(text=prompt, file_contents=[image_file]))
+
+        # Parse JSON response
+        raw = response.strip()
+        # Strip markdown fences if present
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        raw = raw.strip()
+
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            raise HTTPException(status_code=422, detail=f"AI returned non-JSON: {raw[:200]}")
+
+        return {
+            "ok": True,
+            "restaurant_name": parsed.get("restaurant_name", ""),
+            "categories": parsed.get("categories", []),
+            "currency_symbol": parsed.get("currency_symbol", "$"),
+            "suggested_template": parsed.get("suggested_template", "classic"),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logging.getLogger("server").error("parse-image error: %s", exc)
+        raise HTTPException(status_code=500, detail=f"AI processing failed: {str(exc)}")
+    finally:
+        import os as _os
+        try:
+            _os.unlink(tmp.name)
+        except Exception:
+            pass
+
+
 # --- Menu CRUD (Customer-facing) ---
 
 @api_router.post("/menus")
@@ -5253,6 +5370,41 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
             "items": items,
             "order": i
         })
+
+    # ── AI import: override template content with the user-edited AI-extracted categories ──
+    preset_categories = data.get("preset_categories")
+    if preset_categories and isinstance(preset_categories, list):
+        categories = []
+        for i, cat_data in enumerate(preset_categories):
+            items = []
+            for j, item_data in enumerate(cat_data.get("items", [])):
+                name = str(item_data.get("name", "")).strip()
+                if not name:
+                    continue
+                raw_price = item_data.get("price", "")
+                try:
+                    price_val = float(str(raw_price).replace(",", ".").replace("$", "").strip())
+                except (ValueError, TypeError):
+                    price_val = 0.0
+                items.append({
+                    "id": gen_id(),
+                    "name": name,
+                    "description": str(item_data.get("description", "")).strip(),
+                    "price": price_val,
+                    "image": "",
+                    "featured": False,
+                    "available": True,
+                    "order": j,
+                })
+            cat_name = str(cat_data.get("name", f"Categoría {i+1}")).strip()
+            if cat_name or items:
+                categories.append({
+                    "id": gen_id(),
+                    "name": cat_name,
+                    "description": "",
+                    "items": items,
+                    "order": i,
+                })
 
     menu = {
         "id": gen_id(),
