@@ -5032,7 +5032,14 @@ async def public_signup(request: Request):
     screens  = max(1, int(data.get("screen_count") or 1))
     add_dev  = bool(data.get("add_device", False))
 
-    VALID_PLANS = {"free", "standard", "pro", "enterprise"}
+    # ── Canonical plan IDs (Phase 1 normalization) ──────────────────────
+    # Canonical: free | starter | pro | enterprise
+    # Compatibility alias: 'standard' → 'starter' (legacy HTML pages still use it)
+    LEGACY_PLAN_MAP = {"standard": "starter"}
+    if plan_id in LEGACY_PLAN_MAP:
+        plan_id = LEGACY_PLAN_MAP[plan_id]
+
+    VALID_PLANS = {"free", "starter", "pro", "enterprise"}
     if plan_id not in VALID_PLANS:
         plan_id = "free"
 
@@ -5079,7 +5086,8 @@ async def public_signup(request: Request):
     try:
         from stripe_config import is_configured, get_mode
         PLAN_PRICES = {
-            "standard": os.environ.get("STRIPE_PRICE_STANDARD", ""),
+            # canonical: STRIPE_PRICE_STARTER; fallback to STRIPE_PRICE_STANDARD for backward compat
+            "starter":  os.environ.get("STRIPE_PRICE_STARTER", os.environ.get("STRIPE_PRICE_STANDARD", "")),
             "pro":      os.environ.get("STRIPE_PRICE_PRO", ""),
             "enterprise": os.environ.get("STRIPE_PRICE_ENTERPRISE", ""),
         }
