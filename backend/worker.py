@@ -199,6 +199,19 @@ async def cron_a40_schedule_tick(ctx):
         log.exception("cron_a40_schedule_tick failed")
 
 
+async def cron_campaign_scheduler_tick(ctx):
+    """Every minute — evaluate ad campaign lifecycle transitions.
+    APPROVED→SCHEDULED→ACTIVE→COMPLETED (Fase 3).
+    Safe to run concurrently: MongoDB atomic status guards prevent double-transitions."""
+    try:
+        from campaign_scheduler import run_campaign_scheduler
+        result = await run_campaign_scheduler(ctx["db"])
+        if result.get("total", 0) > 0:
+            log.info("cron_campaign_scheduler: %d transition(s)", result["total"])
+    except Exception:
+        log.exception("cron_campaign_scheduler_tick failed")
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # ARQ WORKER SETTINGS
 # ═══════════════════════════════════════════════════════════════════════
@@ -237,6 +250,8 @@ if HAS_ARQ:
             cron(cron_overdue_reminders, hour=14, minute=0, keep_result=0),
             # A40 sleep/wake — every minute
             cron(cron_a40_schedule_tick, minute=set(range(60)), keep_result=0, unique=False),
+            # Campaign lifecycle scheduler — every minute (Fase 3)
+            cron(cron_campaign_scheduler_tick, minute=set(range(60)), keep_result=0, unique=False),
             # Worker heartbeat every 30s
             cron(heartbeat, second={0, 30}, keep_result=0, unique=False),
         ]

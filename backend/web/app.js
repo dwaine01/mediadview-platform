@@ -26,11 +26,41 @@ function enterApp(){
   document.getElementById('view-login').classList.add('off');document.getElementById('view-app').classList.add('on');
   document.getElementById('sb-name').textContent=user?.name||'User';document.getElementById('sb-email').textContent=user?.email||'';
   document.getElementById('sb-av').textContent=(user?.name||'U')[0].toUpperCase();
+  // ── RBAC-aware role detection ──────────────────────────────────────────────
+  const ADMIN_RBAC=['SUPER_ADMIN','MEDIAVIEW_ADMIN','SUPPORT'];
+  const SS_RBAC=['SELF_SERVICE_OWNER','SELF_SERVICE_MANAGER'];
+  const ADV_RBAC=['ADVERTISER'];
+  const MV_RBAC=['MANAGED_VIEWER'];
+  const isAdm=ADMIN_RBAC.includes(user?.rbac_role)||user?.role==='admin'||user?.role==='superadmin';
+  const isSS=SS_RBAC.includes(user?.rbac_role)||(user?.role==='customer'&&!isAdm);
+  const isSA=user?.rbac_role==='SUPER_ADMIN'||user?.role==='superadmin';
+  const isAdv=ADV_RBAC.includes(user?.rbac_role)||isAdm;  // admins also see advertiser portal
+  const isMV=MV_RBAC.includes(user?.rbac_role)||user?.role==='viewer';
+  // Expose globally for other modules (self-service.js, advertising.js etc.)
+  window._isAdmin=()=>isAdm;
+  window._isSS=()=>isSS;
+  window._isSA=()=>isSA;
+  window._isAdv=()=>isAdv;
+  window._isMV=()=>isMV;
+  window._user=()=>user;
   // Show/hide role-specific nav items + section labels
-  const isAdmin=user?.role==='admin'||user?.role==='superadmin';
-  document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdmin?'':'none');
-  document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=user?.role==='superadmin'?'':'none');
-  go('dashboard');
+  document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdm?'':'none');
+  document.querySelectorAll('[data-role-ss]').forEach(e=>e.style.display=isSS?'':'none');
+  document.querySelectorAll('[data-p="superadmin"]').forEach(e=>e.style.display=isSA?'':'none');
+  document.querySelectorAll('[data-role-advertiser]').forEach(e=>e.style.display=isAdv?'':'none');
+  document.querySelectorAll('[data-role-mv]').forEach(e=>e.style.display=isMV?'':'none');
+  // ── MANAGED_VIEWER gets their own portal — hide general nav items ───────────
+  if(isMV&&!isAdm){
+    // Hide all nav items NOT tagged as managed-viewer
+    document.querySelectorAll('.ni:not([data-role-mv])').forEach(e=>e.style.display='none');
+    document.querySelectorAll('.sb-section:not([data-role-mv])').forEach(e=>e.style.display='none');
+    // Hide the topbar CTA (New Campaign) for managed viewers
+    const cta=document.querySelector('.tb-cta');
+    if(cta)cta.style.display='none';
+    go('managed-dashboard');
+  } else if(isSS&&!isAdm)go('my-org');
+  else if(isAdv&&!isAdm&&!isSS)go('advertiser');
+  else go('dashboard');
 }
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 function setMobileSidebar(open){const sb=document.querySelector('.sb'),bd=document.querySelector('.sb-backdrop');if(!sb)return;sb.classList.toggle('open',open);bd?.classList.toggle('on',open);if(innerWidth<=900){sb.style.setProperty('transition','none','important');sb.getAnimations().forEach(animation=>animation.cancel());sb.style.setProperty('transform',open?'translate3d(0,0,0)':'translate3d(-100%,0,0)','important')}else{sb.style.removeProperty('transition');sb.style.removeProperty('transform')}}
@@ -282,7 +312,8 @@ const loaders={
         {id:'screens',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>',name:'Screens'},
         {id:'pending',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>',name:'Pending'},
         {id:'users',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2m22 0v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>',name:'Users'},
-        {id:'colorlight',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',name:'LED Cloud'}
+        {id:'colorlight',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>',name:'LED Cloud'},
+        {id:'managed',icon:'<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>',name:'Managed Clients'},
       ];
 
       var tabHtml='<div style="display:flex;gap:6px;margin-bottom:24px">'+tabs.map(t=>
@@ -291,15 +322,35 @@ const loaders={
       // ===== SCREENS TAB =====
       if(window._adminTab==='screens'){
         el.innerHTML='<div class="ph"><div><h1>Screens</h1><p>Manage your screens and playlists</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
-        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div><div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div><div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
+        '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div>'
+        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div>'
+        +'<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:8px">Screen Operation Type</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
+        +'<label id="ot-ss" onclick="selectOpType(\'SELF_SERVICE\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #6366F1;border-radius:10px;cursor:pointer;background:#6366F110"><span style="font-size:12px;font-weight:800;color:#6366F1">SELF SERVICE</span><span style="font-size:11px;color:#94a3b8">Client manages own screens</span><input type="radio" name="op_type" value="SELF_SERVICE" checked style="display:none"></label>'
+        +'<label id="ot-pa" onclick="selectOpType(\'PUBLIC_ADVERTISING\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">PUBLIC ADS</span><span style="font-size:11px;color:#94a3b8">Advertisers buy slots via QR</span><input type="radio" name="op_type" value="PUBLIC_ADVERTISING" style="display:none"></label>'
+        +'<label id="ot-mm" onclick="selectOpType(\'MEDIAVIEW_MANAGED\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">MV MANAGED</span><span style="font-size:11px;color:#94a3b8">MediaView controls content</span><input type="radio" name="op_type" value="MEDIAVIEW_MANAGED" style="display:none"></label>'
+        +'</div></div>'
+        +'<!-- FASE 3: Advertising pricing — shown only when PUBLIC_ADVERTISING selected -->'
+        +'<div id="ns-adv-pricing" style="display:none;margin-bottom:14px;padding:14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:10px">'
+        +'<div style="font-size:12px;font-weight:700;color:#34d399;margin-bottom:10px">💰 Precios Publicitarios (por pantalla)</div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">'
+        +'<div><div class="lbl">Precio/Semana ($)</div><input class="inp" id="ns-pw" type="number" placeholder="150" min="0"></div>'
+        +'<div><div class="lbl">Precio/Mes ($)</div><input class="inp" id="ns-pm2" type="number" placeholder="500" min="0"></div>'
+        +'<div><div class="lbl">Precio/Año ($)</div><input class="inp" id="ns-py" type="number" placeholder="5000" min="0"></div>'
+        +'<div><div class="lbl">Max Slots Simult.</div><input class="inp" id="ns-maxslots" type="number" value="4" min="1" max="20"></div>'
+        +'</div></div>'
+        +'<div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create Screen</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
         '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>
           '<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')">'+
             '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div>'+
             '<div style="flex:1">'+
               '<div style="font-size:15px;font-weight:700">'+s.name+'</div>'+
-              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div>'+
+              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#10b981;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
             '</div>'+
             '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
+              (s.operation_type==='PUBLIC_ADVERTISING'?'<button onclick="showScreenQR(\''+s.id+'\',\''+s.name.replace(/'/g,'')+'\');event.stopPropagation()" style="padding:5px 14px;border-radius:6px;background:rgba(16,185,129,.1);color:#34d399;font-size:11px;font-weight:600;border:1px solid rgba(16,185,129,.2);cursor:pointer">📱 QR</button>':'')+
               '<button onclick="editAdminScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
               '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
             '</div>'+
@@ -349,6 +400,32 @@ const loaders={
         el.innerHTML='<div class="ph"><div><h1>LED Cloud</h1><p>Direct push to ColorlightCloud LED screens</p></div></div>'+tabHtml+
           '<div id="cl-panel"><div style="padding:60px;text-align:center;color:var(--t-4)">Loading ColorlightCloud…</div></div>';
         loadColorlightPanel();
+      }else if(window._adminTab==='managed'){
+        // ── Fase 4: Managed Clients tab ─────────────────────────────────────
+        const summary = await api('/admin/managed/summary').catch(()=>({}));
+        el.innerHTML=`
+          <div class="ph">
+            <div><h1>Clientes Gestionados</h1><p>Solicitudes de cambio y log de auditoría</p></div>
+          </div>${tabHtml}
+          <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:26px">
+            ${[
+              ['Pantallas Gestionadas', summary.managed_screens||0, '#6366f1'],
+              ['Clientes Activos',      summary.managed_viewers||0, '#22d3ee'],
+              ['Solicitudes Totales',   summary.total_requests||0,  '#a78bfa'],
+              ['Pendientes',           summary.pending||0,          '#fbbf24'],
+              ['En Proceso',           summary.in_progress||0,      '#60a5fa'],
+              ['Completadas',          summary.completed||0,        '#34d399'],
+            ].map(([l,v,c])=>`
+              <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
+                <div style="font-size:11px;font-weight:600;color:var(--t-4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${l}</div>
+                <div style="font-size:28px;font-weight:800;color:${c}">${v}</div>
+              </div>`).join('')}
+          </div>
+          <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Solicitudes de Cambio</h2>
+          <div id="mv-admin-requests-container"></div>`;
+        if(typeof window._mvAdminLoadRequests==='function'){
+          window._mvAdminLoadRequests('mv-admin-requests-container');
+        }
       }
     }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
   },
@@ -511,7 +588,13 @@ const loaders={
     }catch(e){el.innerHTML=`<div class="ph"><div><h1>Devices</h1><p>Connected players</p></div></div><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Sign in as admin to manage devices</div>`}
   },
 
-  settings(){document.getElementById('pg-settings').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:28px">Settings</h1><div style="max-width:560px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.25)">${(user?.name||'U')[0]}</div><div><div style="font-size:20px;font-weight:700">${user?.name}</div><div style="font-size:13px;color:var(--t-3)">${user?.email}</div><span class="bdg" style="margin-top:6px;background:${user?.role==='admin'?'rgba(99,102,241,.12)':'rgba(52,211,153,.12)'};color:${user?.role==='admin'?'var(--brand-l)':'var(--green)'}">${user?.role==='admin'?'Administrator':'Customer'}</span></div></div><div class="card" style="margin-bottom:20px"><div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--t-2);text-transform:uppercase;letter-spacing:1.5px">Account</div>${[['Name',user?.name],['Email',user?.email],[user?.role==='customer'?'Company':'Department',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div style="padding:14px 20px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(30,41,59,.2)"><span style="font-size:13px;color:var(--t-3)">${l}</span><span style="font-size:13px;font-weight:600">${v}</span></div>`).join('')}</div><button onclick="doLogout()" style="width:100%;padding:12px;border-radius:var(--radius-sm);background:none;border:1px solid var(--bg-3);color:var(--t-3);font-size:13px;cursor:pointer">Sign Out</button></div>`}
+  settings(){document.getElementById('pg-settings').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:28px">Settings</h1><div style="max-width:560px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.25)">${(user?.name||'U')[0]}</div><div><div style="font-size:20px;font-weight:700">${user?.name}</div><div style="font-size:13px;color:var(--t-3)">${user?.email}</div><span class="bdg" style="margin-top:6px;background:${user?.role==='admin'?'rgba(99,102,241,.12)':'rgba(52,211,153,.12)'};color:${user?.role==='admin'?'var(--brand-l)':'var(--green)'}">${user?.role==='admin'?'Administrator':'Customer'}</span></div></div><div class="card" style="margin-bottom:20px"><div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--t-2);text-transform:uppercase;letter-spacing:1.5px">Account</div>${[['Name',user?.name],['Email',user?.email],[user?.role==='customer'?'Company':'Department',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div style="padding:14px 20px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(30,41,59,.2)"><span style="font-size:13px;color:var(--t-3)">${l}</span><span style="font-size:13px;font-weight:600">${v}</span></div>`).join('')}</div><button onclick="doLogout()" style="width:100%;padding:12px;border-radius:var(--radius-sm);background:none;border:1px solid var(--bg-3);color:var(--t-3);font-size:13px;cursor:pointer">Sign Out</button></div>`},
+
+  // ── Fase 3: Advertiser Portal ──────────────────────────────────────────────
+  advertiser(){if(typeof renderAdvertiserPortal==='function')renderAdvertiserPortal();else document.getElementById('pg-advertiser').innerHTML='<div class="ph"><h1>Advertiser Portal</h1></div><p style="color:var(--t-4);padding:20px">Loading…</p>';},
+
+  // ── Fase 3: Admin Approval Center ─────────────────────────────────────────
+  approval(){if(typeof renderApprovalCenter==='function')renderApprovalCenter();else document.getElementById('pg-approval').innerHTML='<div class="ph"><h1>Approval Center</h1></div><p style="color:var(--t-4);padding:20px">Loading…</p>';},
 };
 
 // Wizard helpers
@@ -578,15 +661,52 @@ async function modalReject(id){var reason=document.getElementById('modal-reason'
 async function rejectWithNote(id){var reason=document.getElementById('reject-'+id)?.value||'';try{await api('/admin/campaigns/'+id+'/reject?notes='+encodeURIComponent(reason),{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function rejectCamp(id,e){if(e)e.stopPropagation();if(!confirm('Reject this campaign?'))return;try{await api('/admin/campaigns/'+id+'/reject',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
 async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{method:'PUT'});loaders.admin()}catch(e){alert(e.message)}}
+function selectOpType(type) {
+  var types = ['SELF_SERVICE','PUBLIC_ADVERTISING','MEDIAVIEW_MANAGED'];
+  var ids = {SELF_SERVICE:'ot-ss',PUBLIC_ADVERTISING:'ot-pa',MEDIAVIEW_MANAGED:'ot-mm'};
+  var colors = {SELF_SERVICE:'#6366F1',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#F59E0B'};
+  types.forEach(function(t){
+    var el = document.getElementById(ids[t]);
+    if (!el) return;
+    el.style.borderColor = t === type ? colors[t] : '#e2e8f0';
+    el.style.background = t === type ? colors[t]+'18' : 'transparent';
+    el.querySelector('span').style.color = t === type ? colors[t] : '#64748b';
+    el.querySelector('input[type=radio]').checked = t === type;
+  });
+  // Fase 3: mostrar/ocultar sección de precios publicitarios
+  var advPanel = document.getElementById('ns-adv-pricing');
+  if (advPanel) {
+    advPanel.style.display = type === 'PUBLIC_ADVERTISING' ? 'block' : 'none';
+  }
+}
 async function addScreen(){
   var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value;
+  var opType=document.querySelector('input[name="op_type"]:checked')?.value||'SELF_SERVICE';
   var msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
+
+  // Fase 3: advertising pricing fields
+  var pw=parseFloat(document.getElementById('ns-pw')?.value)||null;
+  var pm2=parseFloat(document.getElementById('ns-pm2')?.value)||null;
+  var py=parseFloat(document.getElementById('ns-py')?.value)||null;
+  var maxSlots=parseInt(document.getElementById('ns-maxslots')?.value)||4;
+
+  if(opType==='PUBLIC_ADVERTISING'&&(!pw&&!pm2&&!py)){msg.textContent='Al menos un precio publicitario es requerido para pantallas PUBLIC_ADVERTISING';msg.style.color='var(--red)';msg.style.display='block';return}
+
+  var body={name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',operation_type:opType,max_ad_slots:maxSlots};
+
+  if(opType==='PUBLIC_ADVERTISING'){
+    if(pw!=null)body.price_per_week=pw;
+    if(pm2!=null)body.price_per_month=pm2;
+    if(py!=null)body.price_per_year=py;
+  }
+
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify({name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active'})});
-    msg.textContent='Screen created!';msg.style.color='var(--green)';msg.style.display='block';
+    await api('/admin/screens',{method:'POST',body:JSON.stringify(body)});
+    msg.textContent='Screen created ('+opType.replace(/_/g,' ')+')!';msg.style.color='var(--green)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
-  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}}
+  }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}
+}
 async function editAdminScreen(id){
   var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error');return}
   var el=document.getElementById('pg-admin');

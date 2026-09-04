@@ -20,14 +20,21 @@ body{background:#000;color:#e2e8f0;font-family:Arial,sans-serif;min-height:100vh
 @keyframes spin{to{transform:rotate(360deg)}}
 video::-webkit-media-controls{display:none!important}
 video::-webkit-media-controls-overlay-play-button{display:none!important}
-#player{display:none;width:100%;height:100vh;background:#000;position:fixed;top:0;left:0}
-#player img{width:100%;height:100%;object-fit:contain}
-.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#000}
-.hidden{display:none}
+/* ── Player: two slots for double-buffer, no loading flash ── */
+#player{display:none;width:100vw;height:100vh;background:#000;position:fixed;top:0;left:0;overflow:hidden}
+.slot{position:absolute;inset:0;background:#000;transition:opacity 0.4s ease}
+.slot.active{z-index:2;opacity:1}
+.slot.hidden{z-index:1;opacity:0;pointer-events:none}
+.slot img,.slot video{width:100%;height:100%;object-fit:cover;display:block}/* default COVER — overridden inline by resolveObjectFit() */
+/* fallback splash — shown only when there is genuinely no content */
+.fallback{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;background:#09090f}
+.hidden-el{display:none}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes zoomIn{from{transform:scale(1.15);opacity:0}to{transform:scale(1);opacity:1}}
-.anim-fade{animation:fadeIn .8s ease}
+.anim-fade{animation:fadeIn 0.6s ease}
+.anim-slide{animation:slideIn 0.5s ease}
+.anim-zoom{animation:zoomIn 0.6s ease}
 .anim-slide{animation:slideIn .6s ease}
 .anim-zoom{animation:zoomIn .8s ease}
 </style>
@@ -48,7 +55,11 @@ video::-webkit-media-controls-overlay-play-button{display:none!important}
   </div>
 </div>
 
-<div id="player"></div>
+<div id="player">
+  <!-- Double-buffer slots: slot-a is active, slot-b preloads next content -->
+  <div id="slot-a" class="slot active"></div>
+  <div id="slot-b" class="slot hidden"></div>
+</div>
 
 <script>
 // P0-A2: HTML escape helper — used on ALL innerHTML paths that inject
@@ -148,60 +159,115 @@ async function fetchPlaylist() {
         preDownloadContent();
       }
     } else {
-      document.getElementById('player').innerHTML = '<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:18px;color:#22d3ee;letter-spacing:2px">DIGITAL SIGNAGE PLATFORM</p><p style="font-size:16px;color:#475569;margin-top:20px">No campaigns scheduled</p></div>';
+      showSplash('No campaigns scheduled');
     }
   } catch (e) {
     if (playlist.length === 0) {
-      document.getElementById('player').innerHTML = '<div class="fallback"><img src="/api/web/logo.png" style="width:200px;margin-bottom:16px"><p style="font-size:16px;color:#475569">Offline - Retrying...</p></div>';
+      showSplash('Offline — Retrying...');
     }
+    // If we already have content, keep playing silently (seamless offline)
   }
 }
 
-// ===== PLAY ITEM =====
+// ── Splash: shown only when genuinely no content — no "Loading..." text ──
+function showSplash(msg) {
+  var p = document.getElementById('player');
+  var a = document.getElementById('slot-a');
+  var b = document.getElementById('slot-b');
+  a.innerHTML = '<div class="fallback"><div style="width:80px;height:80px;border-radius:20px;background:#1e1b4b;border:2px solid #312e81;display:flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:28px;font-weight:900;color:#6366f1">MV</div><p style="font-size:36px;font-weight:800;color:#e2e8f0">MediaView</p><p style="font-size:16px;color:#6366f1;margin-top:4px">Digital Signage</p><div style="width:80px;height:2px;background:#1e293b;margin:24px 0"></div><p style="font-size:15px;color:#64748b">' + esc(msg) + '</p></div>';
+  b.innerHTML = '';
+  a.className = 'slot active';
+  b.className = 'slot hidden';
+  p.style.display = 'block';
+}
+
+// ===== PLAY ITEM — double-buffer, no "Loading content..." flash =====
+// activeSlot: which slot is currently visible ('a' or 'b')
+var activeSlot = 'a';
+
+function resolveObjectFit(item) {
+  var m = (item.display_mode || '').toLowerCase();
+  if (m === 'contain') return 'contain';
+  if (m === 'stretch') return 'fill';
+  return 'cover'; // default COVER for all media
+}
+
 function playItem() {
   if (playlist.length === 0) return;
   if (playIndex >= playlist.length) playIndex = 0;
   var item = playlist[playIndex];
   var url = getCachedUrl(item);
   var isImg = item.content_type && item.content_type.indexOf('image') >= 0;
+  var objectFit = resolveObjectFit(item);
   clearTimeout(playTimer);
-  document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#94a3b8">Loading content...</p></div>';
 
-  // Handle widgets
+  // Determine next slot (the one that is currently hidden / background)
+  var nextSlot = activeSlot === 'a' ? 'b' : 'a';
+  var nextEl = document.getElementById('slot-' + nextSlot);
+  var activeEl = document.getElementById('slot-' + activeSlot);
+
+  // Helper: swap slots once content is ready — no loading flash
+  function commitSwap() {
+    nextEl.className = 'slot active';
+    activeEl.className = 'slot hidden';
+    // Clean up old slot after transition
+    setTimeout(function() { activeEl.innerHTML = ''; }, 500);
+    activeSlot = nextSlot;
+  }
+
+  // Handle widgets — show immediately (iframe loads its own content)
   if (item.content_type === 'widget') {
-    var widgetUrl = AB + item.download_url;
-    document.getElementById('player').innerHTML = '<iframe src="' + esc(widgetUrl) + '" style="width:100vw;height:100vh;border:none;background:#000" allowfullscreen></iframe>';
+    nextEl.innerHTML = '<iframe src="' + esc(AB + item.download_url) + '" style="width:100%;height:100%;border:none;background:#000" allowfullscreen></iframe>';
+    commitSwap();
     logPlay(item);
     playTimer = setTimeout(nextItem, (item.duration || 30) * 1000);
     return;
   }
 
   var rot = item.rotation || 0;
-  var rotStyle = rot ? 'transform:rotate(' + rot + 'deg);' : '';
-  if (rot === 90 || rot === 270) rotStyle += 'width:100vh;height:100vw;position:absolute;top:50%;left:50%;margin-top:-50vw;margin-left:-50vh;object-fit:contain;';
-  else rotStyle += 'width:100%;height:100%;object-fit:contain;';
-  
+  var transform = rot ? 'transform:rotate(' + rot + 'deg);' : '';
+  var baseStyle = 'width:100%;height:100%;object-fit:' + objectFit + ';display:block;background:#000;' + transform;
+  if (rot === 90 || rot === 270) {
+    baseStyle = 'width:100vh;height:100vw;object-fit:' + objectFit + ';position:absolute;top:50%;left:50%;margin-top:-50vw;margin-left:-50vh;' + transform;
+  }
+
   if (isImg) {
-    var anim = item.animation || 'fade';
-    var animClass = anim !== 'none' ? 'anim-' + anim : '';
-    document.getElementById('player').innerHTML = '<div class="' + esc(animClass) + '" style="width:100vw;height:100vh;background:#000;overflow:hidden;position:relative"><img id="active-image" src="' + esc(url) + '" style="' + esc(rotStyle) + '"></div>';
-    var image = document.getElementById('active-image');
-    image.onerror = function() {
-      document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#fca5a5">Image unavailable</p><p style="margin-top:12px;color:#64748b">Trying the next item...</p></div>';
-      setTimeout(nextItem, 2000);
+    // Preload image in memory — only swap DOM when fully loaded (no flash)
+    var preload = new window.Image();
+    preload.onload = function() {
+      var anim = item.animation || 'fade';
+      var animClass = anim !== 'none' ? 'anim-' + esc(anim) : '';
+      nextEl.innerHTML = '<div class="' + animClass + '" style="position:absolute;inset:0;overflow:hidden"><img src="' + esc(url) + '" style="' + baseStyle + '"></div>';
+      commitSwap();
     };
+    preload.onerror = function() {
+      // Skip to next without showing error to public
+      setTimeout(nextItem, 300);
+      return;
+    };
+    preload.src = url;
   } else {
-    // Video: use direct video element with muted+playsinline
-    document.getElementById('player').innerHTML = '<video id="vid" muted playsinline preload="auto" poster="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" style="' + esc(rotStyle) + 'background:#000" src="' + esc(url) + '"></video>';
-    var v = document.getElementById('vid');
-    if (v) {
-      v.onended = function() { nextItem(); };
-      v.onerror = function() {
-        document.getElementById('player').innerHTML = '<div class="fallback"><p style="font-size:18px;color:#fca5a5">Video unavailable</p><p style="margin-top:12px;color:#64748b">Trying the next item...</p></div>';
-        setTimeout(nextItem, 2000);
-      };
-      v.play().catch(function() { v.muted = true; v.play().catch(function() { v.onerror(); }); });
-    }
+    // Preload video — swap as soon as enough data is buffered (canplaythrough)
+    var vid = document.createElement('video');
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.preload = 'auto';
+    vid.style.cssText = baseStyle;
+    vid.src = url;
+    vid.oncanplaythrough = function() {
+      if (nextEl.querySelector('video') !== vid) return; // stale
+      commitSwap();
+      vid.play().catch(function() { vid.muted = true; vid.play().catch(function() {}); });
+    };
+    vid.onended = function() { nextItem(); };
+    vid.onerror = function() { setTimeout(nextItem, 300); };
+    nextEl.innerHTML = '';
+    nextEl.appendChild(vid);
+    // Fallback: if canplaythrough doesn't fire within 2s, commit anyway
+    setTimeout(function() {
+      if (activeSlot !== nextSlot) commitSwap();
+    }, 2000);
+    vid.load();
   }
 
   logPlay(item);
@@ -242,7 +308,9 @@ var isSleeping = false;
 function enterSleepMode() {
   if (isSleeping) return;
   isSleeping = true;
-  document.getElementById('player').innerHTML = '<div style="width:100vw;height:100vh;background:#000"></div>';
+  // Black screen for sleep — slots cleared, no debug text
+  document.getElementById('slot-a').innerHTML = '';
+  document.getElementById('slot-b').innerHTML = '';
 }
 function exitSleepMode() {
   if (!isSleeping) return;

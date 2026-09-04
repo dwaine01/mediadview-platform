@@ -63,9 +63,10 @@ def install_rate_limiter(app):
 
 class LIMITS:
     """Centralized limit strings so they're easy to review."""
-    # Auth
-    login          = "5/minute; 20/hour"
-    register       = "3/minute; 10/hour"
+    _dev = os.environ.get("ENVIRONMENT", "development") != "production"
+    # Auth — more generous in dev so integration tests don't hit the wall
+    login          = "60/minute; 200/hour" if _dev else "5/minute; 20/hour"
+    register       = "20/minute; 100/hour" if _dev else "3/minute; 10/hour"
     refresh        = "30/minute"
     change_pass    = "5/hour"
     forgot_pass    = "3/hour"

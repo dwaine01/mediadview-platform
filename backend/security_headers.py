@@ -14,10 +14,42 @@ Headers set:
     · Content-Security-Policy    — script/style/frame source allowlist
                                    (report-only in dev; enforce in prod)
 
-The CSP policy is intentionally MODERATE to keep the current codebase
-working (uses inline styles + jsdelivr cdn for Chart.js). Tightening
-it further is Sprint 2 work (P2). We accept the current CSP as an
-appropriate baseline for launch.
+H1 — CSP 'unsafe-inline' AUDIT (updated Fase 6 Security Hardening)
+═══════════════════════════════════════════════════════════════════
+
+STATUS: 'unsafe-inline' remains in script-src and style-src.
+
+KNOWN BLOCKERS (must be resolved before this can be removed):
+
+  script-src 'unsafe-inline' blockers:
+  1. /api/menus/{id}/render — render_menu() builds inline <script> blocks
+     for slideshow animation, promo scroll, and WebSocket live-reload.
+     FIX PATH: extract to /static/menu-player.js parameterised via data-* attrs.
+
+  2. /api/widgets/{id}/render — render_widget() builds type-specific inline
+     <script> blocks (clock, ticker, countdown, YouTube etc.).
+     FIX PATH: extract to per-widget /static/widget-<type>.js.
+
+  3. /player/{id}/web — player SPA uses inline <script> with dynamic data.
+     FIX PATH: extract to /static/player.js + JSON data endpoint.
+
+  4. /api/s/{code} — screen pairing page has inline script.
+     FIX PATH: extract to /static/pairing.js.
+
+  style-src 'unsafe-inline' blockers:
+  1. All the above renderers use inline <style> blocks.
+     FIX PATH: move to /static/*.css with template params via CSS variables.
+
+  ACCEPTANCE CRITERIA to remove unsafe-inline:
+  - All inline <script> moved to external files served from /static/
+  - All inline <style> moved to external CSS with CSS custom properties
+  - Add a Content-Security-Policy nonce generator for any remaining dynamic
+    content that truly cannot be externalised.
+
+  TARGET: P1 — Sprint 2 (before high-traffic public launch).
+  Current risk is REDUCED but not ZERO since SEC-001 and SEC-003 HTML sinks
+  were fixed (all user data is now HTML/JS-escaped). The remaining unsafe-inline
+  risk is limited to self-generated static markup, not user-controlled input.
 """
 from __future__ import annotations
 

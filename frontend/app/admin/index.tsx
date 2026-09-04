@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, RefreshControl, TextInput,
+  ActivityIndicator, Alert, RefreshControl, TextInput, Modal,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,6 +10,25 @@ import { adminAPI, screensAPI, adminDevicesAPI } from '../../src/services/api';
 import { getStatusStyle } from '../../src/constants/theme';
 
 const TABS = ['Dashboard', 'Users', 'Screens', 'Campaigns', 'Devices'];
+
+const OP_TYPES = [
+  { key: 'SELF_SERVICE',        label: 'Customer Self-Service',  color: '#6366F1', icon: 'person' },
+  { key: 'PUBLIC_ADVERTISING',  label: 'Public Advertising',     color: '#10B981', icon: 'megaphone' },
+  { key: 'MEDIAVIEW_MANAGED',   label: 'MediaView Managed',      color: '#F59E0B', icon: 'settings' },
+] as const;
+
+type OpTypeKey = 'SELF_SERVICE' | 'PUBLIC_ADVERTISING' | 'MEDIAVIEW_MANAGED';
+
+function OpTypeBadge({ type }: { type?: string }) {
+  const ot = OP_TYPES.find(o => o.key === type);
+  if (!ot) return null;
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: ot.color + '20', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 }}>
+      <Ionicons name={ot.icon as any} size={11} color={ot.color} />
+      <Text style={{ fontSize: 11, color: ot.color, fontWeight: '700' }}>{ot.label}</Text>
+    </View>
+  );
+}
 
 export default function AdminPanel() {
   const router = useRouter();
@@ -25,6 +44,13 @@ export default function AdminPanel() {
   const [activateCode, setActivateCode] = useState('');
   const [activateScreenId, setActivateScreenId] = useState('');
   const [activating, setActivating] = useState(false);
+  // Add Screen modal
+  const [showAddScreen, setShowAddScreen] = useState(false);
+  const [newScreenName, setNewScreenName] = useState('');
+  const [newScreenCity, setNewScreenCity] = useState('');
+  const [newScreenState, setNewScreenState] = useState('');
+  const [newScreenOpType, setNewScreenOpType] = useState<OpTypeKey>('SELF_SERVICE');
+  const [addingScreen, setAddingScreen] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -79,6 +105,27 @@ export default function AdminPanel() {
       setDevices(res.data);
     } catch (e) {
       console.log('Devices fetch error:', e);
+    }
+  };
+
+  const handleAddScreen = async () => {
+    if (!newScreenName.trim()) { Alert.alert('Error', 'Screen name is required'); return; }
+    setAddingScreen(true);
+    try {
+      await adminAPI.createScreen({
+        name: newScreenName.trim(),
+        location: { city: newScreenCity.trim() || 'TBD', state: newScreenState.trim() || 'TBD', address: '', zip: '', country: 'US' },
+        operation_type: newScreenOpType,
+      });
+      setShowAddScreen(false);
+      setNewScreenName(''); setNewScreenCity(''); setNewScreenState('');
+      setNewScreenOpType('SELF_SERVICE');
+      fetchAllScreens();
+      Alert.alert('Screen Created', `"${newScreenName}" created as ${newScreenOpType.replace('_', ' ')}`);
+    } catch (e: any) {
+      Alert.alert('Error', e.response?.data?.detail || 'Failed to create screen');
+    } finally {
+      setAddingScreen(false);
     }
   };
 
@@ -215,14 +262,23 @@ export default function AdminPanel() {
 
   const renderScreens = () => (
     <ScrollView contentContainerStyle={styles.scrollPad}>
+      {/* Add Screen Button */}
+      <TouchableOpacity style={styles.addBtn} onPress={() => setShowAddScreen(true)}>
+        <Ionicons name="add-circle" size={18} color="#4F46E5" />
+        <Text style={styles.addBtnText}>Add Screen</Text>
+      </TouchableOpacity>
       {screens.map(s => (
         <View key={s.id} style={styles.listCard}>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, gap: 4 }}>
             <Text style={styles.listName}>{s.name}</Text>
             <Text style={styles.listSub}>{s.location?.city}, {s.location?.state}</Text>
             <Text style={styles.listRole}>${s.pricing?.per_hour}/hr | {s.specs?.size}</Text>
+            <OpTypeBadge type={s.operation_type} />
           </View>
-          <View style={[styles.statusDot, { backgroundColor: s.status === 'active' ? '#10B981' : '#94A3B8' }]} />
+          <View style={{ alignItems: 'flex-end', gap: 6 }}>
+            <View style={[styles.statusDot, { backgroundColor: s.status === 'active' ? '#10B981' : '#94A3B8' }]} />
+            {s.pairing_code && <Text style={{ fontSize: 10, color: '#64748B', fontFamily: 'monospace' }}>{s.pairing_code}</Text>}
+          </View>
         </View>
       ))}
     </ScrollView>
@@ -278,6 +334,57 @@ export default function AdminPanel() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
+      {/* ── Add Screen Modal ──────────────────────────────────────────── */}
+      <Modal visible={showAddScreen} transparent animationType="slide" onRequestClose={() => setShowAddScreen(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Screen</Text>
+              <TouchableOpacity onPress={() => setShowAddScreen(false)}><Ionicons name="close" size={24} color="#64748B" /></TouchableOpacity>
+            </View>
+
+            <Text style={styles.fieldLabel}>Screen Name *</Text>
+            <TextInput style={styles.input} value={newScreenName} onChangeText={setNewScreenName} placeholder="e.g. Main Lobby Display" placeholderTextColor="#64748B" />
+
+            <Text style={styles.fieldLabel}>City</Text>
+            <TextInput style={styles.input} value={newScreenCity} onChangeText={setNewScreenCity} placeholder="e.g. Newark" placeholderTextColor="#64748B" />
+
+            <Text style={styles.fieldLabel}>State</Text>
+            <TextInput style={styles.input} value={newScreenState} onChangeText={setNewScreenState} placeholder="e.g. NJ" placeholderTextColor="#64748B" />
+
+            <Text style={[styles.fieldLabel, { marginTop: 16 }]}>Screen Operation Type *</Text>
+            <Text style={{ fontSize: 12, color: '#64748B', marginBottom: 12 }}>This determines who controls the screen and how it is billed.</Text>
+            {OP_TYPES.map(ot => (
+              <TouchableOpacity
+                key={ot.key}
+                style={[styles.opTypeOption, newScreenOpType === ot.key && { borderColor: ot.color, backgroundColor: ot.color + '15' }]}
+                onPress={() => setNewScreenOpType(ot.key)}
+              >
+                <View style={[styles.opTypeIcon, { backgroundColor: ot.color + '25' }]}>
+                  <Ionicons name={ot.icon as any} size={18} color={ot.color} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.opTypeLabel, newScreenOpType === ot.key && { color: ot.color }]}>{ot.label}</Text>
+                  <Text style={styles.opTypeDesc}>
+                    {ot.key === 'SELF_SERVICE' && 'Client manages their own screens. Billed per screen.'}
+                    {ot.key === 'PUBLIC_ADVERTISING' && 'MediaView controlled. Advertisers buy slots via QR.'}
+                    {ot.key === 'MEDIAVIEW_MANAGED' && 'MediaView manages all content and operations.'}
+                  </Text>
+                </View>
+                {newScreenOpType === ot.key && <Ionicons name="checkmark-circle" size={20} color={ot.color} />}
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity
+              style={[styles.submitBtn, addingScreen && { opacity: 0.6 }]}
+              onPress={handleAddScreen}
+              disabled={addingScreen}
+            >
+              {addingScreen ? <ActivityIndicator color="#FFF" size="small" /> : <Text style={styles.submitBtnText}>Create Screen</Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#0F172A" />
@@ -470,4 +577,38 @@ const styles = StyleSheet.create({
   screenChipActive: { backgroundColor: '#4F46E5', borderColor: '#4F46E5' },
   screenChipText: { fontSize: 12, fontWeight: '600', color: '#64748B' },
   screenChipTextActive: { color: '#FFFFFF' },
+  // Add Screen button
+  addBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center',
+    backgroundColor: '#EEF2FF', borderWidth: 1, borderColor: '#C7D2FE',
+    borderRadius: 12, paddingVertical: 12, marginBottom: 12,
+  },
+  addBtnText: { color: '#4F46E5', fontSize: 14, fontWeight: '700' },
+  // Add Screen Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalBox: {
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, maxHeight: '90%',
+  },
+  modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A' },
+  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  input: {
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: '#0F172A', marginBottom: 12,
+  },
+  opTypeOption: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    borderWidth: 2, borderColor: '#E2E8F0', borderRadius: 12,
+    padding: 12, marginBottom: 8,
+  },
+  opTypeIcon: { width: 38, height: 38, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  opTypeLabel: { fontSize: 14, fontWeight: '600', color: '#0F172A' },
+  opTypeDesc: { fontSize: 12, color: '#64748B', marginTop: 2 },
+  submitBtn: {
+    backgroundColor: '#4F46E5', borderRadius: 12, paddingVertical: 14,
+    alignItems: 'center', marginTop: 16,
+  },
+  submitBtnText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

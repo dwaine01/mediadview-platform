@@ -120,6 +120,174 @@ backend:
         agent: "testing"
         comment: "✅ TESTED: GET /api/health returns 200 with {'status': 'healthy', 'service': 'MediaView API'}"
 
+  - task: "FASE 1 — RBAC: require_admin + require_superadmin migrados a RBAC"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "require_admin ahora usa get_effective_role() y verifica SUPER_ADMIN|MEDIAVIEW_ADMIN|SUPPORT. require_superadmin verifica SUPER_ADMIN. Legacy role strings (admin, superadmin, customer, etc.) mapean automáticamente via ROLE_MIGRATION_MAP."
+
+  - task: "FASE 1 — RBAC: Tenant Isolation en DELETE y PUT /admin/screens"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "DELETE /admin/screens/{id} ahora llama assert_can_manage_screen antes de eliminar. PUT /admin/screens/{id}/advertising también llama assert_can_manage_screen. Previene cross-tenant modification."
+
+  - task: "FASE 1 — RBAC: _is_platform_admin migrado a RBAC"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "_is_platform_admin ahora usa get_effective_role() in (SUPER_ADMIN, MEDIAVIEW_ADMIN, SUPPORT). Afecta playlists (list, create, publish) y menus."
+
+  - task: "FASE 1 — RBAC: MANAGED_VIEWER bloqueado en publish playlist"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "_can_publish_playlist ahora bloquea MANAGED_VIEWER incluso cuando allow_client_publish=True. TEST G valida esto."
+
+  - task: "FASE 1 — RBAC: Endpoint PUT /screens/self-service/{id} con tenant isolation"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Nuevo endpoint PUT /screens/self-service/{screen_id}. SELF_SERVICE_OWNER puede actualizar pantallas en SU org. assert_tenant() bloquea acceso a pantallas de otra org. TEST E valida esto."
+
+  - task: "FASE 1 — RBAC: Seed Test Users endpoint"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /admin/rbac/seed-test-users crea todos los usuarios test para los 7 roles RBAC + 4 pantallas test. Idempotente. Solo dev."
+
+  - task: "TEST A — SUPER_ADMIN crea pantalla SELF_SERVICE"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/admin/screens con operation_type=SELF_SERVICE. Usuario: superadmin@mediadview.com / SuperAdmin#2026. Esperado: 200 OK con screen creado."
+
+  - task: "TEST B — SUPER_ADMIN crea pantalla PUBLIC_ADVERTISING"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/admin/screens con operation_type=PUBLIC_ADVERTISING. Esperado: 200 OK."
+
+  - task: "TEST C — SUPER_ADMIN crea pantalla MEDIAVIEW_MANAGED"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/admin/screens con operation_type=MEDIAVIEW_MANAGED. Esperado: 200 OK."
+
+  - task: "TEST D — SELF_SERVICE_OWNER crea pantalla en SU propia org"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "POST /api/screens/self-service. Usuario: rbac.ssowner.orga@test.com / RbacTest#2026 (org: org_rbac_test_a). Esperado: 200 OK con organization_id=org_rbac_test_a."
+
+  - task: "TEST E — SELF_SERVICE_OWNER falla 403 al modificar pantalla de otra org"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "PUT /api/screens/self-service/{screen_org_b_id}. Usuario Org A intenta modificar pantalla de Org B. Esperado: 403. Screen Org B ID se obtiene del seed endpoint."
+
+  - task: "TEST F — ADVERTISER falla 403 en POST/PUT/DELETE screens"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "ADVERTISER (rbac.advertiser@test.com) intenta POST /api/admin/screens y POST /api/screens/self-service. Ambos deben fallar con 403."
+
+  - task: "TEST G — MANAGED_VIEWER falla 403 al intentar publicar playlist"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "MANAGED_VIEWER (rbac.viewer@test.com) crea playlist y luego intenta publicarla. POST /api/playlists/{id}/publish debe fallar con 403."
+
+  - task: "TEST H — MEDIAVIEW_ADMIN administra pantallas Public/Managed"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "MEDIAVIEW_ADMIN (rbac.mwadmin@test.com) puede POST /api/admin/screens con PUBLIC_ADVERTISING y MEDIAVIEW_MANAGED. También puede PUT /api/admin/screens/{id} de cualquier pantalla. Esperado: 200 OK en todos."
+
   - task: "Auth System (Register/Login/Me/Profile)"
     implemented: true
     working: true
@@ -402,16 +570,20 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Health Check"
-    - "Auth System (Register/Login/Me/Profile)"
-    - "Screens API (List/Detail/Cities/CalculatePrice)"
-    - "Campaigns API (CRUD)"
-    - "Media Upload API"
-    - "Payments API (Mocked)"
-    - "Admin API (Users/Campaigns/Screens/Analytics)"
-    - "Player/Screen API"
+    - "FASE 1 — RBAC: require_admin + require_superadmin migrados a RBAC"
+    - "FASE 1 — RBAC: Tenant Isolation en DELETE y PUT /admin/screens"
+    - "FASE 1 — RBAC: MANAGED_VIEWER bloqueado en publish playlist"
+    - "FASE 1 — RBAC: Endpoint PUT /screens/self-service/{id} con tenant isolation"
+    - "TEST A — SUPER_ADMIN crea pantalla SELF_SERVICE"
+    - "TEST B — SUPER_ADMIN crea pantalla PUBLIC_ADVERTISING"
+    - "TEST C — SUPER_ADMIN crea pantalla MEDIAVIEW_MANAGED"
+    - "TEST D — SELF_SERVICE_OWNER crea pantalla en SU propia org"
+    - "TEST E — SELF_SERVICE_OWNER falla 403 al modificar pantalla de otra org"
+    - "TEST F — ADVERTISER falla 403 en POST/PUT/DELETE screens"
+    - "TEST G — MANAGED_VIEWER falla 403 al intentar publicar playlist"
+    - "TEST H — MEDIAVIEW_ADMIN administra pantallas Public/Managed"
   stuck_tasks: []
-  test_all: true
+  test_all: false
   test_priority: "high_first"
 
 agent_communication:
@@ -425,3 +597,33 @@ agent_communication:
     message: "Player v3 diagnostic implementation complete. Root causes documented in android-player/ROOT_CAUSE_REPORT.md. Added native Media3/Coil/WebView renderer, Room manifest, atomic verified cache, native pairing, diagnostics HUD, network recovery, watchdog, boot/home flow, heartbeat and diagnostic-only Codemagic pipeline. Backend canonical playlist/storage fixes verified. Current gate: Codemagic Android compile, then physical Colorlight A40 matrix; production APK intentionally not published yet."
   - agent: "testing"
     message: "Iteration 6: 22 passed, 1 skipped; backend/player contracts and Android/CI static checks pass. Real R2 object and physical A40 playback/boot remain hardware/integration gates. Report: /app/test_reports/iteration_6.json"
+  - agent: "main"
+    message: |
+      FASE 1 — RBAC Hardening + Tenant Isolation COMPLETO. Cambios implementados:
+      1. require_admin y require_superadmin migrados a RBAC (get_effective_role) — ya no usan role string legacy.
+      2. _is_platform_admin migrado a RBAC.
+      3. DELETE /admin/screens/{id} — ahora llama assert_can_manage_screen (tenant isolation).
+      4. PUT /admin/screens/{id}/advertising — ahora llama assert_can_manage_screen (tenant isolation).
+      5. _can_publish_playlist — bloquea MANAGED_VIEWER aunque allow_client_publish=true.
+      6. PUT /media/{id}/rotate — verifica ownership para no-admins.
+      7. POST /screens/self-service — bugfix pairing_code (ya no se sobreescribe).
+      8. NUEVOS endpoints: PUT /screens/self-service/{id} (tenant isolation para SELF_SERVICE_OWNER), GET /screens/self-service/mine.
+      9. NUEVO endpoint: POST /admin/rbac/seed-test-users (dev-only, requiere SUPER_ADMIN).
+      10. rate_limit.py — login limit relajado a 60/minute en dev para no bloquear tests.
+      
+      USUARIOS TEST creados via seed-test-users:
+      - SUPER_ADMIN: superadmin@mediadview.com / SuperAdmin#2026
+      - MEDIAVIEW_ADMIN: rbac.mwadmin@test.com / RbacTest#2026
+      - SELF_SERVICE_OWNER Org A: rbac.ssowner.orga@test.com / RbacTest#2026 (org: org_rbac_test_a)
+      - SELF_SERVICE_OWNER Org B: rbac.ssowner.orgb@test.com / RbacTest#2026 (org: org_rbac_test_b)
+      - ADVERTISER: rbac.advertiser@test.com / RbacTest#2026
+      - MANAGED_VIEWER: rbac.viewer@test.com / RbacTest#2026
+      
+      SCREENS TEST:
+      - RBAC Test Screen — Org A (SELF_SERVICE): org_rbac_test_a
+      - RBAC Test Screen — Org B (SELF_SERVICE): org_rbac_test_b
+      - RBAC Test Screen — PUBLIC_ADVERTISING: org=null
+      - RBAC Test Screen — MEDIAVIEW_MANAGED: org=null
+      
+      IDs se obtienen llamando: POST /api/admin/rbac/seed-test-users (idempotente, devuelve IDs de screens también).
+      TESTING PRIORITY: Ejecutar TEST A through TEST H del Acceptance Test Suite.

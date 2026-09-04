@@ -43,6 +43,15 @@ from playlist_domain import (
     scheduled_playlist_key,
     select_winning_playlist,
 )
+from rbac import (
+    OperationType, Role, ALL_OPERATION_TYPES,
+    get_effective_role, has_permission,
+    assert_permission, assert_tenant,
+    assert_can_manage_screen, effective_operation_type,
+)
+
+# Fase 4: Audit log helper (imported early, used in screen/device/playlist handlers)
+from managed_portal_routes import create_audit_log as _audit
 
 # ============ CONFIGURATION ============
 
@@ -159,6 +168,14 @@ class ScreenCreate(BaseModel):
     preview_image: Optional[str] = None
     status: str = "active"
     location_code: Optional[str] = None
+    # ── FASE 1: operation type ────────────────────────────────────────────
+    operation_type: Optional[str] = None   # SELF_SERVICE | PUBLIC_ADVERTISING | MEDIAVIEW_MANAGED
+    organization_id: Optional[str] = None  # owning org (tenant isolation)
+    # ── FASE 3: Public Advertising ────────────────────────────────────────
+    max_ad_slots: int = 4                  # cuántos anunciantes simultáneos
+    price_per_week: Optional[float] = None
+    price_per_month: Optional[float] = None
+    price_per_year: Optional[float] = None
 
 class ScreenUpdate(BaseModel):
     name: Optional[str] = None
@@ -169,6 +186,14 @@ class ScreenUpdate(BaseModel):
     preview_image: Optional[str] = None
     status: Optional[str] = None
     location_code: Optional[str] = None
+    # ── FASE 1: operation type ────────────────────────────────────────────
+    operation_type: Optional[str] = None
+    organization_id: Optional[str] = None
+    # ── FASE 3: Public Advertising ────────────────────────────────────────
+    max_ad_slots: Optional[int] = None
+    price_per_week: Optional[float] = None
+    price_per_month: Optional[float] = None
+    price_per_year: Optional[float] = None
 
 class CampaignSchedule(BaseModel):
     # start_date / end_date now optional. `null` (or missing) means
@@ -415,7 +440,12 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
             "checksum": None,
         }
         if item_type == "menu":
-            menu = await db.menus.find_one({"id": ref_id}, {"_id": 0, "name": 1})
+            # H3: Only include published/active menus in player playlists.
+            # Draft menus are excluded so the render endpoint stays properly gated.
+            menu = await db.menus.find_one(
+                {"id": ref_id, "status": {"$in": ["published", "active"]}},
+                {"_id": 0, "name": 1}
+            )
             if not menu:
                 continue
             url = f"/api/menus/{ref_id}/render"
@@ -452,8 +482,13 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
     Null schedule bounds are intentionally supported through
     ``is_campaign_playable``. Missing/corrupt legacy files are excluded so a
     player receives either playable content or a controlled empty state.
+
+    ── FASE 3: También incluye campañas publicitarias (ad_campaigns) ACTIVE/APPROVED
+       que apuntan a esta pantalla.
     """
     now = datetime.utcnow()
+    today = now.strftime("%Y-%m-%d")
+
     campaigns = await db.campaigns.find({
         "screen_id": screen_id,
         "status": {"$in": list(PLAYABLE_STATUSES)},
@@ -493,6 +528,46 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 "download_url": media_url,
                 "checksum": checksum,
             })
+
+    # ── FASE 3: Inject ACTIVE ad campaigns into the playlist ──────────────────
+    try:
+        today = now.strftime("%Y-%m-%d")
+        ad_campaigns = await db.ad_campaigns.find({
+            "selected_screens": screen_id,
+            "status": "ACTIVE",   # Only ACTIVE — scheduler manages all transitions
+        }).to_list(100)
+        for ad in ad_campaigns:
+            creative_url = ad.get("creative_url")
+            if not creative_url:
+                continue
+
+            # Inferir content_type por extensión de URL
+            url_lower = creative_url.lower().split("?")[0]
+            if any(url_lower.endswith(ext) for ext in [".mp4", ".mov", ".avi", ".webm", ".mkv"]):
+                content_type = "video/mp4"
+            elif any(url_lower.endswith(ext) for ext in [".jpg", ".jpeg", ".png", ".gif", ".webp"]):
+                content_type = "image/jpeg"
+            else:
+                content_type = "video/mp4"  # suposición conservadora
+
+            items.append({
+                "campaign_id": f"ad:{ad['id']}",
+                "media_id": f"ad-creative:{ad['id']}",
+                "filename": ad.get("name", "Ad Campaign"),
+                "content_type": content_type,
+                "size": 0,
+                "duration": ad.get("slot_duration_seconds", 30),
+                "rotation": 0,
+                "animation": "fade",
+                "display_mode": "cover",
+                "media_url": creative_url,
+                "download_url": creative_url,
+                "checksum": None,
+                "is_ad": True,
+                "advertiser_name": ad.get("advertiser_name"),
+            })
+    except Exception as e:
+        logger.warning("Fase 3 ad_campaigns playlist injection failed for %s: %s", screen_id, e)
 
     if include_widgets:
         widgets = await db.widgets.find({"screen_id": screen_id, "enabled": True}).to_list(50)
@@ -557,17 +632,23 @@ def hash_password(password: str) -> str:
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
 
-def create_token(user_id: str, role: str) -> str:
+def create_token(user_id: str, role: str, ver: int = 0) -> str:
+    """Legacy v1 token. Includes 'ver' so SEC-002 session_epoch check works for existing users."""
     payload = {
-        "sub": user_id,
+        "sub":  user_id,
         "role": role,
-        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+        "ver":  ver,   # must equal user.session_epoch at login time
+        "exp":  datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
     """Legacy decoder that ALSO accepts Auth v2 tokens (aud/iss/typ) for compat.
-    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss)."""
+    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss).
+    
+    SEC-002 fix: Legacy tokens now also validate session_epoch to honour revocation
+    (password change, logout, role change all bump epoch → old tokens rejected).
+    """
     if credentials is None or credentials.scheme.lower() != "bearer":
         raise HTTPException(
             status_code=401,
@@ -576,6 +657,7 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         )
     try:
         token = credentials.credentials
+        is_v2_token = False
         try:
             # v2 tokens carry aud/iss and must be verified — do that first.
             payload = jwt.decode(
@@ -583,6 +665,7 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
                 audience=os.environ.get("JWT_AUDIENCE", "mediadview-frontend"),
                 issuer=os.environ.get("JWT_ISSUER", "mediadview-api"),
             )
+            is_v2_token = True
         except jwt.InvalidTokenError:
             # v1 legacy tokens: no aud/iss claims → decode without verification of those.
             payload = jwt.decode(
@@ -595,6 +678,16 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
             raise HTTPException(status_code=401, detail="User not found", headers={"WWW-Authenticate": "Bearer"})
         if not user.get("active", True):
             raise HTTPException(status_code=401, detail="Account deactivated", headers={"WWW-Authenticate": "Bearer"})
+        # SEC-002: enforce session epoch on LEGACY tokens so that password-change /
+        # logout / role revocation invalidates all outstanding legacy access tokens.
+        # v2 tokens already carry 'ver' and are validated inside auth_v2 decoder.
+        if not is_v2_token:
+            token_ver = payload.get("ver", 0)
+            db_epoch  = user.get("session_epoch", 0)
+            if token_ver < db_epoch:
+                raise HTTPException(status_code=401,
+                                    detail="Session revoked — please login again",
+                                    headers={"WWW-Authenticate": "Bearer"})
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
@@ -602,12 +695,18 @@ async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] =
         raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
 
 async def require_admin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") not in ("admin", "superadmin"):
+    """RBAC-aware gate: accepts SUPER_ADMIN, MEDIAVIEW_ADMIN and SUPPORT roles.
+    Legacy role strings ('admin', 'superadmin') are automatically mapped via ROLE_MIGRATION_MAP."""
+    role = get_effective_role(current_user)
+    if role not in (Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT):
         raise HTTPException(status_code=403, detail="Admin access required")
     return current_user
 
 async def require_superadmin(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") != "superadmin":
+    """RBAC-aware gate: only SUPER_ADMIN passes.
+    Legacy role string 'superadmin' is mapped automatically."""
+    role = get_effective_role(current_user)
+    if role != Role.SUPER_ADMIN:
         raise HTTPException(status_code=403, detail="Super Admin access required")
     return current_user
 
@@ -645,7 +744,11 @@ async def root():
 
 @api_router.get("/health")
 async def health():
-    return {"status": "healthy", "service": "MediaView API"}
+    # NOTE: This route is superseded by health.py build_health_router() which provides
+    # the full liveness + readiness implementation. This simple route is kept as a fallback
+    # for code paths that register api_router before health.py is loaded.
+    # The full response (with ok, uptime, etc.) is served by /api/livez.
+    return {"status": "healthy", "service": "MediaView API", "ok": True}
 
 # ============ ROUTES: AUTH ============
 
@@ -663,11 +766,20 @@ async def register(request: Request, response: Response, req: RegisterRequest):
     user = {
         "id": gen_id(), "name": req.name, "email": req.email.lower(),
         "password_hash": hash_password(req.password), "role": "customer",
+        # ── FASE 1: new RBAC role field ────────────────────────────────────
+        "rbac_role": Role.SELF_SERVICE_OWNER,
         "company_name": req.company_name, "phone": None,
         "language": "en", "active": True, "session_epoch": 0,
         "created_at": datetime.utcnow()
     }
     await db.users.insert_one(user)
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="user.created",
+        user_id=user["id"], user_email=user["email"],
+        resource_type="user", resource_id=user["id"],
+        details={"name": user["name"], "role": user.get("rbac_role", user["role"])},
+    )
     token = create_token(user["id"], user["role"])
     return {
         "access_token": token, "token_type": "bearer",
@@ -702,11 +814,13 @@ async def login(request: Request, response: Response, req: LoginRequest):
     await record_attempt(db, email, ip, success=True)
     try: await audit(db, user_id=user["id"], action="login_success_legacy", request=request)
     except Exception: pass
-    token = create_token(user["id"], user["role"])
+    token = create_token(user["id"], user["role"], ver=user.get("session_epoch", 0))
     return {
         "access_token": token, "token_type": "bearer",
         "user": {"id": user["id"], "name": user["name"], "email": user["email"],
-                 "role": user["role"], "company_name": user.get("company_name"),
+                 "role": user["role"], "rbac_role": user.get("rbac_role"),
+                 "organization_id": user.get("organization_id"),
+                 "company_name": user.get("company_name"),
                  "language": user.get("language", "en")}
     }
 
@@ -715,6 +829,8 @@ async def get_me(current_user: dict = Depends(get_current_user)):
     return {
         "id": current_user["id"], "name": current_user["name"],
         "email": current_user["email"], "role": current_user["role"],
+        "rbac_role": current_user.get("rbac_role"),
+        "organization_id": current_user.get("organization_id"),
         "company_name": current_user.get("company_name"),
         "phone": current_user.get("phone"),
         "language": current_user.get("language", "en"),
@@ -910,6 +1026,8 @@ async def update_screen_advertising(screen_id: str, payload: ScreenAdvertisingUp
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────────
+    assert_can_manage_screen(admin, screen)
     current = screen.get("advertising") or {}
     if payload.price_per_ad_per_month is not None:
         if payload.price_per_ad_per_month < 0:
@@ -1191,11 +1309,35 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
     """Legacy small-file upload. Accepts base64 JSON; stores in R2 if configured,
     otherwise writes to legacy disk + base64 (backwards-compat). Big files should
     use /media/presign instead."""
+    # ── Fase 4: MANAGED_VIEWER is strictly read-only — no uploads ────────────
+    if get_effective_role(current_user) == Role.MANAGED_VIEWER:
+        raise HTTPException(
+            status_code=403,
+            detail="Managed Viewer accounts cannot upload media. Contact your MediaView administrator."
+        )
     try:
         file_bytes = base64.b64decode(data.data)
     except Exception:
         raise HTTPException(400, "Invalid base64 data")
     size = len(file_bytes)
+
+    # ── Fase 6: SEC — Filename sanitization (path traversal + dangerous names) ─
+    raw_fn = data.filename or ""
+    # Strip any directory components — only the basename is safe
+    safe_fn = os.path.basename(raw_fn.replace("\\", "/").replace("..", ""))
+    if not safe_fn or safe_fn.startswith(".") or ".." in raw_fn:
+        raise HTTPException(400, "Invalid filename — path traversal detected")
+    # Reject executables and script extensions
+    _BLOCKED_EXTS = {
+        ".exe", ".dll", ".bat", ".sh", ".php", ".py", ".rb", ".pl",
+        ".js", ".ts", ".bin", ".com", ".msi", ".dmg", ".apk", ".deb",
+        ".rpm", ".jar", ".war", ".ear", ".ps1", ".vbs", ".cmd",
+    }
+    fn_ext = os.path.splitext(safe_fn)[1].lower()
+    if fn_ext in _BLOCKED_EXTS:
+        raise HTTPException(415, f"File type {fn_ext!r} not allowed")
+    # Assign the sanitized filename back
+    data.filename = safe_fn
 
     # P0-A3: MAGIC-NUMBER validation — verify the actual bytes match the
     # declared content_type. Rejects MIME-spoofed uploads (e.g. .exe
@@ -1228,19 +1370,25 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
     }
 
     if R2_ENABLED:
-        # ── Modern path: put in R2, keep only metadata in Mongo ──────
-        key = build_key(tenant_id=tenant, client_id=current_user["id"],
-                        campaign_id="unassigned", ext=ext)
+        # ── Modern path: put in R2 via StorageService ─────────────────────
+        from storage_service import get_storage_service as _get_ss
+        ss = _get_ss()
+        folder = f"{tenant}/{current_user['id']}/campaign/unassigned"
         try:
-            info = await r2_put_bytes(key, file_bytes, data.content_type)
+            result = await ss.upload(
+                data=file_bytes,
+                filename=data.filename,
+                content_type=data.content_type,
+                folder=folder,
+            )
         except Exception as e:
-            logger.exception("R2 upload failed: %s", e)
+            logger.exception("StorageService upload failed: %s", e)
             raise HTTPException(502, "Media storage temporarily unavailable")
         media_doc.update({
             "storage":    "r2",
-            "r2_key":     key,
-            "r2_etag":    info.get("etag"),
-            "public_url": public_url_for_key(key),
+            "r2_key":     result.key,
+            "r2_etag":    result.etag,
+            "public_url": result.url,
             "status":     "ready",
         })
     else:
@@ -1416,6 +1564,11 @@ async def rotate_media(media_id: str, rotation: int = 0, current_user: dict = De
     media = await db.media.find_one({"id": media_id})
     if not media:
         raise HTTPException(status_code=404, detail="Media not found")
+    # ── FASE 1: ownership check ─────────────────────────────────────────────
+    # Platform admins can rotate any media; other users can only rotate their own.
+    if not has_permission(current_user, "admin.all_screens"):
+        if media.get("user_id") != current_user.get("id"):
+            raise HTTPException(status_code=403, detail="You do not own this media item")
     await db.media.update_one({"id": media_id}, {"$set": {"rotation": rotation}})
 
     # Find all campaigns using this media and force restart their devices
@@ -1651,8 +1804,36 @@ def gen_pairing_secret() -> str:
     import secrets
     return secrets.token_urlsafe(18)
 
+def _gen_public_screen_code() -> str:
+    """Genera un código para pantallas PUBLIC_ADVERTISING: MV-ADV-XXXXXX"""
+    import secrets as _s
+    chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+    part = ''.join(_s.choice(chars) for _ in range(6))
+    return f"MV-ADV-{part}"
+
+async def _get_unique_public_screen_code() -> str:
+    """Genera un public_screen_code único."""
+    for _ in range(100):
+        code = _gen_public_screen_code()
+        if not await db.screens.find_one({"public_screen_code": code}):
+            return code
+    return f"MV-ADV-{uuid.uuid4().hex[:6].upper()}"
+
 @api_router.post("/admin/screens")
 async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):
+    # ── FASE 1: Validate operation_type and permissions ──────────────────
+    op_type = (data.operation_type or OperationType.SELF_SERVICE).upper()
+    if op_type not in ALL_OPERATION_TYPES:
+        raise HTTPException(400, f"Invalid operation_type. Must be one of: {ALL_OPERATION_TYPES}")
+
+    # Enforce permissions: only SUPER_ADMIN/MEDIAVIEW_ADMIN can create PUBLIC or MANAGED
+    if op_type == OperationType.PUBLIC_ADVERTISING:
+        assert_permission(admin, "screen.create.public")
+    elif op_type == OperationType.MEDIAVIEW_MANAGED:
+        assert_permission(admin, "screen.create.managed")
+    else:
+        assert_permission(admin, "screen.create.self_service")
+
     # Auto-generate permanent location code
     location_code = await get_unique_location_code()
     # Generate the device pairing credentials (ColorlightCloud style)
@@ -1661,6 +1842,21 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
     while await db.screens.find_one({"pairing_code": pairing_code}):
         pairing_code = gen_pairing_code()
     pairing_secret = gen_pairing_secret()
+
+    # ── FASE 3: Public Advertising fields ────────────────────────────────
+    public_screen_code = None
+    advertising_pricing = {}
+    max_ad_slots = data.max_ad_slots or 4
+
+    if op_type == OperationType.PUBLIC_ADVERTISING:
+        public_screen_code = await _get_unique_public_screen_code()
+        if data.price_per_week is not None:
+            advertising_pricing["price_per_week"] = float(data.price_per_week)
+        if data.price_per_month is not None:
+            advertising_pricing["price_per_month"] = float(data.price_per_month)
+        if data.price_per_year is not None:
+            advertising_pricing["price_per_year"] = float(data.price_per_year)
+
     screen = {
         "id": gen_id(), "name": data.name, "description": data.description,
         "location": data.location.dict(), "pricing": data.pricing.dict(),
@@ -1669,9 +1865,25 @@ async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_
         "pairing_code": pairing_code, "pairing_secret": pairing_secret,
         "paired_device_id": None, "paired_at": None,
         "active": True,
+        # ── FASE 1 fields ─────────────────────────────────────────────────
+        "operation_type": op_type,
+        "organization_id": data.organization_id or None,
+        "created_by": admin.get("id") or admin.get("_id"),
+        # ── FASE 3 fields ─────────────────────────────────────────────────
+        "public_screen_code": public_screen_code,
+        "max_ad_slots": max_ad_slots,
+        "advertising_pricing": advertising_pricing,
         "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
     }
     await db.screens.insert_one(screen)
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="screen.created",
+        user_id=admin.get("id"), user_email=admin.get("email"),
+        resource_type="screen", resource_id=screen["id"],
+        org_id=screen.get("organization_id"),
+        details={"name": screen["name"], "operation_type": op_type},
+    )
     return serialize_doc(screen)
 
 # ============ DEVICE PAIRING (ColorlightCloud-style flow) ============
@@ -1729,6 +1941,13 @@ async def device_pair(data: DevicePair):
         {"$set": {"paired_device_id": device_id, "paired_at": datetime.utcnow()}}
     )
     logger.info(f"✓ Device paired: code={code} → screen={screen['id'][:8]} ({screen.get('name')})")
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="device.paired",
+        resource_type="screen", resource_id=screen["id"],
+        org_id=screen.get("organization_id"),
+        details={"device_id": device_id, "screen_name": screen.get("name"), "code": code},
+    )
     return {
         "ok": True,
         "device_id": device_id,
@@ -1802,9 +2021,18 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
     screen = await db.screens.find_one({"id": screen_id})
     if not screen:
         raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────
+    assert_can_manage_screen(admin, screen)
+
     update = {k: v for k, v in data.dict(exclude_none=True).items()}
     # location_code is permanent - cannot be changed
     update.pop("location_code", None)
+    # If operation_type is being changed, validate it
+    if "operation_type" in update:
+        new_op = update["operation_type"].upper()
+        if new_op not in ALL_OPERATION_TYPES:
+            raise HTTPException(400, f"Invalid operation_type. Must be one of: {ALL_OPERATION_TYPES}")
+        update["operation_type"] = new_op
     update["updated_at"] = datetime.utcnow()
     await db.screens.update_one({"id": screen_id}, {"$set": update})
     updated = await db.screens.find_one({"id": screen_id})
@@ -1812,6 +2040,11 @@ async def admin_update_screen(screen_id: str, data: ScreenUpdate, admin: dict = 
 
 @api_router.delete("/admin/screens/{screen_id}")
 async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict = Depends(require_admin)):
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    # ── FASE 1: tenant isolation + permission check ──────────────────────────
+    assert_can_manage_screen(admin, screen)
     active = await db.campaigns.count_documents(
         {"screen_id": screen_id, "status": {"$in": ["pending", "approved", "active"]}}
     )
@@ -1845,6 +2078,217 @@ async def admin_delete_screen(screen_id: str, cascade: bool = False, admin: dict
         raise HTTPException(status_code=404, detail="Screen not found")
     return {"message": "Screen deleted", "cascaded_campaigns": active if cascade else 0, "devices_unpaired": len(orphans)}
 
+# ============ FASE 1: RBAC INFO + MIGRATION ENDPOINTS ============
+
+@api_router.get("/admin/rbac/info")
+async def rbac_info(admin: dict = Depends(require_admin)):
+    """Return the current user's effective RBAC role and all permissions they hold."""
+    from rbac import PERMISSIONS
+    role = get_effective_role(admin)
+    granted = [p for p, roles in PERMISSIONS.items() if role in roles]
+    return {
+        "legacy_role": admin.get("role"),
+        "rbac_role": role,
+        "permissions": sorted(granted),
+    }
+
+@api_router.post("/admin/migrate-operation-types")
+async def migrate_operation_types(admin: dict = Depends(require_admin)):
+    """
+    One-time migration: set operation_type on screens that don't have it yet.
+    Migration rules:
+      - advertising.is_public == True  → PUBLIC_ADVERTISING
+      - everything else                → SELF_SERVICE  (safe default)
+    Super Admin can change individual screens afterward via PUT /admin/screens/{id}.
+    """
+    assert_permission(admin, "admin.all_screens")
+    screens = await db.screens.find({"operation_type": {"$exists": False}}).to_list(10000)
+    updated = 0
+    for s in screens:
+        is_pub = s.get("advertising", {}).get("is_public", False)
+        op_type = OperationType.PUBLIC_ADVERTISING if is_pub else OperationType.SELF_SERVICE
+        await db.screens.update_one(
+            {"id": s["id"]},
+            {"$set": {"operation_type": op_type, "updated_at": datetime.utcnow()}}
+        )
+        updated += 1
+    return {
+        "migrated": updated,
+        "message": f"Set operation_type on {updated} screens. Review SELF_SERVICE screens that may actually be MEDIAVIEW_MANAGED."
+    }
+
+@api_router.get("/admin/rbac/screens-by-type")
+async def screens_by_operation_type(admin: dict = Depends(require_admin)):
+    """Summary of screens grouped by operation_type (with effective type inference)."""
+    assert_permission(admin, "admin.all_screens")
+    screens = await db.screens.find({}, {"id": 1, "name": 1, "operation_type": 1, "advertising": 1, "status": 1}).to_list(10000)
+    groups: dict = {t: [] for t in [OperationType.SELF_SERVICE, OperationType.PUBLIC_ADVERTISING, OperationType.MEDIAVIEW_MANAGED]}
+    for s in screens:
+        t = effective_operation_type(s)
+        groups[t].append({"id": s.get("id"), "name": s.get("name"), "status": s.get("status"), "has_operation_type_field": bool(s.get("operation_type"))})
+    return {t: {"count": len(v), "screens": v} for t, v in groups.items()}
+
+
+@api_router.post("/admin/rbac/seed-test-users")
+async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
+    """Dev-only: seed one user per RBAC role (plus two SELF_SERVICE_OWNER users in
+    different organisations) and a matching test screen per org.
+    Idempotent — existing accounts are skipped.
+    Returns all created / existing credentials so the test suite can log in."""
+    if IS_PROD:
+        raise HTTPException(status_code=403, detail="Endpoint not available in production")
+
+    ORG_A = "org_rbac_test_a"
+    ORG_B = "org_rbac_test_b"
+    TEST_PW = "RbacTest#2026"
+
+    test_users = [
+        {
+            "email": "rbac.mwadmin@test.com",
+            "name": "RBAC MediaView Admin",
+            "role": "admin",
+            "rbac_role": Role.MEDIAVIEW_ADMIN,
+            "organization_id": None,
+        },
+        {
+            "email": "rbac.ssowner.orga@test.com",
+            "name": "RBAC Self-Service Owner Org A",
+            "role": "customer",
+            "rbac_role": Role.SELF_SERVICE_OWNER,
+            "organization_id": ORG_A,
+        },
+        {
+            "email": "rbac.ssowner.orgb@test.com",
+            "name": "RBAC Self-Service Owner Org B",
+            "role": "customer",
+            "rbac_role": Role.SELF_SERVICE_OWNER,
+            "organization_id": ORG_B,
+        },
+        {
+            "email": "rbac.advertiser@test.com",
+            "name": "RBAC Advertiser",
+            "role": "advertiser",
+            "rbac_role": Role.ADVERTISER,
+            "organization_id": None,
+        },
+        {
+            "email": "rbac.viewer@test.com",
+            "name": "RBAC Managed Viewer",
+            "role": "viewer",
+            "rbac_role": Role.MANAGED_VIEWER,
+            # ── Fase 4: assign to the demo managed org so GET /managed/* works ─
+            "organization_id": "org_managed_demo_v4",
+        },
+    ]
+
+    created_users: list[str] = []
+    user_ids: dict[str, str] = {}
+
+    for u in test_users:
+        existing = await db.users.find_one({"email": u["email"]})
+        if existing:
+            user_ids[u["email"]] = existing["id"]
+        else:
+            uid = gen_id()
+            doc = {
+                "id": uid, "name": u["name"], "email": u["email"],
+                "password_hash": hash_password(TEST_PW),
+                "role": u["role"], "rbac_role": u["rbac_role"],
+                "organization_id": u.get("organization_id"),
+                "company_name": f"Test — {u['rbac_role']}",
+                "phone": None, "language": "en",
+                "active": True, "session_epoch": 0,
+                "created_at": datetime.utcnow(),
+            }
+            await db.users.insert_one(doc)
+            user_ids[u["email"]] = uid
+            created_users.append(u["email"])
+
+    # ── Create test screens (one per org, one PUBLIC, one MANAGED) ──────────
+    created_screens: dict[str, str] = {}
+
+    async def _ensure_screen(key: str, name: str, op_type: str, org: Optional[str]) -> str:
+        existing = await db.screens.find_one({"name": name})
+        if existing:
+            return existing["id"]
+        code = gen_pairing_code()
+        while await db.screens.find_one({"pairing_code": code}):
+            code = gen_pairing_code()
+        loc_code = await get_unique_location_code()
+        screen = {
+            "id": gen_id(), "name": name,
+            "description": f"Auto-created test screen for RBAC Acceptance Tests — {op_type}",
+            "location": {"city": "Test City", "address": "123 Test St", "state": "TC", "country": "US", "lat": 0.0, "lng": 0.0},
+            "pricing": {"per_hour": 10.0, "per_day": 80.0, "per_slot": 1.0, "currency": "USD"},
+            "specs": {"size": "32in", "type": "LCD", "resolution": "1920x1080", "orientation": "landscape"},
+            "preview_image": None, "status": "active", "location_code": loc_code,
+            "pairing_code": code, "pairing_secret": gen_pairing_secret(),
+            "paired_device_id": None, "paired_at": None, "active": True,
+            "operation_type": op_type,
+            "organization_id": org,
+            "created_by": sa.get("id"),
+            "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+        }
+        await db.screens.insert_one(screen)
+        created_screens[key] = screen["id"]
+        return screen["id"]
+
+    screen_org_a = await _ensure_screen("screen_org_a", "RBAC Test Screen — Org A (SELF_SERVICE)", OperationType.SELF_SERVICE, ORG_A)
+    screen_org_b = await _ensure_screen("screen_org_b", "RBAC Test Screen — Org B (SELF_SERVICE)", OperationType.SELF_SERVICE, ORG_B)
+    screen_public = await _ensure_screen("screen_public", "RBAC Test Screen — PUBLIC_ADVERTISING", OperationType.PUBLIC_ADVERTISING, None)
+    screen_managed = await _ensure_screen("screen_managed", "RBAC Test Screen — MEDIAVIEW_MANAGED", OperationType.MEDIAVIEW_MANAGED, None)
+
+    # ── Ensure test organizations exist in db.organizations ──────────────
+    # IMPORTANT: must run BEFORE the return so create_organization's
+    # owner_user_id check finds the org doc and returns 409 (not 200).
+    created_orgs: list[str] = []
+    for org_id, org_name, owner_email in [
+        (ORG_A, "Test Org A", "rbac.ssowner.orga@test.com"),
+        (ORG_B, "Test Org B", "rbac.ssowner.orgb@test.com"),
+    ]:
+        owner_uid = user_ids.get(owner_email)
+        if owner_uid and not await db.organizations.find_one({"id": org_id}):
+            await db.organizations.insert_one({
+                "id": org_id,
+                "name": org_name,
+                "slug": org_id.replace("_", "-"),
+                "owner_user_id": owner_uid,
+                "plan": "free",
+                "status": "active",
+                "billing_email": owner_email,
+                "settings": {},
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            })
+            created_orgs.append(org_id)
+        elif owner_uid:
+            # Idempotent: ensure owner_user_id is correct on existing org
+            await db.organizations.update_one(
+                {"id": org_id},
+                {"$set": {"owner_user_id": owner_uid}},
+            )
+
+    return {
+        "created_users": created_users,
+        "created_orgs": created_orgs,
+        "created_screens": created_screens,
+        "password": TEST_PW,
+        "credentials": {
+            "super_admin":              {"email": "superadmin@mediadview.com",  "password": "SuperAdmin#2026",  "rbac_role": "SUPER_ADMIN"},
+            "mediaview_admin":          {"email": "rbac.mwadmin@test.com",      "password": TEST_PW,            "rbac_role": "MEDIAVIEW_ADMIN"},
+            "self_service_owner_org_a": {"email": "rbac.ssowner.orga@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_A},
+            "self_service_owner_org_b": {"email": "rbac.ssowner.orgb@test.com", "password": TEST_PW,            "rbac_role": "SELF_SERVICE_OWNER", "org": ORG_B},
+            "advertiser":               {"email": "rbac.advertiser@test.com",   "password": TEST_PW,            "rbac_role": "ADVERTISER"},
+            "managed_viewer":           {"email": "rbac.viewer@test.com",       "password": TEST_PW,            "rbac_role": "MANAGED_VIEWER"},
+        },
+        "test_screens": {
+            "screen_org_a":   {"id": screen_org_a,  "org": ORG_A, "type": "SELF_SERVICE"},
+            "screen_org_b":   {"id": screen_org_b,  "org": ORG_B, "type": "SELF_SERVICE"},
+            "screen_public":  {"id": screen_public, "org": None,  "type": "PUBLIC_ADVERTISING"},
+            "screen_managed": {"id": screen_managed,"org": None,  "type": "MEDIAVIEW_MANAGED"},
+        },
+    }
+
 @api_router.get("/admin/analytics")
 async def admin_analytics(admin: dict = Depends(require_admin)):
     total_users = await db.users.count_documents({"role": "customer"})
@@ -1870,6 +2314,104 @@ async def admin_analytics(admin: dict = Depends(require_admin)):
         "total_revenue": round(total_revenue, 2), "monthly_revenue": monthly,
         "recent_campaigns": serialize_doc(recent)
     }
+
+# ── FASE 1: Self-Service customer can create their own screens ─────────────
+@api_router.post("/screens/self-service")
+async def customer_create_screen(data: ScreenCreate, current_user: dict = Depends(get_current_user)):
+    """
+    Allows a SELF_SERVICE_OWNER to add a screen within their own organization.
+    Only SELF_SERVICE type is permitted here — no PUBLIC or MANAGED.
+    """
+    assert_permission(current_user, "screen.create.self_service")
+    # Force SELF_SERVICE — customers cannot create PUBLIC or MANAGED
+    op_type = OperationType.SELF_SERVICE
+    user_org = current_user.get("organization_id")
+    pairing_code = gen_pairing_code()
+    while await db.screens.find_one({"pairing_code": pairing_code}):
+        pairing_code = gen_pairing_code()
+    location_code = await get_unique_location_code()
+    screen = {
+        "id": gen_id(), "name": data.name, "description": data.description,
+        "location": data.location.dict(), "pricing": data.pricing.dict(),
+        "specs": data.specs.dict(), "preview_image": data.preview_image,
+        "status": "active", "location_code": location_code,
+        "pairing_code": pairing_code, "pairing_secret": gen_pairing_secret(),
+        "paired_device_id": None, "paired_at": None,
+        "active": True,
+        "operation_type": op_type,
+        # ── FASE 1: always use the user's own org — ignore any organization_id
+        # that the client may have sent in the request body.
+        "organization_id": user_org,
+        "created_by": current_user.get("id"),
+        "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+    }
+    await db.screens.insert_one(screen)
+    return serialize_doc(screen)
+
+
+# ── FASE 1: Self-Service customer can update their own org's screens ─────────
+class SelfServiceScreenUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    specs: Optional[dict] = None
+
+@api_router.put("/screens/self-service/{screen_id}")
+async def customer_update_screen(
+    screen_id: str,
+    data: SelfServiceScreenUpdate,
+    current_user: dict = Depends(get_current_user),
+):
+    """
+    Allows SELF_SERVICE_OWNER / SELF_SERVICE_MANAGER to update a screen
+    that belongs to their own organization.
+
+    Tenant isolation is enforced server-side:
+      - organization_id is validated against the authenticated user's org.
+      - Cross-org modification raises HTTP 403.
+      - Only SELF_SERVICE screens can be modified via this endpoint.
+    """
+    assert_permission(current_user, "screen.configure")
+    screen = await db.screens.find_one({"id": screen_id})
+    if not screen:
+        raise HTTPException(status_code=404, detail="Screen not found")
+    # ── Tenant isolation: user can only touch screens in their own org ───────
+    assert_tenant(current_user, screen.get("organization_id"))
+    # ── Operation-type guard: cannot modify PUBLIC or MANAGED screens here ───
+    if effective_operation_type(screen) != OperationType.SELF_SERVICE:
+        raise HTTPException(
+            status_code=403,
+            detail="This screen is managed by MediaView and cannot be modified via self-service."
+        )
+    update = {k: v for k, v in data.dict(exclude_none=True).items()}
+    if not update:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    update["updated_at"] = datetime.utcnow()
+    await db.screens.update_one({"id": screen_id}, {"$set": update})
+    updated = await db.screens.find_one({"id": screen_id})
+    return serialize_doc(updated)
+
+
+# ── FASE 1: Self-Service customer can list their own org's screens ────────────
+@api_router.get("/screens/self-service/mine")
+async def customer_list_my_screens(current_user: dict = Depends(get_current_user)):
+    """
+    Returns only the SELF_SERVICE screens that belong to the authenticated user's
+    organization. Platform admins see ALL screens.
+    """
+    if _is_platform_admin(current_user):
+        screens = await db.screens.find({"operation_type": OperationType.SELF_SERVICE}).to_list(500)
+    else:
+        assert_permission(current_user, "screen.view")
+        user_org = current_user.get("organization_id")
+        query: dict = {"operation_type": OperationType.SELF_SERVICE}
+        if user_org:
+            query["organization_id"] = user_org
+        else:
+            # No org assigned yet — return only screens created by this user
+            query["created_by"] = current_user.get("id")
+        screens = await db.screens.find(query).to_list(500)
+    return serialize_doc(screens)
 
 @api_router.get("/admin/payments")
 async def admin_list_payments(admin: dict = Depends(require_admin)):
@@ -3025,6 +3567,56 @@ async def toggle_widget(widget_id: str, admin: dict = Depends(require_admin)):
         await db.devices.update_many({"screen_id": w["screen_id"], "status": "active"}, {"$set": {"pending_command": "reload"}})
     return {"message": f"Widget {'enabled' if new_state else 'disabled'}"}
 
+# ══════════════════════════════════════════════════════════════════════════════
+# SEC-001 / SEC-003 — HTML / URL / CSS / JS rendering safety helpers
+# These functions MUST be used everywhere user-controlled data is interpolated
+# into HTML, CSS, JS-string or URL attribute contexts.
+# ══════════════════════════════════════════════════════════════════════════════
+
+def _esc(v) -> str:
+    """HTML-escape user text for text-node and HTML attribute context."""
+    return html_lib.escape(str(v or ""), quote=True)
+
+def _safe_src(v: str, *, allow_data: bool = True) -> str:
+    """Allow only https:, http:, and optionally data:image/ or data:video/ in
+    src= attributes. Everything else (javascript:, vbscript:, etc.) → '' (inert)."""
+    s = str(v or "").strip()
+    lo = s.lower()
+    if lo.startswith("https://") or lo.startswith("http://"):
+        return html_lib.escape(s, quote=True)
+    if allow_data and (lo.startswith("data:image/") or lo.startswith("data:video/")):
+        return html_lib.escape(s, quote=True)
+    return ""   # rejected
+
+def _safe_iframe(v: str) -> str:
+    """Only https:// or http:// allowed for iframe src — never javascript:, data:."""
+    s = str(v or "").strip()
+    if s.lower().startswith("https://") or s.lower().startswith("http://"):
+        return html_lib.escape(s, quote=True)
+    return "about:blank"
+
+def _safe_css_color(v: str, default: str = "#000000") -> str:
+    """Accept only CSS hex colours (#RGB, #RRGGBB, #RRGGBBAA). Rejects anything else."""
+    s = str(v or "").strip()
+    if re.fullmatch(r"#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{2})?)?", s):
+        return s
+    return default
+
+def _safe_js_str(v) -> str:
+    """Return a JSON-encoded string literal safe for JS string context (includes quotes).
+    Use when the value goes directly into a <script> block as a quoted string."""
+    return json.dumps(str(v or ""))
+
+def _safe_yt_id(v: str) -> str:
+    """Validate a YouTube video ID (alphanumeric, underscore, hyphen; 1-20 chars)."""
+    s = str(v or "")
+    return s if re.fullmatch(r"[a-zA-Z0-9_\-]{1,20}", s) else ""
+
+# ── In-memory weather cache (SEC-003: API key never exposed to clients) ───────
+_weather_cache: dict = {}   # widget_id -> {"data": {...}, "ts": float}
+_WEATHER_CACHE_TTL_S = 600  # 10 minutes
+
+
 @api_router.get("/widgets/{widget_id}/render", response_class=HTMLResponse)
 async def render_widget(widget_id: str):
     """Render widget as full HTML page for player display."""
@@ -3036,64 +3628,93 @@ async def render_widget(widget_id: str):
     base_style = "body{margin:0;font-family:'Inter',Arial,sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}"
 
     if wt == "weather":
-        city = cfg.get("city", "New York")
-        api_key = cfg.get("api_key", "demo")
-        html = f"""<html><head><style>{base_style}.w{{text-align:center}}.temp{{font-size:120px;font-weight:900}}.city{{font-size:28px;color:#94a3b8}}.desc{{font-size:22px;color:#22d3ee;margin-top:8px}}</style></head><body><div class="w"><div class="city">{city}</div><div class="temp" id="temp">--°</div><div class="desc" id="desc">Loading...</div></div><script>
-        fetch('https://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial')
-        .then(r=>r.json()).then(d=>{{document.getElementById('temp').textContent=Math.round(d.main.temp)+'°F';document.getElementById('desc').textContent=d.weather[0].description}})
-        .catch(()=>{{document.getElementById('desc').textContent='{city}'}});
+        # SEC-003 FIX: city is HTML-escaped; API key NEVER emitted to client.
+        # The widget fetches weather from our server-side proxy endpoint.
+        city_raw = cfg.get("city", "New York")
+        city_escaped = _esc(city_raw)
+        proxy_url = f"/api/widgets/{html_lib.escape(widget_id, quote=True)}/weather"
+        html = f"""<html><head><style>{base_style}.w{{text-align:center}}.temp{{font-size:120px;font-weight:900}}.city{{font-size:28px;color:#94a3b8}}.desc{{font-size:22px;color:#22d3ee;margin-top:8px}}</style></head><body><div class="w"><div class="city">{city_escaped}</div><div class="temp" id="temp">--°</div><div class="desc" id="desc">Loading...</div></div><script>
+        fetch({_safe_js_str(proxy_url)})
+        .then(function(r){{return r.json()}})
+        .then(function(d){{if(d.temp!==undefined){{document.getElementById('temp').textContent=Math.round(d.temp)+'°F';document.getElementById('desc').textContent=d.desc||''}}else{{document.getElementById('desc').textContent='Unavailable'}}}})
+        .catch(function(){{document.getElementById('desc').textContent={_safe_js_str(city_raw)}}});
         </script></body></html>"""
 
     elif wt == "clock":
-        fmt = cfg.get("format", "12h")
-        bg = cfg.get("bg_color", "#000000")
+        # SEC-003 FIX: fmt allowed only "12h"/"24h"; bg validated as CSS colour.
+        fmt_raw = cfg.get("format", "12h")
+        fmt = "12h" if fmt_raw not in ("12h", "24h") else fmt_raw
+        bg = _safe_css_color(cfg.get("bg_color", "#000000"), default="#000000")
         html = f"""<html><head><style>{base_style}body{{background:{bg}}}.c{{text-align:center}}.time{{font-size:140px;font-weight:900;letter-spacing:-4px}}.date{{font-size:32px;color:#64748b;margin-top:8px}}</style></head><body><div class="c"><div class="time" id="t"></div><div class="date" id="d"></div></div><script>
         function u(){{var n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,'0'),ap='';
-        if('{fmt}'==='12h'){{ap=h>=12?' PM':' AM';h=h%12||12}}
+        if({_safe_js_str(fmt)}==='12h'){{ap=h>=12?' PM':' AM';h=h%12||12}}
         document.getElementById('t').textContent=h+':'+m+ap;
         document.getElementById('d').textContent=n.toLocaleDateString('en-US',{{weekday:'long',month:'long',day:'numeric',year:'numeric'}})}}
         u();setInterval(u,1000);
         </script></body></html>"""
 
     elif wt == "ticker":
-        text = cfg.get("text", "Breaking News: Welcome to MediAd View Digital Signage Platform")
-        speed = cfg.get("speed", 80)
-        bg = cfg.get("bg_color", "#111827")
+        # SEC-003 FIX: text HTML-escaped; speed coerced to int; bg validated.
+        text = _esc(cfg.get("text", "Welcome to MediAd View Digital Signage Platform"))
+        try:
+            speed = max(10, min(300, int(cfg.get("speed", 80))))
+        except (ValueError, TypeError):
+            speed = 80
+        bg = _safe_css_color(cfg.get("bg_color", "#111827"), default="#111827")
         html = f"""<html><head><style>body{{margin:0;background:{bg};display:flex;align-items:center;height:100vh;overflow:hidden}}.t{{white-space:nowrap;font-size:48px;font-weight:700;color:#22d3ee;font-family:Arial,sans-serif;animation:scroll {speed}s linear infinite}}@keyframes scroll{{0%{{transform:translateX(100vw)}}100%{{transform:translateX(-100%)}}}}</style></head><body><div class="t">{text}</div></body></html>"""
 
     elif wt == "qrcode":
-        url = cfg.get("url", "https://mediadview.com")
-        label = cfg.get("label", "Scan Me")
+        # SEC-003 FIX: label HTML-escaped; url JSON-encoded for JS string context.
+        url_raw = cfg.get("url", "https://mediadview.com")
+        # Only allow https/http for QR code target
+        url_safe_js = _safe_js_str(url_raw if url_raw.lower().startswith(("https://", "http://")) else "https://mediadview.com")
+        label = _esc(cfg.get("label", "Scan Me"))
         html = f"""<html><head><script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script><style>{base_style}.q{{text-align:center}}.label{{font-size:28px;color:#22d3ee;margin-top:20px}}</style></head><body><div class="q"><div id="qr"></div><div class="label">{label}</div></div><script>
-        var q=qrcode(0,'M');q.addData('{url}');q.make();
+        var q=qrcode(0,'M');q.addData({url_safe_js});q.make();
         document.getElementById('qr').innerHTML=q.createSvgTag(8,0);
         document.querySelector('svg').style.width='300px';document.querySelector('svg').style.height='300px';
         </script></body></html>"""
 
     elif wt == "countdown":
-        target = cfg.get("target_date", "2026-12-31T00:00:00")
-        title = cfg.get("title", "Coming Soon")
+        # SEC-003 FIX: title HTML-escaped; target date validated + JSON-encoded for JS.
+        title = _esc(cfg.get("title", "Coming Soon"))
+        target_raw = cfg.get("target_date", "2026-12-31T00:00:00")
+        # Validate ISO date format (YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD)
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2})?", str(target_raw)):
+            target_raw = "2099-12-31T00:00:00"
+        target_js = _safe_js_str(target_raw)
         html = f"""<html><head><style>{base_style}.c{{text-align:center}}.title{{font-size:36px;color:#22d3ee;margin-bottom:30px}}.nums{{display:flex;gap:20px;justify-content:center}}.n{{background:#111827;padding:20px 30px;border-radius:16px;border:1px solid #1e293b}}.n .v{{font-size:72px;font-weight:900}}.n .l{{font-size:14px;color:#64748b}}</style></head><body><div class="c"><div class="title">{title}</div><div class="nums"><div class="n"><div class="v" id="d">0</div><div class="l">Days</div></div><div class="n"><div class="v" id="h">0</div><div class="l">Hours</div></div><div class="n"><div class="v" id="m">0</div><div class="l">Minutes</div></div><div class="n"><div class="v" id="s">0</div><div class="l">Seconds</div></div></div></div><script>
-        function u(){{var t=new Date('{target}')-new Date();if(t<0)t=0;var d=Math.floor(t/86400000),h=Math.floor(t%86400000/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
+        function u(){{var t=new Date({target_js})-new Date();if(t<0)t=0;var d=Math.floor(t/86400000),h=Math.floor(t%86400000/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
         document.getElementById('d').textContent=d;document.getElementById('h').textContent=h;document.getElementById('m').textContent=m;document.getElementById('s').textContent=s}}u();setInterval(u,1000);
         </script></body></html>"""
 
     elif wt == "slides":
-        url = cfg.get("url", "")
+        # SEC-003 FIX: iframe src validated (https/http only).
+        url = _safe_iframe(cfg.get("url", ""))
         html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}" allowfullscreen></iframe></body></html>"""
 
     elif wt == "youtube":
-        video_id = cfg.get("video_id", "")
-        html = f"""<html><head><style>body{{margin:0;background:#000}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="https://www.youtube.com/embed/{video_id}?autoplay=1&mute=1&loop=1&playlist={video_id}&controls=0" allowfullscreen allow="autoplay"></iframe></body></html>"""
+        # SEC-003 FIX: video_id strictly validated (alphanumeric + _ -).
+        video_id = _safe_yt_id(cfg.get("video_id", ""))
+        if video_id:
+            embed_url = f"https://www.youtube.com/embed/{video_id}?autoplay=1&mute=1&loop=1&playlist={video_id}&controls=0"
+            html = f"""<html><head><style>body{{margin:0;background:#000}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{embed_url}" allowfullscreen allow="autoplay"></iframe></body></html>"""
+        else:
+            html = "<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Invalid video ID</body></html>"
 
     elif wt == "webpage":
-        url = cfg.get("url", "https://google.com")
+        # SEC-003 FIX: iframe src validated (https/http only).
+        url = _safe_iframe(cfg.get("url", "https://google.com"))
         html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}"></iframe></body></html>"""
 
     elif wt == "menu":
-        title = cfg.get("title", "Today's Menu")
+        # SEC-003 FIX: title and item fields HTML-escaped.
+        title = _esc(cfg.get("title", "Today's Menu"))
         items = cfg.get("items", [{"name": "Burger", "price": "$12"}, {"name": "Pizza", "price": "$15"}, {"name": "Salad", "price": "$10"}])
-        items_html = "".join([f'<div class="item"><span>{i.get("name","")}</span><span class="dots"></span><span class="p">{i.get("price","")}</span></div>' for i in items])
+        items_html = "".join([
+            f'<div class="item"><span>{_esc(i.get("name",""))}</span><span class="dots"></span><span class="p">{_esc(str(i.get("price","")))}</span></div>'
+            for i in items
+        ])
         html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.m{{width:80%;max-width:600px}}.title{{font-size:48px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:40px}}.item{{display:flex;align-items:baseline;font-size:28px;padding:16px 0;border-bottom:1px solid #1e293b}}.dots{{flex:1;border-bottom:2px dotted #334155;margin:0 12px}}.p{{color:#22d3ee;font-weight:700}}</style></head><body><div class="m"><div class="title">{title}</div>{items_html}</div></body></html>"""
 
     elif wt == "calendar":
@@ -3109,11 +3730,57 @@ async def render_widget(widget_id: str):
         </script></body></html>"""
 
     else:
-        html = f"<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Unknown widget type: {wt}</body></html>"
+        # SEC-003 FIX: widget type HTML-escaped in fallback message.
+        wt_safe = _esc(wt or "unknown")
+        html = f"<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Unknown widget type: {wt_safe}</body></html>"
 
     return HTMLResponse(content=html)
 
-@api_router.get("/app/version")
+
+@api_router.get("/widgets/{widget_id}/weather")
+async def widget_weather_proxy(widget_id: str):
+    """SEC-003 — Server-side weather proxy.
+    The OpenWeatherMap API key is read from the DB config and NEVER sent to clients.
+    Results are cached in-memory for 10 minutes to reduce upstream calls.
+    """
+    import time
+    import httpx as _httpx
+    w = await db.widgets.find_one({"id": widget_id, "widget_type": "weather"})
+    if not w:
+        raise HTTPException(status_code=404, detail="Weather widget not found")
+
+    cfg = w.get("config", {})
+    api_key = cfg.get("api_key", "")
+    city = str(cfg.get("city", "New York"))
+
+    if not api_key:
+        return {"temp": None, "desc": "No API key configured", "city": city}
+
+    # Check cache
+    cached = _weather_cache.get(widget_id)
+    now_ts = time.time()
+    if cached and (now_ts - cached["ts"]) < _WEATHER_CACHE_TTL_S:
+        return cached["data"]
+
+    try:
+        async with _httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://api.openweathermap.org/data/2.5/weather",
+                params={"q": city, "appid": api_key, "units": "imperial"},
+            )
+            resp.raise_for_status()
+            ow = resp.json()
+        result = {
+            "city": city,
+            "temp": round(ow.get("main", {}).get("temp", 0)),
+            "desc": (ow.get("weather") or [{}])[0].get("description", ""),
+        }
+    except Exception as exc:
+        logger.warning("Weather proxy failed for widget %s: %s", widget_id, exc)
+        result = {"city": city, "temp": None, "desc": "Unavailable"}
+
+    _weather_cache[widget_id] = {"data": result, "ts": now_ts}
+    return result
 async def get_app_version():
     """Check latest app version for auto-update."""
     return {
@@ -3195,6 +3862,7 @@ async def seed_data():
                 "role": "admin", "company_name": "MediaView Inc.",
                 "phone": None, "language": "en", "active": True,
                 "session_epoch": 0,
+                "rbac_role": "MEDIAVIEW_ADMIN",
                 "created_at": datetime.utcnow()
             }
             await db.users.insert_one(admin)
@@ -3210,12 +3878,198 @@ async def seed_data():
                 "role": "superadmin", "company_name": "MediaView Platform",
                 "phone": None, "language": "en", "active": True,
                 "session_epoch": 0,
+                "rbac_role": "SUPER_ADMIN",
                 "created_at": datetime.utcnow()
             }
             await db.users.insert_one(sa)
             logger.info("Super Admin created: %s", sa_email)
+        else:
+            # Migration: ensure existing superadmin has correct rbac_role
+            if sa_exists.get("rbac_role") != "SUPER_ADMIN":
+                await db.users.update_one(
+                    {"email": sa_email},
+                    {"$set": {"rbac_role": "SUPER_ADMIN"}}
+                )
+                logger.info("Migrated superadmin rbac_role to SUPER_ADMIN: %s", sa_email)
 
-    if await db.screens.count_documents({}) == 0:
+    # Migration: ensure existing admin has correct rbac_role
+    if admin_pass:
+        admin_doc = await db.users.find_one({"email": admin_email})
+        if admin_doc and admin_doc.get("rbac_role") not in ("MEDIAVIEW_ADMIN", "SUPER_ADMIN"):
+            await db.users.update_one(
+                {"email": admin_email},
+                {"$set": {"rbac_role": "MEDIAVIEW_ADMIN"}}
+            )
+            logger.info("Migrated admin rbac_role to MEDIAVIEW_ADMIN: %s", admin_email)
+
+    # ── FASE 3: Seed ADVERTISER test user (DEV/DEMO ONLY — never in production) ─
+    adv_email = "advertiser@test.mediaview.com"
+    adv_pass = "Advertiser#2026"
+    seed_demo = os.environ.get("SEED_DEMO", "").lower() == "true"
+    # P0-SEC-001: NEVER create test/demo accounts in production unless explicitly opted in
+    if not is_prod or seed_demo:
+        if not await db.users.find_one({"email": adv_email}):
+            adv = {
+                "id": gen_id(), "name": "Test Advertiser",
+                "email": adv_email,
+                "password_hash": hash_password(adv_pass),
+                "role": "advertiser", "company_name": "Test Ads Inc.",
+                "phone": None, "language": "es", "active": True,
+                "session_epoch": 0,
+                "rbac_role": "ADVERTISER",
+                "created_at": datetime.utcnow()
+            }
+            await db.users.insert_one(adv)
+            logger.info("Advertiser test user created: %s", adv_email)
+
+    # ── FASE 4: Seed MANAGED_VIEWER demo user + org + managed screens ──────────
+    # P0-SEC-001: NEVER create demo accounts in production unless explicitly opted in
+    ORG_MANAGED_DEMO = "org_managed_demo_v4"
+    mv_email = "managed.viewer@demo.mediaview.com"
+    mv_pass = "ManagedView#2026"
+    if not is_prod or seed_demo:
+        if not await db.users.find_one({"email": mv_email}):
+            mv_user = {
+                "id": gen_id(), "name": "Managed Client Demo",
+                "email": mv_email,
+                "password_hash": hash_password(mv_pass),
+                "role": "viewer", "company_name": "Demo Managed Corp.",
+                "phone": None, "language": "en", "active": True,
+                "session_epoch": 0,
+                "rbac_role": "MANAGED_VIEWER",
+                "organization_id": ORG_MANAGED_DEMO,
+                "created_at": datetime.utcnow()
+            }
+            await db.users.insert_one(mv_user)
+            logger.info("Fase 4: Managed Viewer demo user created: %s", mv_email)
+
+        # Also update the RBAC test viewer to have the demo org (idempotent)
+        await db.users.update_one(
+            {"email": "rbac.viewer@test.com", "organization_id": None},
+            {"$set": {"organization_id": ORG_MANAGED_DEMO}},
+        )
+
+        # Seed 2 demo MEDIAVIEW_MANAGED screens for that org
+        managed_screen_names = [
+            "Pantalla Lobby Principal — Demo Corp",
+            "Pantalla Cafetería — Demo Corp",
+        ]
+        for sname in managed_screen_names:
+            if not await db.screens.find_one({"name": sname}):
+                _code = gen_pairing_code()
+                while await db.screens.find_one({"pairing_code": _code}):
+                    _code = gen_pairing_code()
+                _loc_code = await get_unique_location_code()
+                _scr = {
+                    "id": gen_id(), "name": sname,
+                    "description": "Pantalla gestionada por MediaView para Demo Managed Corp.",
+                    "location": {
+                        "city": "Miami", "address": "100 Brickell Ave",
+                        "state": "FL", "country": "US", "lat": 25.7617, "lng": -80.1918,
+                    },
+                    "pricing": {"per_hour": 0.0, "per_day": 0.0, "per_slot": 0.0, "currency": "USD"},
+                    "specs": {"size": "55in", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                    "preview_image": None, "status": "active", "active": True,
+                    "location_code": _loc_code, "pairing_code": _code, "pairing_secret": gen_pairing_secret(),
+                    "paired_device_id": None, "paired_at": None,
+                    "operation_type": OperationType.MEDIAVIEW_MANAGED,
+                    "organization_id": ORG_MANAGED_DEMO,
+                    "created_at": datetime.utcnow(), "updated_at": datetime.utcnow(),
+                }
+                await db.screens.insert_one(_scr)
+                logger.info("Fase 4: Created demo managed screen: %s", sname)
+    else:
+        logger.info("P0-SEC-001: Demo user seeding skipped (ENVIRONMENT=production, SEED_DEMO not set)")
+
+    # ── FASE 3: Migration — Assign public_screen_code to existing PUBLIC_ADVERTISING screens ──
+    existing_pa_screens = await db.screens.find({
+        "operation_type": "PUBLIC_ADVERTISING",
+        "$or": [{"public_screen_code": None}, {"public_screen_code": {"$exists": False}}],
+    }).to_list(100)
+    for ps in existing_pa_screens:
+        code = await _get_unique_public_screen_code()
+        await db.screens.update_one(
+            {"id": ps["id"]},
+            {"$set": {
+                "public_screen_code": code,
+                "max_ad_slots": ps.get("max_ad_slots") or 4,
+                "advertising_pricing": ps.get("advertising_pricing") or {
+                    "price_per_week": 150.0,
+                    "price_per_month": 500.0,
+                    "price_per_year": 5000.0,
+                },
+            }}
+        )
+        logger.info("FASE3 migration: assigned public_screen_code %s to screen %s", code, ps.get("name"))
+
+    # ── FASE 3: Ensure Miami Airport has fixed known code (runs always, idempotent) ─
+    _miami_existing = await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"})
+    if _miami_existing and _miami_existing.get("public_screen_code") != "MV-ADV-MIAMI1":
+        # Only update if the fixed code is not already taken by another screen
+        if not await db.screens.find_one(
+            {"public_screen_code": "MV-ADV-MIAMI1", "id": {"$ne": _miami_existing["id"]}}
+        ):
+            await db.screens.update_one(
+                {"id": _miami_existing["id"]},
+                {"$set": {"public_screen_code": "MV-ADV-MIAMI1"}}
+            )
+            logger.info("FASE3: Migrated Miami Airport screen code to MV-ADV-MIAMI1")
+
+    # ── FASE 3: Add demo PUBLIC_ADVERTISING screens if none exist ─────────────
+    demo_pub_count = await db.screens.count_documents({
+        "operation_type": "PUBLIC_ADVERTISING",
+        "name": {"$in": ["Miami Airport Terminal A — Digital Ad", "New York Penn Station — Public Screen"]}
+    })
+    if demo_pub_count < 2:
+        demo_pub_screens = []
+        _miami_existing2 = await db.screens.find_one({"name": "Miami Airport Terminal A — Digital Ad"})
+        if _miami_existing2:
+            pass  # already migrated above; skip creation
+        else:
+            # Use a well-known fixed code so test_fase3_advertising.py can rely on it
+            miami_code = "MV-ADV-MIAMI1"
+            if await db.screens.find_one({"public_screen_code": miami_code}):
+                miami_code = await _get_unique_public_screen_code()  # fallback if already taken
+            demo_pub_screens.append({
+                "id": gen_id(), "name": "Miami Airport Terminal A — Digital Ad",
+                "description": "Alta visibilidad en Terminal A del Aeropuerto Internacional de Miami. Más de 50,000 pasajeros diarios.",
+                "location": {"city": "Miami", "address": "2100 NW 42nd Ave, MIA", "state": "FL", "country": "US", "lat": 25.7959, "lng": -80.2870},
+                "pricing": {"per_hour": 200.0, "per_day": 1600.0, "per_slot": 20.0, "currency": "USD"},
+                "specs": {"size": "20ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": miami_code,
+                "max_ad_slots": 4,
+                "advertising_pricing": {"price_per_week": 200.0, "price_per_month": 700.0, "price_per_year": 7000.0},
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            })
+        if not await db.screens.find_one({"name": "New York Penn Station — Public Screen"}):
+            penn_code = await _get_unique_public_screen_code()
+            demo_pub_screens.append({
+                "id": gen_id(), "name": "New York Penn Station — Public Screen",
+                "description": "Pantalla en Penn Station, Nueva York. Tráfico diario de más de 600,000 personas.",
+                "location": {"city": "New York", "address": "341 W 31st St, Penn Station", "state": "NY", "country": "US", "lat": 40.7506, "lng": -73.9971},
+                "pricing": {"per_hour": 600.0, "per_day": 5000.0, "per_slot": 60.0, "currency": "USD"},
+                "specs": {"size": "30ft x 15ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": penn_code,
+                "max_ad_slots": 6,
+                "advertising_pricing": {"price_per_week": 500.0, "price_per_month": 1800.0, "price_per_year": 18000.0},
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            })
+        if demo_pub_screens:
+            await db.screens.insert_many(demo_pub_screens)
+            logger.info("FASE3: Created %d demo PUBLIC_ADVERTISING screens", len(demo_pub_screens))
+
+    # Only seed regular (untyped) screens if none exist yet.
+    # We check specifically for screens WITHOUT an operation_type field, because
+    # FASE 3 (PUBLIC_ADVERTISING) and FASE 4 (MEDIAVIEW_MANAGED) run first and
+    # insert screens that have operation_type set — those must NOT block this block.
+    _regular_screen_count = await db.screens.count_documents(
+        {"operation_type": {"$exists": False}}
+    )
+    if _regular_screen_count == 0:
         screens = [
             {
                 "id": gen_id(), "name": "Times Square Center Display",
@@ -3306,13 +4160,50 @@ async def seed_data():
                 "specs": {"size": "24ft x 12ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
                 "preview_image": None, "status": "active", "active": True,
                 "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
-            }
+            },
+            # ── FASE 3: Demo PUBLIC_ADVERTISING screen ────────────────────────────
+            {
+                "id": gen_id(), "name": "Miami Airport Terminal A — Digital Ad",
+                "description": "Alta visibilidad en el Terminal A del Aeropuerto Internacional de Miami. Más de 50,000 pasajeros diarios. Ideal para marcas premium y publicidad de destino.",
+                "location": {"city": "Miami", "address": "2100 NW 42nd Ave, Miami International Airport", "state": "FL", "country": "US", "lat": 25.7959, "lng": -80.2870},
+                "pricing": {"per_hour": 200.0, "per_day": 1600.0, "per_slot": 20.0, "currency": "USD"},
+                "specs": {"size": "20ft x 10ft", "type": "LED", "resolution": "1920x1080", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                # FASE 3 fields
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": "MV-ADV-MIAMI1",
+                "max_ad_slots": 4,
+                "advertising_pricing": {
+                    "price_per_week": 200.0,
+                    "price_per_month": 700.0,
+                    "price_per_year": 7000.0,
+                },
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
+            {
+                "id": gen_id(), "name": "New York Penn Station — Public Screen",
+                "description": "Pantalla en el corazón de Penn Station, Nueva York. Tráfico diario de más de 600,000 personas. El billboard digital más transitado del noreste de EE.UU.",
+                "location": {"city": "New York", "address": "341 W 31st St, New York Penn Station", "state": "NY", "country": "US", "lat": 40.7506, "lng": -73.9971},
+                "pricing": {"per_hour": 600.0, "per_day": 5000.0, "per_slot": 60.0, "currency": "USD"},
+                "specs": {"size": "30ft x 15ft", "type": "LED", "resolution": "3840x2160", "orientation": "landscape"},
+                "preview_image": None, "status": "active", "active": True,
+                # FASE 3 fields
+                "operation_type": "PUBLIC_ADVERTISING",
+                "public_screen_code": "MV-ADV-PENN01",
+                "max_ad_slots": 6,
+                "advertising_pricing": {
+                    "price_per_week": 500.0,
+                    "price_per_month": 1800.0,
+                    "price_per_year": 18000.0,
+                },
+                "created_at": datetime.utcnow(), "updated_at": datetime.utcnow()
+            },
         ]
         await db.screens.insert_many(screens)
-        logger.info(f"Created {len(screens)} sample screens")
+        logger.info(f"Created {len(screens)} sample screens (incl. 2 PUBLIC_ADVERTISING demo screens)")
 
-    # Demo users
-    if await db.users.count_documents({"role": "customer"}) == 0:
+    # Demo users — P0-SEC-001: NEVER create demo accounts in production
+    if (not is_prod or seed_demo) and await db.users.count_documents({"role": "customer"}) == 0:
         demo_users = [
             {"id": gen_id(), "name": "Sarah Mitchell", "email": "sarah@brightagency.com", "password_hash": hash_password("Demo123!"), "role": "customer", "company_name": "Bright Agency", "phone": "+1 (212) 555-0142", "language": "en", "active": True, "created_at": datetime.utcnow() - timedelta(days=45)},
             {"id": gen_id(), "name": "Carlos Mendez", "email": "carlos@urbanmedia.co", "password_hash": hash_password("Demo123!"), "role": "customer", "company_name": "Urban Media Group", "phone": "+1 (305) 555-0198", "language": "en", "active": True, "created_at": datetime.utcnow() - timedelta(days=30)},
@@ -3322,16 +4213,19 @@ async def seed_data():
         await db.users.insert_many(demo_users)
         logger.info("Created demo users")
 
-        # Demo campaigns
-        all_screens = await db.screens.find({}).to_list(10)
-        if all_screens:
+        # Demo campaigns — use only untyped/regular screens (not PA or MANAGED)
+        # PA screens are reserved for the advertiser test suite (test_fase3_advertising)
+        all_screens = await db.screens.find({}).to_list(1000)
+        regular_screens = [s for s in all_screens if not s.get("operation_type")]
+        _n = len(regular_screens)
+        if _n >= 7:
             demo_campaigns = [
-                {"id": gen_id(), "user_id": demo_users[0]["id"], "screen_id": all_screens[0]["id"], "name": "Holiday Season Grand Sale", "status": "active", "schedule": {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[0].get("pricing", {}), {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": "Approved by MediaView Admin", "created_at": datetime.utcnow() - timedelta(days=20), "updated_at": datetime.utcnow()},
-                {"id": gen_id(), "user_id": demo_users[1]["id"], "screen_id": all_screens[2]["id"], "name": "Summer Collection Launch", "status": "approved", "schedule": {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[2].get("pricing", {}), {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=10), "updated_at": datetime.utcnow()},
-                {"id": gen_id(), "user_id": demo_users[2]["id"], "screen_id": all_screens[4]["id"], "name": "Tech Expo 2026 Promo", "status": "pending", "schedule": {"start_date": "2026-04-10", "end_date": "2026-04-12", "start_time": "08:00", "end_time": "22:00", "slot_duration": 30, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[4].get("pricing", {}), {"start_date": "2026-04-10", "end_date": "2026-04-12", "start_time": "08:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=3), "updated_at": datetime.utcnow()},
-                {"id": gen_id(), "user_id": demo_users[3]["id"], "screen_id": all_screens[5]["id"], "name": "Vegas Grand Opening", "status": "active", "schedule": {"start_date": "2026-03-15", "end_date": "2026-04-15", "start_time": "06:00", "end_time": "23:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[5].get("pricing", {}), {"start_date": "2026-03-15", "end_date": "2026-04-15", "start_time": "06:00", "end_time": "23:00"}), "payment_id": None, "admin_notes": "Approved by MediaView Admin", "created_at": datetime.utcnow() - timedelta(days=5), "updated_at": datetime.utcnow()},
-                {"id": gen_id(), "user_id": demo_users[0]["id"], "screen_id": all_screens[6]["id"], "name": "Spring Fashion Week", "status": "completed", "schedule": {"start_date": "2026-02-15", "end_date": "2026-02-28", "start_time": "10:00", "end_time": "20:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[6].get("pricing", {}), {"start_date": "2026-02-15", "end_date": "2026-02-28", "start_time": "10:00", "end_time": "20:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=40), "updated_at": datetime.utcnow()},
-                {"id": gen_id(), "user_id": demo_users[1]["id"], "screen_id": all_screens[3]["id"], "name": "Miami Music Festival", "status": "active", "schedule": {"start_date": "2026-03-10", "end_date": "2026-03-25", "start_time": "12:00", "end_time": "22:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(all_screens[3].get("pricing", {}), {"start_date": "2026-03-10", "end_date": "2026-03-25", "start_time": "12:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": "Approved", "created_at": datetime.utcnow() - timedelta(days=12), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[0]["id"], "screen_id": regular_screens[0]["id"], "name": "Holiday Season Grand Sale", "status": "active", "schedule": {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[0].get("pricing", {}), {"start_date": "2026-03-01", "end_date": "2026-03-31", "start_time": "08:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": "Approved by MediaView Admin", "created_at": datetime.utcnow() - timedelta(days=20), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[1]["id"], "screen_id": regular_screens[2]["id"], "name": "Summer Collection Launch", "status": "approved", "schedule": {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[2].get("pricing", {}), {"start_date": "2026-04-01", "end_date": "2026-04-15", "start_time": "10:00", "end_time": "20:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=10), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[2]["id"], "screen_id": regular_screens[4]["id"], "name": "Tech Expo 2026 Promo", "status": "pending", "schedule": {"start_date": "2026-04-10", "end_date": "2026-04-12", "start_time": "08:00", "end_time": "22:00", "slot_duration": 30, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[4].get("pricing", {}), {"start_date": "2026-04-10", "end_date": "2026-04-12", "start_time": "08:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=3), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[3]["id"], "screen_id": regular_screens[5]["id"], "name": "Vegas Grand Opening", "status": "active", "schedule": {"start_date": "2026-03-15", "end_date": "2026-04-15", "start_time": "06:00", "end_time": "23:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[5].get("pricing", {}), {"start_date": "2026-03-15", "end_date": "2026-04-15", "start_time": "06:00", "end_time": "23:00"}), "payment_id": None, "admin_notes": "Approved by MediaView Admin", "created_at": datetime.utcnow() - timedelta(days=5), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[0]["id"], "screen_id": regular_screens[6]["id"], "name": "Spring Fashion Week", "status": "completed", "schedule": {"start_date": "2026-02-15", "end_date": "2026-02-28", "start_time": "10:00", "end_time": "20:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[6].get("pricing", {}), {"start_date": "2026-02-15", "end_date": "2026-02-28", "start_time": "10:00", "end_time": "20:00"}), "payment_id": None, "admin_notes": None, "created_at": datetime.utcnow() - timedelta(days=40), "updated_at": datetime.utcnow()},
+                {"id": gen_id(), "user_id": demo_users[1]["id"], "screen_id": regular_screens[3]["id"], "name": "Miami Music Festival", "status": "active", "schedule": {"start_date": "2026-03-10", "end_date": "2026-03-25", "start_time": "12:00", "end_time": "22:00", "slot_duration": 15, "frequency": 5}, "media_ids": [], "pricing": calculate_campaign_price(regular_screens[3].get("pricing", {}), {"start_date": "2026-03-10", "end_date": "2026-03-25", "start_time": "12:00", "end_time": "22:00"}), "payment_id": None, "admin_notes": "Approved", "created_at": datetime.utcnow() - timedelta(days=12), "updated_at": datetime.utcnow()},
             ]
             await db.campaigns.insert_many(demo_campaigns)
             logger.info("Created demo campaigns")
@@ -3353,8 +4247,8 @@ async def seed_data():
 
     # Demo devices
     if await db.devices.count_documents({}) == 0:
-        all_screens = await db.screens.find({}).to_list(10)
-        if len(all_screens) >= 4:
+        all_screens = await db.screens.find({}).to_list(1000)
+        if len(all_screens) >= 6:  # need indices 0, 2, 5 — so min 6 items required
             demo_devices = [
                 {"id": gen_id(), "activation_code": "MV7K2N", "device_name": "Lobby Main Screen", "device_info": {"model": "TCL P755", "os_version": "Google TV 14", "app_version": "1.0.0", "resolution": "3840x2160"}, "screen_id": all_screens[0]["id"], "status": "active", "tier": "tv_direct", "reboot_time": "03:00", "last_heartbeat": datetime.utcnow() - timedelta(minutes=2), "last_sync": datetime.utcnow() - timedelta(minutes=1), "activated_at": datetime.utcnow() - timedelta(days=15), "diagnostics": {"uptime_seconds": 345600, "ip_address": "192.168.1.101", "app_version": "1.0.0"}, "created_at": datetime.utcnow() - timedelta(days=15)},
                 {"id": gen_id(), "activation_code": "HX4P9R", "device_name": "Store Window Display", "device_info": {"model": "Philips PUS7608", "os_version": "Google TV 13", "app_version": "1.0.0", "resolution": "1920x1080"}, "screen_id": all_screens[2]["id"], "status": "active", "tier": "tv_direct", "reboot_time": "03:00", "last_heartbeat": datetime.utcnow() - timedelta(minutes=5), "last_sync": datetime.utcnow() - timedelta(minutes=3), "activated_at": datetime.utcnow() - timedelta(days=10), "diagnostics": {"uptime_seconds": 172800, "ip_address": "192.168.1.105", "app_version": "1.0.0"}, "created_at": datetime.utcnow() - timedelta(days=10)},
@@ -3682,7 +4576,9 @@ MENU_TEMPLATES = [
 # ============ OWNED CONTENT PLAYLISTS ============
 
 def _is_platform_admin(user: dict) -> bool:
-    return user.get("role") in ("admin", "superadmin")
+    """RBAC-aware: true for SUPER_ADMIN, MEDIAVIEW_ADMIN and SUPPORT roles.
+    Maps legacy role strings automatically via ROLE_MIGRATION_MAP."""
+    return get_effective_role(user) in (Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT)
 
 
 def _can_view_playlist(playlist: dict, user: dict) -> bool:
@@ -3700,6 +4596,9 @@ def _can_edit_playlist(playlist: dict, user: dict) -> bool:
 def _can_publish_playlist(playlist: dict, user: dict) -> bool:
     if _is_platform_admin(user):
         return True
+    # MANAGED_VIEWER is strictly read-only — cannot publish even if allow_client_publish is set
+    if get_effective_role(user) == Role.MANAGED_VIEWER:
+        return False
     return bool(playlist.get("allow_client_publish")) and playlist.get("client_user_id") == user.get("id")
 
 
@@ -3894,6 +4793,13 @@ async def publish_owned_playlist(playlist_id: str, data: PlaylistPublish,
         update["allowed_screen_ids"] = list(dict.fromkeys((playlist.get("allowed_screen_ids") or []) + screen_ids))
     await db.playlists.update_one({"id": playlist_id}, {"$set": update})
     await _bump_playlist_screens(previous + screen_ids, "owned playlist published")
+    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
+    await _audit(
+        db, action="playlist.published",
+        user_id=current_user.get("id"), user_email=current_user.get("email"),
+        resource_type="playlist", resource_id=playlist_id,
+        details={"playlist_name": playlist.get("name"), "screen_count": len(screen_ids)},
+    )
     return {"message": "Playlist published", "playlist_id": playlist_id,
             "screen_ids": screen_ids, "published_at": now.isoformat()}
 
@@ -4615,12 +5521,39 @@ async def delete_promo_media(menu_id: str, media_id: str, current_user: dict = D
 
 
 @api_router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
-async def render_menu(menu_id: str):
+async def render_menu(menu_id: str, request: Request):
     """Render a menu as a full-screen HTML page optimized for landscape LED displays.
-    Features: 3-column max per slide, auto-slideshow, always-visible food images."""
+    Features: 3-column max per slide, auto-slideshow, always-visible food images.
+    H3: Only published menus render publicly. Drafts require owner/admin auth."""
     menu = await db.menus.find_one({"id": menu_id})
     if not menu:
         raise HTTPException(status_code=404, detail="Menu not found")
+
+    # ── H3: Published-state gate ────────────────────────────────────────────────
+    menu_status = menu.get("status", "draft")
+    if menu_status not in ("published", "active"):
+        # Draft/private menus require authenticated owner or admin for preview
+        auth_header = request.headers.get("Authorization", "")
+        _allowed = False
+        if auth_header.startswith("Bearer "):
+            _token = auth_header[7:]
+            try:
+                import jwt as _jwt_lib
+                _SECRET = os.environ.get("JWT_SECRET", "")
+                _payload = _jwt_lib.decode(_token, _SECRET, algorithms=["HS256"],
+                                           options={"verify_aud": False, "verify_iss": False})
+                _uid = _payload.get("sub")
+                _u = await db.users.find_one({"id": _uid}) if _uid else None
+                if _u and _u.get("active", True):
+                    _is_owner = menu.get("user_id") == _uid
+                    _is_admin = _u.get("role") in ("admin", "superadmin") or \
+                                _u.get("rbac_role") in ("SUPER_ADMIN", "MEDIAVIEW_ADMIN")
+                    if _is_owner or _is_admin:
+                        _allowed = True
+            except Exception:
+                pass
+        if not _allowed:
+            raise HTTPException(status_code=404, detail="Menu not found")
 
     template_id = menu.get("template_id", "classic")
     restaurant = menu.get("restaurant_name", "Restaurant")
@@ -4823,10 +5756,10 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
 </style></head><body>
 <div class="menu-container">
 <div class="header">
-<div class="restaurant-name">{restaurant}</div>"""
+<div class="restaurant-name">{_esc(restaurant)}</div>"""
 
     if subtitle:
-        html += f'<div class="subtitle">{subtitle}</div>'
+        html += f'<div class="subtitle">{_esc(subtitle)}</div>'
 
     html += '</div><div class="slides-wrapper">'
 
@@ -4837,9 +5770,9 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
         for cat in slide_cats:
             items = cat.get("items", [])
             html += '<div class="category"><div class="cat-header">'
-            html += f'<div class="cat-title">{cat["name"]}</div>'
+            html += f'<div class="cat-title">{_esc(cat.get("name", ""))}</div>'
             if cat.get("description"):
-                html += f'<div class="cat-desc">{cat["description"]}</div>'
+                html += f'<div class="cat-desc">{_esc(cat["description"])}</div>'
             html += '</div><div class="cat-items">' if not is_grid else '</div><div class="grid-items">'
 
             for it in items:
@@ -4849,13 +5782,15 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                     if it.get("featured"): cls += " featured"
                     html += f'<div class="{cls}">'
                     if it.get("image"):
-                        html += f'<img class="grid-card-img" src="{it["image"]}" alt="" loading="lazy">'
+                        _img_src = _safe_src(it["image"])
+                        if _img_src:
+                            html += f'<img class="grid-card-img" src="{_img_src}" alt="" loading="lazy">'
                     else:
                         emoji = get_food_emoji(it.get("name", ""))
                         html += f'<div class="grid-card-emoji">{emoji}</div>'
                     html += '<div class="grid-card-info">'
-                    html += f'<div class="grid-card-name">{it["name"]}</div>'
-                    html += f'<div class="grid-card-price">{currency_sym}{it.get("price", 0):.2f}</div>'
+                    html += f'<div class="grid-card-name">{_esc(it.get("name", ""))}</div>'
+                    html += f'<div class="grid-card-price">{_esc(currency_sym)}{it.get("price", 0):.2f}</div>'
                     html += '</div></div>'
                 else:
                     # LIST LAYOUT (original)
@@ -4864,18 +5799,20 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                     if not it.get("available", True): cls += " unavailable"
                     html += f'<div class="{cls}">'
                     if it.get("image"):
-                        html += f'<img class="item-img" src="{it["image"]}" alt="" loading="lazy">'
+                        _img_src = _safe_src(it["image"])
+                        if _img_src:
+                            html += f'<img class="item-img" src="{_img_src}" alt="" loading="lazy">'
                     else:
                         emoji = get_food_emoji(it.get("name", ""))
                         html += f'<div class="item-emoji">{emoji}</div>'
                     html += '<div class="item-info">'
-                    html += f'<div class="item-name">{it["name"]}'
+                    html += f'<div class="item-name">{_esc(it.get("name", ""))}'
                     if it.get("featured"):
                         html += '<span class="star">★ ESPECIAL</span>'
                     html += '</div>'
                     if it.get("description"):
-                        html += f'<div class="item-desc">{it["description"]}</div>'
-                    html += f'</div><div class="item-price">{currency_sym}{it.get("price", 0):.2f}</div></div>'
+                        html += f'<div class="item-desc">{_esc(it["description"])}</div>'
+                    html += f'</div><div class="item-price">{_esc(currency_sym)}{it.get("price", 0):.2f}</div></div>'
 
             html += '</div></div>'
 
@@ -4890,11 +5827,12 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
             pm = promo_media[0]
             src = pm.get("data") or pm.get("url", "")
             if src:
+                _psrc = _safe_src(src)
                 html += '<div class="promo-strip" style="justify-content:center;padding:0">'
                 if pm.get("type") == "video":
-                    html += f'<video src="{src}" muted autoplay loop playsinline style="width:100%;height:100%;object-fit:cover"></video>'
+                    html += f'<video src="{_psrc}" muted autoplay loop playsinline style="width:100%;height:100%;object-fit:cover"></video>'
                 else:
-                    html += f'<img src="{src}" style="width:100%;height:100%;object-fit:cover" alt="">'
+                    html += f'<img src="{_psrc}" style="width:100%;height:100%;object-fit:cover" alt="">'
                 html += '</div>'
         else:
             # Multiple media: scrolling strip
@@ -4904,17 +5842,18 @@ body{{background:{t['bg']};color:{t['text']};font-family:{t['font']}}}
                     src = pm.get("data") or pm.get("url", "")
                     if not src:
                         continue
+                    _psrc = _safe_src(src)
                     html += '<div class="promo-item">'
                     if pm.get("type") == "video":
-                        html += f'<video src="{src}" muted autoplay loop playsinline></video>'
+                        html += f'<video src="{_psrc}" muted autoplay loop playsinline></video>'
                     else:
-                        html += f'<img src="{src}" alt="">'
+                        html += f'<img src="{_psrc}" alt="">'
                     html += '</div>'
             html += '</div></div>'
 
     # Footer
     html += '<div class="footer">'
-    html += f'<div class="footer-text">{restaurant}</div>'
+    html += f'<div class="footer-text">{_esc(restaurant)}</div>'
     if num_slides > 1:
         html += '<div class="dots">'
         for i in range(num_slides):
@@ -4989,9 +5928,67 @@ setTimeout(function(){{location.reload()}},300000);
 # Serve web dashboard
 WEB_DIR = str(ROOT_DIR / 'web')
 
-@api_router.get("/dashboard")
-async def serve_dashboard():
-    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+@app.get("/advertise/{screen_code}", include_in_schema=False)
+async def advertise_landing(screen_code: str):
+    """URL corta /advertise/{code} — sirve la landing pública del QR (local dev)."""
+    return FileResponse(os.path.join(WEB_DIR, 'advertise.html'), media_type='text/html')
+
+@app.get("/api/adpage/{screen_code}", include_in_schema=False)
+async def advertise_page_public(screen_code: str):
+    """Landing pública QR via /api/adpage/* — accesible a través del ingress Kubernetes.
+    ESTE es el URL que se usa en los QR codes de pantallas PUBLIC_ADVERTISING."""
+    return FileResponse(os.path.join(WEB_DIR, 'advertise.html'), media_type='text/html')
+
+# ── Fase 2: Self-Service Portal (organizations, locations, team, subscriptions)
+from self_service_routes import create_self_service_routes
+app.include_router(create_self_service_routes(db, get_current_user, require_admin, require_superadmin))
+
+# ── Fase 3: Public Advertising Marketplace
+from advertising_routes import create_advertising_routes
+app.include_router(create_advertising_routes(db, get_current_user, require_admin))
+
+# ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────
+from campaign_scheduler import run_campaign_scheduler, get_campaign_scheduler
+
+@api_router.get("/admin/campaign-scheduler/status")
+async def campaign_scheduler_status(admin: dict = Depends(require_admin)):
+    """Estado y estadísticas del Campaign Scheduler."""
+    sched = get_campaign_scheduler()
+    pending = await db.ad_campaigns.count_documents({"status": "PENDING_REVIEW"})
+    approved = await db.ad_campaigns.count_documents({"status": "APPROVED"})
+    scheduled = await db.ad_campaigns.count_documents({"status": "SCHEDULED"})
+    active = await db.ad_campaigns.count_documents({"status": "ACTIVE"})
+    completed = await db.ad_campaigns.count_documents({"status": "COMPLETED"})
+    last_transitions = await db.campaign_transitions.find().sort("transition_time", -1).to_list(10)
+    return {
+        "scheduler_running": sched.running if sched else False,
+        "counts": {
+            "PENDING_REVIEW": pending,
+            "APPROVED": approved,
+            "SCHEDULED": scheduled,
+            "ACTIVE": active,
+            "COMPLETED": completed,
+        },
+        "last_transitions": [
+            {
+                "campaign_id": t.get("campaign_id"),
+                "old_status": t.get("old_status"),
+                "new_status": t.get("new_status"),
+                "transition_time": t.get("transition_time").isoformat() if isinstance(t.get("transition_time"), datetime) else str(t.get("transition_time")),
+                "reason": t.get("reason"),
+            }
+            for t in last_transitions
+        ],
+    }
+
+@api_router.post("/admin/campaign-scheduler/run-now")
+async def campaign_scheduler_run_now(admin: dict = Depends(require_admin)):
+    """Fuerza una ejecución inmediata del scheduler (útil para testing)."""
+    result = await run_campaign_scheduler(db)
+    return {
+        "message": f"Scheduler executed: {result['total']} transition(s)",
+        "result": result,
+    }
 
 @api_router.get("/public/playlist")
 async def serve_public_playlist_editor():
@@ -5053,6 +6050,11 @@ async def serve_menu_editor():
 @api_router.get("/design-studio")
 async def serve_design_studio():
     return FileResponse(os.path.join(WEB_DIR, 'design-studio.html'), media_type='text/html')
+
+@api_router.get("/dashboard")
+async def serve_dashboard():
+    """Dashboard principal del sistema."""
+    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
 
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
@@ -5233,6 +6235,14 @@ from sign_permits import create_sign_permit_routes
 
 app.include_router(create_sign_permit_routes(db, require_admin))
 
+# ── Fase 3: Public Advertising Marketplace already registered above ──────────
+# Note: duplicate route registrations removed here to avoid FastAPI conflicts
+
+# ── Fase 4: MediaView Managed Portal ─────────────────────────────────────────
+from managed_portal_routes import create_managed_portal_routes
+
+app.include_router(create_managed_portal_routes(db, get_current_user, require_admin))
+
 # ────────────────────────────────────────────────────────────────────────
 # Observability: structured logs, Sentry, request-id middleware
 # ────────────────────────────────────────────────────────────────────────
@@ -5317,8 +6327,13 @@ logger = logging.getLogger(__name__)
 
 @app.on_event("startup")
 async def startup():
+    # ── Fase 5: Ensure all MongoDB indexes exist (idempotent) ────────────────
+    from db_indexes import ensure_indexes
+    await ensure_indexes(db)
+
     await seed_data()
-    logger.info("MediaView Digital Signage API started")
+
+    # ── Fase 3 + Fase 5: Campaign Lifecycle Scheduler ─────────────────────────
     # SCHEDULER_MODE controls where cron jobs run:
     #   "apscheduler" (default): jobs live inside the web-api process
     #   "arq"                  : jobs live in the ARQ worker; web-api DOES NOT
@@ -5328,6 +6343,20 @@ async def startup():
     #                            idempotent by design)
     scheduler_mode = os.environ.get("SCHEDULER_MODE", "apscheduler").lower()
     run_apscheduler = scheduler_mode in ("apscheduler", "both")
+
+    # P0-SCHED-001: campaign_scheduler MUST honour SCHEDULER_MODE to prevent
+    # dual execution when the ARQ worker is deployed alongside the web-api.
+    if run_apscheduler:
+        try:
+            from campaign_scheduler import start_campaign_scheduler
+            start_campaign_scheduler(db)
+            logger.info("Campaign scheduler started in-process (SCHEDULER_MODE=%s)", scheduler_mode)
+        except Exception as e:
+            logger.error("Failed to start campaign_scheduler: %s", e)
+    else:
+        logger.info("P0-SCHED-001: campaign_scheduler skipped (SCHEDULER_MODE=%s → ARQ worker handles it)", scheduler_mode)
+
+    logger.info("MediaView Digital Signage API started (SCHEDULER_MODE=%s)", scheduler_mode)
 
     if run_apscheduler:
         try:
@@ -5358,3 +6387,9 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
+    # ── Fase 3: Stop Campaign Scheduler ──────────────────────────────────────
+    try:
+        from campaign_scheduler import stop_campaign_scheduler
+        stop_campaign_scheduler()
+    except Exception:
+        pass
