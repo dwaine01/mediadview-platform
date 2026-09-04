@@ -562,6 +562,69 @@ frontend:
         agent: "main"
         comment: "C4 completo. Implementado: (1) Dashboard ejecutivo con 12+ KPI cards (Revenue today/MTD/YTD/all-time, Net income, Invoices total/paid/issued/void, Refunds today/MTD, Credit MTD, Avg ticket, Screens, Active/Pending campaigns) leídos del ledger append-only como fuente única de verdad. (2) Charts con Chart.js: revenue timeseries línea + revenue by city barras horizontales. (3) Tablas: Top screens, Top clients, Screen occupancy con % coloreado, SLA cards (avg/p50/p95/min/max para time-to-approve, time-to-publish, admin-response). (4) Exports en CSV/XLSX/PDF para 8 tipos de reporte: orders, invoices, refunds, ledger, occupancy, revenue_by_screen, revenue_by_city, revenue_by_client (24 combinaciones export). (5) BI-ready flat endpoints /api/admin/reports/bi/{orders,invoices,refunds,ledger} para conectar Power BI/Tableau/Looker Studio via JSON. (6) Filtros globales: date_from, date_to, screen_id, guest_email, city, country, currency, order_status, invoice_status, refund_status, provider. (7) Real-time via WebSocket canal `dashboard/global`: se dispara auto-refresh en la UI cuando ocurren order.approved, order.rejected, payment.captured (via broadcast), refund.executed, invoice.issued. Indicador LIVE en el header. (8) Multi-moneda: dashboard trabaja en una moneda a la vez (seleccionable), pero la agregación devuelve breakdown por moneda. (9) RBAC: nuevos permisos reports:read (todos los admin/finance/sales/operations/read_only) y reports:export (admin/finance). 44/44 smoke tests OK en /app/backend/tests/smoke_c4_reports.py."
 
+  - task: "SaaS Self-Service: POST /api/auth/signup"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Bug fix: JSONResponse was not imported in server.py (line 10). Caused NameError in public_signup. Fixed by adding JSONResponse to fastapi.responses import."
+      - working: true
+        agent: "main"
+        comment: "After fix: tested with curl - free plan returns 200 with user data + auth cookie. Paid plan (standard) returns 200 with pending_payment=true when Stripe not configured. Duplicate email returns 409. Short password returns 400."
+
+  - task: "SaaS Self-Service: GET /api/sign-up HTML page"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py, /app/backend/web/sign-up.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "GET /api/sign-up serves sign-up.html correctly. Page shows plan selector, form fields, and pricing sidebar. Tested visually with screenshot."
+
+  - task: "SaaS Self-Service: GET /api/landing with pricing section"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py, /app/backend/web/landing.html"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: "main"
+        comment: "Landing page loads correctly. Pricing section visible with 4 tiers: Free/$0, Standard/$10, Pro/$15, Enterprise/$30+. Monthly/Annual toggle works. Verified with screenshot."
+
+  - task: "Admin Create Client: POST /api/admin/create-client"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Endpoint implemented by previous agent. Needs testing with SUPER_ADMIN token."
+
+  - task: "AI Menu Import: POST /api/menus/parse-image"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "AI menu image parsing using GPT-4o Vision via Emergent LLM Key. Implemented by previous agent. Requires EMERGENT_LLM_KEY to test fully."
+
 metadata:
   created_by: "main_agent"
   version: "2.0"
@@ -570,18 +633,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "FASE 1 — RBAC: require_admin + require_superadmin migrados a RBAC"
-    - "FASE 1 — RBAC: Tenant Isolation en DELETE y PUT /admin/screens"
-    - "FASE 1 — RBAC: MANAGED_VIEWER bloqueado en publish playlist"
-    - "FASE 1 — RBAC: Endpoint PUT /screens/self-service/{id} con tenant isolation"
-    - "TEST A — SUPER_ADMIN crea pantalla SELF_SERVICE"
-    - "TEST B — SUPER_ADMIN crea pantalla PUBLIC_ADVERTISING"
-    - "TEST C — SUPER_ADMIN crea pantalla MEDIAVIEW_MANAGED"
-    - "TEST D — SELF_SERVICE_OWNER crea pantalla en SU propia org"
-    - "TEST E — SELF_SERVICE_OWNER falla 403 al modificar pantalla de otra org"
-    - "TEST F — ADVERTISER falla 403 en POST/PUT/DELETE screens"
-    - "TEST G — MANAGED_VIEWER falla 403 al intentar publicar playlist"
-    - "TEST H — MEDIAVIEW_ADMIN administra pantallas Public/Managed"
+    - "SaaS Self-Service: POST /api/auth/signup (free plan)"
+    - "SaaS Self-Service: POST /api/auth/signup (paid plan, graceful degradation)"
+    - "SaaS Self-Service: POST /api/auth/signup (duplicate email 409)"
+    - "SaaS Self-Service: GET /api/sign-up HTML page"
+    - "SaaS Self-Service: GET /api/landing HTML page with pricing"
+    - "Admin Create Client: POST /api/admin/create-client"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
@@ -626,4 +683,33 @@ agent_communication:
       - RBAC Test Screen — MEDIAVIEW_MANAGED: org=null
       
       IDs se obtienen llamando: POST /api/admin/rbac/seed-test-users (idempotente, devuelve IDs de screens también).
+  - agent: "main"
+    message: |
+      FASE 5 SAAS ONBOARDING — Verificación y bug fix.
+      
+      NUEVO: SaaS Self-Service Onboarding implementado por agente anterior (pendiente verificación user).
+      
+      BUG FIJO: JSONResponse no estaba importado en server.py → NameError en POST /api/auth/signup.
+      Fix aplicado: añadido JSONResponse al import de fastapi.responses (línea 10).
+      
+      ESTADO ACTUAL:
+      - POST /api/auth/signup → FUNCIONA (probado con curl, 200 OK para plan free)
+      - GET /api/sign-up → FUNCIONA (página HTML sirve correctamente en puerto 8001)
+      - GET /api/landing → FUNCIONA (página de precios visible, 4 planes: Free/$0, Standard/$10, Pro/$15, Enterprise/$30+)
+      - Stripe E2E: PENDIENTE — las keys actuales son placeholder (sk_test_REPLACE...). No se puede probar checkout real hasta que el usuario agregue keys reales de Stripe TEST MODE.
+      - Plan gratuito: crea cuenta y logea inmediatamente (sin Stripe)
+      - Plan pago sin Stripe configurado: crea cuenta con pending_payment=true (degradación graceful)
+      - Dashboard welcome wizard: implementado en app.js con ?welcome=1 query param
+      
+      TESTS A EJECUTAR:
+      1. POST /api/auth/signup con plan free → esperar 200 + cookie
+      2. POST /api/auth/signup con plan standard → esperar 200 + pending_payment=true (Stripe no configurado)
+      3. POST /api/auth/signup con email duplicado → esperar 409
+      4. POST /api/auth/signup con password corta → esperar 400
+      5. GET /api/sign-up → esperar 200 HTML
+      6. GET /api/landing → esperar 200 HTML con sección pricing
+      7. POST /api/admin/create-client → crear cliente desde admin (necesita token SUPER_ADMIN)
+
+  - agent: "main"
+    message: "Updating test plan to focus on SaaS Onboarding tasks that need verification."
       TESTING PRIORITY: Ejecutar TEST A through TEST H del Acceptance Test Suite.
