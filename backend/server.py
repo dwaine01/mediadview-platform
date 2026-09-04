@@ -6382,13 +6382,23 @@ async def home_marketing():
 
 @app.get("/for-business", include_in_schema=False)
 async def for_business():
-    """Premium self-service marketing page for business customers of all types."""
+    """General multi-industry self-service landing page."""
     return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
 
 @app.get("/api/for-business", include_in_schema=False)
 async def for_business_api():
-    """API-prefixed alias for /for-business (matches Kubernetes ingress rules)."""
+    """API-prefixed canonical route for /for-business (Kubernetes ingress compatible)."""
     return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
+
+@app.get("/restaurants", include_in_schema=False)
+async def restaurants_landing():
+    """Restaurant & Food Service specialized landing page."""
+    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
+
+@app.get("/api/restaurants", include_in_schema=False)
+async def restaurants_api():
+    """API-prefixed canonical route for /restaurants (Kubernetes ingress compatible)."""
+    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
 
 # Clean public URLs at the apex domain (no /api prefix visible in the browser).
 @app.get("/about", include_in_schema=False)
