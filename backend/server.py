@@ -74,6 +74,16 @@ MEDIA_DIR = os.environ.get('MEDIA_DIR', str(ROOT_DIR / 'media'))
 
 Path(MEDIA_DIR).mkdir(parents=True, exist_ok=True)
 
+# ── Canonical plan IDs (Phase 1 normalization) ──────────────────────────────
+# Canonical set: free | starter | pro | enterprise
+# Compatibility alias: 'standard' → 'starter' (legacy label; retained for any
+# existing references in HTML/config that have not yet been updated).
+# Runtime consumer: deferred to the future authorized acquisition/subscription
+# implementation.  These constants are preserved here so Phase 2B can reference
+# them without re-introducing normalisation logic.
+VALID_PLANS: frozenset = frozenset({"free", "starter", "pro", "enterprise"})
+LEGACY_PLAN_MAP: dict = {"standard": "starter"}
+
 # ============ DATABASE ============
 
 client = AsyncIOMotorClient(MONGO_URL)
@@ -6083,6 +6093,28 @@ async def home_marketing():
 @app.get("/about", include_in_schema=False)
 async def about():
     return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
+
+# ── Phase 1 / 1B approved landing pages ─────────────────────────────────────
+
+@app.get("/for-business", include_in_schema=False)
+async def for_business():
+    """General multi-industry self-service landing page."""
+    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
+
+@app.get("/api/for-business", include_in_schema=False)
+async def for_business_api():
+    """API-prefixed canonical route for /for-business (Kubernetes ingress compatible)."""
+    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
+
+@app.get("/restaurants", include_in_schema=False)
+async def restaurants_landing():
+    """Restaurant & Food Service specialized landing page."""
+    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
+
+@app.get("/api/restaurants", include_in_schema=False)
+async def restaurants_api():
+    """API-prefixed canonical route for /restaurants (Kubernetes ingress compatible)."""
+    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
 
 @app.get("/sign-permit-information", include_in_schema=False)
 async def sign_permit_form_page():
