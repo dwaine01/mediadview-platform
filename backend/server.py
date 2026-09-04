@@ -5007,6 +5007,111 @@ async def reject_public_playlist_item(playlist_id: str, item_id: str,
     return {"message": "Submission rejected"}
 
 
+@app.get("/api/sign-up", response_class=HTMLResponse)
+async def serve_signup_page():
+    """Public self-service sign-up page with pricing plans."""
+    path = ROOT_DIR / "web" / "sign-up.html"
+    return HTMLResponse(content=path.read_text(), status_code=200)
+
+
+@api_router.post("/auth/signup")
+async def public_signup(request: Request):
+    """
+    Self-service registration from the public sign-up page.
+    Creates a new user account. For paid plans, returns a Stripe checkout URL.
+    For the free plan, activates the account immediately.
+    """
+    import bcrypt as _bcrypt
+
+    data = await request.json()
+    email    = (data.get("email") or "").strip().lower()
+    name     = (data.get("name") or "").strip()
+    password = data.get("password") or ""
+    company  = (data.get("company_name") or "").strip()
+    plan_id  = (data.get("plan") or "free").lower()
+    screens  = max(1, int(data.get("screen_count") or 1))
+    add_dev  = bool(data.get("add_device", False))
+
+    VALID_PLANS = {"free", "standard", "pro", "enterprise"}
+    if plan_id not in VALID_PLANS:
+        plan_id = "free"
+
+    if not email or not name or not password or not company:
+        raise HTTPException(status_code=400, detail="name, email, company and password are required")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail="An account with this email already exists. Please sign in.")
+
+    hashed = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+    user_id = gen_id()
+    user = {
+        "id": user_id,
+        "name": name,
+        "email": email,
+        "password_hash": hashed,
+        "role": "customer",
+        "rbac_role": "SELF_SERVICE_OWNER",
+        "company_name": company,
+        "plan": plan_id,
+        "screen_count": screens if plan_id != "free" else 1,
+        "add_device_ordered": add_dev,
+        "active": True,
+        "onboarding_complete": False,
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow(),
+    }
+    await db.users.insert_one(user)
+    user.pop("password_hash", None)
+
+    # For free plan — log in immediately, return token
+    if plan_id == "free":
+        token = create_token(user_id, "customer")
+        resp_data = {"id": user_id, "name": name, "email": email, "plan": "free"}
+        response = JSONResponse(content=resp_data)
+        response.set_cookie(
+            key="access_token", value=token,
+            httponly=True, samesite="lax", secure=False, max_age=86400 * 30
+        )
+        return response
+
+    # For paid plans — attempt Stripe checkout (graceful degradation if not configured)
+    try:
+        from stripe_config import is_configured, get_mode
+        PLAN_PRICES = {
+            "standard": os.environ.get("STRIPE_PRICE_STANDARD", ""),
+            "pro":      os.environ.get("STRIPE_PRICE_PRO", ""),
+            "enterprise": os.environ.get("STRIPE_PRICE_ENTERPRISE", ""),
+        }
+        price_id = PLAN_PRICES.get(plan_id, "")
+        if is_configured() and price_id:
+            import stripe as _stripe
+            from stripe_config import configure_stripe
+            configure_stripe()
+            public_url = os.environ.get("PUBLIC_URL", "http://localhost:8001")
+            session = _stripe.checkout.Session.create(
+                mode="subscription",
+                customer_email=email,
+                line_items=[{"price": price_id, "quantity": screens}],
+                success_url=f"{public_url}/api/dashboard?welcome=1&session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{public_url}/api/sign-up?plan={plan_id}&cancelled=1",
+                metadata={"user_id": user_id, "plan": plan_id, "screens": str(screens)},
+            )
+            return JSONResponse({"checkout_url": session.url, "user_id": user_id})
+    except Exception as exc:
+        logging.getLogger("server").warning("Stripe checkout skipped: %s", exc)
+
+    # Fallback: activate account without payment (for demo / when Stripe not configured)
+    token = create_token(user_id, "customer")
+    resp_data = {"id": user_id, "name": name, "email": email, "plan": plan_id, "pending_payment": True}
+    response = JSONResponse(content=resp_data)
+    response.set_cookie(
+        key="access_token", value=token,
+        httponly=True, samesite="lax", secure=False, max_age=86400 * 30
+    )
+    return response
+
+
 @api_router.get("/menu-templates")
 async def get_menu_templates():
     """Get all available menu design templates."""

@@ -298,12 +298,13 @@ footer{background:var(--dark2);border-top:1px solid var(--dark3);padding:60px 40
   <div class="nav-links">
     <a href="#services">Services</a>
     <a href="#how">How It Works</a>
+    <a href="#pricing" style="color:#22d3ee;font-weight:700">💡 Pricing</a>
     <a href="#menus" data-i18n="nav.menus">Digital Menus</a>
     <a href="#platform">Platform</a>
     <a href="/about" data-i18n="nav.about">About</a>
     <a href="#contact" data-i18n="nav.contact">Contact</a>
-    <a href="/marketplace" class="nav-anuncia" data-i18n="nav.publish">Publica tu anuncio aquí</a>
-    <a href="https://panel.mediadview.com" class="nav-cta" data-i18n="nav.dashboard">Dashboard Login</a>
+    <a href="/api/sign-up" class="nav-anuncia" style="background:linear-gradient(135deg,#6366f1,#4338ca);border-color:#6366f1">Get Started Free</a>
+    <a href="/api/dashboard" class="nav-cta" data-i18n="nav.dashboard">Login</a>
   </div>
 </div>
 </nav>
@@ -634,5 +635,148 @@ setInterval(function(){
 },5000);
 </script>
 <script src="/api/web/i18n.js"></script>
-</body>
-</html>
+
+<!-- PRICING SECTION — Digital Sign for Business -->
+<section class="section" id="pricing" style="background:linear-gradient(180deg,#07091200,#070912 40%,#0a0f1a)">
+<div class="section-inner">
+  <div style="text-align:center;margin-bottom:56px">
+    <div class="section-badge">💡 Digital Sign for Business</div>
+    <h2 class="section-title">Simple, transparent pricing</h2>
+    <p class="section-sub" style="margin:0 auto">Start free. Upgrade as you grow. No contracts, cancel anytime.</p>
+
+    <!-- Billing toggle -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:24px">
+      <span style="font-size:14px;color:#94a3b8">Monthly</span>
+      <label style="position:relative;display:inline-block;width:44px;height:24px;cursor:pointer">
+        <input type="checkbox" id="billing-toggle" style="opacity:0;width:0;height:0" onchange="toggleBilling()">
+        <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:#334155;border-radius:12px;transition:.3s"></span>
+        <span id="toggle-dot" style="position:absolute;left:2px;top:2px;width:20px;height:20px;background:#fff;border-radius:50%;transition:.3s"></span>
+      </label>
+      <span style="font-size:14px;color:#94a3b8">Annual <span style="background:#10b981;color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;margin-left:4px">SAVE 10%</span></span>
+    </div>
+  </div>
+
+  <!-- Plans grid -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:48px" id="plans-grid">
+
+    <!-- Free -->
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:20px;padding:32px 28px;display:flex;flex-direction:column">
+      <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Free</div>
+      <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:4px">$0</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">per screen / month</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;flex:1">Perfect to try. Manage 1 screen. MediAd View logo shown on screen.</p>
+      <ul style="list-style:none;margin-bottom:28px">
+        <li class="plan-feat">1 screen included</li>
+        <li class="plan-feat">Basic templates</li>
+        <li class="plan-feat">Digital Menu creator</li>
+        <li class="plan-feat">Unlimited uploads</li>
+        <li class="plan-feat-off">MediAd View watermark</li>
+      </ul>
+      <a href="/api/sign-up?plan=free" class="plan-btn-free">Try For Free</a>
+      <div style="font-size:11px;color:#475569;text-align:center;margin-top:8px">No credit card required</div>
+    </div>
+
+    <!-- Standard -->
+    <div style="background:#0f172a;border:1px solid #6366f1;border-radius:20px;padding:32px 28px;display:flex;flex-direction:column;position:relative">
+      <div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;font-size:11px;font-weight:700;padding:4px 14px;border-radius:100px;white-space:nowrap">⭐ MOST POPULAR</div>
+      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Standard</div>
+      <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:4px"><span class="price-monthly">$10</span><span class="price-annual" style="display:none">$9</span></div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">per screen / month</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;flex:1">Full control of your content. No watermarks. Perfect for small businesses.</p>
+      <ul style="list-style:none;margin-bottom:28px">
+        <li class="plan-feat">No watermarks</li>
+        <li class="plan-feat">Playlists & scheduling</li>
+        <li class="plan-feat">100+ templates</li>
+        <li class="plan-feat">Digital Menu editor</li>
+        <li class="plan-feat">Multi-user access</li>
+        <li class="plan-feat">Unlimited cloud storage</li>
+      </ul>
+      <a href="/api/sign-up?plan=standard" class="plan-btn-main">Get Started →</a>
+    </div>
+
+    <!-- Pro Plus -->
+    <div style="background:linear-gradient(180deg,#0d1526,#0f172a);border:1px solid #1e293b;border-radius:20px;padding:32px 28px;display:flex;flex-direction:column">
+      <div style="font-size:11px;font-weight:700;color:#22d3ee;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Pro Plus</div>
+      <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:4px"><span class="price-monthly">$15</span><span class="price-annual" style="display:none">$13.50</span></div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">per screen / month</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;flex:1">Advanced features for growing businesses with multiple locations.</p>
+      <ul style="list-style:none;margin-bottom:28px">
+        <li class="plan-feat">Everything in Standard</li>
+        <li class="plan-feat">Advanced analytics</li>
+        <li class="plan-feat">Auto Power On/Off TV</li>
+        <li class="plan-feat">Remote troubleshooting</li>
+        <li class="plan-feat">Team workspaces & roles</li>
+        <li class="plan-feat">Phone + email support</li>
+      </ul>
+      <a href="/api/sign-up?plan=pro" class="plan-btn-outline">Get Pro Plus →</a>
+    </div>
+
+    <!-- Enterprise -->
+    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:20px;padding:32px 28px;display:flex;flex-direction:column">
+      <div style="font-size:11px;font-weight:700;color:#f59e0b;text-transform:uppercase;letter-spacing:.8px;margin-bottom:12px">Enterprise</div>
+      <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:4px">$30+</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:20px">per screen / month · min 25</div>
+      <p style="font-size:13px;color:#94a3b8;line-height:1.6;margin-bottom:24px;flex:1">Custom deployment for chains, franchises, and large venues. Talk to sales.</p>
+      <ul style="list-style:none;margin-bottom:28px">
+        <li class="plan-feat">25+ screens min</li>
+        <li class="plan-feat">Dedicated account manager</li>
+        <li class="plan-feat">Private cloud option</li>
+        <li class="plan-feat">Custom branding & SSO</li>
+        <li class="plan-feat">GraphQL API access</li>
+        <li class="plan-feat">Priority Zoom support</li>
+      </ul>
+      <a href="#contact" class="plan-btn-free">Talk With Sales →</a>
+    </div>
+
+  </div>
+
+  <!-- Device add-on -->
+  <div style="background:linear-gradient(135deg,#0f172a,#1a1040);border:1px solid #6366f130;border-radius:20px;padding:40px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:24px">
+    <div>
+      <div style="font-size:11px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">📦 Hardware Add-on</div>
+      <h3 style="font-size:24px;font-weight:800;margin-bottom:6px">Android Player Device — $60 <span style="font-size:14px;color:#64748b;font-weight:400">one-time</span></h3>
+      <p style="font-size:14px;color:#94a3b8;max-width:600px">Pre-configured Android media player. Plug it into any TV with HDMI and it connects to your account automatically. Shipped within 3–5 business days.</p>
+      <div style="display:flex;gap:24px;margin-top:16px;flex-wrap:wrap">
+        <span style="font-size:13px;color:#cbd5e1">🔌 Plug & Play</span>
+        <span style="font-size:13px;color:#cbd5e1">📶 WiFi + Ethernet</span>
+        <span style="font-size:13px;color:#cbd5e1">🖥️ Full HD 1080p</span>
+        <span style="font-size:13px;color:#cbd5e1">🔄 Auto-updates</span>
+      </div>
+    </div>
+    <a href="/api/sign-up?plan=standard" style="background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;padding:16px 36px;border-radius:12px;font-size:16px;font-weight:700;white-space:nowrap;transition:all .2s;display:inline-block" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='none'">Get Started + Add Device →</a>
+  </div>
+
+  <!-- Trust row -->
+  <div style="display:flex;justify-content:center;gap:48px;margin-top:48px;flex-wrap:wrap">
+    <div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">🔒</div><div style="font-size:12px;color:#64748b">SSL Encrypted</div></div>
+    <div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">💳</div><div style="font-size:12px;color:#64748b">Secure via Stripe</div></div>
+    <div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">↩️</div><div style="font-size:12px;color:#64748b">Cancel Anytime</div></div>
+    <div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">📞</div><div style="font-size:12px;color:#64748b">Support Included</div></div>
+    <div style="text-align:center"><div style="font-size:24px;margin-bottom:4px">⚡</div><div style="font-size:12px;color:#64748b">Instant Activation</div></div>
+  </div>
+</div>
+</section>
+
+<style>
+.plan-feat{padding:5px 0;font-size:13px;color:#cbd5e1;display:flex;align-items:center;gap:8px}
+.plan-feat::before{content:'✓';color:#10b981;font-weight:700;font-size:13px;flex-shrink:0}
+.plan-feat-off{padding:5px 0;font-size:13px;color:#475569;display:flex;align-items:center;gap:8px}
+.plan-feat-off::before{content:'−';color:#475569;font-weight:700;flex-shrink:0}
+.plan-btn-main{display:block;background:linear-gradient(135deg,#6366f1,#4338ca);color:#fff;text-align:center;padding:14px;border-radius:10px;font-size:14px;font-weight:700;transition:all .2s}
+.plan-btn-main:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(99,102,241,.4)}
+.plan-btn-outline{display:block;border:1px solid #22d3ee;color:#22d3ee;text-align:center;padding:14px;border-radius:10px;font-size:14px;font-weight:600;transition:all .2s}
+.plan-btn-outline:hover{background:#22d3ee15;transform:translateY(-1px)}
+.plan-btn-free{display:block;border:1px solid #334155;color:#94a3b8;text-align:center;padding:14px;border-radius:10px;font-size:14px;font-weight:600;transition:all .2s}
+.plan-btn-free:hover{background:#1e293b;color:#e2e8f0}
+@media(max-width:900px){#plans-grid{grid-template-columns:1fr 1fr!important}}
+@media(max-width:600px){#plans-grid{grid-template-columns:1fr!important}}
+</style>
+<script>
+function toggleBilling(){
+  var annual = document.getElementById('billing-toggle').checked;
+  var dot = document.getElementById('toggle-dot');
+  dot.style.left = annual ? '22px' : '2px';
+  document.querySelectorAll('.price-monthly').forEach(function(e){e.style.display=annual?'none':'inline'});
+  document.querySelectorAll('.price-annual').forEach(function(e){e.style.display=annual?'inline':'none'});
+}
+</script>

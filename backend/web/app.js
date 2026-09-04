@@ -89,6 +89,25 @@ const loaders={
   async dashboard(){
     const el=document.getElementById('pg-dashboard');
     try{
+      // Welcome onboarding banner (first login after sign-up)
+      const params=new URLSearchParams(window.location.search);
+      if(params.get('welcome')==='1'||sessionStorage.getItem('mav_welcome')){
+        sessionStorage.removeItem('mav_welcome');
+        if(params.get('welcome')){
+          window.history.replaceState({},'',window.location.pathname+(window.location.hash||''));
+        }
+        el.innerHTML='<div style="background:linear-gradient(135deg,#0d1a3a,#1a0a40);border:1px solid #6366f140;border-radius:20px;padding:36px;margin-bottom:28px">'
+          +'<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:16px;margin-bottom:20px">'
+          +'<div><h2 style="font-size:24px;font-weight:900;background:linear-gradient(135deg,#6366f1,#22d3ee);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px">🎉 Welcome to MediAd View!</h2>'
+          +'<p style="font-size:14px;color:#94a3b8">Your account is ready. Follow these steps to get your digital sign up and running.</p></div>'
+          +'<button onclick="this.closest(\'div\').parentElement.remove()" style="background:none;border:none;color:#475569;font-size:18px;cursor:pointer">✕</button></div>'
+          +'<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px">'
+          +'<div style="background:#0f172a;border:1px solid #10b98130;border-radius:12px;padding:18px"><div style="font-size:26px;margin-bottom:8px">✅</div><div style="font-size:12px;font-weight:700;color:#10b981;margin-bottom:2px">Step 1 — Done!</div><div style="font-size:12px;color:#94a3b8">Account created</div></div>'
+          +'<div style="background:#0f172a;border:1px solid #6366f130;border-radius:12px;padding:18px;cursor:pointer" onclick="go(\'screens\')"><div style="font-size:26px;margin-bottom:8px">🖥️</div><div style="font-size:12px;font-weight:700;color:#6366f1;margin-bottom:2px">Step 2 → Add Screen</div><div style="font-size:12px;color:#94a3b8">Go to Screens section</div></div>'
+          +'<div style="background:#0f172a;border:1px solid #6366f130;border-radius:12px;padding:18px;cursor:pointer" onclick="go(\'devices\')"><div style="font-size:26px;margin-bottom:8px">📦</div><div style="font-size:12px;font-weight:700;color:#6366f1;margin-bottom:2px">Step 3 → Connect Device</div><div style="font-size:12px;color:#94a3b8">Scan QR to link device</div></div>'
+          +'<div style="background:#0f172a;border:1px solid #6366f130;border-radius:12px;padding:18px;cursor:pointer" onclick="go(\'menus\')"><div style="font-size:26px;margin-bottom:8px">🍽️</div><div style="font-size:12px;font-weight:700;color:#6366f1;margin-bottom:2px">Step 4 → Create Menu</div><div style="font-size:12px;color:#94a3b8">Build or import your menu</div></div>'
+          +'</div></div>';
+      }
       const d=await api('/analytics/dashboard');let a=null;if(user?.role==='admin'||user?.role==='superadmin')try{a=await api('/admin/analytics')}catch(e){/* optional admin analytics */}
       const rev=a?.total_revenue||d.total_spent||0,scr=a?.active_screens||d.active_campaigns||0,camp=a?.total_campaigns||d.total_campaigns||0,pend=a?.pending_campaigns||d.pending_campaigns||0;
       const screens=await api('/screens');
