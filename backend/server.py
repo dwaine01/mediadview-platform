@@ -1715,6 +1715,42 @@ async def admin_list_users(admin: dict = Depends(require_admin)):
     users = await db.users.find({}, {"password_hash": 0}).sort("created_at", -1).to_list(500)
     return serialize_doc(users)
 
+@api_router.post("/admin/create-user")
+async def admin_create_user(data: dict, admin: dict = Depends(require_admin)):
+    """Admin creates a new client account directly from the dashboard."""
+    import bcrypt as _bcrypt
+    email = (data.get("email") or "").strip().lower()
+    name  = (data.get("name") or "").strip()
+    password = data.get("password") or ""
+    company  = (data.get("company_name") or "").strip()
+    role     = data.get("role", "customer")
+    rbac_role = data.get("rbac_role", "SELF_SERVICE_OWNER")
+
+    if not email or not name or not password:
+        raise HTTPException(status_code=400, detail="name, email and password are required")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if await db.users.find_one({"email": email}):
+        raise HTTPException(status_code=409, detail=f"A user with email {email} already exists")
+
+    hashed = _bcrypt.hashpw(password.encode(), _bcrypt.gensalt()).decode()
+    new_user = {
+        "id":           gen_id(),
+        "name":         name,
+        "email":        email,
+        "password_hash": hashed,
+        "role":         role,
+        "rbac_role":    rbac_role,
+        "company_name": company,
+        "active":       True,
+        "created_at":   datetime.utcnow(),
+        "updated_at":   datetime.utcnow(),
+        "created_by_admin": admin.get("id"),
+    }
+    await db.users.insert_one(new_user)
+    new_user.pop("password_hash", None)
+    return serialize_doc(new_user)
+
 @api_router.put("/admin/users/{user_id}")
 async def admin_update_user(user_id: str, active: bool, admin: dict = Depends(require_admin)):
     result = await db.users.update_one({"id": user_id}, {"$set": {"active": active}})

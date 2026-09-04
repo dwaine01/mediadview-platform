@@ -393,9 +393,11 @@ const loaders={
       // ===== USERS TAB =====
       }else if(window._adminTab==='users'){
         var users2=await api('/admin/users');
-        el.innerHTML='<div class="ph"><div><h1>Users</h1><p>'+users2.length+' registered accounts</p></div></div>'+tabHtml+
-        '<div class="card"><div class="tbl-h" style="grid-template-columns:2fr 2fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
-        users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+u.role+'</div></div><span style="font-size:13px;color:#94a3b8">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
+        el.innerHTML='<div class="ph"><div><h1>Users</h1><p>'+users2.length+' registered accounts</p></div>'
+          +'<button class="btn-p" onclick="showCreateClientModal()" style="display:flex;align-items:center;gap:6px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M12 5v14m7-7H5"/></svg>Crear Cliente</button></div>'
+          +tabHtml
+          +'<div class="card"><div class="tbl-h" style="grid-template-columns:2fr 2fr 1fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Role</span><span>Status</span></div>'
+          +users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+(u.rbac_role||u.role||'')+'</div></div><span style="font-size:13px;color:#94a3b8">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span style="font-size:12px;color:#94a3b8">'+(u.role||'')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
       }else if(window._adminTab==='colorlight'){
         el.innerHTML='<div class="ph"><div><h1>LED Cloud</h1><p>Direct push to ColorlightCloud LED screens</p></div></div>'+tabHtml+
           '<div id="cl-panel"><div style="padding:60px;text-align:center;color:var(--t-4)">Loading ColorlightCloud…</div></div>';
@@ -2415,4 +2417,97 @@ async function pushToColorlight(){
     document.getElementById('cl-file').value='';
   }catch(e){msg.textContent='✗ '+e.message;msg.style.color='var(--red)'}
   finally{btn.disabled=false;btn.style.opacity='1'}
+}
+
+
+// ============ ADMIN: CREATE CLIENT ACCOUNT ============
+
+function showCreateClientModal(){
+  var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="create-client-modal">';
+  html+='<div style="width:520px;background:#0f172a;border:1px solid #334155;border-radius:18px;padding:36px">';
+  html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px">';
+  html+='<div>';
+  html+='<h2 style="font-size:20px;font-weight:800;color:#e2e8f0;margin-bottom:4px">➕ Crear Cuenta de Cliente</h2>';
+  html+='<p style="font-size:13px;color:#64748b">El cliente podrá iniciar sesión con estas credenciales</p>';
+  html+='</div>';
+  html+='<button onclick="document.getElementById(\'create-client-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button>';
+  html+='</div>';
+
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  html+='<div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">NOMBRE COMPLETO *</label>';
+  html+='<input class="inp" id="cc-name" placeholder="Ej: Juan García" style="margin:0"></div>';
+  html+='<div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">NOMBRE DEL NEGOCIO</label>';
+  html+='<input class="inp" id="cc-company" placeholder="Ej: Pizzería La Luna" style="margin:0"></div>';
+  html+='</div>';
+
+  html+='<div style="margin-bottom:14px"><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">EMAIL *</label>';
+  html+='<input class="inp" id="cc-email" type="email" placeholder="cliente@ejemplo.com" style="margin:0"></div>';
+
+  html+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px">';
+  html+='<div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">CONTRASEÑA *</label>';
+  html+='<input class="inp" id="cc-password" type="password" placeholder="Mínimo 8 caracteres" style="margin:0"></div>';
+  html+='<div><label style="font-size:11px;font-weight:700;color:#64748b;display:block;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px">TIPO DE ACCESO</label>';
+  html+='<select class="inp" id="cc-role" style="margin:0">';
+  html+='<option value="SELF_SERVICE_OWNER">Self-Service Owner (recomendado)</option>';
+  html+='<option value="ADVERTISER">Advertisers (solo campañas)</option>';
+  html+='<option value="MANAGED_VIEWER">Managed Viewer (solo visualizar)</option>';
+  html+='</select></div>';
+  html+='</div>';
+
+  html+='<div id="cc-success" style="display:none;background:#052e16;border:1px solid #166534;border-radius:10px;padding:16px;margin-bottom:16px">';
+  html+='<p style="font-size:13px;color:#4ade80;font-weight:700;margin-bottom:8px">✅ Cuenta creada exitosamente</p>';
+  html+='<div id="cc-success-detail" style="font-size:12px;color:#86efac;line-height:1.8"></div>';
+  html+='<p style="font-size:11px;color:#4ade80;margin-top:8px">⚠️ Guarda estas credenciales y compártelas con tu cliente de forma segura.</p>';
+  html+='</div>';
+
+  html+='<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px">';
+  html+='<button onclick="document.getElementById(\'create-client-modal\').remove()" style="background:none;border:1px solid #334155;color:#94a3b8;padding:10px 20px;border-radius:8px;cursor:pointer">Cancelar</button>';
+  html+='<button id="cc-btn" onclick="doCreateClient()" style="background:linear-gradient(135deg,#6366f1,#4338ca);border:none;color:#fff;padding:10px 24px;border-radius:8px;font-weight:700;cursor:pointer">Crear Cuenta</button>';
+  html+='</div>';
+
+  html+='</div></div>';
+  document.body.insertAdjacentHTML('beforeend',html);
+}
+
+async function doCreateClient(){
+  var name=document.getElementById('cc-name').value.trim();
+  var email=document.getElementById('cc-email').value.trim().toLowerCase();
+  var password=document.getElementById('cc-password').value;
+  var company=document.getElementById('cc-company').value.trim();
+  var rbacRole=document.getElementById('cc-role').value;
+  var btn=document.getElementById('cc-btn');
+
+  if(!name||!email||!password){alert('Nombre, email y contraseña son obligatorios');return}
+  if(password.length<8){alert('La contraseña debe tener al menos 8 caracteres');return}
+
+  btn.disabled=true;btn.textContent='Creando...';
+  try{
+    var roleMap={'SELF_SERVICE_OWNER':'customer','ADVERTISER':'customer','MANAGED_VIEWER':'customer'};
+    var r=await api('/admin/create-user',{method:'POST',body:JSON.stringify({
+      name:name,email:email,password:password,company_name:company,
+      role:roleMap[rbacRole]||'customer',rbac_role:rbacRole
+    })});
+
+    // Show success
+    document.getElementById('cc-success').style.display='block';
+    document.getElementById('cc-success-detail').innerHTML=
+      '<b>Nombre:</b> '+escapeHtml(r.name)+'<br>'
+      +'<b>Email:</b> '+escapeHtml(r.email)+'<br>'
+      +(r.company_name?'<b>Negocio:</b> '+escapeHtml(r.company_name)+'<br>':'')
+      +'<b>Contraseña:</b> '+escapeHtml(password)+'<br>'
+      +'<b>Tipo:</b> '+escapeHtml(rbacRole)+'<br>'
+      +'<b>URL de acceso:</b> '+window.location.origin+'/api/dashboard';
+
+    btn.textContent='Crear Otro';btn.disabled=false;
+    // Clear fields for another creation
+    document.getElementById('cc-name').value='';
+    document.getElementById('cc-email').value='';
+    document.getElementById('cc-password').value='';
+    document.getElementById('cc-company').value='';
+    // Refresh users list in background
+    if(window._adminTab==='users')loaders.admin();
+  }catch(e){
+    btn.disabled=false;btn.textContent='Crear Cuenta';
+    alert('Error: '+e.message);
+  }
 }
