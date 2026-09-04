@@ -6372,6 +6372,16 @@ async def home_marketing():
     """Alias for the corporate landing (identical to root)."""
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
+@app.get("/for-business", include_in_schema=False)
+async def for_business():
+    """Premium self-service marketing page for business customers of all types."""
+    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
+
+@app.get("/api/for-business", include_in_schema=False)
+async def for_business_api():
+    """API-prefixed alias for /for-business (matches Kubernetes ingress rules)."""
+    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
+
 # Clean public URLs at the apex domain (no /api prefix visible in the browser).
 @app.get("/about", include_in_schema=False)
 async def about():
