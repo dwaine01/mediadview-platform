@@ -1,20 +1,27 @@
 # syntax=docker/dockerfile:1.6
 # ══════════════════════════════════════════════════════════════════════
-# MediAd View — Backend Dockerfile (production-grade)
+# MediAd View — Production Dockerfile
 # ══════════════════════════════════════════════════════════════════════
 # Multi-stage build:
-#   1. builder  — installs Python deps into a virtualenv
-#   2. runtime  — slim image, non-root user, only the venv + app code
-#
-# Same image serves the web-api AND the worker (different CMD).
-# See docker-compose.yml / render.yaml for the concrete entrypoints.
-#
-# Build:   docker build -t mediadview-backend:latest .
-# Run api: docker run -p 8001:8001 --env-file .env mediadview-backend
-# Run wrk: docker run --env-file .env mediadview-backend arq worker.WorkerSettings
+#   1. expo-builder — builds Expo web SPA (React Native Web static files)
+#   2. py-builder   — installs Python deps into a virtualenv
+#   3. runtime      — slim image, non-root user, backend + Expo static files
 # ══════════════════════════════════════════════════════════════════════
 
-# ── Stage 1: builder ─────────────────────────────────────────────────
+# ── Stage 0: Build Expo SaaS frontend ────────────────────────────────
+FROM node:20-slim AS expo-builder
+
+WORKDIR /frontend
+
+COPY frontend/package.json frontend/yarn.lock* ./
+RUN yarn install --frozen-lockfile 2>/dev/null || yarn install
+
+COPY frontend/ ./
+
+# Build Expo web app to /frontend/dist
+RUN npx expo export --platform web --output-dir /frontend/dist
+
+# ── Stage 1: Python builder ───────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS builder
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -67,6 +74,9 @@ COPY --from=builder /opt/venv /opt/venv
 
 # App code — only what's needed to run
 COPY --chown=mediadview:mediadview backend/  ./backend/
+
+# Copy pre-built Expo SaaS frontend into backend/web/saas/
+COPY --from=expo-builder --chown=mediadview:mediadview /frontend/dist/ ./backend/web/saas/
 
 # App state dirs (not baked into the image contents)
 RUN mkdir -p /app/backend/media /app/backend/media/uploads \

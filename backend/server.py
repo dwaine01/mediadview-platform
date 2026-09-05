@@ -5978,6 +5978,7 @@ setTimeout(function(){{location.reload()}},300000);
 
 # Serve web dashboard
 WEB_DIR = str(ROOT_DIR / 'web')
+SAAS_DIR = os.path.join(WEB_DIR, 'saas')  # Pre-built Expo SaaS frontend
 
 @app.get("/advertise/{screen_code}", include_in_schema=False)
 async def advertise_landing(screen_code: str):
@@ -6118,6 +6119,13 @@ async def serve_dashboard():
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
 
+# Mount Expo SaaS frontend static assets at root-level paths
+# (Expo builds use absolute /_expo/ and /assets/ paths)
+if os.path.isdir(os.path.join(SAAS_DIR, '_expo')):
+    app.mount("/_expo", StaticFiles(directory=os.path.join(SAAS_DIR, '_expo')), name="expo-assets")
+if os.path.isdir(os.path.join(SAAS_DIR, 'assets')):
+    app.mount("/assets", StaticFiles(directory=os.path.join(SAAS_DIR, 'assets')), name="expo-other-assets")
+
 app.include_router(api_router)
 
 
@@ -6131,11 +6139,19 @@ async def root(request: Request):
     host = (request.headers.get("host") or "").lower()
     if host.startswith("panel."):
         return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+    # Serve Expo SaaS frontend (landing page) for main domain
+    saas_index = os.path.join(SAAS_DIR, 'index.html')
+    if os.path.isfile(saas_index):
+        return FileResponse(saas_index, media_type='text/html')
+    # Fallback to vanilla landing if Expo build not present
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 @app.get("/home", include_in_schema=False)
 async def home_marketing():
-    """Alias for the corporate landing (identical to root)."""
+    """Alias for the corporate landing."""
+    saas_index = os.path.join(SAAS_DIR, 'index.html')
+    if os.path.isfile(saas_index):
+        return FileResponse(saas_index, media_type='text/html')
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 # Clean public URLs at the apex domain (no /api prefix visible in the browser).
@@ -6489,3 +6505,20 @@ async def shutdown():
         stop_campaign_scheduler()
     except Exception:
         pass
+
+# ── Expo SaaS SPA catch-all (must be LAST route) ─────────────────────────────
+# Routes any unmatched path to the Expo index.html so client-side routing works.
+# e.g. /landing, /pricing, /workspace, /login, /(auth)/signup → all return index.html
+# Excludes: /api/*, /player/*, /advertise/*, admin paths (handled above).
+_SAAS_EXCLUDED = ('api/', 'player/', 'advertise/', '_expo/', 'assets/')
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def expo_spa_catchall(full_path: str):
+    """Serve Expo SPA for all non-API routes (SPA client-side routing support)."""
+    if any(full_path.startswith(p) for p in _SAAS_EXCLUDED):
+        from fastapi import HTTPException as _HE
+        raise _HE(status_code=404, detail="Not found")
+    saas_index = os.path.join(SAAS_DIR, 'index.html')
+    if os.path.isfile(saas_index):
+        return FileResponse(saas_index, media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
