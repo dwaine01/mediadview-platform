@@ -65,7 +65,21 @@ function enterApp(){
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});
 function setMobileSidebar(open){const sb=document.querySelector('.sb'),bd=document.querySelector('.sb-backdrop');if(!sb)return;sb.classList.toggle('open',open);bd?.classList.toggle('on',open);if(innerWidth<=900){sb.style.setProperty('transition','none','important');sb.getAnimations().forEach(animation=>animation.cancel());sb.style.setProperty('transform',open?'translate3d(0,0,0)':'translate3d(-100%,0,0)','important')}else{sb.style.removeProperty('transition');sb.style.removeProperty('transform')}}
 window.addEventListener('resize',()=>{if(innerWidth>900)setMobileSidebar(false)});
-function go(p){document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));document.getElementById('pg-'+p)?.classList.add('on');document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));document.querySelector(`[data-p="${p}"]`)?.classList.add('on');setMobileSidebar(false);loaders[p]?.()}
+// Inject spinner keyframes once (no external CSS dependency)
+(function(){if(document.getElementById('mv-spin-css'))return;const s=document.createElement('style');s.id='mv-spin-css';s.textContent='@keyframes mvSpin{to{transform:rotate(360deg)}}';document.head.appendChild(s)})();
+function go(p){
+  document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
+  const _pgEl=document.getElementById('pg-'+p);
+  if(_pgEl){
+    _pgEl.classList.add('on');
+    // Show loading state immediately so the page is never blank while fetching
+    _pgEl.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px"><div style="width:30px;height:30px;border:2.5px solid rgba(99,102,241,0.15);border-top-color:var(--cyan,#22d3ee);border-radius:50%;animation:mvSpin 0.75s linear infinite"></div><p style="color:var(--t-4,#9ca3af);font-size:13px;font-weight:500;letter-spacing:.01em">Loading…</p></div>';
+  }
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.querySelector(`[data-p="${p}"]`)?.classList.add('on');
+  setMobileSidebar(false);
+  loaders[p]?.();
+}
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
 function dot(s){const m={active:'#34d399',pending:'#fbbf24',approved:'#a5b4fc',rejected:'#f87171',draft:'#94a3b8',completed:'#c4b5fd'};return m[s]||'#94a3b8'}
 const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#7c3aed,#6d28d9)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#4338ca)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
