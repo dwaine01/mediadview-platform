@@ -6416,6 +6416,14 @@ async def startup():
     except Exception as e:
         logger.exception(f"Failed to ensure Stripe indexes: {e}")
 
+# ── Phase 2C-1A: SaaS CRM Domain Foundation (additive — no legacy changes) ──
+from domain_saas.routes import create_saas_crm_routes
+
+app.include_router(
+    create_saas_crm_routes(db, get_current_user, require_admin, require_superadmin)
+)
+
+
 @app.on_event("shutdown")
 async def shutdown():
     client.close()
