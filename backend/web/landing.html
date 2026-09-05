@@ -106,7 +106,8 @@ nav.scrolled .nav-toggle span{background:var(--text-dark)}
 .hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
 .hero h1{font-size:58px;font-weight:900;line-height:1.07;letter-spacing:-2px;margin-bottom:22px;color:var(--white)}
-.hero h1 span{color:var(--brand)}
+.hero h1 span:first-child{color:var(--white)}
+.hero h1 span:last-child{color:var(--brand)}
 .hero p{font-size:18px;color:var(--text2);line-height:1.78;margin-bottom:36px;max-width:520px}
 .hero-btns{display:flex;gap:16px}
 
@@ -326,58 +327,25 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     <h1><span data-i18n="landing.h1a">Your Storefront Window Is Your</span> <span data-i18n="landing.h1b">Best Billboard</span></h1>
     <p data-i18n="landing.p">We install high-brightness LED displays on storefront windows, churches, and outdoor walls. Attract customers 24/7 with eye-catching digital content — managed from our cloud platform.</p>
   </div>
-  <div class="hero-visual">
-    <div class="tv-mockup">
-      <div class="tv-frame">
-        <div class="tv-screen">
-          <div class="tv-topbar">
-            <span class="tv-topbar-logo">MEDIAVIEW</span>
-            <span style="font-size:8px;color:#06b6d4;font-weight:600">● EN VIVO</span>
-            <div class="tv-topbar-dots">
-              <div class="tv-topbar-dot" style="background:#06b6d4"></div>
-              <div class="tv-topbar-dot" style="background:#3b82f6"></div>
-              <div class="tv-topbar-dot" style="background:#34d399"></div>
-            </div>
-          </div>
-          <div style="padding:8px 12px 4px;font-size:9px;font-weight:700;color:#67e8f9;text-transform:uppercase;letter-spacing:1.5px">🍔 Nuestro Menú</div>
-          <div class="tv-menu-grid">
-            <div class="tv-menu-item">
-              <div class="tv-item-img" style="background:linear-gradient(135deg,rgba(245,200,66,.3),rgba(239,68,68,.2))"></div>
-              <div class="tv-item-name">Burger Clásica</div>
-              <div class="tv-item-price">$8.99</div>
-              <div class="tv-item-desc">Carne 100% res, queso cheddar, lechuga fresca</div>
-            </div>
-            <div class="tv-menu-item">
-              <div class="tv-item-img" style="background:linear-gradient(135deg,rgba(52,211,153,.3),rgba(16,185,129,.2))"></div>
-              <div class="tv-item-name">Ensalada Fresh</div>
-              <div class="tv-item-price">$6.50</div>
-              <div class="tv-item-desc">Mix de verdes, tomate, aderezo casero</div>
-            </div>
-            <div class="tv-menu-item">
-              <div class="tv-item-img" style="background:linear-gradient(135deg,rgba(167,139,250,.3),rgba(124,58,237,.2))"></div>
-              <div class="tv-item-name">Pizza Margherita</div>
-              <div class="tv-item-price">$12.99</div>
-              <div class="tv-item-desc">Mozzarella, albahaca, tomate San Marzano</div>
-            </div>
-            <div class="tv-menu-item">
-              <div class="tv-item-img" style="background:linear-gradient(135deg,rgba(251,191,36,.3),rgba(245,200,66,.2))"></div>
-              <div class="tv-item-name">Combo del Día</div>
-              <div class="tv-item-price" style="color:#34d399">$10.99</div>
-              <div class="tv-item-desc">Plato principal + bebida + postre</div>
-            </div>
-          </div>
-          <div style="padding:6px 12px;text-align:center;font-size:7px;color:#475569">Actualizado hace 2 min · mediadview.com</div>
-        </div>
+  <div class="hero-visual" style="position:relative">
+    <div style="border-radius:20px;overflow:hidden;box-shadow:0 0 0 1px rgba(6,182,212,.12),0 40px 80px rgba(0,0,0,.5);position:relative">
+      <video autoplay muted loop playsinline poster="/api/web/og-image.png" style="width:100%;display:block;border-radius:20px;min-height:280px;object-fit:cover">
+        <source src="/api/web/promo-video.mp4" type="video/mp4">
+        <img src="/api/web/og-image.png" style="width:100%;border-radius:20px;display:block;min-height:280px;object-fit:cover" alt="MediaView Digital Signage">
+      </video>
+      <!-- Live badge overlay on the video -->
+      <div style="position:absolute;top:16px;left:16px;background:rgba(2,12,27,.85);backdrop-filter:blur(12px);border:1px solid rgba(6,182,212,.22);border-radius:100px;padding:7px 16px;display:flex;align-items:center;gap:8px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite;flex-shrink:0"></span>
+        <span style="font-size:12px;font-weight:600;color:#f1f5f9;white-space:nowrap">Live Digital Signage</span>
       </div>
-      <div class="tv-stand-neck"></div>
-      <div class="tv-stand-base"></div>
     </div>
+    <!-- Floating stat badges -->
     <div class="hero-float hero-float-1">
-      <div class="hf-icon" style="background:rgba(245,200,66,.12)">📺</div>
+      <div class="hf-icon" style="background:rgba(6,182,212,.12)">📺</div>
       <div><div class="hf-text">Pantallas Activas</div><div class="hf-val" style="color:#67e8f9">500+</div></div>
     </div>
     <div class="hero-float hero-float-2">
-      <div class="hf-icon" style="background:rgba(52,211,153,.1)">✓</div>
+      <div class="hf-icon" style="background:rgba(16,185,129,.1)">⚡</div>
       <div><div class="hf-text">Actualización</div><div class="hf-val" style="color:var(--green)">En segundos</div></div>
     </div>
   </div>
