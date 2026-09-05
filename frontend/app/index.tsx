@@ -1,10 +1,10 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { Redirect } from 'expo-router';
-import { useAuthStore } from '../src/store/authStore';
+import { useAuthStore, isWorkspaceUser } from '../src/store/authStore';
 
 export default function Index() {
-  const { token, isInitialized } = useAuthStore();
+  const { token, user, isInitialized } = useAuthStore();
 
   if (!isInitialized) {
     return (
@@ -15,6 +15,10 @@ export default function Index() {
   }
 
   if (token) {
+    // Phase 2C P1: workspace customers go to /workspace
+    if (isWorkspaceUser(user)) {
+      return <Redirect href="/workspace" />;
+    }
     return <Redirect href="/(tabs)" />;
   }
   return <Redirect href="/(auth)/login" />;

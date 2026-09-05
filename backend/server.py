@@ -5998,6 +5998,14 @@ app.include_router(create_self_service_routes(db, get_current_user, require_admi
 from advertising_routes import create_advertising_routes
 app.include_router(create_advertising_routes(db, get_current_user, require_admin))
 
+# ── Phase 2C P1: Plans, Workspace, and Signup routes
+from plans_routes import create_plans_routes, seed_default_plans
+from workspace_routes import create_workspace_routes
+from signup_routes import create_signup_routes
+app.include_router(create_plans_routes(db, get_current_user, require_admin))
+app.include_router(create_workspace_routes(db, get_current_user, require_admin))
+app.include_router(create_signup_routes(db, create_token))
+
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────
 from campaign_scheduler import run_campaign_scheduler, get_campaign_scheduler
 
@@ -6456,6 +6464,13 @@ async def startup():
         await ensure_stripe_indexes(db)
     except Exception as e:
         logger.exception(f"Failed to ensure Stripe indexes: {e}")
+
+    # Phase 2C P1 — Seed canonical plan configs (idempotent)
+    try:
+        await seed_default_plans(db)
+        logger.info("Phase 2C: canonical plan configs seeded OK")
+    except Exception as e:
+        logger.exception(f"Failed to seed default plans: {e}")
 
 # ── Phase 2C-1A: SaaS CRM Domain Foundation (additive — no legacy changes) ──
 from domain_saas.routes import create_saas_crm_routes

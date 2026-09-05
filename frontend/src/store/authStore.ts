@@ -1,15 +1,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../services/api';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-  company_name?: string;
-  language?: string;
-}
+import type { User } from '../types';
 
 interface AuthState {
   token: string | null;
@@ -65,6 +57,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       const token = await AsyncStorage.getItem('auth_token');
       if (token) {
         const res = await authAPI.getMe();
+        // Phase 2C: getMe returns rbac_role and organization_id
         set({ token, user: res.data, isInitialized: true });
       } else {
         set({ isInitialized: true });
@@ -77,3 +70,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   setUser: (user) => set({ user }),
 }));
+
+// Helpers
+export const isWorkspaceUser = (user: User | null): boolean =>
+  user?.rbac_role === 'SELF_SERVICE_OWNER' || user?.rbac_role === 'SELF_SERVICE_MANAGER';
+
+export const isAdminUser = (user: User | null): boolean =>
+  user?.role === 'admin' || user?.rbac_role === 'SUPER_ADMIN' || user?.rbac_role === 'MEDIAVIEW_ADMIN';

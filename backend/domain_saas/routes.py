@@ -24,11 +24,15 @@ Collections used (all additive):
 from __future__ import annotations
 
 import re
+import secrets
+import string
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
+import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
 
@@ -659,15 +663,276 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
                     {"id": sub["current_pricing_agreement_id"]}
                 )
                 pricing = _ser(pa)
+            # Include org-scoped users (exclude password hashes)
+            org_users = await db.users.find(
+                {"organization_id": org["id"]},
+                {"password_hash": 0, "_id": 0}
+            ).to_list(100)
+            # Include plan config
+            plan_id = (pricing or {}).get("plan_id") or (sub_data or {}).get("plan") or org.get("plan")
+            plan_cfg = await db.plans.find_one({"plan_id": plan_id}) if plan_id else None
             org_summaries.append({
                 "organization": _ser(org),
                 "subscription": sub_data,
                 "current_pricing_agreement": pricing,
+                "plan_config": _ser(plan_cfg),
+                "users": _ser(org_users),
             })
 
         return {
             "customer": _ser(customer),
             "organizations": org_summaries,
+        }
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ADMIN PROVISION — Atomic full-stack customer creation
+    # ══════════════════════════════════════════════════════════════════════════
+
+    class CustomerProvisionRequest(BaseModel):
+        """Payload for atomic admin-side customer provisioning.
+        Creates Customer → Organization → Subscription → PricingAgreement → User in one shot.
+        No partial records are created if validation fails.
+        """
+        # Step 1: Customer
+        legal_name: str = Field(..., min_length=1, max_length=300)
+        display_name: str = Field("", max_length=300)
+        primary_contact_name: str = Field(..., min_length=1, max_length=200)
+        primary_contact_email: str = Field(..., min_length=3, max_length=320)
+        primary_contact_phone: Optional[str] = Field(None, max_length=50)
+        business_type: Optional[str] = Field(None, max_length=100)
+        billing_address: Optional[str] = Field(None, max_length=500)
+        customer_notes: Optional[str] = Field(None, max_length=2000)
+        customer_status: str = Field("prospect", max_length=50)
+        # Step 2: Organization
+        org_name: str = Field(..., min_length=1, max_length=300)
+        org_timezone: Optional[str] = Field(None, max_length=100)
+        org_language: Optional[str] = Field("en", max_length=10)
+        org_account_ref: Optional[str] = Field(None, max_length=100)
+        # Step 3: Subscription
+        sub_status: str = Field("trial", max_length=50)
+        sub_billing_provider: str = Field("manual", max_length=50)
+        sub_trial_ends_at: Optional[str] = Field(None, description="ISO date YYYY-MM-DD")
+        # Step 4: Pricing
+        plan_id: str = Field("starter", max_length=50)
+        pricing_model: str = Field("standard", max_length=20)
+        custom_monthly_price: Optional[float] = Field(None, ge=0)
+        custom_screens_included: Optional[int] = Field(None, ge=0)
+        custom_screen_extra_price: Optional[float] = Field(None, ge=0)
+        custom_screens_limit: Optional[int] = Field(None, ge=0)
+        custom_billing_interval: str = Field("monthly", max_length=20)
+        custom_discount: Optional[float] = Field(None, ge=0, le=100)
+        pa_notes: Optional[str] = Field(None, max_length=2000)
+        # Step 5: User
+        user_email: str = Field(..., min_length=3, max_length=320)
+        user_name: str = Field(..., min_length=1, max_length=200)
+        user_role: str = Field("SELF_SERVICE_OWNER", max_length=50)
+
+    def _gen_temp_password(length: int = 12) -> str:
+        chars = string.ascii_uppercase + string.ascii_lowercase + string.digits + "!@#$"
+        pw: list[str] = [
+            secrets.choice(string.ascii_uppercase),
+            secrets.choice(string.ascii_lowercase),
+            secrets.choice(string.digits),
+            secrets.choice("!@#$"),
+        ]
+        pw += [secrets.choice(chars) for _ in range(length - 4)]
+        secrets.SystemRandom().shuffle(pw)
+        return "".join(pw)
+
+    @router.post(
+        "/provision",
+        summary="Atomically provision full customer stack (Admin CRM)",
+        status_code=201,
+    )
+    async def provision_customer_stack(
+        data: CustomerProvisionRequest,
+        admin=Depends(require_admin),
+    ):
+        """
+        Atomic admin provisioning:
+        Customer → Organization → Subscription(v2) → PricingAgreement → User
+        Marks org as schema_source='crm_2c'.
+        Returns all created IDs plus a one-time temporary password for the workspace user.
+        """
+        _guard_crm_write(admin)
+
+        # ── Validate plan ──────────────────────────────────────────────────────
+        VALID_PLANS = {"free", "starter", "pro", "enterprise"}
+        PLAN_ALIASES = {"standard": "starter"}
+        plan_id = PLAN_ALIASES.get(data.plan_id.strip().lower(), data.plan_id.strip().lower())
+        if plan_id not in VALID_PLANS:
+            raise HTTPException(status_code=400, detail=f"Invalid plan_id: '{data.plan_id}'")
+
+        plan_config = await db.plans.find_one({"plan_id": plan_id})
+        if not plan_config:
+            raise HTTPException(status_code=400, detail=f"Plan '{plan_id}' not found in database.")
+
+        # ── Guard: no duplicate user email ──────────────────────────────────────
+        user_email = data.user_email.strip().lower()
+        if await db.users.find_one({"email": user_email}):
+            raise HTTPException(status_code=409, detail=f"A user with email '{user_email}' already exists.")
+
+        now = _now()
+
+        # ── 1. Customer ────────────────────────────────────────────────────────
+        customer_doc = {
+            "id": _gen_id(),
+            "legal_name": data.legal_name,
+            "display_name": data.display_name or data.legal_name,
+            "primary_contact_name": data.primary_contact_name,
+            "primary_contact_email": data.primary_contact_email.strip().lower(),
+            "primary_contact_phone": data.primary_contact_phone,
+            "billing_contact_name": data.primary_contact_name,
+            "billing_contact_email": data.primary_contact_email.strip().lower(),
+            "business_type": data.business_type,
+            "billing_address": data.billing_address,
+            "status": data.customer_status,
+            "source": "crm_admin",
+            "notes": data.customer_notes,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.customers.insert_one(customer_doc)
+
+        # ── 2. Organization ────────────────────────────────────────────────────
+        base_slug = _slugify(data.org_name)
+        slug = base_slug
+        suffix = 1
+        while await db.organizations.find_one({"slug": slug}):
+            slug = f"{base_slug}-{suffix}"
+            suffix += 1
+
+        org_doc = {
+            "id": _gen_id(),
+            "name": data.org_name,
+            "slug": slug,
+            "plan": plan_id,
+            "status": "active",
+            "customer_id": customer_doc["id"],
+            "schema_source": "crm_2c",
+            "owner_user_id": None,
+            "timezone": data.org_timezone,
+            "language": data.org_language,
+            "account_ref": data.org_account_ref,
+            "notes": None,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.organizations.insert_one(org_doc)
+
+        # ── 3. Subscription ────────────────────────────────────────────────────
+        VALID_SUB_STATUSES = {"trial", "active", "suspended", "cancelled"}
+        sub_status = data.sub_status if data.sub_status in VALID_SUB_STATUSES else "trial"
+
+        subscription_doc = {
+            "id": _gen_id(),
+            "schema_version": 2,
+            "org_id": org_doc["id"],
+            "customer_id": customer_doc["id"],
+            "status": sub_status,
+            "current_pricing_agreement_id": None,
+            "billing_provider": data.sub_billing_provider,
+            "billing_customer_ref": None,
+            "billing_subscription_ref": None,
+            "billing_status": "pending",
+            "trial_ends_at": data.sub_trial_ends_at,
+            "activated_at": now if sub_status == "active" else None,
+            "suspended_at": None,
+            "cancelled_at": None,
+            "current_period_start": now,
+            "current_period_end": now + timedelta(days=30),
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.subscriptions.insert_one(subscription_doc)
+
+        # ── 4. PricingAgreement ────────────────────────────────────────────────
+        if data.pricing_model == "custom":
+            pa_price = data.custom_monthly_price if data.custom_monthly_price is not None else float(plan_config.get("monthly_price", 0))
+            pa_screens = data.custom_screens_included if data.custom_screens_included is not None else plan_config.get("screens_included", 1)
+            pa_extra = data.custom_screen_extra_price
+            pa_limit = data.custom_screens_limit
+            pa_discount = data.custom_discount
+        else:  # standard
+            pa_price = float(plan_config.get("monthly_price", 0))
+            pa_screens = plan_config.get("screens_included", 1)
+            pa_extra = plan_config.get("price_per_extra_screen")
+            pa_limit = plan_config.get("screens_limit")
+            pa_discount = None
+
+        pricing_agreement_doc = {
+            "id": _gen_id(),
+            "subscription_id": subscription_doc["id"],
+            "version": 1,
+            "plan_id": plan_id,
+            "pricing_model": data.pricing_model,
+            "screens_included": pa_screens,
+            "screens_limit": pa_limit,
+            "overage_price_per_screen": pa_extra,
+            "agreed_monthly_price": pa_price,
+            "currency": "USD",
+            "billing_cycle": data.custom_billing_interval or "monthly",
+            "discount_percent": pa_discount,
+            "credit_balance": None,
+            "effective_from": now.isoformat(),
+            "effective_to": None,
+            "created_by": admin.get("email", "admin"),
+            "notes": data.pa_notes or f"Admin provisioned — plan: {plan_id}, model: {data.pricing_model}",
+            "created_at": now,
+        }
+        await db.pricing_agreements.insert_one(pricing_agreement_doc)
+
+        # Link subscription ↔ pricing agreement
+        await db.subscriptions.update_one(
+            {"id": subscription_doc["id"]},
+            {"$set": {"current_pricing_agreement_id": pricing_agreement_doc["id"], "updated_at": now}},
+        )
+
+        # ── 5. User ────────────────────────────────────────────────────────────
+        VALID_ROLES = {
+            "SELF_SERVICE_OWNER": Role.SELF_SERVICE_OWNER,
+            "SELF_SERVICE_MANAGER": Role.SELF_SERVICE_MANAGER,
+        }
+        rbac_role = VALID_ROLES.get(data.user_role, Role.SELF_SERVICE_OWNER)
+
+        temp_password = _gen_temp_password()
+        user_doc = {
+            "id": _gen_id(),
+            "email": user_email,
+            "name": data.user_name,
+            "company_name": data.legal_name,
+            "role": "customer",
+            "password_hash": bcrypt.hashpw(temp_password.encode(), bcrypt.gensalt()).decode(),
+            "rbac_role": rbac_role,
+            "organization_id": org_doc["id"],
+            "must_change_password": True,
+            "active": True,
+            "session_epoch": 0,
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.users.insert_one(user_doc)
+
+        # Back-fill org owner
+        await db.organizations.update_one(
+            {"id": org_doc["id"]},
+            {"$set": {"owner_user_id": user_doc["id"], "updated_at": now}},
+        )
+
+        return {
+            "customer": _ser(customer_doc),
+            "organization": _ser(org_doc),
+            "subscription": _ser(subscription_doc),
+            "pricing_agreement": _ser(pricing_agreement_doc),
+            "user": {
+                "id": user_doc["id"],
+                "email": user_email,
+                "name": user_doc["name"],
+                "rbac_role": rbac_role,
+                "organization_id": org_doc["id"],
+                "temporary_password": temp_password,
+            },
+            "customer_id": customer_doc["id"],
         }
 
     return router

@@ -96,4 +96,75 @@ export const analyticsAPI = {
   dashboard: () => api.get('/analytics/dashboard'),
 };
 
+// Phase 2C P1: Plans API (public, no auth required)
+export const plansAPI = {
+  listPublic: () => api.get('/plans'),
+};
+
+// Phase 2C P1: Customer self-signup
+export const signupAPI = {
+  customerSignup: (data: {
+    plan_id: string;
+    business_name: string;
+    contact_name: string;
+    contact_email: string;
+    contact_phone?: string | null;
+    password: string;
+    org_name?: string;
+  }) => api.post('/auth/customer-signup', data),
+};
+
+// Phase 2C P1: Customer Workspace API (auth required, org-scoped)
+export const workspaceAPI = {
+  context: () => api.get('/workspace/context'),
+  // Screens
+  screens: () => api.get('/workspace/screens'),
+  createScreen: (data: { name: string; location?: string }) => api.post('/workspace/screens', data),
+  connectScreen: (data: { activation_code: string; screen_name: string }) =>
+    api.post('/workspace/screens/connect', data),
+  // Devices
+  devices: () => api.get('/workspace/devices'),
+  // Media
+  media: () => api.get('/workspace/media'),
+  uploadMedia: (formData: FormData) =>
+    api.post('/media/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  // Menus
+  menus: () => api.get('/workspace/menus'),
+  getMenu: (id: string) => api.get(`/workspace/menus/${id}`),
+  createMenu: (data: { name: string; description?: string; items?: any[]; source?: string }) =>
+    api.post('/workspace/menus', data),
+  updateMenu: (id: string, data: { name?: string; description?: string }) =>
+    api.put(`/workspace/menus/${id}`, data),
+  deleteMenu: (id: string) => api.delete(`/workspace/menus/${id}`),
+  addMenuItem: (menuId: string, item: {
+    name: string; price: number; description?: string; category?: string;
+    available?: boolean; media_id?: string; image_url?: string;
+  }) => api.post(`/workspace/menus/${menuId}/items`, item),
+  updateMenuItem: (menuId: string, itemId: string, item: Partial<{
+    name: string; price: number; description: string; category: string;
+    available: boolean; media_id: string; image_url: string;
+  }>) => api.put(`/workspace/menus/${menuId}/items/${itemId}`, item),
+  deleteMenuItem: (menuId: string, itemId: string) =>
+    api.delete(`/workspace/menus/${menuId}/items/${itemId}`),
+  publishMenu: (menuId: string, data?: { screen_ids?: string[] }) =>
+    api.post(`/workspace/menus/${menuId}/publish`, data || {}),
+  // Billing
+  billing: () => api.get('/workspace/billing'),
+  screenCostPreview: (additionalScreens: number) =>
+    api.get(`/workspace/billing/screen-cost?additional_screens=${additionalScreens}`),
+  addScreens: (additionalScreens: number) =>
+    api.post('/workspace/billing/add-screens', { additional_screens: additionalScreens }),
+  // Legacy
+  playlists: () => api.get('/workspace/playlists'),
+  schedules: () => api.get('/workspace/schedules'),
+  users: () => api.get('/workspace/users'),
+};
+
+// Player simulator API (no auth, device_id is the token)
+export const playerAPI = {
+  register: (data?: { device_name?: string }) => api.post('/devices/register', data || {}),
+  check: (deviceId: string) => api.get(`/devices/${deviceId}/check`),
+  content: (deviceId: string) => api.get(`/workspace/player/${deviceId}/content`),
+};
+
 export default api;

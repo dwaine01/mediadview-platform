@@ -19,11 +19,13 @@ export default function RootLayout() {
         <Stack.Screen name="index" />
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="workspace" />
         <Stack.Screen name="campaign/create" />
         <Stack.Screen name="campaign/[id]" />
         <Stack.Screen name="screen/[id]" />
         <Stack.Screen name="admin/index" />
         <Stack.Screen name="player" />
+        <Stack.Screen name="simulator" />
       </Stack>
     </>
   );

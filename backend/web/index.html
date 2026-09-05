@@ -34,10 +34,23 @@
         <button data-testid="login-submit-button" onclick="doLogin()" class="btn-p" style="width:100%;padding:13px">Sign In</button>
       </div>
       <p id="login-err" style="color:var(--red);font-size:12px;text-align:center;margin-top:14px;display:none"></p>
+      <!-- Phase 2C P1: Self-signup CTA -->
+      <div style="border-top:1px solid rgba(255,255,255,.06);margin-top:22px;padding-top:18px;text-align:center">
+        <p style="font-size:13px;color:var(--t-4);margin-bottom:10px">New to MediAd View?</p>
+        <button onclick="showPricingPage()" style="width:100%;padding:11px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.3);border-radius:10px;color:#a5b4fc;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s">
+          View Plans &amp; Create Account →
+        </button>
+      </div>
     </div>
     <p style="text-align:center;margin-top:20px;font-size:12px;color:var(--t-4)">Powered by <span style="color:var(--brand-l);font-weight:600">MediAd View</span></p>
   </div>
 </div>
+
+<!-- ========== PRICING PAGE (pre-login) ========== -->
+<div id="view-pricing" style="display:none;min-height:100vh;background:#030712;align-items:flex-start;justify-content:center;overflow-y:auto;padding-top:0"></div>
+
+<!-- ========== SIGNUP PAGE (pre-login) ========== -->
+<div id="view-signup" style="display:none;min-height:100vh;background:#030712;align-items:flex-start;justify-content:center;overflow-y:auto;padding-top:0"></div>
 
 <!-- ========== APP ========== -->
 <div id="view-app">
@@ -99,6 +112,15 @@
       </div>
 
       <div class="sb-section" data-role-admin>Administration</div>
+      <!-- Phase 2C P1: CRM Customer Management -->
+      <div class="ni" data-p="customers" data-role-admin onclick="go('customers')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>CRM Customers</span>
+      </div>
+      <div class="ni" data-p="admin-plans" data-role-admin onclick="go('admin-plans')">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"/></svg>
+        <span>Pricing Plans</span>
+      </div>
       <div class="ni" data-p="custorders" data-role-admin onclick="go('custorders')">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
         <span>Customer Orders</span>
@@ -163,6 +185,41 @@
       <div class="ni" data-p="managed-requests" data-role-mv onclick="go('managed-requests')" style="display:none">
         <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4v-4z"/></svg>
         <span>Solicitar Cambio</span>
+      </div>
+
+      <!-- Phase 2C P1: Customer Workspace — visible ONLY for SELF_SERVICE_OWNER/MANAGER -->
+      <div class="sb-section" data-role-workspace style="display:none">My Workspace</div>
+      <div class="ni" data-p="ws-dashboard" data-role-workspace onclick="go('ws-dashboard')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        <span>Dashboard</span>
+      </div>
+      <div class="ni" data-p="ws-screens" data-role-workspace onclick="go('ws-screens')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8m-4-4v4"/></svg>
+        <span>Screens</span>
+      </div>
+      <div class="ni" data-p="ws-content" data-role-workspace onclick="go('ws-content')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span>Content / Media</span>
+      </div>
+      <div class="ni" data-p="ws-playlists" data-role-workspace onclick="go('ws-playlists')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 4h14a2 2 0 012 2v3H3V6a2 2 0 012-2zm-2 9h18v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5zm5-6h8M8 16h5"/></svg>
+        <span>Playlists</span>
+      </div>
+      <div class="ni" data-p="ws-schedules" data-role-workspace onclick="go('ws-schedules')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <span>Schedules</span>
+      </div>
+      <div class="ni" data-p="ws-users" data-role-workspace onclick="go('ws-users')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <span>Team</span>
+      </div>
+      <div class="ni" data-p="ws-billing" data-role-workspace onclick="go('ws-billing')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"/></svg>
+        <span>Billing / Plan</span>
+      </div>
+      <div class="ni" data-p="ws-settings" data-role-workspace onclick="go('ws-settings')" style="display:none">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/></svg>
+        <span>Settings</span>
       </div>
     </nav>
     <div class="sb-ft">
@@ -249,11 +306,25 @@
     <div id="pg-managed-dashboard" class="pg fade"></div>
     <div id="pg-managed-screens" class="pg fade"></div>
     <div id="pg-managed-requests" class="pg fade"></div>
+    <!-- Phase 2C P1: Admin CRM + Plans -->
+    <div id="pg-customers" class="pg fade"></div>
+    <div id="pg-admin-plans" class="pg fade"></div>
+    <!-- Phase 2C P1: New Customer Wizard (6-step full-page) -->
+    <div id="pg-cw-wizard" class="pg fade"></div>
+    <!-- Phase 2C P1: Customer Workspace -->
+    <div id="pg-ws-dashboard" class="pg fade"></div>
+    <div id="pg-ws-screens" class="pg fade"></div>
+    <div id="pg-ws-content" class="pg fade"></div>
+    <div id="pg-ws-playlists" class="pg fade"></div>
+    <div id="pg-ws-schedules" class="pg fade"></div>
+    <div id="pg-ws-users" class="pg fade"></div>
+    <div id="pg-ws-billing" class="pg fade"></div>
+    <div id="pg-ws-settings" class="pg fade"></div>
   </div>
 </div>
 
 <script src="/api/web/auth-client.js?v=20260902-session-v3"></script>
-<script src="/api/web/app.js?v=20260905-p0-perf-fix-v3"></script>
+<script src="/api/web/app.js?v=20260905-p1-saas-v1"></script>
 <script src="/api/web/playlists.js?v=20260902-playlist-autosave-v6"></script>
 <script src="/api/web/finance.js?v=20260803-corp"></script>
 <script src="/api/web/finance-extras.js?v=20260605-live2"></script>
@@ -263,5 +334,9 @@
 <script src="/api/web/self-service.js?v=20260903-fase2-v1"></script>
 <script src="/api/web/advertising.js?v=20260903-fase3-v1"></script>
 <script src="/api/web/managed-portal.js?v=20260904-fase4-v1"></script>
+<!-- Phase 2C P1: SaaS Signup + Workspace + CRM Admin -->
+<script src="/api/web/signup.js?v=20260905-p1-v1"></script>
+<script src="/api/web/workspace.js?v=20260905-p1-v1"></script>
+<script src="/api/web/crm-admin.js?v=20260910-p1-wizard-v2"></script>
 </body>
 </html>

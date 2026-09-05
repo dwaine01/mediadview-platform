@@ -43,6 +43,7 @@ function enterApp(){
   window._isAdv=()=>isAdv;
   window._isMV=()=>isMV;
   window._user=()=>user;
+  window._isWorkspace=()=>false;  // overridden below for SS users
   // Show/hide role-specific nav items + section labels
   document.querySelectorAll('[data-role-admin]').forEach(e=>e.style.display=isAdm?'':'none');
   document.querySelectorAll('[data-role-ss]').forEach(e=>e.style.display=isSS?'':'none');
@@ -58,8 +59,20 @@ function enterApp(){
     const cta=document.querySelector('.tb-cta');
     if(cta)cta.style.display='none';
     go('managed-dashboard');
-  } else if(isSS&&!isAdm)go('my-org');
-  else if(isAdv&&!isAdm&&!isSS)go('advertiser');
+  } else if(isSS&&!isAdm){
+    // Phase 2C P1: SELF_SERVICE users get the Customer Workspace experience
+    // Hide all non-workspace nav items
+    document.querySelectorAll('.ni:not([data-role-workspace])').forEach(e=>e.style.display='none');
+    document.querySelectorAll('.sb-section:not([data-role-workspace])').forEach(e=>e.style.display='none');
+    // Show workspace nav items
+    document.querySelectorAll('[data-role-workspace]').forEach(e=>e.style.display='');
+    // Hide "New Campaign" topbar CTA — not relevant for workspace customers
+    const cta=document.querySelector('.tb-cta');
+    if(cta)cta.style.display='none';
+    // Expose workspace flag globally for other modules
+    window._isWorkspace=()=>true;
+    go('ws-dashboard');
+  } else if(isAdv&&!isAdm&&!isSS)go('advertiser');
   else go('dashboard');
 }
 document.getElementById('in-pwd')?.addEventListener('keydown',e=>{if(e.key==='Enter')doLogin()});

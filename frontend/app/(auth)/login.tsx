@@ -6,7 +6,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useAuthStore } from '../../src/store/authStore';
+import { useAuthStore, isWorkspaceUser } from '../../src/store/authStore';
 import { Ionicons } from '@expo/vector-icons';
 
 const { height: SH } = Dimensions.get('window');
@@ -14,7 +14,7 @@ const { height: SH } = Dimensions.get('window');
 export default function LoginScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { login, isLoading } = useAuthStore();
+  const { login, isLoading, user } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -22,7 +22,16 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) { Alert.alert('Error', 'Please fill in all fields'); return; }
-    try { await login(email.trim(), password); router.replace('/(tabs)'); }
+    try {
+      await login(email.trim(), password);
+      // Phase 2C P1: route workspace customers to /workspace
+      const updatedUser = useAuthStore.getState().user;
+      if (isWorkspaceUser(updatedUser)) {
+        router.replace('/workspace');
+      } else {
+        router.replace('/(tabs)');
+      }
+    }
     catch (e: any) { Alert.alert('Login Failed', e.message); }
   };
 
@@ -80,6 +89,12 @@ export default function LoginScreen() {
         <TouchableOpacity testID="login-register-button" style={s.linkRow} onPress={() => router.push('/(auth)/register')}>
           <Text style={s.linkText}>Need an account?</Text>
           <Text style={s.linkBold}> Create one</Text>
+        </TouchableOpacity>
+
+        {/* Phase 2C P1: Self-signup for SaaS customers */}
+        <TouchableOpacity style={[s.linkRow, { marginTop: 12, justifyContent: 'center' }]} onPress={() => router.push('/(auth)/pricing')}>
+          <Text style={s.linkText}>View plans & </Text>
+          <Text style={[s.linkBold, { color: '#22D3EE' }]}>Start free trial →</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>

@@ -3,11 +3,101 @@ export interface User {
   name: string;
   email: string;
   role: 'admin' | 'customer';
+  rbac_role?: string;          // Phase 2C: SELF_SERVICE_OWNER | MEDIAVIEW_ADMIN | etc.
+  organization_id?: string;    // Phase 2C: workspace tenant scoping
   company_name?: string;
   phone?: string;
   language?: string;
   active?: boolean;
   created_at?: string;
+}
+
+export interface Plan {
+  plan_id: string;
+  display_name: string;
+  monthly_price: number;
+  annual_price?: number;
+  screens_included: number;
+  screens_limit?: number | null;
+  price_per_extra_screen: number;
+  features: string[];
+  trial_days: number;
+  is_active: boolean;
+  is_public: boolean;
+  display_order: number;
+  highlight: boolean;
+  highlight_text?: string;
+}
+
+export interface WorkspaceContext {
+  organization: {
+    id: string;
+    name: string;
+    slug: string;
+    plan: string;
+    status: string;
+    created_at?: string;
+  };
+  subscription?: {
+    id: string;
+    status: string;
+    trial_ends_at?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+  };
+  plan_config?: Plan;
+  stats: {
+    screens: number;
+    users: number;
+    devices: number;
+  };
+  current_user: {
+    id: string;
+    name: string;
+    email: string;
+    rbac_role: string;
+    organization_id: string;
+  };
+}
+
+export interface WorkspaceScreen {
+  id: string;
+  name: string;
+  status?: string;
+  code?: string;
+  organization_id?: string;
+  location?: { city?: string; state?: string; address?: string };
+  created_at?: string;
+}
+
+export interface WorkspaceUser {
+  id: string;
+  name: string;
+  email: string;
+  rbac_role?: string;
+  role?: string;
+  created_at?: string;
+}
+
+export interface BillingData {
+  subscription?: {
+    id: string;
+    status: string;
+    trial_ends_at?: string;
+    current_period_start?: string;
+    current_period_end?: string;
+  };
+  current_pricing_agreement?: {
+    plan_id: string;
+    pricing_model: string;
+    agreed_monthly_price: number;
+    screens_included: number;
+    screens_limit?: number | null;
+    billing_cycle: string;
+    effective_from?: string;
+    notes?: string;
+  };
+  plan_config?: Plan;
 }
 
 export interface ScreenLocation {

@@ -1,0 +1,239 @@
+import React, { useEffect, useState, useCallback } from 'react';
+import {
+  View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
+  ActivityIndicator, Modal, useWindowDimensions, KeyboardAvoidingView, Platform
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { workspaceAPI } from '../../src/services/api';
+
+type Screen = {
+  id: string; name: string; status: string; code?: string;
+  location?: string; active_menu_id?: string; created_at?: string;
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const colors: Record<string, { bg: string; text: string }> = {
+    active: { bg: '#064E3B', text: '#34D399' },
+    offline: { bg: '#1C1917', text: '#9CA3AF' },
+    pending: { bg: '#1E1B4B', text: '#818CF8' },
+  };
+  const c = colors[status] || colors.offline;
+  return (
+    <View style={[ss.badge, { backgroundColor: c.bg }]}>
+      <Text style={[ss.badgeText, { color: c.text }]}>{status}</Text>
+    </View>
+  );
+}
+
+export default function WorkspaceScreens() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const [screens, setScreens] = useState<Screen[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [showConnect, setShowConnect] = useState(false);
+  const [code, setCode] = useState('');
+  const [screenName, setScreenName] = useState('');
+  const [connecting, setConnecting] = useState(false);
+  const [connectError, setConnectError] = useState('');
+  const [connectSuccess, setConnectSuccess] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true); setError('');
+      const res = await workspaceAPI.screens();
+      setScreens(res.data || []);
+    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const openConnect = () => {
+    setCode(''); setScreenName('');
+    setConnectError(''); setConnectSuccess('');
+    setShowConnect(true);
+  };
+
+  const handleConnect = async () => {
+    if (code.trim().length < 6) { setConnectError('Please enter the 6-character code from your screen.'); return; }
+    if (!screenName.trim()) { setConnectError('Please enter a name for this screen.'); return; }
+    setConnecting(true); setConnectError('');
+    try {
+      const res = await workspaceAPI.connectScreen({
+        activation_code: code.trim().toUpperCase(),
+        screen_name: screenName.trim(),
+      });
+      setConnectSuccess(res.data?.message || 'Screen connected!');
+      load();
+      setTimeout(() => { setShowConnect(false); setConnectSuccess(''); }, 2000);
+    } catch (e: any) {
+      setConnectError(e.response?.data?.detail || e.message || 'Connection failed');
+    } finally { setConnecting(false); }
+  };
+
+  return (
+    <View style={ss.root}>
+      <ScrollView contentContainerStyle={[ss.content, { paddingBottom: insets.bottom + 24 }]}>
+        {/* Header */}
+        <View style={ss.header}>
+          <View>
+            <Text style={ss.pageTitle}>Screens</Text>
+            <Text style={ss.pageSub}>{screens.length} screen{screens.length !== 1 ? 's' : ''} connected</Text>
+          </View>
+          <TouchableOpacity style={ss.addBtn} onPress={openConnect}>
+            <Ionicons name="add" size={16} color="#fff" />
+            <Text style={ss.addBtnText}>Connect Screen</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+        {!!error && !loading && <Text style={ss.errorText}>{error}</Text>}
+
+        {!loading && screens.length === 0 && !error && (
+          <View style={ss.empty}>
+            <View style={ss.emptyIcon}>
+              <Ionicons name="tv-outline" size={40} color="#374151" />
+            </View>
+            <Text style={ss.emptyTitle}>No screens yet</Text>
+            <Text style={ss.emptyText}>Connect your first screen by entering the 6-character code shown on your TV.</Text>
+            <TouchableOpacity style={[ss.addBtn, { marginTop: 16 }]} onPress={openConnect}>
+              <Ionicons name="add" size={16} color="#fff" />
+              <Text style={ss.addBtnText}>Connect First Screen</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {screens.map((s) => (
+          <View key={s.id} style={ss.card}>
+            <View style={ss.cardIcon}>
+              <Ionicons name="tv" size={20} color={s.status === 'active' ? '#34D399' : '#6B7280'} />
+            </View>
+            <View style={ss.cardBody}>
+              <Text style={ss.cardName}>{s.name}</Text>
+              <Text style={ss.cardMeta}>
+                {s.code ? `Code: ${s.code}` : ''}{s.location ? ` · ${s.location}` : ''}
+                {s.active_menu_id ? ' · Menu published' : ''}
+              </Text>
+            </View>
+            <StatusBadge status={s.status} />
+          </View>
+        ))}
+
+        {/* How-to hint */}
+        <View style={ss.hint}>
+          <Ionicons name="information-circle-outline" size={15} color="#4B5563" />
+          <Text style={ss.hintText}>
+            To connect a screen: power on the device, open the MediaView Player app (or visit the player URL), and enter the 6-character code that appears on screen.
+          </Text>
+        </View>
+      </ScrollView>
+
+      {/* Connect Screen Modal */}
+      <Modal visible={showConnect} transparent animationType="slide" onRequestClose={() => setShowConnect(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={ss.modalOverlay}>
+          <View style={[ss.modal, { width: Math.min(width - 32, 420) }]}>
+            <View style={ss.modalHeader}>
+              <Text style={ss.modalTitle}>Connect a Screen</Text>
+              <TouchableOpacity onPress={() => setShowConnect(false)} hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+                <Ionicons name="close" size={22} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+
+            {!!connectSuccess ? (
+              <View style={ss.successBox}>
+                <Ionicons name="checkmark-circle" size={40} color="#34D399" />
+                <Text style={ss.successText}>{connectSuccess}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={ss.codeInputContainer}>
+                  <Text style={ss.inputLabel}>Activation Code</Text>
+                  <TextInput
+                    style={ss.codeInput}
+                    value={code}
+                    onChangeText={t => setCode(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                    placeholder="XY3K9P"
+                    placeholderTextColor="#374151"
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    maxLength={6}
+                    returnKeyType="next"
+                  />
+                  <Text style={ss.codeHint}>6 characters shown on your TV screen</Text>
+                </View>
+
+                <View style={ss.fieldWrap}>
+                  <Text style={ss.inputLabel}>Screen Name</Text>
+                  <TextInput
+                    style={ss.fieldInput}
+                    value={screenName}
+                    onChangeText={setScreenName}
+                    placeholder="e.g. Main Entrance, Window Display"
+                    placeholderTextColor="#374151"
+                    returnKeyType="done"
+                    onSubmitEditing={handleConnect}
+                  />
+                </View>
+
+                {!!connectError && <Text style={ss.connectErr}>{connectError}</Text>}
+
+                <TouchableOpacity
+                  style={[ss.connectBtn, connecting && ss.connectBtnDisabled]}
+                  onPress={handleConnect}
+                  disabled={connecting}
+                >
+                  {connecting
+                    ? <ActivityIndicator color="#fff" size={16} />
+                    : <Text style={ss.connectBtnText}>Connect Screen</Text>
+                  }
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </View>
+  );
+}
+
+const ss = StyleSheet.create({
+  root: { flex: 1, backgroundColor: '#0B0F1A' },
+  content: { padding: 20, gap: 12 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  pageTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9' },
+  pageSub: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
+  addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  errorText: { color: '#F87171', fontSize: 13, padding: 16 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 14, padding: 14, gap: 12 },
+  cardIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#1E293B', justifyContent: 'center', alignItems: 'center' },
+  cardBody: { flex: 1, gap: 2 },
+  cardName: { fontSize: 14, fontWeight: '700', color: '#F1F5F9' },
+  cardMeta: { fontSize: 12, color: '#64748B' },
+  badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  empty: { alignItems: 'center', paddingVertical: 60, gap: 10 },
+  emptyIcon: { width: 72, height: 72, borderRadius: 20, backgroundColor: '#111827', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#9CA3AF' },
+  emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center', maxWidth: 280 },
+  hint: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, padding: 14, marginTop: 8 },
+  hintText: { fontSize: 12, color: '#4B5563', flex: 1, lineHeight: 18 },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' },
+  modal: { backgroundColor: '#111827', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36, alignSelf: 'center', width: '100%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#F1F5F9' },
+  codeInputContainer: { marginBottom: 16 },
+  inputLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  codeInput: { fontSize: 32, fontWeight: '800', color: '#F1F5F9', textAlign: 'center', letterSpacing: 12, backgroundColor: '#0B0F1A', borderWidth: 2, borderColor: '#6366F1', borderRadius: 14, paddingVertical: 16, paddingHorizontal: 20 },
+  codeHint: { fontSize: 11, color: '#4B5563', textAlign: 'center', marginTop: 6 },
+  fieldWrap: { marginBottom: 16 },
+  fieldInput: { fontSize: 15, color: '#F1F5F9', backgroundColor: '#0B0F1A', borderWidth: 1, borderColor: '#1E293B', borderRadius: 10, padding: 14 },
+  connectErr: { color: '#F87171', fontSize: 13, marginBottom: 12, textAlign: 'center' },
+  connectBtn: { backgroundColor: '#6366F1', borderRadius: 12, padding: 16, alignItems: 'center' },
+  connectBtnDisabled: { opacity: 0.6 },
+  connectBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  successBox: { alignItems: 'center', paddingVertical: 24, gap: 12 },
+  successText: { fontSize: 15, fontWeight: '600', color: '#34D399', textAlign: 'center' },
+});
