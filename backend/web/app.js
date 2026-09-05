@@ -1082,9 +1082,8 @@ loaders.menus = async function(){
       html+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px">';
       menus.forEach(function(m){
         var tpl=templates.find(function(t){return t.id===m.template_id})||{name:'Classic',accent_color:'#d4af37',preview_color:'#1a1a2e'};
-        var catCount=m.categories?m.categories.length:0;
-        var itemCount=0;
-        (m.categories||[]).forEach(function(c){itemCount+=(c.items||[]).length});
+        var catCount=m.category_count!==undefined?m.category_count:(m.categories?m.categories.length:0);
+        var itemCount=m.item_count!==undefined?m.item_count:(function(){var n=0;(m.categories||[]).forEach(function(c){n+=(c.items||[]).length});return n})();
         html+='<div class="card card-i" style="overflow:hidden;cursor:pointer" onclick="editMenu(\''+m.id+'\')">';
         html+='<div style="height:80px;background:'+tpl.preview_color+';display:flex;align-items:center;justify-content:center;position:relative">';
         html+='<span style="font-size:20px;font-weight:900;color:'+tpl.accent_color+';letter-spacing:2px">'+(m.restaurant_name||m.name)+'</span>';

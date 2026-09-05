@@ -5295,11 +5295,42 @@ async def create_menu(data: dict, current_user: dict = Depends(get_current_user)
 
 @api_router.get("/menus")
 async def get_menus(current_user: dict = Depends(get_current_user)):
-    """Get all menus for the current user."""
+    """Get all menus for the current user (summary projection — excludes categories)."""
     if current_user.get("role") in ("admin", "superadmin"):
-        menus = await db.menus.find().sort("created_at", -1).to_list(200)
+        query = {}
     else:
-        menus = await db.menus.find({"user_id": current_user["id"]}).sort("created_at", -1).to_list(200)
+        query = {"user_id": current_user["id"]}
+
+    # P0 PERF FIX: Use aggregation pipeline to return ONLY summary fields.
+    # Previously: to_list(200) fetched full menu docs (categories + items = 10-50 KB each)
+    #             → 200 menus × 50 KB = 10 MB over the wire → 25+ second response.
+    # Now: project excludes categories; compute counts in MongoDB; < 1 KB per menu.
+    pipeline = [
+        {"$match": query},
+        {"$sort": {"created_at": -1}},
+        {"$limit": 200},
+        {"$project": {
+            "_id":              0,
+            "id":               1,
+            "name":             1,
+            "restaurant_name":  1,
+            "status":           1,
+            "template_id":      1,
+            "created_at":       1,
+            "updated_at":       1,
+            "category_count": {"$size": {"$ifNull": ["$categories", []]}},
+            "item_count": {
+                "$sum": {
+                    "$map": {
+                        "input": {"$ifNull": ["$categories", []]},
+                        "as": "cat",
+                        "in": {"$size": {"$ifNull": ["$$cat.items", []]}}
+                    }
+                }
+            }
+        }}
+    ]
+    menus = await db.menus.aggregate(pipeline).to_list(200)
     return serialize_doc(menus)
 
 @api_router.get("/menus/{menu_id}")
