@@ -30,6 +30,8 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
+
 from domain_saas.models import (
     CustomerCreate,
     CustomerUpdate,
@@ -46,6 +48,24 @@ from domain_saas.models import (
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
+
+# 2C-1A.1 RB-1: SUPPORT is read-only on CRM.
+# Locked policy: MW_SUPPORT = "temporary scoped read-only impersonation only, audited".
+# Call _guard_crm_write(admin) at the start of every POST/PATCH handler.
+def _guard_crm_write(admin: dict) -> dict:
+    """Block SUPPORT from CRM write operations.
+    SUPER_ADMIN and MEDIAVIEW_ADMIN retain full CRM write access.
+    """
+    if get_effective_role(admin) == Role.SUPPORT:
+        raise HTTPException(
+            status_code=403,
+            detail=(
+                "SUPPORT role has read-only access to CRM endpoints. "
+                "Use SUPER_ADMIN or MEDIAVIEW_ADMIN to create or modify CRM records."
+            ),
+        )
+    return admin
+
 
 def _gen_id() -> str:
     return str(uuid.uuid4())
@@ -124,6 +144,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         Create a lead record. A Lead represents an interested business
         before conversion — no users, orgs, or subscriptions are created.
         """
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         now = _now()
         doc = {
             "id": _gen_id(),
@@ -158,6 +179,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         admin=Depends(require_admin),
     ):
         """Partial update — only provided fields are changed."""
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         doc = await db.leads.find_one({"id": lead_id})
         if not doc:
             raise HTTPException(status_code=404, detail="Lead not found")
@@ -202,6 +224,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         Customer is NOT the technical tenant boundary — Organization is.
         Does NOT automatically create an Organization or Subscription.
         """
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         now = _now()
         doc = {
             "id": _gen_id(),
@@ -246,6 +269,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         data: CustomerUpdate,
         admin=Depends(require_admin),
     ):
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         doc = await db.customers.find_one({"id": customer_id})
         if not doc:
             raise HTTPException(status_code=404, detail="Customer not found")
@@ -287,6 +311,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         Schema is forward-compatible with future Customer 1:N Organizations.
         Does NOT provision screens, invite users, or create subscriptions.
         """
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         # Verify customer exists
         customer = await db.customers.find_one({"id": customer_id})
         if not customer:
@@ -363,6 +388,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         Pricing terms belong to PricingAgreement — not stored here.
         Production has zero subscriptions; this creates the first Phase 2C records.
         """
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         # Verify org exists
         org = await db.organizations.find_one({"id": data.org_id})
         if not org:
@@ -373,13 +399,26 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         if not customer:
             raise HTTPException(status_code=404, detail=f"Customer '{data.customer_id}' not found")
 
-        # Guard: org must be linked to this customer (CRM integrity)
-        if org.get("customer_id") and org["customer_id"] != data.customer_id:
+        # Guard DI-1: org must be a CRM-provisioned organization.
+        # Phase 2C subscriptions may ONLY be linked to organizations created via
+        # the CRM path (schema_source == "crm_2c"). Legacy self-service and
+        # MEDIAVIEW_MANAGED orgs must not receive Phase 2C subscriptions.
+        if org.get("schema_source") != "crm_2c":
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    f"Organization '{data.org_id}' is linked to customer "
-                    f"'{org['customer_id']}', not '{data.customer_id}'."
+                    f"Organization '{data.org_id}' was not created through the CRM path "
+                    "(schema_source != 'crm_2c'). Phase 2C subscriptions may only be "
+                    "linked to CRM-provisioned organizations."
+                ),
+            )
+        # Guard DI-1 continued: customer_id must match exactly (strict equality).
+        if org.get("customer_id") != data.customer_id:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Organization '{data.org_id}' belongs to customer "
+                    f"'{org.get('customer_id')}', not '{data.customer_id}'."
                 ),
             )
 
@@ -443,6 +482,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         data: SubscriptionStatusUpdate,
         admin=Depends(require_admin),
     ):
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         doc = await db.subscriptions.find_one({"id": sub_id, "schema_version": 2})
         if not doc:
             raise HTTPException(status_code=404, detail="Phase 2C Subscription not found")
@@ -503,7 +543,15 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
         PricingAgreement is effectively immutable after activation.
         To change terms, create a new version with an updated effective_from date.
         agreed_monthly_price is the authoritative MRR source — never stored on Subscription.
+
+        PA-1 DESIGN DECISION (documented 2C-1A.1):
+        current_pricing_agreement_id always points to the LATEST PA created, not
+        necessarily the one currently in effect by date.  When billing logic is
+        implemented, callers MUST NOT rely solely on this pointer for live MRR
+        calculation.  Instead, query by:
+            effective_from <= now AND (effective_to IS NULL OR effective_to > now)
         """
+        _guard_crm_write(admin)  # RB-1: SUPPORT read-only
         # Verify subscription exists
         sub = await db.subscriptions.find_one(
             {"id": data.subscription_id, "schema_version": 2}
