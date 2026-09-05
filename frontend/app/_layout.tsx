@@ -26,6 +26,7 @@ export default function RootLayout() {
         <Stack.Screen name="admin/index" />
         <Stack.Screen name="player" />
         <Stack.Screen name="simulator" />
+        <Stack.Screen name="landing" options={{ headerShown: false }} />
       </Stack>
     </>
   );

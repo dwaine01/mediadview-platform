@@ -7,10 +7,10 @@ import { workspaceAPI } from '../../src/services/api';
 import type { WorkspaceContext } from '../../src/types';
 
 const QUICK_ACTIONS = [
-  { label: 'Add Screen', desc: 'Connect a display', icon: 'tv' as const, color: '#6366F1', route: '/workspace/screens' },
-  { label: 'Upload Media', desc: 'Images & videos', icon: 'cloud-upload' as const, color: '#22D3EE', route: '/workspace/content' },
-  { label: 'Create Playlist', desc: 'Organise content', icon: 'list' as const, color: '#10B981', route: '/workspace/playlists' },
-  { label: 'Schedule', desc: 'Set broadcast times', icon: 'calendar' as const, color: '#F59E0B', route: '/workspace/schedules' },
+  { label: 'Agregar Pantalla', desc: 'Conectar una pantalla', icon: 'tv' as const, color: '#6366F1', route: '/workspace/screens' },
+  { label: 'Subir Contenido', desc: 'Imágenes y videos', icon: 'cloud-upload' as const, color: '#22D3EE', route: '/workspace/content' },
+  { label: 'Crear Playlist', desc: 'Organizar contenido', icon: 'list' as const, color: '#10B981', route: '/workspace/playlists' },
+  { label: 'Programar', desc: 'Horarios de emisión', icon: 'calendar' as const, color: '#F59E0B', route: '/workspace/schedules' },
 ];
 
 function StatCard({ label, value, sub, icon, color }: { label: string; value: string | number; sub: string; icon: any; color: string }) {
@@ -39,10 +39,17 @@ export default function WorkspaceDashboard() {
     try {
       setLoading(true);
       setError('');
+      // Add explicit 8s timeout so UI never spins forever
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 8000);
       const res = await workspaceAPI.context();
+      clearTimeout(timer);
       setCtx(res.data);
     } catch (e: any) {
-      setError(e.response?.data?.detail || e.message || 'Failed to load workspace');
+      const msg = e.name === 'AbortError'
+        ? 'La solicitud tardó demasiado. Verifica tu conexión.'
+        : e.response?.data?.detail || e.message || 'Error al cargar el workspace';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -56,21 +63,22 @@ export default function WorkspaceDashboard() {
   const stats = ctx?.stats || { screens: 0, users: 0, devices: 0 };
   const now = new Date();
   const hour = now.getHours();
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  const greeting = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
 
   return (
     <ScrollView style={sd.root} contentContainerStyle={[sd.content, { paddingBottom: insets.bottom + 24 }]} showsVerticalScrollIndicator={false}>
       {loading && (
         <View style={sd.center}>
           <ActivityIndicator color="#6366F1" size="large" />
-          <Text style={sd.loadingText}>Loading workspace…</Text>
+          <Text style={sd.loadingText}>Cargando workspace…</Text>
+          <Text style={sd.loadingSubText}>Conectando con el servidor</Text>
         </View>
       )}
       {error !== '' && !loading && (
         <View style={sd.errorBox}>
           <Ionicons name="warning" size={16} color="#F87171" />
           <Text style={sd.errorText}>{error}</Text>
-          <TouchableOpacity onPress={load} style={sd.retryBtn}><Text style={sd.retryText}>Retry</Text></TouchableOpacity>
+          <TouchableOpacity onPress={load} style={sd.retryBtn}><Text style={sd.retryText}>Reintentar</Text></TouchableOpacity>
         </View>
       )}
 
@@ -80,14 +88,14 @@ export default function WorkspaceDashboard() {
           <View style={sd.welcome}>
             <View style={{ flex: 1 }}>
               <Text style={sd.greeting}>{greeting}</Text>
-              <Text style={sd.orgName}>{org?.name || 'Your Workspace'}</Text>
-              {sub?.status && <Text style={sd.subStatus}>Subscription: <Text style={{ color: sub.status === 'trial' ? '#60A5FA' : '#34D399' }}>{sub.status}</Text></Text>}
+              <Text style={sd.orgName}>{org?.name || 'Tu Workspace'}</Text>
+              {sub?.status && <Text style={sd.subStatus}>Suscripción: <Text style={{ color: sub.status === 'trial' ? '#60A5FA' : '#34D399' }}>{sub.status === 'trial' ? 'Prueba gratuita' : sub.status === 'active' ? 'Activa' : sub.status}</Text></Text>}
             </View>
             {plan && (
               <View style={sd.planBadge}>
                 <Text style={sd.planLabel}>PLAN</Text>
                 <Text style={sd.planName}>{plan.display_name}</Text>
-                <Text style={sd.planPrice}>{plan.monthly_price === 0 ? 'Free' : `$${plan.monthly_price}/mo`}</Text>
+                <Text style={sd.planPrice}>{plan.monthly_price === 0 ? 'Gratis' : `$${plan.monthly_price}/mes`}</Text>
               </View>
             )}
           </View>
@@ -97,22 +105,22 @@ export default function WorkspaceDashboard() {
             <TouchableOpacity style={sd.trialBanner} onPress={() => router.push('/workspace/billing')} activeOpacity={0.8}>
               <Ionicons name="time-outline" size={18} color="#60A5FA" />
               <Text style={sd.trialText}>
-                Free trial ends {new Date(sub.trial_ends_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                Prueba gratis hasta el {new Date(sub.trial_ends_at).toLocaleDateString('es-ES', { month: 'short', day: 'numeric' })}
               </Text>
-              <Text style={sd.trialCta}>View Billing →</Text>
+              <Text style={sd.trialCta}>Ver Facturación →</Text>
             </TouchableOpacity>
           )}
 
           {/* Stats */}
           <View style={sd.statsGrid}>
-            <StatCard label="SCREENS" value={stats.screens} sub="Display locations" icon="tv" color="#6366F1" />
-            <StatCard label="PLAYERS" value={stats.devices} sub="Connected devices" icon="hardware-chip" color="#22D3EE" />
-            <StatCard label="TEAM" value={stats.users} sub="Workspace users" icon="people" color="#10B981" />
-            <StatCard label="PLAN SCREENS" value={plan?.screens_included ?? '—'} sub={plan?.screens_limit ? `Max ${plan.screens_limit}` : 'Unlimited add-ons'} icon="layers" color="#F59E0B" />
+            <StatCard label="PANTALLAS" value={stats.screens} sub="Pantallas activas" icon="tv" color="#6366F1" />
+            <StatCard label="DISPOSITIVOS" value={stats.devices} sub="Conectados" icon="hardware-chip" color="#22D3EE" />
+            <StatCard label="EQUIPO" value={stats.users} sub="Usuarios del workspace" icon="people" color="#10B981" />
+            <StatCard label="INCLUIDAS" value={plan?.screens_included ?? '—'} sub={plan?.screens_limit ? `Máx. ${plan.screens_limit}` : 'Add-ons ilimitados'} icon="layers" color="#F59E0B" />
           </View>
 
           {/* Quick Actions */}
-          <Text style={sd.sectionTitle}>Quick Actions</Text>
+          <Text style={sd.sectionTitle}>Acciones Rápidas</Text>
           <View style={sd.actionsGrid}>
             {QUICK_ACTIONS.map(a => (
               <TouchableOpacity key={a.label} style={sd.actionCard} onPress={() => router.push(a.route as any)} activeOpacity={0.7}>
@@ -135,6 +143,7 @@ const sd = StyleSheet.create({
   content: { padding: 20, gap: 20 },
   center: { alignItems: 'center', paddingVertical: 60, gap: 12 },
   loadingText: { fontSize: 13, color: '#64748B' },
+  loadingSubText: { fontSize: 11, color: '#334155', marginTop: 4 },
   errorBox: { alignItems: 'center', backgroundColor: '#1C1115', borderWidth: 1, borderColor: '#7F1D1D', borderRadius: 12, padding: 20, gap: 8 },
   errorText: { fontSize: 13, color: '#F87171', textAlign: 'center' },
   retryBtn: { paddingVertical: 8, paddingHorizontal: 20, backgroundColor: '#1F2937', borderRadius: 8, marginTop: 4 },

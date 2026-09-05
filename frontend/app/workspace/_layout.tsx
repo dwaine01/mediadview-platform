@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform, ScrollView,
 } from 'react-native';
@@ -23,9 +23,16 @@ export default function WorkspaceLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
-  const { user, logout } = useAuthStore();
+  const { user, logout, token } = useAuthStore();
   const { width: SW } = useWindowDimensions();
   const IS_WEB_WIDE = Platform.OS === 'web' && SW > 860;
+
+  // Auth guard: redirect to login if not authenticated
+  useEffect(() => {
+    if (token === null && useAuthStore.getState().isInitialized) {
+      router.replace('/(auth)/login');
+    }
+  }, [token]);
 
   const activeKey = WS_NAV.find(n => {
     if (n.key === 'index') return pathname === '/workspace' || pathname === '/workspace/';
