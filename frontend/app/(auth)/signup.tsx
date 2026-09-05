@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Alert, Dimensions,
+  KeyboardAvoidingView, Platform, ActivityIndicator, Dimensions,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,6 +9,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { signupAPI, plansAPI } from '../../src/services/api';
 import { useAuthStore } from '../../src/store/authStore';
 import type { Plan } from '../../src/types';
+
+const { width: SW } = Dimensions.get('window');
+const IS_DESKTOP = Platform.OS === 'web' && SW > 768;
 
 const PLAN_COLORS: Record<string, string> = {
   free: '#64748B', starter: '#6366F1', pro: '#06B6D4', enterprise: '#F59E0B',
@@ -20,7 +23,7 @@ export default function SignupScreen() {
   const { plan_id: paramPlanId } = useLocalSearchParams<{ plan_id?: string }>();
   const { login } = useAuthStore();
 
-  const [selectedPlan, setSelectedPlan] = useState(paramPlanId || 'starter');
+  const [selectedPlan] = useState(paramPlanId || 'starter');
   const [planConfig, setPlanConfig] = useState<Plan | null>(null);
   const [loadingPlan, setLoadingPlan] = useState(true);
 
@@ -34,6 +37,8 @@ export default function SignupScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const planColor = PLAN_COLORS[selectedPlan] || '#06B6D4';
+
   useEffect(() => {
     (async () => {
       try {
@@ -45,8 +50,6 @@ export default function SignupScreen() {
       }
     })();
   }, [selectedPlan]);
-
-  const planColor = PLAN_COLORS[selectedPlan] || '#06B6D4';
 
   const handleSignup = useCallback(async () => {
     setError('');
@@ -74,34 +77,13 @@ export default function SignupScreen() {
     }
   }, [businessName, contactName, email, phone, password, selectedPlan, login, router]);
 
-  const Field = ({ label, value, onChangeText, keyboardType, secureTextEntry, rightIcon, onRightIcon, fieldKey, placeholder, autoCapitalize }: any) => (
-    <View style={sf.field}>
-      <Text style={sf.label}>{label}</Text>
-      <View style={[sf.inputBox, focused === fieldKey && sf.inputFocused]}>
-        <TextInput
-          style={sf.input}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder || ''}
-          placeholderTextColor="#9CA3AF"
-          keyboardType={keyboardType || 'default'}
-          secureTextEntry={secureTextEntry}
-          autoCapitalize={autoCapitalize || 'sentences'}
-          autoCorrect={false}
-          onFocus={() => setFocused(fieldKey)}
-          onBlur={() => setFocused('')}
-        />
-        {rightIcon && (
-          <TouchableOpacity onPress={onRightIcon} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-            <Ionicons name={rightIcon} size={18} color="#9CA3AF" />
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
+  // ─── Label style helper ───
+  const labelStyle = sf.label;
+  const inputBoxStyle = (key: string) => [sf.inputBox, focused === key && sf.inputFocused];
 
   return (
     <KeyboardAvoidingView style={sf.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      {/* Header */}
       <View style={[sf.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
           <Ionicons name="arrow-back" size={22} color="#64748B" />
@@ -110,77 +92,179 @@ export default function SignupScreen() {
         <View style={{ width: 38 }} />
       </View>
 
-      <ScrollView contentContainerStyle={sf.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        {/* Plan badge */}
-        {!loadingPlan && planConfig && (
-          <View style={[sf.planBadge, { borderColor: planColor + '30' }]}>
-            <View style={[sf.planIconBox, { backgroundColor: planColor + '15' }]}>
-              <Ionicons
-                name={selectedPlan === 'free' ? 'gift' : selectedPlan === 'starter' ? 'rocket' : selectedPlan === 'pro' ? 'flash' : 'shield-checkmark'}
-                size={18}
-                color={planColor}
-              />
+      <ScrollView
+        contentContainerStyle={IS_DESKTOP ? sf.scrollDesktop : sf.scrollMobile}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Centered form wrapper */}
+        <View style={IS_DESKTOP ? sf.formWrapperDesktop : sf.formWrapperMobile}>
+
+          {/* Plan badge */}
+          {!loadingPlan && planConfig && (
+            <View style={[sf.planBadge, { borderColor: planColor + '30' }]}>
+              <View style={[sf.planIconBox, { backgroundColor: planColor + '15' }]}>
+                <Ionicons
+                  name={selectedPlan === 'free' ? 'gift' : selectedPlan === 'starter' ? 'rocket' : selectedPlan === 'pro' ? 'flash' : 'shield-checkmark'}
+                  size={18}
+                  color={planColor}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={sf.planName}>
+                  {planConfig.display_name}{planConfig.trial_days > 0 ? ` · ${planConfig.trial_days} días gratis` : ''}
+                </Text>
+                <Text style={sf.planSub}>
+                  {planConfig.monthly_price === 0
+                    ? 'Gratis para siempre'
+                    : `$${planConfig.monthly_price}/mes después del período de prueba`}
+                </Text>
+              </View>
+              <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <Text style={{ fontSize: 12, color: '#06B6D4', fontWeight: '600' }}>Cambiar</Text>
+              </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={sf.planName}>{planConfig.display_name}{planConfig.trial_days > 0 ? ` · ${planConfig.trial_days} días gratis` : ''}</Text>
-              <Text style={sf.planSub}>
-                {planConfig.monthly_price === 0 ? 'Gratis para siempre' : `$${planConfig.monthly_price}/mes después del período de prueba`}
-              </Text>
+          )}
+
+          <Text style={sf.title}>Crea tu cuenta</Text>
+          <Text style={sf.subtitle}>Completa tus datos. No se requiere tarjeta de crédito.</Text>
+
+          <View style={sf.form}>
+
+            {/* Business Name — full width */}
+            <View style={sf.field}>
+              <Text style={labelStyle}>NOMBRE DEL NEGOCIO *</Text>
+              <View style={inputBoxStyle('business')}>
+                <TextInput
+                  style={sf.input}
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  placeholder="Mi Restaurante"
+                  placeholderTextColor="#9CA3AF"
+                  autoCapitalize="words"
+                  autoCorrect={false}
+                  onFocus={() => setFocused('business')}
+                  onBlur={() => setFocused('')}
+                />
+              </View>
             </View>
-            <TouchableOpacity onPress={() => router.back()} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={{ fontSize: 12, color: '#06B6D4', fontWeight: '600' }}>Cambiar</Text>
+
+            {/* Name + Phone — 2 columns on desktop, stacked on mobile */}
+            <View style={IS_DESKTOP ? sf.row2 : sf.col1}>
+              <View style={[sf.field, IS_DESKTOP && sf.flexHalf]}>
+                <Text style={labelStyle}>TU NOMBRE COMPLETO *</Text>
+                <View style={inputBoxStyle('name')}>
+                  <TextInput
+                    style={sf.input}
+                    value={contactName}
+                    onChangeText={setContactName}
+                    placeholder="Juan Pérez"
+                    placeholderTextColor="#9CA3AF"
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    onFocus={() => setFocused('name')}
+                    onBlur={() => setFocused('')}
+                  />
+                </View>
+              </View>
+              <View style={[sf.field, IS_DESKTOP && sf.flexHalf]}>
+                <Text style={labelStyle}>TELÉFONO (OPCIONAL)</Text>
+                <View style={inputBoxStyle('phone')}>
+                  <TextInput
+                    style={sf.input}
+                    value={phone}
+                    onChangeText={setPhone}
+                    placeholder="+1 555 000 0000"
+                    placeholderTextColor="#9CA3AF"
+                    keyboardType="phone-pad"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    onFocus={() => setFocused('phone')}
+                    onBlur={() => setFocused('')}
+                  />
+                </View>
+              </View>
+            </View>
+
+            {/* Email — full width */}
+            <View style={sf.field}>
+              <Text style={labelStyle}>CORREO ELECTRÓNICO *</Text>
+              <View style={inputBoxStyle('email')}>
+                <TextInput
+                  style={sf.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="juan@minegocio.com"
+                  placeholderTextColor="#9CA3AF"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setFocused('email')}
+                  onBlur={() => setFocused('')}
+                />
+              </View>
+            </View>
+
+            {/* Password — full width */}
+            <View style={sf.field}>
+              <Text style={labelStyle}>CONTRASEÑA *</Text>
+              <View style={inputBoxStyle('pwd')}>
+                <TextInput
+                  style={sf.input}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Mínimo 8 caracteres"
+                  placeholderTextColor="#9CA3AF"
+                  secureTextEntry={!showPwd}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onFocus={() => setFocused('pwd')}
+                  onBlur={() => setFocused('')}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPwd(v => !v)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Ionicons name={showPwd ? 'eye-off' : 'eye'} size={18} color="#9CA3AF" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+          </View>
+
+          {/* Error */}
+          {error !== '' && (
+            <View style={sf.errorBox}>
+              <Ionicons name="warning" size={16} color="#EF4444" />
+              <Text style={sf.errorText}>{error}</Text>
+            </View>
+          )}
+
+          {/* Submit */}
+          <TouchableOpacity
+            style={[sf.submitBtn, submitting && { opacity: 0.7 }]}
+            onPress={handleSignup}
+            disabled={submitting}
+            activeOpacity={0.8}
+          >
+            {submitting
+              ? <ActivityIndicator color="#FFF" />
+              : <Text style={sf.submitText}>Crear Cuenta y Comenzar Prueba</Text>}
+          </TouchableOpacity>
+
+          <Text style={sf.legalText}>
+            Al crear una cuenta aceptas nuestros Términos de Servicio y Política de Privacidad.
+          </Text>
+
+          <View style={sf.loginLink}>
+            <Text style={sf.loginLinkText}>¿Ya tienes cuenta? </Text>
+            <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
+              <Text style={sf.loginLinkBold}>Iniciar Sesión</Text>
             </TouchableOpacity>
           </View>
-        )}
 
-        <Text style={sf.title}>Crea tu cuenta</Text>
-        <Text style={sf.subtitle}>Completa tus datos. No se requiere tarjeta de crédito.</Text>
-
-        <View style={sf.form}>
-          <Field label="NOMBRE DEL NEGOCIO *" value={businessName} onChangeText={setBusinessName}
-            placeholder="Mi Restaurante" fieldKey="business" />
-          <Field label="TU NOMBRE COMPLETO *" value={contactName} onChangeText={setContactName}
-            placeholder="Juan Pérez" fieldKey="name" />
-          <Field label="CORREO ELECTRÓNICO *" value={email} onChangeText={setEmail}
-            placeholder="juan@minegocio.com" keyboardType="email-address" autoCapitalize="none" fieldKey="email" />
-          <Field label="TELÉFONO (OPCIONAL)" value={phone} onChangeText={setPhone}
-            placeholder="+1 555 000 0000" keyboardType="phone-pad" autoCapitalize="none" fieldKey="phone" />
-          <Field label="CONTRASEÑA *" value={password} onChangeText={setPassword}
-            placeholder="Mínimo 8 caracteres" secureTextEntry={!showPwd}
-            rightIcon={showPwd ? 'eye-off' : 'eye'} onRightIcon={() => setShowPwd(!showPwd)}
-            autoCapitalize="none" fieldKey="pwd" />
+          <View style={{ height: insets.bottom + 40 }} />
         </View>
-
-        {error !== '' && (
-          <View style={sf.errorBox}>
-            <Ionicons name="warning" size={16} color="#EF4444" />
-            <Text style={sf.errorText}>{error}</Text>
-          </View>
-        )}
-
-        <TouchableOpacity
-          style={[sf.submitBtn, submitting && { opacity: 0.7 }]}
-          onPress={handleSignup}
-          disabled={submitting}
-          activeOpacity={0.8}
-        >
-          {submitting
-            ? <ActivityIndicator color="#FFF" />
-            : <Text style={sf.submitText}>Crear Cuenta y Comenzar Prueba</Text>}
-        </TouchableOpacity>
-
-        <Text style={sf.legalText}>
-          Al crear una cuenta aceptas nuestros Términos de Servicio y Política de Privacidad.
-        </Text>
-
-        <View style={sf.loginLink}>
-          <Text style={sf.loginLinkText}>¿Ya tienes cuenta? </Text>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-            <Text style={sf.loginLinkBold}>Iniciar Sesión</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: insets.bottom + 40 }} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -188,6 +272,7 @@ export default function SignupScreen() {
 
 const sf = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFFFFF' },
+
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingBottom: 12,
@@ -195,7 +280,24 @@ const sf = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
   },
   headerTitle: { fontSize: 17, fontWeight: '700', color: '#0F172A' },
-  scroll: { padding: 24 },
+
+  /* ── Scroll containers ── */
+  scrollMobile: { flexGrow: 1 },
+  scrollDesktop: { flexGrow: 1, alignItems: 'center', paddingVertical: 40 },
+
+  /* ── Form wrappers ── */
+  formWrapperMobile: { padding: 24 },
+  formWrapperDesktop: {
+    width: '100%', maxWidth: 700,
+    paddingHorizontal: 40, paddingVertical: 8,
+  },
+
+  /* ── Row / column helpers for 2-col layout ── */
+  row2: { flexDirection: 'row', gap: 16 },
+  col1: {},
+  flexHalf: { flex: 1 },
+
+  /* ── Plan badge ── */
   planBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#F8FAFC', borderWidth: 1, borderRadius: 14,
@@ -204,8 +306,12 @@ const sf = StyleSheet.create({
   planIconBox: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   planName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   planSub: { fontSize: 11, color: '#64748B', marginTop: 2 },
+
+  /* ── Copy ── */
   title: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 6 },
   subtitle: { fontSize: 13, color: '#475569', marginBottom: 24, lineHeight: 18 },
+
+  /* ── Form ── */
   form: { gap: 14 },
   field: { gap: 6 },
   label: { fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 1.2 },
@@ -217,12 +323,16 @@ const sf = StyleSheet.create({
   },
   inputFocused: { borderColor: '#06B6D4', backgroundColor: '#FFFFFF' },
   input: { flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '500' },
+
+  /* ── Error ── */
   errorBox: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 8,
     backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA',
     borderRadius: 10, padding: 12, marginTop: 16,
   },
   errorText: { fontSize: 13, color: '#EF4444', flex: 1, lineHeight: 18 },
+
+  /* ── Submit ── */
   submitBtn: {
     backgroundColor: '#06B6D4', borderRadius: 14, paddingVertical: 16,
     alignItems: 'center', marginTop: 20,
@@ -230,6 +340,8 @@ const sf = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 16, elevation: 8,
   },
   submitText: { fontSize: 16, fontWeight: '700', color: '#FFF', letterSpacing: 0.3 },
+
+  /* ── Footer links ── */
   legalText: { fontSize: 11, color: '#94A3B8', textAlign: 'center', marginTop: 14, lineHeight: 16 },
   loginLink: { flexDirection: 'row', justifyContent: 'center', marginTop: 20 },
   loginLinkText: { fontSize: 14, color: '#64748B' },
