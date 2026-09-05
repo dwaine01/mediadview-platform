@@ -525,8 +525,11 @@ const loaders={
     const el=document.getElementById('pg-devices');
     const isAdmin=user?.role==='admin'||user?.role==='superadmin';
     try{
-      const devs=isAdmin?await api('/admin/devices'):[];
-      const screens=await api('/screens');
+      // P0 FIX: run both API calls in parallel instead of sequentially
+      const [devs,screens]=await Promise.all([
+        isAdmin?api('/admin/devices'):Promise.resolve([]),
+        api('/screens')
+      ]);
       const screenMap={};screens.forEach(s=>screenMap[s.id]=s.name);
       const screenOpts=screens.map(s=>`<option value="${s.id}">${s.name} (${s.location?.city})</option>`).join('');
       el.innerHTML=`
@@ -1060,8 +1063,8 @@ var currentMenu = null;
 loaders.menus = async function(){
   var el=document.getElementById('pg-menus');
   try{
-    var menus=await api('/menus');
-    var templates=await api('/menu-templates');
+    // P0 FIX: run both API calls in parallel instead of sequentially
+    var [menus,templates]=await Promise.all([api('/menus'),api('/menu-templates')]);
     var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px">';
     html+='<div><h1 style="font-size:28px;font-weight:800;margin-bottom:4px">Digital Menus</h1>';
     html+='<p style="color:var(--t-3);font-size:14px">Create and manage restaurant menus for your screens</p></div>';

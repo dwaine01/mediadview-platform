@@ -35,6 +35,8 @@ async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
     #  users
     # ─────────────────────────────────────────────────────────────────────────
     await db.users.create_indexes([
+        # P0 FIX: id is used on EVERY get_current_user() auth check — must be indexed
+        IndexModel([("id",    ASCENDING)],             unique=True,  name="ux_users_id"),
         IndexModel([("email", ASCENDING)],             unique=True,  name="ux_users_email"),
         IndexModel([("role",  ASCENDING)],                            name="ix_users_role"),
         IndexModel([("rbac_role", ASCENDING)],                        name="ix_users_rbac_role"),
@@ -70,6 +72,8 @@ async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
         IndexModel([("id",         ASCENDING)], unique=True, sparse=True, name="ux_devices_id"),
         IndexModel([("device_id",  ASCENDING)], unique=True, sparse=True, name="ux_devices_device_id"),
         IndexModel([("screen_id",  ASCENDING)], sparse=True,              name="ix_devices_screen_id"),
+        # P0 FIX: admin_list_devices sorts by created_at DESC — needs index for 500+ records
+        IndexModel([("created_at", DESCENDING)],                          name="ix_devices_created_desc"),
         # Heartbeat recency queries (online/offline dashboard)
         IndexModel([("last_heartbeat", DESCENDING)], sparse=True,         name="ix_devices_heartbeat_desc"),
         # Compound: heartbeat queries scoped by screen list
@@ -210,3 +214,24 @@ async def _ensure_indexes(db: AsyncIOMotorDatabase) -> None:
                    expireAfterSeconds=90 * 24 * 3600,
                    name="ttl_devlogs_90d"),
     ])
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  menus  (digital restaurant menus)
+    # ─────────────────────────────────────────────────────────────────────────
+    # P0 FIX: menus collection previously had zero indexes; every sort/filter
+    # was a full collection scan — causing 20+ second loads for superadmin.
+    await db.menus.create_indexes([
+        IndexModel([("id",         ASCENDING)], unique=True,  name="ux_menus_id"),
+        IndexModel([("user_id",    ASCENDING)],               name="ix_menus_user_id"),
+        IndexModel([("status",     ASCENDING)], sparse=True,  name="ix_menus_status"),
+        IndexModel([("created_at", DESCENDING)],              name="ix_menus_created_desc"),
+    ])
+
+    # ─────────────────────────────────────────────────────────────────────────
+    #  menu_templates
+    # ─────────────────────────────────────────────────────────────────────────
+    await db.menu_templates.create_indexes([
+        IndexModel([("id",   ASCENDING)], unique=True, sparse=True, name="ux_menu_templates_id"),
+        IndexModel([("name", ASCENDING)], sparse=True,              name="ix_menu_templates_name"),
+    ])
+
