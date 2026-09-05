@@ -17,7 +17,9 @@
     .badge-pub{display:inline-flex;align-items:center;gap:6px;background:rgba(16,185,129,.12);color:#34d399;border:1px solid rgba(16,185,129,.25);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:600;margin-bottom:20px}
     h1{font-size:32px;font-weight:800;line-height:1.15;margin-bottom:10px;background:linear-gradient(135deg,#f1f5f9,#94a3b8);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
     .hero-sub{font-size:15px;color:#64748b;margin-bottom:0}
-    .container{max-width:680px;margin:0 auto;padding:0 20px}
+    .container{max-width:1100px;margin:0 auto;padding:0 40px}
+    .content-grid{display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:start}
+    @media(max-width:768px){.container{padding:0 16px}.content-grid{grid-template-columns:1fr}.pricing-grid{grid-template-columns:1fr 1fr}}
     .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:16px;padding:24px;margin-top:20px}
     .card-title{font-size:12px;font-weight:700;color:#6366f1;text-transform:uppercase;letter-spacing:1px;margin-bottom:16px}
     .info-row{display:flex;align-items:flex-start;gap:12px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05)}
@@ -71,30 +73,33 @@
     <p>Cargando información de la pantalla…</p>
   </div>
   <div id="content" style="display:none">
-    <!-- Descripción -->
-    <div class="card">
-      <div class="card-title">📍 Sobre Esta Pantalla</div>
-      <div id="screen-description" style="font-size:14px;color:#94a3b8;line-height:1.6"></div>
-      <div id="screen-tags" style="margin-top:12px"></div>
-    </div>
+    <div class="content-grid">
+      <div>
+        <!-- Descripción -->
+        <div class="card">
+          <div class="card-title">Sobre Esta Pantalla</div>
+          <div id="screen-description" style="font-size:14px;color:#94a3b8;line-height:1.6"></div>
+          <div id="screen-tags" style="margin-top:12px"></div>
+        </div>
 
-    <!-- Disponibilidad -->
-    <div class="card">
-      <div class="card-title">📊 Disponibilidad de Slots</div>
-      <div id="slots-info"></div>
-    </div>
+        <!-- Disponibilidad -->
+        <div class="card">
+          <div class="card-title">Disponibilidad de Slots</div>
+          <div id="slots-info"></div>
+        </div>
+      </div>
 
-    <!-- Precios -->
-    <div class="card">
-      <div class="card-title">💰 Tarifas Publicitarias</div>
-      <div class="pricing-grid" id="pricing-grid"></div>
-      <p style="font-size:11px;color:#475569;margin-top:12px;text-align:center">Precios en USD · Incluye revisión y aprobación MediaView</p>
-    </div>
+      <div>
+        <!-- Precios -->
+        <div class="card">
+          <div class="card-title">Tarifas Publicitarias</div>
+          <div class="pricing-grid" id="pricing-grid"></div>
+          <p style="font-size:11px;color:#475569;margin-top:12px;text-align:center">Precios en USD · Incluye revisión y aprobación MediaView</p>
+        </div>
 
-    <!-- Cómo funciona -->
-    <div class="card">
-      <div class="card-title">⚡ Cómo Funciona</div>
-      <div style="display:flex;flex-direction:column;gap:12px">
+        <!-- Cómo funciona -->
+        <div class="card">
+          <div class="card-title">Cómo Funciona</div>
         <div style="display:flex;gap:12px;align-items:flex-start">
           <div style="width:28px;height:28px;background:rgba(99,102,241,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;color:#6366f1">1</div>
           <div><div style="font-size:13px;font-weight:600;color:#e2e8f0">Crea tu cuenta gratuita</div><div style="font-size:12px;color:#64748b;margin-top:2px">Regístrate en menos de 1 minuto</div></div>
@@ -107,9 +112,13 @@
           <div style="width:28px;height:28px;background:rgba(99,102,241,.15);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:13px;font-weight:700;color:#6366f1">3</div>
           <div><div style="font-size:13px;font-weight:600;color:#e2e8f0">Confirmación y activación</div><div style="font-size:12px;color:#64748b;margin-top:2px">El equipo MediaView revisa y activa tu anuncio en 24-48 hrs</div></div>
         </div>
-      </div>
-    </div>
-  </div>
+        </div>
+        </div><!-- /card how it works -->
+
+      </div><!-- /right column -->
+    </div><!-- /content-grid -->
+
+  </div><!-- /content -->
 
   <div id="error" class="err" style="display:none">
     <div class="err-ico">📺</div>
