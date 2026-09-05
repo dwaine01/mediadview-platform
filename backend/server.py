@@ -6139,19 +6139,11 @@ async def root(request: Request):
     host = (request.headers.get("host") or "").lower()
     if host.startswith("panel."):
         return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
-    # Serve Expo SaaS frontend (landing page) for main domain
-    saas_index = os.path.join(SAAS_DIR, 'index.html')
-    if os.path.isfile(saas_index):
-        return FileResponse(saas_index, media_type='text/html')
-    # Fallback to vanilla landing if Expo build not present
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 @app.get("/home", include_in_schema=False)
 async def home_marketing():
     """Alias for the corporate landing."""
-    saas_index = os.path.join(SAAS_DIR, 'index.html')
-    if os.path.isfile(saas_index):
-        return FileResponse(saas_index, media_type='text/html')
     return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
 
 # Clean public URLs at the apex domain (no /api prefix visible in the browser).
