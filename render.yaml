@@ -26,7 +26,7 @@ services:
     plan: starter                              # ← bump to standard/pro when scaling
     region: virginia                           # same region as Atlas cluster
     autoDeploy: true
-    branch: main
+    branch: production                         # Phase 2C-1A: deploy from production branch only
     healthCheckPath: /api/livez
     numInstances: 1
     envVars:
@@ -54,7 +54,7 @@ services:
     plan: starter
     region: virginia
     autoDeploy: true
-    branch: main
+    branch: production                         # Phase 2C-1A: deploy from production branch only
     envVars:
       - key: ENVIRONMENT
         value: production
