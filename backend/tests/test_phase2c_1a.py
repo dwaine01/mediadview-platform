@@ -83,20 +83,93 @@ def non_admin_token():
 
 @pytest.fixture(scope="module")
 def support_token():
-    """Log in as a SUPPORT-role user (read-only on CRM per locked policy).
-    Skips if no SUPPORT user is seeded — tests using this fixture are skipped gracefully.
+    """Obtain a token for a SUPPORT-role user (read-only on CRM per locked policy).
+
+    Strategy (test-only, local DB only):
+      1. Attempt login — succeeds if the user was already seeded.
+      2. If login fails, insert a minimal SUPPORT user directly into the local
+         MongoDB (same pattern as conftest.py / seed_rbac_test_users endpoint).
+         This is strictly local CI data; production is never touched.
+      3. Verify the returned token belongs to a SUPPORT rbac_role.
+
+    No server.py changes.  No auth architecture changes.  No RBAC design changes.
     """
-    resp = requests.post(
-        f"{BASE_URL}/api/auth/login",
-        json={"email": "support@mediadview.com", "password": "Support#2026"},
-    )
+    import bcrypt
+    import uuid
+    from datetime import datetime
+    from pymongo import MongoClient
+    from dotenv import load_dotenv
+
+    load_dotenv(BACKEND_DIR / ".env")
+    SUPPORT_EMAIL    = "support.crm.test@mediadview.local"
+    SUPPORT_PASSWORD = "CrmSupport#2026"
+    DB_NAME = os.environ.get("DB_NAME", "mediaview_db")
+
+    def _try_login():
+        r = requests.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"email": SUPPORT_EMAIL, "password": SUPPORT_PASSWORD},
+        )
+        return r
+
+    # ── Step 1: attempt login ─────────────────────────────────────────────────
+    resp = _try_login()
+
     if resp.status_code != 200:
-        pytest.skip("SUPPORT user not seeded — skipping SUPPORT-write-block tests")
+        # ── Step 2: seed the user into local test DB ──────────────────────────
+        mongo_url = os.environ.get("MONGO_URL")
+        if not mongo_url:
+            pytest.skip("MONGO_URL not set — cannot seed SUPPORT test user")
+
+        client = MongoClient(mongo_url, serverSelectionTimeoutMS=3000)
+        try:
+            client.admin.command("ping")
+        except Exception as exc:
+            pytest.skip(f"Local MongoDB unreachable: {exc}")
+
+        db_local = client[DB_NAME]
+
+        # Idempotent: skip insert if already present
+        if not db_local.users.find_one({"email": SUPPORT_EMAIL}):
+            pw_hash = bcrypt.hashpw(
+                SUPPORT_PASSWORD.encode(), bcrypt.gensalt()
+            ).decode()
+            db_local.users.insert_one({
+                "id": str(uuid.uuid4()),
+                "name": "CRM Test — SUPPORT role",
+                "email": SUPPORT_EMAIL,
+                "password_hash": pw_hash,
+                "role": "support",           # legacy field → mapped to SUPPORT via ROLE_MIGRATION_MAP
+                "rbac_role": "SUPPORT",      # explicit new-style field — takes priority
+                "organization_id": None,
+                "company_name": "MediaView Test",
+                "phone": None,
+                "language": "en",
+                "active": True,
+                "session_epoch": 0,
+                "created_at": datetime.utcnow(),
+                "_test_fixture": True,       # marker for future cleanup
+            })
+        client.close()
+
+        # ── Step 3: retry login after seed ────────────────────────────────────
+        resp = _try_login()
+        if resp.status_code != 200:
+            pytest.skip(
+                f"SUPPORT user seeded but login still failed "
+                f"({resp.status_code}): {resp.text}"
+            )
+
     data = resp.json()
-    # Verify the token belongs to a SUPPORT role
-    role = data.get("role") or data.get("user", {}).get("role", "")
-    if role != "SUPPORT":
-        pytest.skip(f"support@mediadview.com has role {role!r}, expected SUPPORT")
+    # Verify the token belongs to SUPPORT (check rbac_role, not legacy role string)
+    rbac_role = data.get("user", {}).get("rbac_role", "")
+    legacy_role = data.get("user", {}).get("role", "")
+    is_support = rbac_role == "SUPPORT" or legacy_role == "support"
+    if not is_support:
+        pytest.skip(
+            f"{SUPPORT_EMAIL} resolved to rbac_role={rbac_role!r} / "
+            f"role={legacy_role!r} — expected SUPPORT"
+        )
     return data["access_token"]
 
 
