@@ -2,10 +2,13 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
+import EmptyState from '../../src/components/EmptyState';
 
 export default function WorkspaceHorarios() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -27,10 +30,13 @@ export default function WorkspaceHorarios() {
       {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
       {error !== '' && !loading && <Text style={sq.error}>{error}</Text>}
       {!loading && items.length === 0 && !error && (
-        <View style={sq.empty}><Ionicons name="calendar-outline" size={40} color="#CBD5E1" />
-          <Text style={sq.emptyTitle}>Todavía no tienes horarios</Text>
-          <Text style={sq.emptyText}>Crea un horario para controlar cuándo se reproduce tu contenido en cada pantalla.</Text>
-        </View>
+        <EmptyState
+          icon="calendar-outline"
+          title="Todavía no tienes horarios"
+          text="Los horarios controlan cuándo se reproduce cada cosa. Empieza creando una playlist con tu contenido y publícala en tus pantallas."
+          primary={{ label: 'Crear Playlist', icon: 'add', onPress: () => router.push('/workspace/playlists?new=1') }}
+          secondary={{ label: 'Ver mis playlists', icon: 'list-outline', onPress: () => router.push('/workspace/playlists') }}
+        />
       )}
       {items.map((c, i) => (
         <View key={c.id || i} style={sq.card}>

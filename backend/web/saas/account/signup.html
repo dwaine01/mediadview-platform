@@ -1,4 +1,19 @@
-<!DOCTYPE html><html  lang="en"><head><title data-rh="true"></title><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><style id="expo-reset">#root,body,html{height:100%}body{overflow:hidden}#root{display:flex}</style><style id="react-native-stylesheet">[stylesheet-group="0"]{}
+<!DOCTYPE html><html  lang="es"><head><title data-rh="true"></title><meta charSet="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no"/><meta http-equiv="X-UA-Compatible" content="IE=edge"/><style id="expo-reset">#root,body,html{height:100%}body{overflow:hidden}#root{display:flex}</style><style>
+html, body { background-color: #ffffff; }
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+input, textarea, select, button, [tabindex] {
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent;
+}
+input:focus, textarea:focus, select:focus, button:focus,
+input:focus-visible, textarea:focus-visible, button:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+</style><style id="react-native-stylesheet">[stylesheet-group="0"]{}
 body{margin:0;}
 button::-moz-focus-inner,input::-moz-focus-inner{border:0;padding:0;}
 html{-ms-text-size-adjust:100%;-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:rgba(0,0,0,0);}
@@ -88,6 +103,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-kq9wsh{padding:13px;}
 .r-krxsd3{display:-webkit-box;}
 .r-llkbrl{border-bottom-color:rgba(8,145,178,1.00);border-left-color:rgba(8,145,178,1.00);border-right-color:rgba(8,145,178,1.00);border-top-color:rgba(8,145,178,1.00);}
+.r-mfotl5{padding:26px;}
 .r-nhxg1g{border-bottom-color:rgba(6,182,212,1.00);border-left-color:rgba(6,182,212,1.00);border-right-color:rgba(6,182,212,1.00);border-top-color:rgba(6,182,212,1.00);}
 .r-nsbfu8{padding:16px;}
 .r-o5n426{border-bottom-color:rgba(11,15,26,1.00);border-left-color:rgba(11,15,26,1.00);border-right-color:rgba(11,15,26,1.00);border-top-color:rgba(11,15,26,1.00);}
@@ -108,14 +124,15 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 [stylesheet-group="2.1"]{}
 .r-11f147o{padding-bottom:8px;padding-top:8px;}
 .r-1537yvj{margin-left:4px;margin-right:4px;}
-.r-1559e4e{padding-bottom:2px;padding-top:2px;}
 .r-17q4wm6{margin-left:5px;margin-right:5px;}
 .r-184id4b{margin-bottom:12px;margin-top:12px;}
 .r-1c8wk46{padding-bottom:48px;padding-top:48px;}
 .r-1d7mnkm{padding-bottom:15px;padding-top:15px;}
 .r-1e084wi{padding-left:0px;padding-right:0px;}
 .r-1ejyzdh{margin-bottom:18px;margin-top:18px;}
+.r-1ezpcd1{padding-left:9px;padding-right:9px;}
 .r-1fkl15p{padding-left:32px;padding-right:32px;}
+.r-1kuugd7{padding-bottom:44px;padding-top:44px;}
 .r-1la3zjv{padding-bottom:18px;padding-top:18px;}
 .r-1ml3abn{padding-bottom:14px;padding-top:14px;}
 .r-1mmae3n{padding-bottom:12px;padding-top:12px;}
@@ -186,6 +203,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-10b5y5f{letter-spacing:1.4px;}
 .r-10g5efv{width:4px;}
 .r-10gryf7{min-height:56px;}
+.r-10paoce{outline-width:0px;}
 .r-10ptun7{height:16px;}
 .r-10v3vxq{transform:scaleX(-1);}
 .r-10x49cs{font-size:10px;}
@@ -200,6 +218,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-11nfnuw{padding-top:48px;}
 .r-11oscg{background-color:rgba(17,24,39,1.00);}
 .r-11udlyb{background-color:rgba(0,150,136,1.00);}
+.r-11ujhjy{padding-bottom:22px;}
 .r-11v9fek{min-width:180px;}
 .r-11yh6sk{overflow-x:hidden;}
 .r-12c3ph5{opacity:0.4;}
@@ -209,6 +228,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-12upozd{max-width:280px;}
 .r-12vffkv>* {pointer-events:auto;}
 .r-12vffkv{pointer-events:none!important;}
+.r-131bt2l{max-width:340px;}
 .r-131xog0{width:38px;}
 .r-135wba7{line-height:24px;}
 .r-13aq9py{animation-name:r-1iq689l;}
@@ -304,7 +324,6 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-1c85bru{width:270px;}
 .r-1cad53l{margin-bottom:14px;}
 .r-1ces89m{max-width:420px;}
-.r-1ck4ryc{background-color:rgba(16,185,129,0.13);}
 .r-1cmwbt1{gap:8px;}
 .r-1cvj4g8{margin-top:1px;}
 .r-1cwl3u0{line-height:16px;}
@@ -338,6 +357,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-1fj0u16{background-color:rgba(207,250,254,0.13);}
 .r-1fjpubo{background-color:rgba(6,182,212,0.04);}
 .r-1frcd3k{background-color:rgba(2,6,23,1.00);}
+.r-1fvng6k{box-shadow:0px 12px 32px rgba(15,23,42,0.07);}
 .r-1g7fiml{height:30px;}
 .r-1g80hic{opacity:0.8;}
 .r-1g94qm0{margin-top:5px;}
@@ -463,6 +483,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-1s7ct43{color:rgba(100,116,139,1.00);}
 .r-1sa5u8b{box-shadow:0px 1px 4px rgba(0,0,0,0.03);}
 .r-1ssbvtb{gap:12px;}
+.r-1sv84sj{padding-bottom:30px;}
 .r-1sxiqef{width:280px;}
 .r-1sxrcry{background-size:auto;}
 .r-1t01tom{margin-top:auto;}
@@ -538,6 +559,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-4v7adb{height:5px;}
 .r-4xy98{max-width:620px;}
 .r-580adz{gap:5px;}
+.r-590294{color:rgba(161,98,7,1.00);}
 .r-5fcqz0{line-height:17px;}
 .r-5is6sd{max-width:460px;}
 .r-5kkj8d{border-top-width:1px;}
@@ -643,14 +665,17 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-ghxds0{transform:translateY(0%);}
 .r-gtdqiz{position:-webkit-sticky;position:sticky;}
 .r-h0d30l{height:28px;}
+.r-h10h58{min-height:60px;}
 .r-h3s6tt{height:48px;}
 .r-h8hv3c{margin-bottom:36px;}
 .r-hbpseb{line-height:22px;}
+.r-hd98jd{max-width:580px;}
 .r-hhvx09{padding-bottom:36px;}
 .r-hjklzo{line-height:19px;}
 .r-hody{background-color:rgba(5,8,22,1.00);}
 .r-hvns9x{max-width:400px;}
 .r-hxflta{padding-right:env(safe-area-inset-right);}
+.r-i03k3n{padding-bottom:14px;}
 .r-i933xg{letter-spacing:1.5px;}
 .r-icoktb{opacity:0.5;}
 .r-icto9i{letter-spacing:-0.5px;}
@@ -686,6 +711,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-mro3nb{background-color:rgba(21,23,24,1.00);}
 .r-n6v787{font-size:13px;}
 .r-nwxazl{line-height:40px;}
+.r-nzoivv{opacity:0.65;}
 .r-o4n3w5{width:23px;}
 .r-oho8x9{border-top-right-radius:24px;}
 .r-ojf8lh{gap:6px;}
@@ -714,6 +740,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-s62m2j{animation-timing-function:cubic-bezier(0.47, 0, 0.745, 0.715);}
 .r-s67bdx{font-size:48px;}
 .r-sfbmgh{z-index:9999;}
+.r-sjivec{max-height:92%;}
 .r-so7y2g{line-height:64px;}
 .r-suhe1l{font-size:46px;}
 .r-t2y1ha{background-color:rgba(2,12,27,1.00);}
@@ -774,6 +801,7 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 .r-zbiw5b{background-color:rgba(6,182,212,0.10);}
 .r-zchlnj{right:0px;}
 .r-zd98yo{margin-bottom:32px;}
+.r-zganc{background-color:rgba(254,249,195,1.00);}
 .r-zl2h9q{margin-bottom:2px;}
 .r-zwzm7d{background-color:rgba(9,9,15,1.00);}
 .r-zx9znk{height:34px;}
@@ -789,5 +817,5 @@ input::-webkit-search-cancel-button,input::-webkit-search-decoration,input::-web
 @keyframes r-1pzkwqh{0%{transform:translateY(100%);}100%{transform:translateY(0%);}}
 @keyframes r-imtty0{0%{opacity:0;}100%{opacity:1;}}
 @keyframes r-q67da2{0%{transform:translateX(-100%);}100%{transform:translateX(400%);}}
-@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="icon" href="/favicon.ico" /></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"><!--$--><div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden"></div><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0 r-1p0dtai r-1d2f490 r-u8s1d r-zchlnj r-ipm5af" style="background-color:rgba(242,242,242,1.00);display:flex"><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0"><!--$--><div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden"></div><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0 r-1p0dtai r-1d2f490 r-u8s1d r-zchlnj r-ipm5af" style="background-color:rgba(242,242,242,1.00);display:flex"><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0"><!--$--><div class="css-g5y9jx r-14lw9ot r-13awgt0"><div class="css-g5y9jx r-t2y1ha r-kzbkwu r-u9wvl5" style="padding-top:12px"><div class="css-g5y9jx r-1awozwy r-1kihuf0 r-18u37iz r-1ssbvtb r-1wdrcqj r-13qz1uu"><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-91ejfr r-1dzdj1l r-eu3ka r-1777fci r-1aockid" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div></div><div class="css-g5y9jx r-1awozwy r-13awgt0 r-18u37iz r-1y00bll"><div class="css-g5y9jx r-1awozwy r-1o7bo36 r-1dedoh8 r-mabqd8 r-1777fci r-1yvhtrz"><div dir="auto" class="css-146c3p1 r-1a896ar r-n6v787 r-ovu0ai">MV</div></div><div dir="auto" class="css-146c3p1 r-jwli3a r-ubezar r-1vr29t4 r-12sm5po">MediaView</div></div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-16jufec r-1dzdj1l r-rs99b7 r-1777fci r-ero68b r-ytbthy r-gu64tb" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-l68ps5 r-vbi3md r-1kfrs79">Iniciar sesión</div></div></div></div><div class="css-g5y9jx r-150rngu r-eqz5dr r-16y2uox r-1wbh5a2 r-11yh6sk r-1rnoaur r-agouwx r-2eszeu"><div class="css-g5y9jx r-16y2uox"><div class="css-g5y9jx"><div class="css-g5y9jx r-d23pfw"><div dir="auto" class="css-146c3p1 r-15ijx5m r-evnaw r-1vr29t4 r-f1odvy">Crea tu cuenta</div><div dir="auto" class="css-146c3p1 r-1dk24ck r-n6v787 r-14yzgew r-1peese0">Completa tus datos. No se requiere tarjeta de crédito.</div><div class="css-g5y9jx r-1i71y14"><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">NOMBRE DEL NEGOCIO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Mi Restaurante" autoCapitalize="words" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div class="css-g5y9jx r-le4sbl"><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1gkfh8e r-1vr29t4 r-1lybf8k r-5oul0u">LOGO DE TU NEGOCIO (OPCIONAL)</div><div class="css-g5y9jx r-1awozwy r-18u37iz r-1i71y14"><div class="css-g5y9jx r-1awozwy r-14lw9ot r-1wr2p1e r-t23y2h r-rs99b7 r-yen7m r-1777fci r-1udh08x r-edyy15 r-z2g584"><div dir="auto" class="css-146c3p1"></div></div><div class="css-g5y9jx" style="gap:8px;align-items:flex-start"><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-1m3cvb r-jx71pz r-1dzdj1l r-rs99b7 r-18u37iz r-1ey881g r-1777fci r-peo1c r-19mqnvc r-kritb0 r-284m6k" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div><div dir="auto" class="css-146c3p1 r-owkcmr r-vbi3md r-b88u0q">Subir logo</div></div></div></div><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1ws2f5x r-5fcqz0 r-psjefw">Lo verás en la esquina de tu panel. Puedes subirlo después desde Ajustes.</div></div></div><div class="css-g5y9jx"><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">TU NOMBRE COMPLETO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Juan Pérez" autoCapitalize="words" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">TELÉFONO (OPCIONAL)</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="+1 555 000 0000" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="tel" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm" style="--placeholderTextColor:#9CA3AF" value=""/></div></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">CORREO ELECTRÓNICO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="juan@minegocio.com" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="email" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">CONTRASEÑA *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Mínimo 8 caracteres" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="password" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm" style="--placeholderTextColor:#9CA3AF" value=""/><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div></div></div></div></div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-1o7bo36 r-t23y2h r-vtc76r r-1x0uki6 r-w7s2jr" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-jwli3a r-ubezar r-b88u0q r-1dpkw9">Crear Cuenta y Comenzar Prueba</div></div><div dir="auto" class="css-146c3p1 r-1npgj5g r-1gkfh8e r-1cwl3u0 r-l71dzp r-q4m81j">Al crear una cuenta aceptas nuestros Términos de Servicio y Política de Privacidad.</div><div class="css-g5y9jx r-18u37iz r-1777fci r-1x0uki6"><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1b43r93">¿Ya tienes cuenta? </div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-owkcmr r-1b43r93 r-b88u0q">Iniciar Sesión</div></div></div><div class="css-g5y9jx" style="height:40px"></div></div></div></div></div></div><!--/$--></div></div></div></div><!--/$--></div></div></div></div><!--/$--></div></div><script src="/_expo/static/js/web/entry-622210cbf522ac9550d857253c56cbef.js" defer></script>
+@keyframes r-t2lo5v{0%{opacity:1;}100%{opacity:0;}}</style><script type="module">globalThis.__EXPO_ROUTER_HYDRATE__=true;</script><link rel="icon" href="/favicon.ico" /></head><body><div id="root"><div class="css-g5y9jx r-13awgt0"><!--$--><div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden"></div><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0 r-1p0dtai r-1d2f490 r-u8s1d r-zchlnj r-ipm5af" style="background-color:rgba(242,242,242,1.00);display:flex"><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0"><!--$--><div style="position:absolute;left:0;right:0;top:0;bottom:0;pointer-events:none;visibility:hidden"></div><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0 r-1p0dtai r-1d2f490 r-u8s1d r-zchlnj r-ipm5af" style="background-color:rgba(242,242,242,1.00);display:flex"><div class="css-g5y9jx r-13awgt0"><div class="css-g5y9jx r-13awgt0"><!--$--><div class="css-g5y9jx r-14lw9ot r-13awgt0"><div class="css-g5y9jx r-t2y1ha r-kzbkwu r-u9wvl5" style="padding-top:12px"><div class="css-g5y9jx r-1awozwy r-1kihuf0 r-18u37iz r-1ssbvtb r-1wdrcqj r-13qz1uu"><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-91ejfr r-1dzdj1l r-eu3ka r-1777fci r-1aockid" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div></div><div class="css-g5y9jx r-1awozwy r-13awgt0 r-18u37iz r-1y00bll"><div class="css-g5y9jx r-1awozwy r-1o7bo36 r-1dedoh8 r-mabqd8 r-1777fci r-1yvhtrz"><div dir="auto" class="css-146c3p1 r-1a896ar r-n6v787 r-ovu0ai">MV</div></div><div dir="auto" class="css-146c3p1 r-jwli3a r-ubezar r-1vr29t4 r-12sm5po">MediaView</div></div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-16jufec r-1dzdj1l r-rs99b7 r-1777fci r-ero68b r-ytbthy r-gu64tb" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-l68ps5 r-vbi3md r-1kfrs79">Iniciar sesión</div></div></div></div><div class="css-g5y9jx r-150rngu r-eqz5dr r-16y2uox r-1wbh5a2 r-11yh6sk r-1rnoaur r-agouwx r-2eszeu"><div class="css-g5y9jx r-16y2uox"><div class="css-g5y9jx"><div class="css-g5y9jx r-d23pfw"><div dir="auto" class="css-146c3p1 r-15ijx5m r-evnaw r-1vr29t4 r-f1odvy">Crea tu cuenta</div><div dir="auto" class="css-146c3p1 r-1dk24ck r-n6v787 r-14yzgew r-1peese0">Completa tus datos. No se requiere tarjeta de crédito.</div><div class="css-g5y9jx r-1i71y14"><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">NOMBRE DEL NEGOCIO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Mi Restaurante" autoCapitalize="words" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm r-1ny4l3l r-10paoce" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div class="css-g5y9jx r-le4sbl"><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1gkfh8e r-1vr29t4 r-1lybf8k r-5oul0u">LOGO DE TU NEGOCIO (OPCIONAL)</div><div class="css-g5y9jx r-1awozwy r-18u37iz r-1i71y14"><div class="css-g5y9jx r-1awozwy r-14lw9ot r-1wr2p1e r-t23y2h r-rs99b7 r-yen7m r-1777fci r-1udh08x r-edyy15 r-z2g584"><div dir="auto" class="css-146c3p1"></div></div><div class="css-g5y9jx" style="gap:8px;align-items:flex-start"><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-1m3cvb r-jx71pz r-1dzdj1l r-rs99b7 r-18u37iz r-1ey881g r-1777fci r-peo1c r-19mqnvc r-kritb0 r-284m6k" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div><div dir="auto" class="css-146c3p1 r-owkcmr r-vbi3md r-b88u0q">Subir logo</div></div></div></div><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1ws2f5x r-5fcqz0 r-psjefw">Lo verás en la esquina de tu panel. Puedes subirlo después desde Ajustes.</div></div></div><div class="css-g5y9jx"><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">TU NOMBRE COMPLETO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Juan Pérez" autoCapitalize="words" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm r-1ny4l3l r-10paoce" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">TELÉFONO (OPCIONAL)</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="555-123-4567" maxLength="14" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="tel" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm r-1ny4l3l r-10paoce" style="--placeholderTextColor:#9CA3AF" value=""/></div></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">CORREO ELECTRÓNICO *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="juan@minegocio.com" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="email" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm r-1ny4l3l r-10paoce" style="--placeholderTextColor:#9CA3AF" value=""/></div></div><div class="css-g5y9jx r-ojf8lh"><div dir="auto" class="css-146c3p1 r-1dk24ck r-1gkfh8e r-b88u0q r-19r33im">CONTRASEÑA *</div><div class="css-g5y9jx r-1awozwy r-11j01x2 r-1wr2p1e r-1q9bdsx r-1rf8fdq r-18u37iz r-uaa2di r-1mmae3n r-3pj75a"><input placeholder="Mínimo 8 caracteres" autoCapitalize="none" autoCorrect="off" autoComplete="on" dir="auto" rows="1" spellCheck="false" type="password" virtualkeyboardpolicy="auto" class="css-11aywtz r-6taxm2 r-15ijx5m r-13awgt0 r-a023e6 r-majxgm r-1ny4l3l r-10paoce" style="--placeholderTextColor:#9CA3AF" value=""/><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73" style="transition-duration:0s"><div dir="auto" class="css-146c3p1"></div></div></div></div></div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73 r-1awozwy r-1o7bo36 r-t23y2h r-vtc76r r-1x0uki6 r-w7s2jr" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-jwli3a r-ubezar r-b88u0q r-1dpkw9">Crear Cuenta y Comenzar Prueba</div></div><div dir="auto" class="css-146c3p1 r-1npgj5g r-1gkfh8e r-1cwl3u0 r-l71dzp r-q4m81j">Al crear una cuenta aceptas nuestros Términos de Servicio y Política de Privacidad.</div><div class="css-g5y9jx r-18u37iz r-1777fci r-1x0uki6"><div dir="auto" class="css-146c3p1 r-1s7ct43 r-1b43r93">¿Ya tienes cuenta? </div><div tabindex="0" class="css-g5y9jx r-1i6wzkk r-lrvibr r-1loqt21 r-1otgn73" style="transition-duration:0s"><div dir="auto" class="css-146c3p1 r-owkcmr r-1b43r93 r-b88u0q">Iniciar Sesión</div></div></div><div class="css-g5y9jx" style="height:40px"></div></div></div></div></div></div><!--/$--></div></div></div></div><!--/$--></div></div></div></div><!--/$--></div></div><script src="/_expo/static/js/web/entry-f95c8787034e23c1820f0ea37df42842.js" defer></script>
 </body></html>

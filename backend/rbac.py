@@ -46,12 +46,13 @@ class Role:
     SUPPORT               = "SUPPORT"
     SELF_SERVICE_OWNER    = "SELF_SERVICE_OWNER"
     SELF_SERVICE_MANAGER  = "SELF_SERVICE_MANAGER"
+    SELF_SERVICE_STAFF    = "SELF_SERVICE_STAFF"
     MANAGED_VIEWER        = "MANAGED_VIEWER"
     ADVERTISER            = "ADVERTISER"
 
 ALL_ROLES = [
     Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT,
-    Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER,
+    Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER, Role.SELF_SERVICE_STAFF,
     Role.MANAGED_VIEWER, Role.ADVERTISER,
 ]
 
@@ -70,6 +71,7 @@ ROLE_MIGRATION_MAP: dict[str, str] = {
     Role.SUPPORT:              Role.SUPPORT,
     Role.SELF_SERVICE_OWNER:   Role.SELF_SERVICE_OWNER,
     Role.SELF_SERVICE_MANAGER: Role.SELF_SERVICE_MANAGER,
+    Role.SELF_SERVICE_STAFF:   Role.SELF_SERVICE_STAFF,
     Role.MANAGED_VIEWER:       Role.MANAGED_VIEWER,
     Role.ADVERTISER:           Role.ADVERTISER,
 }
@@ -103,7 +105,7 @@ PERMISSIONS: dict[str, list[str]] = {
     ],
     "screen.view": [
         Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT,
-        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER,
+        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER, Role.SELF_SERVICE_STAFF,
         Role.MANAGED_VIEWER,
     ],
     "screen.view_all": [                          # see ALL screens (any org)
@@ -112,12 +114,17 @@ PERMISSIONS: dict[str, list[str]] = {
     # ── Content & publishing ──
     "content.upload": [
         Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN,
-        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER,
+        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER, Role.SELF_SERVICE_STAFF,
         Role.ADVERTISER,
     ],
     "content.publish": [
         Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN,
-        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER,
+        Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER, Role.SELF_SERVICE_STAFF,
+    ],
+    # ── Team management (inside one organization) ──
+    "team.manage": [
+        Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN,
+        Role.SELF_SERVICE_OWNER,
     ],
     # ── Advertising ──
     "advertising.purchase": [

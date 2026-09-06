@@ -25,7 +25,9 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
       const updatedUser = useAuthStore.getState().user;
-      if (isWorkspaceUser(updatedUser)) {
+      if (updatedUser?.must_change_password) {
+        router.replace('/account/change-password');
+      } else if (isWorkspaceUser(updatedUser)) {
         router.replace('/workspace');
       } else {
         router.replace('/(tabs)');
@@ -192,7 +194,10 @@ const s = StyleSheet.create({
     paddingVertical: Platform.OS === 'ios' ? 16 : 12,
   },
   inputFocused: { borderColor: '#06B6D4', backgroundColor: '#FFFFFF' },
-  input: { flex: 1, fontSize: 16, color: '#0F172A', fontWeight: '500' },
+  input: {
+    flex: 1, fontSize: 16, color: '#0F172A', fontWeight: '500',
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : null),
+  },
 
   btn: {
     marginTop: 8, borderRadius: 14,

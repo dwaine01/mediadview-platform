@@ -236,3 +236,48 @@ Flujo E2E verificado en navegador: pricing → signup → login → workspace.
 - En escritorio (>900 px) muestra dos columnas: formulario a la izquierda (máx 560 px) y un
   panel de valor a la derecha con los 4 beneficios y una vista del menú digital.
   En móvil se apila en una sola columna.
+
+## Iteración 29 — Registro pulido, estados vacíos accionables y Equipo (RBAC de cliente)
+
+### Arreglos de UI (P0)
+- `/account/signup` en escritorio: formulario en tarjeta blanca (maxWidth 580, sombra suave),
+  títulos y espaciados mayores, fondo `#F8FAFC`. `aside` en blanco.
+- Se eliminó la "línea negra" al escribir: nuevo `app/+html.tsx` con CSS global
+  (`outline: none` en inputs/botones) + `outlineStyle: 'none'` en los estilos de input.
+- Teléfono con formato automático `555-123-4567` (`formatPhone` en signup.tsx).
+
+### Estados vacíos con acción (P1)
+- Componente compartido `src/components/EmptyState.tsx` (icono, copy, CTA primario y secundario).
+- Horarios → "Crear Playlist" (abre el constructor con `/workspace/playlists?new=1`).
+- Contenido → "Subir Contenido" (expo-image-picker → `POST /api/media/upload` en base64, hasta 10 fotos).
+- Playlists → "Crear Playlist" / "Subir contenido primero".
+- `src/components/AppDialog.tsx`: diálogos propios porque `Alert.alert` es no-op en react-native-web.
+
+### Playlists del workspace (backend nuevo, en workspace_routes.py)
+- `POST /api/workspace/playlists` (valida que cada `ref_id` sea media/menú del propio org)
+- `GET  /api/workspace/playlists` (ahora incluye borradores del org, no solo publicadas)
+- `POST /api/workspace/playlists/{id}/publish` (screen_ids vacío = todas las pantallas del org)
+- `DELETE /api/workspace/playlists/{id}`
+
+### Equipo / RBAC de cliente (P1)
+- Nuevo rol `Role.SELF_SERVICE_STAFF` en rbac.py (+ permiso `team.manage` solo para owner).
+- Roles visibles al cliente: Administrador (SELF_SERVICE_OWNER), Gerente (SELF_SERVICE_MANAGER),
+  Empleado (SELF_SERVICE_STAFF).
+- Nuevo `backend/workspace_team_routes.py`: `GET/POST /api/workspace/team`,
+  `PATCH|DELETE /api/workspace/team/{id}`, `POST /api/workspace/team/{id}/reset-password`,
+  `POST /api/workspace/change-password`.
+- Contraseña temporal creada por el dueño → `must_change_password: true`; `/api/workspace/*`
+  responde **428** hasta que el miembro crea su contraseña en `/account/change-password`.
+- Restricciones: empleado no puede facturación, pantallas, logo ni equipo; gerente sí pantallas
+  pero no facturación/equipo. La barra lateral oculta "Equipo" y "Facturación" a no-dueños.
+- Cambio de rol / desactivación incrementan `session_epoch` (invalidan sesiones activas).
+
+### Pruebas
+- `backend/tests/test_workspace_playlists_iter29.py`, `test_workspace_team_iter29.py`,
+  `test_iter29_extra_coverage.py` — 9/9 pasan. Frontend validado por el testing agent.
+- Export estático regenerado a `backend/web/saas` (incluye `/account/change-password`).
+
+### Pendiente
+- P2: Importar menú con IA desde una foto (Emergent LLM Key).
+- P2: Stripe real para facturación anual.
+- Menor: no existe `DELETE /api/workspace/screens/{id}`.

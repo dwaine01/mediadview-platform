@@ -827,8 +827,10 @@ async def login(request: Request, response: Response, req: LoginRequest):
     token = create_token(user["id"], user["role"], ver=user.get("session_epoch", 0))
     return {
         "access_token": token, "token_type": "bearer",
+        "must_change_password": bool(user.get("must_change_password")),
         "user": {"id": user["id"], "name": user["name"], "email": user["email"],
                  "role": user["role"], "rbac_role": user.get("rbac_role"),
+                 "must_change_password": bool(user.get("must_change_password")),
                  "organization_id": user.get("organization_id"),
                  "company_name": user.get("company_name"),
                  "language": user.get("language", "en")}
@@ -840,6 +842,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "id": current_user["id"], "name": current_user["name"],
         "email": current_user["email"], "role": current_user["role"],
         "rbac_role": current_user.get("rbac_role"),
+        "must_change_password": bool(current_user.get("must_change_password")),
         "organization_id": current_user.get("organization_id"),
         "company_name": current_user.get("company_name"),
         "phone": current_user.get("phone"),
@@ -6003,8 +6006,10 @@ app.include_router(create_advertising_routes(db, get_current_user, require_admin
 from plans_routes import create_plans_routes, seed_default_plans
 from workspace_routes import create_workspace_routes
 from signup_routes import create_signup_routes
+from workspace_team_routes import create_workspace_team_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
-app.include_router(create_workspace_routes(db, get_current_user, require_admin))
+app.include_router(create_workspace_team_routes(db, get_current_user))
+app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version))
 app.include_router(create_signup_routes(db, create_token))
 
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────

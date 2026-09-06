@@ -16,7 +16,11 @@ from rbac import Role, get_effective_role
 _WORKSPACE_ROLES = frozenset({
     Role.SELF_SERVICE_OWNER,
     Role.SELF_SERVICE_MANAGER,
+    Role.SELF_SERVICE_STAFF,
 })
+
+# Roles allowed to add/connect screens and see billing
+_SCREEN_ADMIN_ROLES = frozenset({Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER})
 
 
 def _ser(doc):
@@ -37,7 +41,7 @@ def _ser(doc):
     return doc
 
 
-def create_workspace_routes(db, get_current_user, require_admin):
+def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version=None):
     router = APIRouter(prefix="/api/workspace", tags=["Workspace — Phase 2C"])
 
     async def require_workspace_user(current_user: dict = Depends(get_current_user)):
@@ -46,7 +50,13 @@ def create_workspace_routes(db, get_current_user, require_admin):
         if role not in _WORKSPACE_ROLES:
             raise HTTPException(
                 status_code=403,
-                detail="Workspace access requires SELF_SERVICE_OWNER or SELF_SERVICE_MANAGER role",
+                detail="Workspace access requires a self-service role",
+            )
+        if current_user.get("must_change_password"):
+            # Member is still using the temporary password set by the owner.
+            raise HTTPException(
+                status_code=428,
+                detail="Debes crear tu propia contraseña antes de continuar.",
             )
         org_id = current_user.get("organization_id")
         if not org_id:
@@ -136,6 +146,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.post("/logo", summary="Upload or replace the organization logo")
     async def workspace_upload_logo(data: OrgLogoUpload, current_user: dict = Depends(require_workspace_user)):
+        _assert_owner(current_user, "Solo el dueño puede cambiar el logo del negocio.")
         org_id = current_user["organization_id"]
         org = await db.organizations.find_one({"id": org_id})
         if not org:
@@ -150,6 +161,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.delete("/logo", summary="Remove the organization logo")
     async def workspace_delete_logo(current_user: dict = Depends(require_workspace_user)):
+        _assert_owner(current_user, "Solo el dueño puede cambiar el logo del negocio.")
         org_id = current_user["organization_id"]
         org = await db.organizations.find_one({"id": org_id})
         if not org:
@@ -208,21 +220,139 @@ def create_workspace_routes(db, get_current_user, require_admin):
         ).sort("created_at", -1).to_list(1000)
         return _ser(media)
 
-    @router.get("/playlists", summary="List org-scoped playlists")
+    async def _org_screen_ids(org_id: str) -> list[str]:
+        return [
+            s["id"]
+            for s in await db.screens.find({"organization_id": org_id}, {"id": 1}).to_list(500)
+        ]
+
+    @router.get("/playlists", summary="List org-scoped playlists (drafts included)")
     async def workspace_playlists(current_user: dict = Depends(require_workspace_user)):
         org_id = current_user["organization_id"]
-        screen_ids = [
-            s["id"]
-            for s in await db.screens.find(
-                {"organization_id": org_id}, {"id": 1}
-            ).to_list(500)
-        ]
-        if not screen_ids:
-            return []
-        playlists = await db.playlists.find(
-            {"screen_ids": {"$in": screen_ids}}
-        ).sort("created_at", -1).to_list(500)
+        screen_ids = await _org_screen_ids(org_id)
+        query: dict = {"$or": [{"org_id": org_id}]}
+        if screen_ids:
+            query["$or"].append({"screen_ids": {"$in": screen_ids}})
+        playlists = await db.playlists.find(query).sort("created_at", -1).to_list(500)
         return _ser(playlists)
+
+    @router.post("/playlists", summary="Create an org playlist", status_code=201)
+    async def workspace_create_playlist(data: dict, current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        name = (data.get("name") or "").strip()[:160]
+        if not name:
+            raise HTTPException(status_code=400, detail="Playlist name is required")
+
+        raw_items = data.get("items") or []
+        if not isinstance(raw_items, list):
+            raise HTTPException(status_code=400, detail="items must be a list")
+
+        org_user_ids = [
+            u["id"] for u in await db.users.find({"organization_id": org_id}, {"id": 1}).to_list(500)
+        ]
+        items = []
+        for index, raw in enumerate(raw_items):
+            item_type = str((raw or {}).get("type") or "media").lower()
+            ref_id = str((raw or {}).get("ref_id") or "").strip()
+            if item_type not in ("media", "menu"):
+                raise HTTPException(status_code=400, detail=f"Unsupported item type: {item_type}")
+            if not ref_id:
+                raise HTTPException(status_code=400, detail="Each item needs a ref_id")
+            if item_type == "media":
+                owned = await db.media.find_one(
+                    {"id": ref_id, "user_id": {"$in": org_user_ids}}, {"id": 1, "filename": 1}
+                )
+            else:
+                owned = await db.menus.find_one({"id": ref_id, "org_id": org_id}, {"id": 1, "name": 1})
+            if not owned:
+                raise HTTPException(status_code=404, detail="Content not found in your library")
+            duration = int((raw or {}).get("duration") or 15)
+            items.append({
+                "id": str(_uuid.uuid4()),
+                "type": item_type,
+                "ref_id": ref_id,
+                "title": str((raw or {}).get("title") or owned.get("filename") or owned.get("name") or "Contenido")[:160],
+                "duration": max(3, min(duration, 86_400)),
+                "transition": "fade",
+                "display_mode": str((raw or {}).get("display_mode") or "cover"),
+                "order": index,
+            })
+
+        now = datetime.utcnow()
+        playlist = {
+            "id": str(_uuid.uuid4()),
+            "org_id": org_id,
+            "name": name,
+            "description": (data.get("description") or "")[:500],
+            "created_by_user_id": current_user["id"],
+            "owner_user_id": current_user["id"],
+            "client_user_id": current_user["id"],
+            "management_mode": "client",
+            "allow_client_publish": True,
+            "allowed_screen_ids": await _org_screen_ids(org_id),
+            "screen_ids": [],
+            "items": items,
+            "schedule": {
+                "mode": "always", "timezone": "America/New_York",
+                "days": list(range(7)), "start_time": "00:00", "end_time": "23:59",
+                "start_date": None, "end_date": None,
+            },
+            "priority": 10,
+            "status": "draft",
+            "version": 1,
+            "pending_items": [],
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.playlists.insert_one(playlist)
+        return _ser(playlist)
+
+    @router.post("/playlists/{playlist_id}/publish", summary="Publish an org playlist to screens")
+    async def workspace_publish_playlist(playlist_id: str, data: dict,
+                                         current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        playlist = await db.playlists.find_one({"id": playlist_id, "org_id": org_id})
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        if not playlist.get("items"):
+            raise HTTPException(status_code=400, detail="Add at least one item before publishing")
+
+        org_screen_ids = await _org_screen_ids(org_id)
+        screen_ids = [s for s in (data.get("screen_ids") or []) if s in org_screen_ids] or org_screen_ids
+        if not screen_ids:
+            raise HTTPException(status_code=400, detail="Connect a screen first")
+
+        now = datetime.utcnow()
+        await db.playlists.update_one({"id": playlist_id}, {"$set": {
+            "screen_ids": screen_ids,
+            "allowed_screen_ids": org_screen_ids,
+            "status": "published",
+            "published_at": now,
+            "published_by_user_id": current_user["id"],
+            "updated_at": now,
+            "version": int(playlist.get("version") or 0) + 1,
+        }})
+        if bump_playlist_version:
+            for sid in set((playlist.get("screen_ids") or []) + screen_ids):
+                await bump_playlist_version(sid, reason="workspace playlist published")
+        return {
+            "message": f"Playlist publicada en {len(screen_ids)} pantalla(s)",
+            "playlist_id": playlist_id,
+            "screen_ids": screen_ids,
+        }
+
+    @router.delete("/playlists/{playlist_id}", summary="Delete an org playlist")
+    async def workspace_delete_playlist(playlist_id: str,
+                                        current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        playlist = await db.playlists.find_one({"id": playlist_id, "org_id": org_id})
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+        await db.playlists.delete_one({"id": playlist_id})
+        if bump_playlist_version:
+            for sid in set(playlist.get("screen_ids") or []):
+                await bump_playlist_version(sid, reason="workspace playlist deleted")
+        return {"message": "Playlist eliminada", "playlist_id": playlist_id}
 
     @router.get("/schedules", summary="List org-scoped campaigns/schedules")
     async def workspace_schedules(current_user: dict = Depends(require_workspace_user)):
@@ -251,6 +381,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.get("/billing", summary="Billing: subscription + pricing agreement history")
     async def workspace_billing(current_user: dict = Depends(require_workspace_user)):
+        _assert_owner(current_user, "Solo el dueño puede ver la facturación.")
         org_id = current_user["organization_id"]
 
         sub = await db.subscriptions.find_one(
@@ -287,6 +418,8 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.post("/screens", summary="Create a new screen for the org", status_code=201)
     async def workspace_create_screen(data: dict, current_user: dict = Depends(require_workspace_user)):
+        if get_effective_role(current_user) not in _SCREEN_ADMIN_ROLES:
+            raise HTTPException(403, "Tu rol no puede agregar pantallas. Pide ayuda al dueño.")
         org_id = current_user["organization_id"]
         now = datetime.utcnow()
 
@@ -311,8 +444,14 @@ def create_workspace_routes(db, get_current_user, require_admin):
         await db.screens.insert_one(screen)
         return _ser(screen)
 
+    def _assert_owner(user: dict, detail: str) -> None:
+        if get_effective_role(user) != Role.SELF_SERVICE_OWNER:
+            raise HTTPException(403, detail)
+
     @router.post("/screens/connect", summary="Connect pending device to org using 6-char activation code")
     async def workspace_connect_screen(data: dict, current_user: dict = Depends(require_workspace_user)):
+        if get_effective_role(current_user) not in _SCREEN_ADMIN_ROLES:
+            raise HTTPException(403, "Tu rol no puede conectar pantallas. Pide ayuda al dueño.")
         """
         Customer enters the code shown on their TV/device + a name for the screen.
         Finds the pending device, creates a screen, and links them — atomically.
@@ -561,6 +700,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.get("/billing/screen-cost", summary="Preview cost for adding more screens")
     async def workspace_screen_cost(additional_screens: int = 1, current_user: dict = Depends(require_workspace_user)):
+        _assert_owner(current_user, "Solo el dueño puede ver los costos del plan.")
         org_id = current_user["organization_id"]
         if additional_screens < 1:
             raise HTTPException(status_code=400, detail="Must specify at least 1 additional screen")
@@ -600,6 +740,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
 
     @router.post("/billing/add-screens", summary="Add screens — creates new PricingAgreement version")
     async def workspace_add_screens(data: dict, current_user: dict = Depends(require_workspace_user)):
+        _assert_owner(current_user, "Solo el dueño puede cambiar el plan.")
         org_id = current_user["organization_id"]
         additional_screens = int(data.get("additional_screens", 1))
         if additional_screens < 1:
