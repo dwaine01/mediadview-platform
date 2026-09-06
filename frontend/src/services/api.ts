@@ -196,6 +196,9 @@ export const workspaceAPI = {
   }) => api.patch(`/workspace/playlists/${id}`, data),
   deletePlaylist: (id: string) => api.delete(`/workspace/playlists/${id}`),
   activity: (limit = 60) => api.get(`/workspace/activity?limit=${limit}`),
+  nowPlaying: () => api.get('/workspace/now-playing'),
+  aiPhotoForItem: (menuId: string, itemId: string) =>
+    api.post(`/workspace/menus/${menuId}/items/${itemId}/ai-photo`, {}, { timeout: 180000 }),
   aiImportMenu: (data: { image_base64: string; content_type: string }) =>
     api.post('/workspace/menus/ai-import', data, { timeout: 180000 }),
   schedules: () => api.get('/workspace/schedules'),

@@ -11,7 +11,10 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 
 from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
+import time as _time
+
 from managed_portal_routes import create_audit_log as _audit
+from playlist_domain import normalize_schedule, schedule_is_active, select_winning_playlist
 from rbac import Role, get_effective_role
 
 _WORKSPACE_ROLES = frozenset({
@@ -42,7 +45,8 @@ def _ser(doc):
     return doc
 
 
-def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version=None):
+def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version=None,
+                            build_screen_items=None):
     router = APIRouter(prefix="/api/workspace", tags=["Workspace — Phase 2C"])
 
     async def require_workspace_user(current_user: dict = Depends(get_current_user)):
@@ -233,6 +237,60 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             details=details or {}, org_id=user.get("organization_id"),
         )
 
+    @router.get("/now-playing", summary="Live thumbnail: what every screen is showing right now")
+    async def workspace_now_playing(current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        screens = await db.screens.find({"organization_id": org_id}, {"_id": 0}).to_list(200)
+        devices = await db.devices.find(
+            {"screen_id": {"$in": [s["id"] for s in screens]}},
+            {"_id": 0, "screen_id": 1, "last_heartbeat": 1, "device_name": 1},
+        ).to_list(400)
+        beat_by_screen: dict[str, datetime] = {}
+        for d in devices:
+            hb = d.get("last_heartbeat")
+            if hb and (d["screen_id"] not in beat_by_screen or hb > beat_by_screen[d["screen_id"]]):
+                beat_by_screen[d["screen_id"]] = hb
+
+        now = datetime.utcnow()
+        epoch = int(_time.time())
+        out = []
+        for screen in screens:
+            items = await build_screen_items(screen["id"]) if build_screen_items else []
+            playable = [i for i in items if int(i.get("duration") or 0) > 0]
+            cycle = sum(int(i.get("duration") or 0) for i in playable)
+            current = None
+            if cycle > 0:
+                elapsed = epoch % cycle
+                cursor = 0
+                for index, item in enumerate(playable):
+                    duration = int(item.get("duration") or 0)
+                    if elapsed < cursor + duration:
+                        is_menu = str(item.get("content_type")) == "widget"
+                        current = {
+                            "index": index + 1,
+                            "total": len(playable),
+                            "title": item.get("filename") or "Contenido",
+                            "kind": "menu" if is_menu else ("video" if str(item.get("content_type") or "").startswith("video") else "image"),
+                            "thumb_url": None if is_menu else item.get("media_url"),
+                            "duration": duration,
+                            "seconds_left": max(0, cursor + duration - elapsed),
+                            "playlist_name": item.get("playlist_name"),
+                        }
+                        break
+                    cursor += duration
+
+            hb = beat_by_screen.get(screen["id"])
+            out.append({
+                "screen_id": screen["id"],
+                "screen_name": screen.get("name") or "Pantalla",
+                "location": screen.get("location"),
+                "is_online": bool(hb and (now - hb).total_seconds() < 120),
+                "last_seen_seconds": int((now - hb).total_seconds()) if hb else None,
+                "cycle_seconds": cycle,
+                "now_playing": current,
+            })
+        return out
+
     @router.get("/activity", summary="Activity feed for my organization")
     async def workspace_activity(limit: int = 60, current_user: dict = Depends(require_workspace_user)):
         org_id = current_user["organization_id"]
@@ -389,13 +447,18 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if "items" in data:
             update["items"] = await _build_playlist_items(data.get("items"), org_id)
             update["version"] = int(playlist.get("version") or 0) + 1
+        if "schedule" in data:
+            update["schedule"] = normalize_schedule(data.get("schedule"))
+            update["version"] = int(playlist.get("version") or 0) + 1
+        if "priority" in data:
+            update["priority"] = max(0, min(int(data.get("priority") or 10), 100))
 
         await db.playlists.update_one({"id": playlist_id}, {"$set": update})
         await _log(current_user, "playlist.updated", "playlist", playlist_id, {
             "name": update.get("name", playlist.get("name")),
             "items": len(update["items"]) if "items" in update else len(playlist.get("items") or []),
         })
-        if "items" in update and bump_playlist_version:
+        if ("items" in update or "schedule" in update) and bump_playlist_version:
             for sid in set(playlist.get("screen_ids") or []):
                 await bump_playlist_version(sid, reason="workspace playlist edited")
         return _ser({**playlist, **update})
@@ -417,19 +480,36 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
 
     @router.get("/schedules", summary="List org-scoped campaigns/schedules")
     async def workspace_schedules(current_user: dict = Depends(require_workspace_user)):
+        """Dayparting view: every playlist with its time window and who is live now."""
         org_id = current_user["organization_id"]
-        screen_ids = [
-            s["id"]
-            for s in await db.screens.find(
-                {"organization_id": org_id}, {"id": 1}
-            ).to_list(500)
-        ]
-        if not screen_ids:
-            return []
-        campaigns = await db.campaigns.find(
-            {"screen_id": {"$in": screen_ids}}
-        ).sort("created_at", -1).to_list(500)
-        return _ser(campaigns)
+        screens = await db.screens.find({"organization_id": org_id}, {"_id": 0, "id": 1, "name": 1}).to_list(500)
+        screen_names = {s["id"]: s.get("name") or "Pantalla" for s in screens}
+        playlists = await db.playlists.find({"org_id": org_id}, {"_id": 0}).to_list(500)
+
+        winners = {
+            sid: (select_winning_playlist(
+                [p for p in playlists if sid in (p.get("screen_ids") or []) and p.get("status") == "published"]
+            ) or {}).get("id")
+            for sid in screen_names
+        }
+
+        rows = []
+        for p in sorted(playlists, key=lambda x: str(x.get("created_at") or ""), reverse=True):
+            sched = normalize_schedule(p.get("schedule"))
+            pl_screens = [sid for sid in (p.get("screen_ids") or []) if sid in screen_names]
+            rows.append({
+                "id": p["id"],
+                "name": p.get("name"),
+                "status": p.get("status", "draft"),
+                "priority": p.get("priority", 10),
+                "items_count": len(p.get("items") or []),
+                "schedule": sched,
+                "in_window": schedule_is_active(sched),
+                "screen_ids": pl_screens,
+                "screen_names": [screen_names[sid] for sid in pl_screens],
+                "live_now": any(winners.get(sid) == p["id"] for sid in pl_screens),
+            })
+        return rows
 
     @router.get("/users", summary="List org users (excluding password hashes)")
     async def workspace_users(current_user: dict = Depends(require_workspace_user)):

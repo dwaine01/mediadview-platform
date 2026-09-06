@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { workspaceAPI } from '../../src/services/api';
+import LiveScreens from '../../src/components/LiveScreens';
 import type { WorkspaceContext } from '../../src/types';
 
 const C = {
@@ -200,6 +201,17 @@ export default function WorkspaceDashboard() {
         </View>
       </View>
 
+      {/* ── En vivo ahora ── */}
+      {screens.length > 0 && (
+        <View>
+          <View style={sd.liveHeader}>
+            <Text style={sd.sectionTitle}>En vivo ahora</Text>
+            <Text style={sd.liveHint}>Se actualiza cada 15 s</Text>
+          </View>
+          <LiveScreens onPressScreen={() => router.push('/workspace/screens')} />
+        </View>
+      )}
+
       {/* ── Pantallas list ── */}
       <View style={sd.card}>
         <View style={sd.cardHeaderRow}>
@@ -338,6 +350,8 @@ const sd = StyleSheet.create({
   emptyDesc: { fontSize: 13, color: C.muted, marginBottom: 10, textAlign: 'center' },
 
   sectionTitle: { fontSize: 16, fontWeight: '800', color: C.text, marginTop: 4, letterSpacing: -0.2 },
+  liveHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 },
+  liveHint: { fontSize: 11.5, color: C.muted },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   actionCard: { flex: 1, minWidth: 150, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 18, gap: 5, ...shadow },
   actionIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },

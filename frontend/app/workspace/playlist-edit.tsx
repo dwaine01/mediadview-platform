@@ -17,6 +17,38 @@ type Item = {
 
 type LibraryEntry = { id: string; title: string; kind: 'media' | 'menu'; thumb?: string | null };
 
+type Schedule = {
+  mode: 'always' | 'scheduled';
+  days: number[];
+  start_time: string;
+  end_time: string;
+  timezone: string;
+};
+
+const DAYS = [
+  { i: 0, label: 'L' }, { i: 1, label: 'M' }, { i: 2, label: 'M' }, { i: 3, label: 'J' },
+  { i: 4, label: 'V' }, { i: 5, label: 'S' }, { i: 6, label: 'D' },
+];
+
+const PRESETS: { key: string; label: string; icon: keyof typeof Ionicons.glyphMap; start: string; end: string }[] = [
+  { key: 'breakfast', label: 'Desayuno', icon: 'sunny-outline', start: '06:00', end: '11:00' },
+  { key: 'lunch', label: 'Comida', icon: 'restaurant-outline', start: '11:00', end: '17:00' },
+  { key: 'dinner', label: 'Cena', icon: 'moon-outline', start: '17:00', end: '23:00' },
+];
+
+/** Keeps the HH:MM shape while the user types. */
+function formatTime(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 4);
+  if (d.length <= 2) return d;
+  return `${d.slice(0, 2)}:${d.slice(2)}`;
+}
+
+function isValidTime(value: string): boolean {
+  const match = /^(\d{2}):(\d{2})$/.exec(value);
+  if (!match) return false;
+  return Number(match[1]) <= 23 && Number(match[2]) <= 59;
+}
+
 export default function PlaylistEdit() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,6 +56,11 @@ export default function PlaylistEdit() {
   const [name, setName] = useState('');
   const [status, setStatus] = useState('draft');
   const [items, setItems] = useState<Item[]>([]);
+  const [schedule, setSchedule] = useState<Schedule>({
+    mode: 'always', days: [0, 1, 2, 3, 4, 5, 6], start_time: '00:00', end_time: '23:59',
+    timezone: 'America/New_York',
+  });
+  const [priority, setPriority] = useState(10);
   const [library, setLibrary] = useState<LibraryEntry[]>([]);
   const [showAdd, setShowAdd] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -42,6 +79,14 @@ export default function PlaylistEdit() {
       if (!pl) { setError('Playlist no encontrada'); return; }
       setName(pl.name || '');
       setStatus(pl.status || 'draft');
+      setSchedule({
+        mode: pl.schedule?.mode === 'scheduled' ? 'scheduled' : 'always',
+        days: Array.isArray(pl.schedule?.days) && pl.schedule.days.length ? pl.schedule.days : [0, 1, 2, 3, 4, 5, 6],
+        start_time: pl.schedule?.start_time || '00:00',
+        end_time: pl.schedule?.end_time || '23:59',
+        timezone: pl.schedule?.timezone || 'America/New_York',
+      });
+      setPriority(Number(pl.priority) || 10);
       setItems((pl.items || []).map((it: any) => ({
         id: it.id, type: it.type, ref_id: it.ref_id,
         title: it.title || 'Contenido', duration: Number(it.duration) || 15,
@@ -99,11 +144,23 @@ export default function PlaylistEdit() {
       setDialog({ title: 'Duración muy corta', message: 'Cada elemento debe durar al menos 3 segundos.' });
       return;
     }
+    if (schedule.mode === 'scheduled') {
+      if (!isValidTime(schedule.start_time) || !isValidTime(schedule.end_time)) {
+        setDialog({ title: 'Horario inválido', message: 'Usa el formato de 24 horas, por ejemplo 07:00 y 11:30.' });
+        return;
+      }
+      if (schedule.days.length === 0) {
+        setDialog({ title: 'Elige al menos un día', message: 'Marca los días en los que se debe mostrar.' });
+        return;
+      }
+    }
     setSaving(true);
     try {
       await workspaceAPI.updatePlaylist(String(id), {
         name: name.trim(),
         items: items.map(it => ({ type: it.type, ref_id: it.ref_id, title: it.title, duration: it.duration })),
+        schedule,
+        priority,
       });
       setDirty(false);
       setDialog({
@@ -118,7 +175,7 @@ export default function PlaylistEdit() {
     } catch (e: any) {
       setDialog({ title: 'No se pudo guardar', message: e.response?.data?.detail || e.message });
     } finally { setSaving(false); }
-  }, [id, name, items, status]);
+  }, [id, name, items, status, schedule, priority]);
 
   const total = items.reduce((sum, it) => sum + (it.duration || 0), 0);
 
@@ -210,6 +267,116 @@ export default function PlaylistEdit() {
               </TouchableOpacity>
             ))}
 
+            <Text style={[pe.label, { marginTop: 24 }]}>¿Cuándo se muestra?</Text>
+            <View style={pe.modeRow}>
+              <TouchableOpacity
+                style={[pe.modeBtn, schedule.mode === 'always' && pe.modeBtnOn]}
+                onPress={() => { setSchedule(s => ({ ...s, mode: 'always' })); setDirty(true); }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="infinite-outline" size={16} color={schedule.mode === 'always' ? '#0891B2' : '#94A3B8'} />
+                <Text style={[pe.modeText, schedule.mode === 'always' && pe.modeTextOn]}>Todo el día</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[pe.modeBtn, schedule.mode === 'scheduled' && pe.modeBtnOn]}
+                onPress={() => { setSchedule(s => ({ ...s, mode: 'scheduled' })); setDirty(true); }}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="time-outline" size={16} color={schedule.mode === 'scheduled' ? '#0891B2' : '#94A3B8'} />
+                <Text style={[pe.modeText, schedule.mode === 'scheduled' && pe.modeTextOn]}>Por horario</Text>
+              </TouchableOpacity>
+            </View>
+
+            {schedule.mode === 'scheduled' && (
+              <View style={pe.schedBox}>
+                <View style={pe.presetRow}>
+                  {PRESETS.map(preset => {
+                    const on = schedule.start_time === preset.start && schedule.end_time === preset.end;
+                    return (
+                      <TouchableOpacity
+                        key={preset.key}
+                        style={[pe.preset, on && pe.presetOn]}
+                        onPress={() => {
+                          setSchedule(s => ({ ...s, start_time: preset.start, end_time: preset.end }));
+                          setDirty(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Ionicons name={preset.icon} size={15} color={on ? '#0891B2' : '#64748B'} />
+                        <Text style={[pe.presetText, on && pe.presetTextOn]}>{preset.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={pe.timeRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={pe.miniLabel}>Desde</Text>
+                    <TextInput
+                      style={pe.timeInput}
+                      value={schedule.start_time}
+                      onChangeText={(t) => { setSchedule(s => ({ ...s, start_time: formatTime(t) })); setDirty(true); }}
+                      placeholder="07:00"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={pe.miniLabel}>Hasta</Text>
+                    <TextInput
+                      style={pe.timeInput}
+                      value={schedule.end_time}
+                      onChangeText={(t) => { setSchedule(s => ({ ...s, end_time: formatTime(t) })); setDirty(true); }}
+                      placeholder="11:00"
+                      placeholderTextColor="#CBD5E1"
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                  </View>
+                </View>
+
+                <Text style={pe.miniLabel}>Días</Text>
+                <View style={pe.dayRow}>
+                  {DAYS.map(day => {
+                    const on = schedule.days.includes(day.i);
+                    return (
+                      <TouchableOpacity
+                        key={day.i}
+                        style={[pe.dayChip, on && pe.dayChipOn]}
+                        onPress={() => {
+                          setSchedule(s => ({
+                            ...s,
+                            days: on ? s.days.filter(d => d !== day.i) : [...s.days, day.i].sort(),
+                          }));
+                          setDirty(true);
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text style={[pe.dayText, on && pe.dayTextOn]}>{day.label}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+
+                <View style={pe.prioRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={pe.miniLabel}>Prioridad</Text>
+                    <Text style={pe.prioHint}>Si dos playlists coinciden a la misma hora, gana la de mayor prioridad.</Text>
+                  </View>
+                  <View style={pe.stepper}>
+                    <TouchableOpacity onPress={() => { setPriority(v => Math.max(0, v - 5)); setDirty(true); }} style={pe.stepBtn}>
+                      <Ionicons name="remove" size={16} color="#0891B2" />
+                    </TouchableOpacity>
+                    <Text style={pe.prioValue}>{priority}</Text>
+                    <TouchableOpacity onPress={() => { setPriority(v => Math.min(100, v + 5)); setDirty(true); }} style={pe.stepBtn}>
+                      <Ionicons name="add" size={16} color="#0891B2" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
+
             <TouchableOpacity
               style={[pe.saveBtn, (!dirty || saving) && { opacity: 0.55 }]}
               onPress={save}
@@ -271,6 +438,47 @@ const pe = StyleSheet.create({
     borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 10, marginBottom: 8,
   },
   libKind: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  modeRow: { flexDirection: 'row', gap: 10 },
+  modeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 12,
+    paddingVertical: 13, minHeight: 46,
+  },
+  modeBtnOn: { borderColor: '#06B6D4', backgroundColor: '#ECFEFF' },
+  modeText: { fontSize: 13.5, fontWeight: '700', color: '#64748B' },
+  modeTextOn: { color: '#0E7490' },
+  schedBox: {
+    backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 14, padding: 14, marginTop: 10, gap: 12,
+  },
+  presetRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
+  preset: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F8FAFC',
+    borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 9,
+  },
+  presetOn: { borderColor: '#06B6D4', backgroundColor: '#ECFEFF' },
+  presetText: { fontSize: 12.5, fontWeight: '700', color: '#64748B' },
+  presetTextOn: { color: '#0E7490' },
+  timeRow: { flexDirection: 'row', gap: 12 },
+  miniLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', marginBottom: 6 },
+  timeInput: {
+    fontSize: 15, fontWeight: '700', color: '#0F172A', textAlign: 'center',
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, paddingVertical: 11,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null),
+  },
+  dayRow: { flexDirection: 'row', gap: 6 },
+  dayChip: {
+    flex: 1, minHeight: 40, borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  dayChipOn: { backgroundColor: '#0891B2', borderColor: '#0891B2' },
+  dayText: { fontSize: 12.5, fontWeight: '700', color: '#64748B' },
+  dayTextOn: { color: '#FFFFFF' },
+  prioRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  prioHint: { fontSize: 11.5, color: '#94A3B8', lineHeight: 16 },
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 4 },
+  stepBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  prioValue: { fontSize: 14, fontWeight: '800', color: '#0F172A', minWidth: 26, textAlign: 'center' },
   saveBtn: { backgroundColor: '#0891B2', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 18 },
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

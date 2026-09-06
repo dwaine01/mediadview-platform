@@ -316,3 +316,45 @@ Flujo E2E verificado en navegador: pricing → signup → login → workspace.
 ### Pendiente
 - P2: Stripe real para facturación mensual/anual.
 - Menor: falta `DELETE /api/workspace/screens/{id}`; sin testIDs en menu-import/playlist-edit.
+
+## Iteración 31 — Pantalla en Vivo, Fotos con IA y Menú por Horario
+
+### Pantalla en Vivo (miniatura de lo que se ve ahora)
+- `GET /api/workspace/now-playing`: por cada pantalla del org calcula el elemento en el aire
+  (ciclo = suma de duraciones, posición = epoch % ciclo) usando `build_screen_playlist_items`,
+  más `is_online` / `last_seen_seconds` desde el último heartbeat de sus dispositivos.
+- `src/components/LiveScreens.tsx` + sección "En vivo ahora" en el Panel: tarjetas 16:9 con
+  miniatura real (imagen), tarjeta especial para menús, badge EN VIVO/OFFLINE, contador `x/y · Ns`
+  con tick local de 1 s y refresco automático cada 15 s.
+
+### Fotos con IA para productos sin imagen
+- `POST /api/workspace/menus/{menu_id}/items/{item_id}/ai-photo` en `menu_ai_routes.py`:
+  Gemini `gemini-3.1-flash-image-preview` (Nano Banana) vía `send_message_multimodal_response`,
+  guarda la imagen como media legacy (disco + base64) y asigna `image_url`/`media_id` al producto.
+  Registra `menu_item.ai_photo` en la actividad.
+- `menu-edit.tsx`: miniatura por producto, botón "Foto IA" en los que no tienen imagen y banner
+  naranja "N productos sin foto" para generarlas en lote.
+
+### Menú por Horario (dayparting)
+- `PATCH /api/workspace/playlists/{id}` ahora acepta `schedule` (normalizado con
+  `playlist_domain.normalize_schedule`) y `priority` (0..100). El motor `select_winning_playlist`
+  ya existía, así que el player cambia de franja solo.
+- `GET /api/workspace/schedules` reescrito: por playlist devuelve horario, días, `in_window`,
+  `live_now`, prioridad, pantallas y estado.
+- `playlist-edit.tsx`: sección "¿Cuándo se muestra?" (Todo el día / Por horario, presets
+  Desayuno 06:00-11:00, Comida 11:00-17:00, Cena 17:00-23:00, horas HH:MM, días L-D y prioridad ±).
+- `schedules.tsx` reescrito como parrilla de franjas con badges EN VIVO / En franja / Fuera de horario / Borrador.
+
+### Regresión crítica arreglada
+- `GET /api/menus/{id}/render` devolvía **500** para los menús del workspace (lista plana de items y
+  categorías como texto): ahora se agrupan al formato del renderizador.
+- `_safe_src` acepta rutas absolutas del mismo origen (`/api/player/media/...`) y sigue rechazando
+  `javascript:`, `vbscript:` y `//host`. Sin esto, las fotos de los productos no se veían en pantalla.
+
+### Pruebas
+- `backend/tests/test_workspace_iter31.py` (4) + `test_workspace_iter31_extra.py` del testing agent (5): pasan.
+- Frontend verificado por el testing agent, sin bugs abiertos. Export estático regenerado en `backend/web/saas`.
+
+### Pendiente
+- P2: Stripe real para facturación mensual/anual.
+- Menor: falta `DELETE /api/workspace/screens/{id}`; añadir testIDs en horarios y playlist-edit.

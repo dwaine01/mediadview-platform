@@ -3615,6 +3615,10 @@ def _safe_src(v: str, *, allow_data: bool = True) -> str:
     lo = s.lower()
     if lo.startswith("https://") or lo.startswith("http://"):
         return html_lib.escape(s, quote=True)
+    # Same-origin absolute paths (e.g. /api/player/media/<id>) are safe.
+    # "//host" is protocol-relative and therefore rejected.
+    if s.startswith("/") and not s.startswith("//"):
+        return html_lib.escape(s, quote=True)
     if allow_data and (lo.startswith("data:image/") or lo.startswith("data:video/")):
         return html_lib.escape(s, quote=True)
     return ""   # rejected
@@ -5618,11 +5622,30 @@ async def render_menu(menu_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Menu not found")
 
     template_id = menu.get("template_id", "classic")
-    restaurant = menu.get("restaurant_name", "Restaurant")
+    restaurant = menu.get("restaurant_name") or menu.get("name") or "Restaurant"
     subtitle = menu.get("subtitle", "")
     currency_sym = menu.get("currency_symbol", "$")
-    categories = menu.get("categories", [])
+    categories = menu.get("categories") or []
     promo_media = menu.get("promo_media", [])
+
+    # Workspace menus keep a FLAT item list plus category names as plain strings.
+    # Group them into the {name, items[]} shape this renderer expects.
+    flat_items = menu.get("items") or []
+    if flat_items and (not categories or not isinstance(categories[0], dict)):
+        grouped: dict[str, list] = {}
+        for flat in flat_items:
+            if not isinstance(flat, dict):
+                continue
+            group = str(flat.get("category") or "Menú")
+            grouped.setdefault(group, []).append({
+                "name": flat.get("name") or "",
+                "description": flat.get("description") or "",
+                "price": flat.get("price") or 0,
+                "image": flat.get("image_url") or "",
+                "available": flat.get("available", True),
+                "featured": bool(flat.get("featured")),
+            })
+        categories = [{"name": name, "items": rows} for name, rows in grouped.items()]
 
     # Food emoji placeholders by keyword
     food_emojis = {
@@ -6019,7 +6042,8 @@ from menu_ai_routes import create_menu_ai_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
 app.include_router(create_workspace_team_routes(db, get_current_user))
 app.include_router(create_menu_ai_routes(db, get_current_user))
-app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version))
+app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
+                                             build_screen_playlist_items))
 app.include_router(create_signup_routes(db, create_token))
 
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────

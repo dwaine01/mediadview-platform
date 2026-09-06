@@ -9,14 +9,18 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import json
 import logging
 import os
 import re
 import uuid as _uuid
+from datetime import datetime
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
+
+from managed_portal_routes import create_audit_log as _audit
 from pydantic import BaseModel, Field
 
 load_dotenv()
@@ -26,7 +30,9 @@ logger = logging.getLogger(__name__)
 EMERGENT_LLM_KEY = os.environ.get("EMERGENT_LLM_KEY", "")
 MODEL_PROVIDER = "openai"
 MODEL_NAME = "gpt-5.4"
+IMAGE_MODEL = "gemini-3.1-flash-image-preview"
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
+MEDIA_DIR = os.environ.get("MEDIA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "media"))
 ALLOWED_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 
 SYSTEM_PROMPT = (
@@ -155,5 +161,97 @@ def create_menu_ai_routes(db, get_current_user):
             "items": items,
             "raw_count": len(items),
         }
+
+    @router.post("/menus/{menu_id}/items/{item_id}/ai-photo",
+                 summary="Generate an appetizing photo for a menu item that has none")
+    async def ai_photo_for_item(menu_id: str, item_id: str,
+                                current_user: dict = Depends(get_current_user)):
+        org_id = current_user.get("organization_id")
+        if not org_id:
+            raise HTTPException(403, "Tu cuenta no está asociada a un negocio.")
+        if not EMERGENT_LLM_KEY:
+            raise HTTPException(503, "La función de IA no está configurada. Contacta a soporte.")
+
+        menu = await db.menus.find_one({"id": menu_id, "org_id": org_id})
+        if not menu:
+            raise HTTPException(404, "Menú no encontrado")
+        item = next((i for i in (menu.get("items") or []) if i.get("id") == item_id), None)
+        if not item:
+            raise HTTPException(404, "Producto no encontrado")
+
+        descriptors = ", ".join(filter(None, [item.get("category"), item.get("description")]))
+        prompt = (
+            f"Fotografía profesional de comida de '{item.get('name')}'"
+            + (f" ({descriptors})" if descriptors else "")
+            + ". Un solo plato como protagonista, apetitoso y recién servido, luz natural suave, "
+              "fondo desenfocado de restaurante, encuadre cuadrado, estilo de menú digital premium. "
+              "Sin texto, sin logos, sin marcas de agua, sin personas."
+        )
+
+        from emergentintegrations.llm.chat import LlmChat, UserMessage
+
+        chat = LlmChat(
+            api_key=EMERGENT_LLM_KEY,
+            session_id=f"menu-photo-{_uuid.uuid4()}",
+            system_message="Generas fotografías de comida para menús digitales.",
+        ).with_model("gemini", IMAGE_MODEL).with_params(modalities=["image", "text"])
+
+        try:
+            _text, images = await chat.send_message_multimodal_response(UserMessage(text=prompt))
+        except Exception as exc:
+            logger.exception("AI photo generation failed")
+            raise HTTPException(502, f"La IA no pudo generar la foto: {exc}") from exc
+
+        if not images:
+            raise HTTPException(422, "La IA no devolvió ninguna imagen. Intenta de nuevo.")
+
+        picture = images[0]
+        mime = picture.get("mime_type") or "image/png"
+        try:
+            raw_bytes = base64.b64decode(picture["data"])
+        except (binascii.Error, ValueError, KeyError):
+            raise HTTPException(502, "La imagen generada llegó dañada. Intenta de nuevo.")
+
+        ext = ".jpg" if "jpeg" in mime or "jpg" in mime else ".webp" if "webp" in mime else ".png"
+        media_id = str(_uuid.uuid4())
+        stored_name = f"{media_id}{ext}"
+        os.makedirs(MEDIA_DIR, exist_ok=True)
+        with open(os.path.join(MEDIA_DIR, stored_name), "wb") as fh:
+            fh.write(raw_bytes)
+
+        safe_name = re.sub(r"[^\w\s-]", "", str(item.get("name") or "producto")).strip()[:40] or "producto"
+        await db.media.insert_one({
+            "id": media_id,
+            "user_id": current_user["id"],
+            "filename": f"{safe_name}-ia{ext}",
+            "content_type": mime,
+            "size": len(raw_bytes),
+            "type": "image",
+            "sha256": hashlib.sha256(raw_bytes).hexdigest(),
+            "storage": "legacy",
+            "stored_filename": stored_name,
+            "data": picture["data"],
+            "status": "ready",
+            "source": "ai_generated",
+            "created_at": datetime.utcnow(),
+        })
+
+        image_url = f"/api/player/media/{media_id}"
+        await db.menus.update_one(
+            {"id": menu_id, "items.id": item_id},
+            {"$set": {
+                "items.$.image_url": image_url,
+                "items.$.media_id": media_id,
+                "updated_at": datetime.utcnow(),
+            }},
+        )
+        await _audit(
+            db, "menu_item.ai_photo",
+            user_id=current_user["id"], user_email=current_user.get("email"),
+            resource_type="menu", resource_id=menu_id,
+            details={"menu_name": menu.get("name"), "item": item.get("name"), "photo_changed": True},
+            org_id=org_id,
+        )
+        return {"item_id": item_id, "media_id": media_id, "image_url": image_url}
 
     return router
