@@ -20,7 +20,7 @@ export default function WorkspaceContent() {
   const load = useCallback(async () => {
     try { setLoading(true); setError('');
       const res = await workspaceAPI.media(); setMedia(res.data);
-    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
   }, []);
 

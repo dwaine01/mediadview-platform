@@ -106,6 +106,8 @@ export const signupAPI = {
   customerSignup: (data: {
     plan_id: string;
     billing_cycle?: 'monthly' | 'annual';
+    logo_filename?: string;
+    logo_base64?: string;
     business_name: string;
     contact_name: string;
     contact_email: string;
@@ -116,6 +118,12 @@ export const signupAPI = {
 };
 
 // Phase 2C P1: Customer Workspace API (auth required, org-scoped)
+export const orgBrandingAPI = {
+  uploadLogo: (logo_filename: string, logo_base64: string) =>
+    api.post('/workspace/logo', { logo_filename, logo_base64 }),
+  removeLogo: () => api.delete('/workspace/logo'),
+};
+
 export const clientLogosAPI = {
   listPublic: () => api.get('/client-logos'),
 };

@@ -86,7 +86,7 @@ function go(p){
   if(_pgEl){
     _pgEl.classList.add('on');
     // Show loading state immediately so the page is never blank while fetching
-    _pgEl.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px"><div style="width:30px;height:30px;border:2.5px solid rgba(99,102,241,0.15);border-top-color:var(--cyan,#22d3ee);border-radius:50%;animation:mvSpin 0.75s linear infinite"></div><p style="color:var(--t-4,#9ca3af);font-size:13px;font-weight:500;letter-spacing:.01em">Loading…</p></div>';
+    _pgEl.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:320px;gap:14px"><div style="width:30px;height:30px;border:2.5px solid rgba(8,145,178,0.15);border-top-color:var(--cyan,#0891b2);border-radius:50%;animation:mvSpin 0.75s linear infinite"></div><p style="color:var(--t-4,#9ca3af);font-size:13px;font-weight:500;letter-spacing:.01em">Loading…</p></div>';
   }
   document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
   document.querySelector(`[data-p="${p}"]`)?.classList.add('on');
@@ -94,8 +94,8 @@ function go(p){
   loaders[p]?.();
 }
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
-function dot(s){const m={active:'#34d399',pending:'#fbbf24',approved:'#a5b4fc',rejected:'#f87171',draft:'#94a3b8',completed:'#c4b5fd'};return m[s]||'#94a3b8'}
-const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#7c3aed,#6d28d9)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#4338ca)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
+function dot(s){const m={active:'#059669',pending:'#d97706',approved:'#a5b4fc',rejected:'#dc2626',draft:'#64748b',completed:'#67e8f9'};return m[s]||'#64748b'}
+const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#0e7490)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
 // Premium stat card: label / icon / value / sub trend
 function stat(label,value,sub,colorVar,iconPath,trend){
   var trendHtml='';
@@ -149,16 +149,16 @@ const loaders={
             <div class="sh"><h2>Active Screens</h2><a class="sh-link" onclick="go('screens')">Browse <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M9 5l7 7-7 7"/></svg></a></div>
             <div class="card">
               ${screens.length===0?'<div style="padding:48px;text-align:center;color:var(--t-4);font-size:13px">No screens available</div>':
-                screens.slice(0,6).map(s=>`<div class="lr" onclick="go('screens')"><div class="dot" style="background:#34d399;color:#34d399"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t-1)">${s.name}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${s.location?.city||''}${s.location?.state?', '+s.location.state:''}</div></div><div style="font-size:14px;font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums">$${s.pricing?.per_hour||0}<span style="font-size:10px;color:var(--t-4);font-weight:400">/hr</span></div></div>`).join('')}
+                screens.slice(0,6).map(s=>`<div class="lr" onclick="go('screens')"><div class="dot" style="background:#059669;color:#059669"></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--t-1)">${s.name}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${s.location?.city||''}${s.location?.state?', '+s.location.state:''}</div></div><div style="font-size:14px;font-weight:700;color:var(--cyan);font-variant-numeric:tabular-nums">$${s.pricing?.per_hour||0}<span style="font-size:10px;color:var(--t-4);font-weight:400">/hr</span></div></div>`).join('')}
             </div>
           </div>
           <div>
             <div class="sh"><h2>Quick Actions</h2></div>
             <div style="display:flex;flex-direction:column;gap:8px">
-              ${actCard('Launch Campaign','Start advertising','#6366f1','M13 10V3L4 14h7v7l9-11h-7z','create')}
-              ${actCard('Browse Marketplace','Explore screens','#22d3ee','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','screens')}
+              ${actCard('Launch Campaign','Start advertising','#0891b2','M13 10V3L4 14h7v7l9-11h-7z','create')}
+              ${actCard('Browse Marketplace','Explore screens','#0891b2','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','screens')}
               ${actCard('Create Menu','Restaurant menus','#10b981','M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253','menus')}
-              ${actCard('View Analytics','Performance data','#a78bfa','M3 3v18h18M7 14l3-3 4 4 5-6','analytics')}
+              ${actCard('View Analytics','Performance data','#0891b2','M3 3v18h18M7 14l3-3 4 4 5-6','analytics')}
               ${user?.role==='admin'||user?.role==='superadmin'?actCard('Manage Devices','Connected players','#f59e0b','M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','devices'):''}
             </div>
           </div>
@@ -176,7 +176,7 @@ const loaders={
 
   async campaigns(){const el=document.getElementById('pg-campaigns');try{const isA=user?.role==='admin'||user?.role==='superadmin';const d=isA?await api('/admin/campaigns'):await api('/campaigns');el.innerHTML=`<div class="ph"><div><h1>Campaigns</h1><p>${d.length} ${d.length===1?'campaign':'campaigns'} total</p></div><button class="btn-p" onclick="go('create')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New Campaign</button></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg></div><h3>No campaigns yet</h3><p>Launch your first advertising campaign to start reaching audiences</p><button class="btn-p" onclick="go(\'create\')">+ Create Campaign</button></div>':d.map(c=>`<div class="card card-i" style="display:flex;align-items:center;gap:14px;padding:18px;cursor:pointer"><div style="width:4px;align-self:stretch;border-radius:3px;background:${dot(c.status)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${c.name}</div><div style="font-size:12px;color:var(--t-4);margin-top:3px">${c.user?.name||c.screen?.name||''}${c.schedule?.start_date?' · '+c.schedule.start_date+' → '+(c.schedule.end_date||''):''}</div></div>${badge(c.status)}<div style="font-size:20px;font-weight:800;color:var(--cyan);min-width:110px;text-align:right;font-variant-numeric:tabular-nums">$${(c.pricing?.total||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
-  async payments(){const el=document.getElementById('pg-payments');try{const d=user?.role==='admin'?await api('/admin/payments'):await api('/payments');const total=d.reduce((s,p)=>s+(p.amount||0),0);el.innerHTML=`<div class="ph"><div><h1>Payments</h1><p>${d.length} ${d.length===1?'transaction':'transactions'} · $${total.toLocaleString()} total</p></div></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><h3>No payments yet</h3><p>Payment transactions will appear here once campaigns are submitted</p></div>':d.map(p=>`<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px"><div style="width:44px;height:44px;border-radius:12px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(99,102,241,.18)"><svg width="20" height="20" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${p.campaign_name||'Campaign'}</div><div style="font-size:12px;color:var(--t-4);margin-top:2px">${p.user_name?p.user_name+' · ':''}${p.invoice_number||''}${p.screen_name?' · '+p.screen_name:''}</div></div><span class="bdg bdg-${p.status==='completed'?'active':'pending'}">${p.status}</span><div style="font-size:22px;font-weight:800;min-width:120px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t-1)">$${(p.amount||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
+  async payments(){const el=document.getElementById('pg-payments');try{const d=user?.role==='admin'?await api('/admin/payments'):await api('/payments');const total=d.reduce((s,p)=>s+(p.amount||0),0);el.innerHTML=`<div class="ph"><div><h1>Payments</h1><p>${d.length} ${d.length===1?'transaction':'transactions'} · $${total.toLocaleString()} total</p></div></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><h3>No payments yet</h3><p>Payment transactions will appear here once campaigns are submitted</p></div>':d.map(p=>`<div class="card" style="display:flex;align-items:center;gap:14px;padding:18px"><div style="width:44px;height:44px;border-radius:12px;background:rgba(8,145,178,.1);display:flex;align-items:center;justify-content:center;flex-shrink:0;border:1px solid rgba(8,145,178,.18)"><svg width="20" height="20" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${p.campaign_name||'Campaign'}</div><div style="font-size:12px;color:var(--t-4);margin-top:2px">${p.user_name?p.user_name+' · ':''}${p.invoice_number||''}${p.screen_name?' · '+p.screen_name:''}</div></div><span class="bdg bdg-${p.status==='completed'?'active':'pending'}">${p.status}</span><div style="font-size:22px;font-weight:800;min-width:120px;text-align:right;font-variant-numeric:tabular-nums;color:var(--t-1)">$${(p.amount||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
   // Campaign Creation Wizard
   async create(){
@@ -224,7 +224,7 @@ const loaders={
             <div><label class="inp-label">End Time</label><select class="inp" id="wz-et">${['06:00','08:00','10:00','12:00','14:00','16:00','18:00','20:00','22:00'].map(t=>`<option value="${t}" ${wizardData.endTime===t?'selected':''}>${t}</option>`).join('')}</select></div>
           </div>
           <label class="inp-label">Slot Duration</label>
-          <div style="display:flex;gap:8px;margin-bottom:20px">${[10,15,30].map(d=>`<button onclick="wizardData.duration=${d};loaders.create()" style="flex:1;padding:12px;border-radius:var(--radius-sm);border:2px solid ${wizardData.duration===d?'var(--brand)':'var(--border)'};background:${wizardData.duration===d?'rgba(99,102,241,.08)':'var(--bg-2)'};color:${wizardData.duration===d?'var(--brand-l)':'var(--t-3)'};font-size:16px;font-weight:700;cursor:pointer">${d}s</button>`).join('')}</div>
+          <div style="display:flex;gap:8px;margin-bottom:20px">${[10,15,30].map(d=>`<button onclick="wizardData.duration=${d};loaders.create()" style="flex:1;padding:12px;border-radius:var(--radius-sm);border:2px solid ${wizardData.duration===d?'var(--brand)':'var(--border)'};background:${wizardData.duration===d?'rgba(8,145,178,.08)':'var(--bg-2)'};color:${wizardData.duration===d?'var(--brand-l)':'var(--t-3)'};font-size:16px;font-weight:700;cursor:pointer">${d}s</button>`).join('')}</div>
           <div style="display:flex;justify-content:space-between;margin-top:24px">
             <button onclick="wizardData.step=0;loaders.create()" style="padding:10px 20px;border-radius:var(--radius-sm);background:var(--bg-2);border:1px solid var(--border);color:var(--t-2);font-weight:600;font-size:13px;cursor:pointer">← Back</button>
             <button class="btn-p" onclick="wizardNext()">Next: Media →</button>
@@ -243,7 +243,7 @@ const loaders={
           <h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Upload Media</h2>
           ${wizardData.mediaId?`
           <div id="wz-media-area" data-testid="campaign-media-selected" style="border:2px solid rgba(52,211,153,.35);background:rgba(52,211,153,.04);border-radius:var(--radius);padding:12px;cursor:pointer" onclick="document.getElementById('wz-file').click()">
-            <img data-testid="campaign-media-preview" src="${wizardData.mediaPreview}" alt="Selected creative" style="display:block;width:100%;max-height:300px;object-fit:contain;background:#020617;border-radius:10px;margin-bottom:12px">
+            <img data-testid="campaign-media-preview" src="${wizardData.mediaPreview}" alt="Selected creative" style="display:block;width:100%;max-height:300px;object-fit:contain;background:#e2e8f0;border-radius:10px;margin-bottom:12px">
             <div style="display:flex;align-items:center;gap:10px;padding:4px 6px">
               <svg width="20" height="20" fill="none" stroke="var(--green)" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg>
               <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;color:var(--green);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(wizardData.mediaName)}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">Upload complete · Click image to replace</div></div>
@@ -344,7 +344,7 @@ const loaders={
       ];
 
       var tabHtml='<div style="display:flex;gap:6px;margin-bottom:24px">'+tabs.map(t=>
-        '<button onclick="window._adminTab=\''+t.id+'\';loaders.admin()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;'+(window._adminTab===t.id?'background:rgba(99,102,241,.12);color:#818cf8;border:1px solid rgba(99,102,241,.2)':'background:#0f172a;color:#64748b;border:1px solid #1e293b')+'">'+t.icon+t.name+'</button>').join('')+'</div>';
+        '<button onclick="window._adminTab=\''+t.id+'\';loaders.admin()" style="display:flex;align-items:center;gap:8px;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;border:none;cursor:pointer;font-family:inherit;transition:all .15s;'+(window._adminTab===t.id?'background:rgba(8,145,178,.12);color:#0891b2;border:1px solid rgba(8,145,178,.2)':'background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0')+'">'+t.icon+t.name+'</button>').join('')+'</div>';
 
       // ===== SCREENS TAB =====
       if(window._adminTab==='screens'){
@@ -355,13 +355,13 @@ const loaders={
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div>'
         +'<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:8px">Screen Operation Type</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
-        +'<label id="ot-ss" onclick="selectOpType(\'SELF_SERVICE\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #6366F1;border-radius:10px;cursor:pointer;background:#6366F110"><span style="font-size:12px;font-weight:800;color:#6366F1">SELF SERVICE</span><span style="font-size:11px;color:#94a3b8">Client manages own screens</span><input type="radio" name="op_type" value="SELF_SERVICE" checked style="display:none"></label>'
-        +'<label id="ot-pa" onclick="selectOpType(\'PUBLIC_ADVERTISING\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">PUBLIC ADS</span><span style="font-size:11px;color:#94a3b8">Advertisers buy slots via QR</span><input type="radio" name="op_type" value="PUBLIC_ADVERTISING" style="display:none"></label>'
-        +'<label id="ot-mm" onclick="selectOpType(\'MEDIAVIEW_MANAGED\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">MV MANAGED</span><span style="font-size:11px;color:#94a3b8">MediaView controls content</span><input type="radio" name="op_type" value="MEDIAVIEW_MANAGED" style="display:none"></label>'
+        +'<label id="ot-ss" onclick="selectOpType(\'SELF_SERVICE\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #0891b2;border-radius:10px;cursor:pointer;background:#0891b210"><span style="font-size:12px;font-weight:800;color:#0891b2">SELF SERVICE</span><span style="font-size:11px;color:#64748b">Client manages own screens</span><input type="radio" name="op_type" value="SELF_SERVICE" checked style="display:none"></label>'
+        +'<label id="ot-pa" onclick="selectOpType(\'PUBLIC_ADVERTISING\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">PUBLIC ADS</span><span style="font-size:11px;color:#64748b">Advertisers buy slots via QR</span><input type="radio" name="op_type" value="PUBLIC_ADVERTISING" style="display:none"></label>'
+        +'<label id="ot-mm" onclick="selectOpType(\'MEDIAVIEW_MANAGED\')" style="display:flex;flex-direction:column;gap:4px;padding:12px;border:2px solid #e2e8f0;border-radius:10px;cursor:pointer;background:transparent"><span style="font-size:12px;font-weight:800;color:#64748b">MV MANAGED</span><span style="font-size:11px;color:#64748b">MediaView controls content</span><input type="radio" name="op_type" value="MEDIAVIEW_MANAGED" style="display:none"></label>'
         +'</div></div>'
         +'<!-- FASE 3: Advertising pricing — shown only when PUBLIC_ADVERTISING selected -->'
         +'<div id="ns-adv-pricing" style="display:none;margin-bottom:14px;padding:14px;background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.2);border-radius:10px">'
-        +'<div style="font-size:12px;font-weight:700;color:#34d399;margin-bottom:10px">💰 Precios Publicitarios (por pantalla)</div>'
+        +'<div style="font-size:12px;font-weight:700;color:#059669;margin-bottom:10px">💰 Precios Publicitarios (por pantalla)</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:10px">'
         +'<div><div class="lbl">Precio/Semana ($)</div><input class="inp" id="ns-pw" type="number" placeholder="150" min="0"></div>'
         +'<div><div class="lbl">Precio/Mes ($)</div><input class="inp" id="ns-pm2" type="number" placeholder="500" min="0"></div>'
@@ -371,17 +371,17 @@ const loaders={
         +'<div style="display:flex;gap:8px"><button class="btn-p" onclick="addScreen()">Create Screen</button><button class="btn-s" onclick="document.getElementById(\'add-screen-form\').style.display=\'none\'">Cancel</button></div><p id="ns-msg" style="font-size:12px;margin-top:10px;display:none"></p></div></div>'+
         '<div style="display:flex;flex-direction:column;gap:8px">'+screens.map(s=>
           '<div class="card card-i" style="padding:16px;display:flex;align-items:center;gap:14px" onclick="showScreenPlaylist(\''+s.id+'\')">'+
-            '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div>'+
+            '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div>'+
             '<div style="flex:1">'+
               '<div style="font-size:15px;font-weight:700">'+s.name+'</div>'+
               '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#10b981;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
             '</div>'+
             '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
-              (s.operation_type==='PUBLIC_ADVERTISING'?'<button onclick="showScreenQR(\''+s.id+'\',\''+s.name.replace(/'/g,'')+'\');event.stopPropagation()" style="padding:5px 14px;border-radius:6px;background:rgba(16,185,129,.1);color:#34d399;font-size:11px;font-weight:600;border:1px solid rgba(16,185,129,.2);cursor:pointer">📱 QR</button>':'')+
-              '<button onclick="editAdminScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(99,102,241,.1);color:#818cf8;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
-              '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#f87171;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
+              (s.operation_type==='PUBLIC_ADVERTISING'?'<button onclick="showScreenQR(\''+s.id+'\',\''+s.name.replace(/'/g,'')+'\');event.stopPropagation()" style="padding:5px 14px;border-radius:6px;background:rgba(16,185,129,.1);color:#059669;font-size:11px;font-weight:600;border:1px solid rgba(16,185,129,.2);cursor:pointer">📱 QR</button>':'')+
+              '<button onclick="editAdminScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(8,145,178,.1);color:#0891b2;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
+              '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#dc2626;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
             '</div>'+
-            '<svg width="18" height="18" fill="none" stroke="#334155" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
+            '<svg width="18" height="18" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
           '</div>').join('')+'</div>';
 
       // ===== PENDING TAB =====
@@ -391,30 +391,30 @@ const loaders={
         var others=campaigns.filter(c=>c.status!=='pending');
         
         el.innerHTML='<div class="ph"><div><h1>Pending Approvals</h1><p>'+pending.length+' campaigns waiting for review</p></div></div>'+tabHtml+
-        (pending.length===0?'<div class="card" style="padding:48px;text-align:center"><svg width="40" height="40" fill="none" stroke="#22d3ee" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-size:16px;font-weight:700;color:#22d3ee">All Clear!</div><div style="font-size:13px;color:#475569;margin-top:4px">No pending campaigns to review</div></div>':
+        (pending.length===0?'<div class="card" style="padding:48px;text-align:center"><svg width="40" height="40" fill="none" stroke="#0891b2" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 12px"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg><div style="font-size:16px;font-weight:700;color:#0891b2">All Clear!</div><div style="font-size:13px;color:#475569;margin-top:4px">No pending campaigns to review</div></div>':
         '<div style="display:flex;flex-direction:column;gap:12px">'+pending.map(c=>{
           var hasMedia=c.media_ids&&c.media_ids.length>0;
           var mid=hasMedia?c.media_ids[0]:'';
           return '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex">'+
-            (hasMedia?'<div style="width:240px;min-height:180px;background:#020617;flex-shrink:0;cursor:pointer;position:relative" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
-            '<div style="width:240px;min-height:180px;background:#020617;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#334155">No media</span></div>')+
+            (hasMedia?'<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
+            '<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#94a3b8;font-size:12.5px;font-weight:600">Sin vista previa</span></div>')+
             '<div style="flex:1;padding:20px;display:flex;flex-direction:column">'+
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div>'+
-              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Client: <span style="color:#e2e8f0;font-weight:600">'+(c.user?.name||'Unknown')+'</span></div>'+
-              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Screen: <span style="color:#e2e8f0">'+(c.screen?.name||'Unknown')+'</span></div>'+
+              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Client: <span style="color:#0f172a;font-weight:600">'+(c.user?.name||'Unknown')+'</span></div>'+
+              '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Screen: <span style="color:#0f172a">'+(c.screen?.name||'Unknown')+'</span></div>'+
               '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Dates: '+(c.schedule?.start_date||'')+' → '+(c.schedule?.end_date||'')+'</div>'+
-              '<div style="font-size:18px;font-weight:800;color:#22d3ee;margin-bottom:12px">$'+(c.pricing?.total||0).toLocaleString()+'</div>'+
+              '<div style="font-size:18px;font-weight:800;color:#0891b2;margin-bottom:12px">$'+(c.pricing?.total||0).toLocaleString()+'</div>'+
               '<div style="margin-top:auto;display:flex;flex-direction:column;gap:8px">'+
                 '<div><div style="font-size:10px;font-weight:600;color:#475569;margin-bottom:4px">REJECT REASON (optional)</div><input class="inp" id="reject-'+c.id+'" placeholder="Tell the client why..." style="font-size:12px;padding:8px 12px"></div>'+
                 '<div style="display:flex;gap:8px">'+
                   '<button onclick="modalApprove(\''+c.id+'\')" style="flex:1;padding:10px;border-radius:8px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;font-size:13px;border:none;cursor:pointer">Approve</button>'+
-                  '<button onclick="rejectWithNote(\''+c.id+'\')" style="flex:1;padding:10px;border-radius:8px;background:rgba(248,113,113,.12);color:#f87171;font-weight:700;font-size:13px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>'+
+                  '<button onclick="rejectWithNote(\''+c.id+'\')" style="flex:1;padding:10px;border-radius:8px;background:rgba(248,113,113,.12);color:#dc2626;font-weight:700;font-size:13px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button>'+
                 '</div>'+
               '</div>'+
             '</div></div></div>'
         }).join('')+'</div>')+
         (others.length>0?'<h2 style="font-size:15px;font-weight:700;margin:24px 0 12px;color:#64748b">Recent Campaigns ('+others.length+')</h2><div style="display:flex;flex-direction:column;gap:6px">'+others.slice(0,10).map(c=>
-          '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0f172a;border-radius:8px;border:1px solid #1e293b"><div class="dot" style="background:'+dot(c.status)+'"></div><div style="flex:1;font-size:13px;font-weight:600">'+c.name+'</div><span style="font-size:11px;color:#475569">'+(c.user?.name||'')+'</span>'+badge(c.status)+'<span style="font-size:13px;font-weight:700;color:#22d3ee">$'+(c.pricing?.total||0).toLocaleString()+'</span></div>'
+          '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:#f1f5f9;border-radius:8px;border:1px solid #e2e8f0"><div class="dot" style="background:'+dot(c.status)+'"></div><div style="flex:1;font-size:13px;font-weight:600">'+c.name+'</div><span style="font-size:11px;color:#475569">'+(c.user?.name||'')+'</span>'+badge(c.status)+'<span style="font-size:13px;font-weight:700;color:#0891b2">$'+(c.pricing?.total||0).toLocaleString()+'</span></div>'
         ).join('')+'</div>':'');
 
       // ===== USERS TAB =====
@@ -422,7 +422,7 @@ const loaders={
         var users2=await api('/admin/users');
         el.innerHTML='<div class="ph"><div><h1>Users</h1><p>'+users2.length+' registered accounts</p></div></div>'+tabHtml+
         '<div class="card"><div class="tbl-h" style="grid-template-columns:2fr 2fr 1fr auto"><span>Name</span><span>Email</span><span>Company</span><span>Status</span></div>'+
-        users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+u.role+'</div></div><span style="font-size:13px;color:#94a3b8">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
+        users2.map(u=>'<div class="tbl-r" style="grid-template-columns:2fr 2fr 1fr auto"><div><div style="font-size:14px;font-weight:600">'+u.name+'</div><div style="font-size:10px;color:#475569">'+u.role+'</div></div><span style="font-size:13px;color:#64748b">'+u.email+'</span><span style="font-size:13px;color:#475569">'+(u.company_name||'—')+'</span><span class="'+(u.active!==false?'tag-on':'tag-off')+'">'+(u.active!==false?'Active':'Disabled')+'</span></div>').join('')+'</div>';
       }else if(window._adminTab==='colorlight'){
         el.innerHTML='<div class="ph"><div><h1>LED Cloud</h1><p>Direct push to ColorlightCloud LED screens</p></div></div>'+tabHtml+
           '<div id="cl-panel"><div style="padding:60px;text-align:center;color:var(--t-4)">Loading ColorlightCloud…</div></div>';
@@ -436,12 +436,12 @@ const loaders={
           </div>${tabHtml}
           <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:26px">
             ${[
-              ['Pantallas Gestionadas', summary.managed_screens||0, '#6366f1'],
-              ['Clientes Activos',      summary.managed_viewers||0, '#22d3ee'],
-              ['Solicitudes Totales',   summary.total_requests||0,  '#a78bfa'],
-              ['Pendientes',           summary.pending||0,          '#fbbf24'],
+              ['Pantallas Gestionadas', summary.managed_screens||0, '#0891b2'],
+              ['Clientes Activos',      summary.managed_viewers||0, '#0891b2'],
+              ['Solicitudes Totales',   summary.total_requests||0,  '#0891b2'],
+              ['Pendientes',           summary.pending||0,          '#d97706'],
               ['En Proceso',           summary.in_progress||0,      '#60a5fa'],
-              ['Completadas',          summary.completed||0,        '#34d399'],
+              ['Completadas',          summary.completed||0,        '#059669'],
             ].map(([l,v,c])=>`
               <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:16px 18px">
                 <div style="font-size:11px;font-weight:600;color:var(--t-4);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${l}</div>
@@ -475,7 +475,7 @@ const loaders={
             <h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Admin Accounts (${admins.length})</h2>
             <div class="card">${admins.length===0?'<div style="padding:32px;text-align:center;color:var(--t-4)">No admins yet</div>':admins.map((a,i)=>`
               <div class="lr" style="gap:14px">
-                <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--brand-l);flex-shrink:0">${(a.name||'A')[0]}</div>
+                <div style="width:36px;height:36px;border-radius:10px;background:rgba(8,145,178,.1);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--brand-l);flex-shrink:0">${(a.name||'A')[0]}</div>
                 <div style="flex:1;min-width:0">
                   <div style="font-size:14px;font-weight:700">${a.name}</div>
                   <div style="font-size:11px;color:var(--t-4)">${a.email}${a.company_name?' · '+a.company_name:''}</div>
@@ -552,7 +552,7 @@ const loaders={
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
           <div class="card" style="padding:20px">
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
-              <div style="width:36px;height:36px;border-radius:10px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></div>
+              <div style="width:36px;height:36px;border-radius:10px;background:rgba(8,145,178,.1);display:flex;align-items:center;justify-content:center"><svg width="18" height="18" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg></div>
               <div><div style="font-size:15px;font-weight:700">Link Device by Code</div><div style="font-size:11px;color:var(--t-4)">Enter the code shown on the TV screen</div></div>
             </div>
             <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px">
@@ -605,7 +605,7 @@ const loaders={
                   <span class="${isOnline?'tag-on':'tag-off'}" style="margin-left:4px">${isOnline?'Online':'Offline'}</span>
                 </div>
                 <div style="font-size:12px;color:var(--t-3);margin-bottom:8px">${d.device_info?.model||'Unknown'} · ${d.tier==='player_dedicated'?'Dedicated':'TV Direct'} · Code: <span style="color:var(--brand-l);font-weight:600">${d.activation_code}</span></div>
-                <div style="display:flex;gap:8px;margin-bottom:8px">${d.screen_id?'<button onclick="openPowerSchedule(\''+d.id+'\',\''+(d.device_name||'Device').replace(/\x27/g,'')+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(99,102,241,.12);color:var(--brand-l);font-size:10px;font-weight:600;border:1px solid rgba(99,102,241,.2);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>Power Schedule</button>':''}${d.screen_id?'<button onclick="unlinkDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(251,191,36,.1);color:var(--amber);font-size:10px;font-weight:600;border:none;cursor:pointer">Unlink</button>':''}<button onclick="removeDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button></div><div style="display:flex;gap:20px;flex-wrap:wrap">
+                <div style="display:flex;gap:8px;margin-bottom:8px">${d.screen_id?'<button onclick="openPowerSchedule(\''+d.id+'\',\''+(d.device_name||'Device').replace(/\x27/g,'')+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(8,145,178,.12);color:var(--brand-l);font-size:10px;font-weight:600;border:1px solid rgba(8,145,178,.2);cursor:pointer;display:inline-flex;align-items:center;gap:4px"><svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 8v4l3 3"/><circle cx="12" cy="12" r="9"/></svg>Power Schedule</button>':''}${d.screen_id?'<button onclick="unlinkDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(251,191,36,.1);color:var(--amber);font-size:10px;font-weight:600;border:none;cursor:pointer">Unlink</button>':''}<button onclick="removeDev(\''+d.id+'\',event)" style="padding:3px 10px;border-radius:5px;background:rgba(248,113,113,.1);color:var(--red);font-size:10px;font-weight:600;border:none;cursor:pointer">Remove</button></div><div style="display:flex;gap:20px;flex-wrap:wrap">
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Screen:</span> ${d.screen_name||screenMap[d.screen_id]||'Not assigned'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">IP:</span> ${d.diagnostics?.ip_address||'—'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Uptime:</span> ${upD>0?upD+'d ':''}${upH%24}h</div>
@@ -618,7 +618,7 @@ const loaders={
     }catch(e){el.innerHTML=`<div class="ph"><div><h1>Devices</h1><p>Connected players</p></div></div><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Sign in as admin to manage devices</div>`}
   },
 
-  settings(){document.getElementById('pg-settings').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:28px">Settings</h1><div style="max-width:560px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(99,102,241,.25)">${(user?.name||'U')[0]}</div><div><div style="font-size:20px;font-weight:700">${user?.name}</div><div style="font-size:13px;color:var(--t-3)">${user?.email}</div><span class="bdg" style="margin-top:6px;background:${user?.role==='admin'?'rgba(99,102,241,.12)':'rgba(52,211,153,.12)'};color:${user?.role==='admin'?'var(--brand-l)':'var(--green)'}">${user?.role==='admin'?'Administrator':'Customer'}</span></div></div><div class="card" style="margin-bottom:20px"><div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--t-2);text-transform:uppercase;letter-spacing:1.5px">Account</div>${[['Name',user?.name],['Email',user?.email],[user?.role==='customer'?'Company':'Department',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div style="padding:14px 20px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(30,41,59,.2)"><span style="font-size:13px;color:var(--t-3)">${l}</span><span style="font-size:13px;font-weight:600">${v}</span></div>`).join('')}</div><button onclick="doLogout()" style="width:100%;padding:12px;border-radius:var(--radius-sm);background:none;border:1px solid var(--bg-3);color:var(--t-3);font-size:13px;cursor:pointer">Sign Out</button></div>`},
+  settings(){document.getElementById('pg-settings').innerHTML=`<h1 style="font-size:28px;font-weight:800;margin-bottom:28px">Settings</h1><div style="max-width:560px"><div style="display:flex;align-items:center;gap:16px;margin-bottom:32px"><div style="width:64px;height:64px;border-radius:16px;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#fff;box-shadow:0 4px 15px rgba(8,145,178,.25)">${(user?.name||'U')[0]}</div><div><div style="font-size:20px;font-weight:700">${user?.name}</div><div style="font-size:13px;color:var(--t-3)">${user?.email}</div><span class="bdg" style="margin-top:6px;background:${user?.role==='admin'?'rgba(8,145,178,.12)':'rgba(52,211,153,.12)'};color:${user?.role==='admin'?'var(--brand-l)':'var(--green)'}">${user?.role==='admin'?'Administrator':'Customer'}</span></div></div><div class="card" style="margin-bottom:20px"><div style="padding:14px 20px;border-bottom:1px solid var(--border);font-size:10px;font-weight:700;color:var(--t-2);text-transform:uppercase;letter-spacing:1.5px">Account</div>${[['Name',user?.name],['Email',user?.email],[user?.role==='customer'?'Company':'Department',user?.company_name||'—'],['Role',user?.role]].map(([l,v])=>`<div style="padding:14px 20px;display:flex;justify-content:space-between;border-bottom:1px solid rgba(30,41,59,.2)"><span style="font-size:13px;color:var(--t-3)">${l}</span><span style="font-size:13px;font-weight:600">${v}</span></div>`).join('')}</div><button onclick="doLogout()" style="width:100%;padding:12px;border-radius:var(--radius-sm);background:none;border:1px solid var(--bg-3);color:var(--t-3);font-size:13px;cursor:pointer">Sign Out</button></div>`},
 
   // ── Fase 3: Advertiser Portal ──────────────────────────────────────────────
   advertiser(){if(typeof renderAdvertiserPortal==='function')renderAdvertiserPortal();else document.getElementById('pg-advertiser').innerHTML='<div class="ph"><h1>Advertiser Portal</h1></div><p style="color:var(--t-4);padding:20px">Loading…</p>';},
@@ -678,9 +678,9 @@ function openReview(campId,mediaId,type,campName,userName,status){
   if(status==='pending'){
     h='<div style="margin-bottom:12px"><div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:6px">REJECT REASON (optional)</div><input class="inp" id="modal-reason" placeholder="Tell the client why..."></div>';
     h+='<div style="display:flex;gap:10px"><button onclick="modalApprove(\''+campId+'\');closeModal()" style="flex:1;padding:12px;border-radius:10px;background:linear-gradient(135deg,#10b981,#059669);color:#fff;font-weight:700;font-size:14px;border:none;cursor:pointer">Approve</button>';
-    h+='<button onclick="modalReject(\''+campId+'\');closeModal()" style="flex:1;padding:12px;border-radius:10px;background:rgba(248,113,113,.15);color:#f87171;font-weight:700;font-size:14px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button></div>';
+    h+='<button onclick="modalReject(\''+campId+'\');closeModal()" style="flex:1;padding:12px;border-radius:10px;background:rgba(248,113,113,.15);color:#dc2626;font-weight:700;font-size:14px;border:1px solid rgba(248,113,113,.2);cursor:pointer">Reject</button></div>';
   }else{
-    h='<div style="text-align:center;padding:8px;color:#64748b;font-size:13px">Status: <span style="color:#22d3ee;font-weight:700">'+status.toUpperCase()+'</span></div>';
+    h='<div style="text-align:center;padding:8px;color:#64748b;font-size:13px">Status: <span style="color:#0891b2;font-weight:700">'+status.toUpperCase()+'</span></div>';
   }
   document.getElementById('modal-actions').innerHTML=h;
 }
@@ -694,7 +694,7 @@ async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{
 function selectOpType(type) {
   var types = ['SELF_SERVICE','PUBLIC_ADVERTISING','MEDIAVIEW_MANAGED'];
   var ids = {SELF_SERVICE:'ot-ss',PUBLIC_ADVERTISING:'ot-pa',MEDIAVIEW_MANAGED:'ot-mm'};
-  var colors = {SELF_SERVICE:'#6366F1',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#F59E0B'};
+  var colors = {SELF_SERVICE:'#0891b2',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#F59E0B'};
   types.forEach(function(t){
     var el = document.getElementById(ids[t]);
     if (!el) return;
@@ -742,7 +742,7 @@ async function editAdminScreen(id){
   var el=document.getElementById('pg-admin');
   var orient=s.specs?.orientation||'landscape';
   el.innerHTML='<div style="max-width:700px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h1 style="font-size:24px;font-weight:800">Edit Screen</h1><button class="btn-s" onclick="loaders.admin()">Cancel</button></div>'+
-  '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #1e293b;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
+  '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #e2e8f0;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
   '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code <span style="color:var(--green);font-size:8px">(auto-generated, permanent)</span></div><div style="padding:10px 12px;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;font-size:16px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+(s.location_code||'—')+'</div></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">City</div><input class="inp" id="es-city" value="'+(s.location?.city||'')+'"></div><div><div class="lbl">Address</div><input class="inp" id="es-addr" value="'+(s.location?.address||'')+'"></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">State</div><input class="inp" id="es-state" value="'+(s.location?.state||'')+'"></div><div><div class="lbl">Price per Month ($)</div><input class="inp" id="es-pm" type="number" value="'+(s.pricing?.per_month||0)+'"></div></div>'+
@@ -761,7 +761,7 @@ async function editAdminScreen(id){
     '<div id="pair-body-'+id+'" style="display:grid;grid-template-columns:1fr;gap:10px">'+
       '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">1️⃣ URL</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-url-'+id+'" value="" style="font-family:ui-monospace,monospace;font-size:12px;color:var(--cyan)"><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-url-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
       '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">2️⃣ Device ID</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-did-'+id+'" value="" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:var(--cyan);letter-spacing:1px"><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-did-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
-      '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">3️⃣ Secret Key</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-sec-'+id+'" type="password" value="" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#22d3ee"><button class="btn-s" onclick="document.getElementById(\'pair-sec-'+id+'\').type=document.getElementById(\'pair-sec-'+id+'\').type===\'password\'?\'text\':\'password\'" style="padding:6px 10px">👁</button><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-sec-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
+      '<div style="padding:10px;background:var(--bg-1);border-radius:8px"><div style="font-size:10px;font-weight:700;color:var(--t-3);text-transform:uppercase;letter-spacing:.6px;margin-bottom:4px">3️⃣ Secret Key</div><div style="display:flex;gap:6px;align-items:center"><input class="inp" readonly id="pair-sec-'+id+'" type="password" value="" style="font-family:ui-monospace,monospace;font-size:14px;font-weight:700;color:#0891b2"><button class="btn-s" onclick="document.getElementById(\'pair-sec-'+id+'\').type=document.getElementById(\'pair-sec-'+id+'\').type===\'password\'?\'text\':\'password\'" style="padding:6px 10px">👁</button><button class="btn-s" onclick="copyText(this,document.getElementById(\'pair-sec-'+id+'\').value)" style="padding:6px 10px">📋</button></div></div>'+
     '</div>'+
     '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)">'+
       '<div id="pair-status-'+id+'" style="font-size:11px;color:var(--t-4)">⏳ Loading credentials…</div>'+
@@ -769,7 +769,7 @@ async function editAdminScreen(id){
     '</div>'+
   '</div>'+
   // ===== PUBLIC MARKETPLACE (advertising for walk-in / QR customers) =====
-  '<div class="card" id="adv-card-'+id+'" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(99,102,241,.06),transparent);border:1px solid rgba(99,102,241,.25)">'+
+  '<div class="card" id="adv-card-'+id+'" style="padding:20px;margin-bottom:20px;background:linear-gradient(180deg,rgba(8,145,178,.06),transparent);border:1px solid rgba(8,145,178,.25)">'+
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
       '<svg width="22" height="22" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3z"/><path d="M8 12l3 3 5-6"/></svg>'+
       '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--brand-l)">Public marketplace (QR / walk-in customers)</div>'+
@@ -1000,8 +1000,8 @@ async function showScreenPlaylist(screenId){
     var playlist=await api('/player/'+screenId+'/playlist');
     var widgets=[];try{widgets=await api('/admin/widgets?screen_id='+screenId)}catch(e){/* widgets are optional */}
     var items=playlist.items||[];
-    el.innerHTML='<div style="margin-bottom:20px"><button onclick="window._adminView=\'screens\';loaders.admin()" style="font-size:13px;color:#6366f1;cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>Back to Screens</button></div>'+
-    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#4338ca,#818cf8)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+(screen.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
+    el.innerHTML='<div style="margin-bottom:20px"><button onclick="window._adminView=\'screens\';loaders.admin()" style="font-size:13px;color:#0891b2;cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>Back to Screens</button></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+(screen.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
     '<h2 style="font-size:16px;font-weight:700;margin-bottom:14px">Playlist ('+items.length+' items'+(widgets.length>0?' + '+widgets.length+' widgets':'')+')</h2>'+
     (items.length===0&&widgets.length===0?'<div class="card" style="padding:32px;text-align:center;color:#475569">No content on this screen</div>':
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">'+
@@ -1009,19 +1009,19 @@ async function showScreenPlaylist(screenId){
       var rot=item.rotation||0;
       var anim=item.animation||'fade';
       return '<div class="card" style="padding:0;overflow:hidden">'+
-        '<div style="height:140px;background:#020617;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openReview(\'\',\''+item.media_id+'\',\'m\',\''+item.filename.replace(/'/g,'')+'\',\'\',\'active\')">'+
-          '<img src="/api/player/media/'+item.media_id+'" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML=\'<div style=\\\'color:#334155;font-size:12px\\\'>Video</div>\'">'+
-          '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(99,102,241,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">View</div></div>'+
+        '<div style="height:140px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openReview(\'\',\''+item.media_id+'\',\'m\',\''+item.filename.replace(/'/g,'')+'\',\'\',\'active\')">'+
+          '<img src="/api/player/media/'+item.media_id+'" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML=\'<div style=\\\'color:#64748b;font-size:12px\\\'>Video</div>\'">'+
+          '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(8,145,178,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">View</div></div>'+
         '</div>'+
         '<div style="padding:10px">'+
           '<div style="font-size:12px;font-weight:600;margin-bottom:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+item.filename+'</div>'+
           '<div style="font-size:10px;color:#475569;margin-bottom:8px">'+item.duration+'s · '+anim+' · '+rot+'°</div>'+
           '<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">'+
-            ['none','fade','slide','zoom'].map(function(a){return '<button onclick="setAnim(\''+item.media_id+'\',\''+a+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(anim===a?'var(--green)':'#1e293b')+';background:'+(anim===a?'rgba(52,211,153,.12)':'none')+';color:'+(anim===a?'#34d399':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+a+'</button>'}).join('')+
+            ['none','fade','slide','zoom'].map(function(a){return '<button onclick="setAnim(\''+item.media_id+'\',\''+a+'\',event)" style="padding:2px 6px;border-radius:4px;border:1px solid '+(anim===a?'var(--green)':'#e2e8f0')+';background:'+(anim===a?'rgba(52,211,153,.12)':'none')+';color:'+(anim===a?'#059669':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+a+'</button>'}).join('')+
           '</div>'+
           '<div style="display:flex;gap:3px;flex-wrap:wrap">'+
-            [0,90,180,270].map(function(deg){return '<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 6px;border-radius:4px;border:1px solid '+(rot===deg?'#22d3ee':'#1e293b')+';background:'+(rot===deg?'rgba(34,211,238,.12)':'none')+';color:'+(rot===deg?'#22d3ee':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+deg+'°</button>'}).join('')+
-            '<button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 6px;border-radius:4px;background:rgba(248,113,113,.1);color:#f87171;font-size:9px;font-weight:700;border:none;cursor:pointer;margin-left:auto">✕</button>'+
+            [0,90,180,270].map(function(deg){return '<button onclick="rotateMedia(\''+item.media_id+'\','+deg+')" style="padding:2px 6px;border-radius:4px;border:1px solid '+(rot===deg?'#0891b2':'#e2e8f0')+';background:'+(rot===deg?'rgba(34,211,238,.12)':'none')+';color:'+(rot===deg?'#0891b2':'#475569')+';font-size:9px;font-weight:600;cursor:pointer">'+deg+'°</button>'}).join('')+
+            '<button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 6px;border-radius:4px;background:rgba(248,113,113,.1);color:#dc2626;font-size:9px;font-weight:700;border:none;cursor:pointer;margin-left:auto">✕</button>'+
           '</div>'+
         '</div></div>'
     }).join('')+'</div>');
@@ -1042,7 +1042,7 @@ async function loadPlaylists(screens){
         items.forEach(function(item){
           var rot=item.rotation||0;
           html+='<div style="width:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-1)">';
-          html+='<div style="height:100px;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
+          html+='<div style="height:100px;overflow:hidden;background:#0f172a;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
           html+='<div style="padding:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+item.filename+'</div><button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 8px;border-radius:4px;background:rgba(248,113,113,.15);color:var(--red);font-size:10px;font-weight:700;border:none;cursor:pointer;flex-shrink:0">✕</button></div>';
           html+='<div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:4px">';
           ['none','fade','slide','zoom'].forEach(function(anim){
@@ -1124,7 +1124,7 @@ loaders.menus = async function(){
 
 function showCreateMenu(){
   var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="menu-modal">';
-  html+='<div style="width:600px;max-height:90vh;overflow-y:auto;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:32px">';
+  html+='<div style="width:600px;max-height:90vh;overflow-y:auto;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:16px;padding:32px">';
   html+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h2 style="font-size:20px;font-weight:800">Create New Menu</h2>';
   html+='<button onclick="document.getElementById(\'menu-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
   
@@ -1244,7 +1244,7 @@ function renderMenuEditor(menu){
     menu.categories.forEach(function(cat){
       html+='<div class="card" style="margin-bottom:12px;overflow:hidden">';
       // Category header
-      html+='<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--brand-l)10;border-bottom:1px solid #1e293b">';
+      html+='<div style="display:flex;align-items:center;gap:10px;padding:14px 16px;background:var(--brand-l)10;border-bottom:1px solid #e2e8f0">';
       html+='<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--cyan)">'+cat.name+'</div>';
       if(cat.description)html+='<div style="font-size:11px;color:var(--t-4)">'+cat.description+'</div>';
       html+='</div>';
@@ -1258,11 +1258,11 @@ function renderMenuEditor(menu){
         html+='<div style="padding:20px;text-align:center;color:var(--t-4);font-size:12px">No items in this category</div>';
       } else {
         cat.items.forEach(function(item){
-          html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #1e293b08'+(item.featured?';background:rgba(34,211,238,.03)':'')+'">';
+          html+='<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #e2e8f008'+(item.featured?';background:rgba(34,211,238,.03)':'')+'">';
           if(item.image){
             html+='<img src="'+item.image+'" style="width:40px;height:40px;border-radius:8px;object-fit:cover;flex-shrink:0">';
           } else {
-            html+='<div style="width:40px;height:40px;border-radius:8px;background:#1e293b;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg></div>';
+            html+='<div style="width:40px;height:40px;border-radius:8px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" fill="none" stroke="var(--t-4)" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14"/></svg></div>';
           }
           html+='<div style="flex:1;min-width:0">';
           html+='<div style="font-size:13px;font-weight:600">'+item.name+(item.featured?' <span style="color:var(--cyan);font-size:9px">★ FEATURED</span>':'')+'</div>';
@@ -1299,7 +1299,7 @@ function renderMenuEditor(menu){
   html+='</div>';
   
   html+='<h2 style="font-size:16px;font-weight:700;margin-bottom:12px">Live Preview</h2>';
-  html+='<div style="border-radius:12px;overflow:hidden;border:1px solid #1e293b;height:400px">';
+  html+='<div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;height:400px">';
   html+='<iframe src="'+API+'/menus/'+menu.id+'/render" style="width:100%;height:100%;border:none;transform:scale(0.5);transform-origin:top left;width:200%;height:200%"></iframe>';
   html+='</div>';
   
@@ -1317,7 +1317,7 @@ function renderMenuEditor(menu){
   if(promos.length > 0){
     html+='<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px">';
     promos.forEach(function(pm){
-      html+='<div style="position:relative;width:100px;height:70px;border-radius:8px;overflow:hidden;border:1px solid #1e293b">';
+      html+='<div style="position:relative;width:100px;height:70px;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">';
       if(pm.type==='video'){
         html+='<video src="'+(pm.data||pm.url)+'" style="width:100%;height:100%;object-fit:cover" muted></video>';
       } else {
@@ -1371,7 +1371,7 @@ function deleteCategory(menuId,catId){
 
 function addItem(menuId,catId){
   var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="item-modal">';
-  html+='<div style="width:500px;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:28px">';
+  html+='<div style="width:500px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:16px;padding:28px">';
   html+='<div style="display:flex;justify-content:space-between;margin-bottom:20px"><h2 style="font-size:18px;font-weight:800">Add Menu Item</h2>';
   html+='<button onclick="document.getElementById(\'item-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
   
@@ -1437,7 +1437,7 @@ function editItem(menuId,catId,itemId){
   if(!item){alert('Item not found');return}
   
   var html='<div style="position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.8);z-index:100;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(8px)" id="item-modal">';
-  html+='<div style="width:500px;background:#0f172a;border:1px solid #1e293b;border-radius:16px;padding:28px">';
+  html+='<div style="width:500px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:16px;padding:28px">';
   html+='<div style="display:flex;justify-content:space-between;margin-bottom:20px"><h2 style="font-size:18px;font-weight:800">Edit Menu Item</h2>';
   html+='<button onclick="document.getElementById(\'item-modal\').remove()" style="background:none;border:none;color:#64748b;font-size:20px;cursor:pointer">✕</button></div>';
   
@@ -1530,7 +1530,7 @@ async function openPowerSchedule(deviceId,deviceName,e){
         <button onclick="document.getElementById('ps-modal').remove()" class="btn-icon">✕</button>
       </div>
       <div style="padding:24px">
-        <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:var(--rs);cursor:pointer;margin-bottom:20px">
+        <label style="display:flex;align-items:center;gap:12px;padding:14px 16px;background:rgba(8,145,178,.05);border:1px solid rgba(8,145,178,.15);border-radius:var(--rs);cursor:pointer;margin-bottom:20px">
           <input type="checkbox" id="ps-enabled" ${cur.enabled?'checked':''} style="width:18px;height:18px;accent-color:var(--brand)">
           <div style="flex:1">
             <div style="font-size:13px;font-weight:600;color:var(--t-1)">Enable automatic schedule</div>
@@ -1562,7 +1562,7 @@ async function openPowerSchedule(deviceId,deviceName,e){
       </div>
     </div>
   </div>
-  <style>.ps-on{background:rgba(99,102,241,.15) !important;border-color:var(--brand) !important;color:var(--brand-l) !important}</style>`;
+  <style>.ps-on{background:rgba(8,145,178,.15) !important;border-color:var(--brand) !important;color:var(--brand-l) !important}</style>`;
   document.body.insertAdjacentHTML('beforeend',html);
 }
 
@@ -1673,7 +1673,7 @@ function showColorlightCredentialsModal(creds){
       '</div>'+
       '<div style="padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg-1)">'+
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:11px;color:var(--t-3);font-weight:700;text-transform:uppercase;letter-spacing:.6px">3️⃣ Secret Key</div><button class="btn-s" onclick="copyText(this,\''+creds.secret_key+'\')" style="font-size:11px;padding:4px 10px">📋 Copy</button></div>'+
-        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;color:#22d3ee;letter-spacing:1px;word-break:break-all">'+creds.secret_key+'</div>'+
+        '<div style="font-family:ui-monospace,Menlo,monospace;font-size:18px;font-weight:700;color:#0891b2;letter-spacing:1px;word-break:break-all">'+creds.secret_key+'</div>'+
       '</div>'+
     '</div>'+
     '<div style="padding:14px;border-left:3px solid var(--cyan);background:rgba(34,211,238,.05);border-radius:6px;margin-bottom:18px">'+
@@ -1794,7 +1794,7 @@ async function refreshPairStatus(screenId, deviceId){
         ' OFFLINE · '+reason+' · last seen '+(minAgo<60?minAgo+' min ago':lastSeen.toLocaleString())+'</span>';
     }else{
       statusEl.innerHTML='<span style="display:inline-flex;align-items:center;gap:6px;color:var(--t-4)">'+
-        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#94a3b8"></span>'+
+        '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#64748b"></span>'+
         ' Waiting for device · paste credentials into the LED and click Apply</span>';
     }
   }catch(e){
@@ -1825,9 +1825,9 @@ async function openScheduleModal(deviceId, deviceName){
     '<div style="display:flex;gap:6px;margin-bottom:18px">'+
       dn.map((d,i)=>'<label style="flex:1;padding:8px;border:1px solid '+(days[i]?'var(--cyan)':'var(--border)')+';background:'+(days[i]?'rgba(34,211,238,.1)':'var(--bg-1)')+';color:'+(days[i]?'var(--cyan)':'var(--t-4)')+';border-radius:6px;text-align:center;font-size:11px;font-weight:700;cursor:pointer;user-select:none" onclick="this.classList.toggle(\'on\');var on=this.classList.contains(\'on\')||this.style.color==\'var(--cyan)\';if(this.style.color==\'var(--cyan)\'){this.style.color=\'var(--t-4)\';this.style.background=\'var(--bg-1)\';this.style.borderColor=\'var(--border)\';this.dataset.on=0}else{this.style.color=\'var(--cyan)\';this.style.background=\'rgba(34,211,238,.1)\';this.style.borderColor=\'var(--cyan)\';this.dataset.on=1}"><input type="hidden" class="sc-d" data-d="'+i+'" data-on="'+days[i]+'">'+d+'</label>').join('')+
     '</div>'+
-    '<div style="padding:10px;background:rgba(99,102,241,.05);border-left:3px solid #818cf8;border-radius:6px;font-size:11px;color:var(--t-3);margin-bottom:18px"><b>💡 What this does:</b> the A40 stays powered ON but the LED panel turns OFF during sleep hours (saves power, extends LED life). It wakes up automatically.</div>'+
+    '<div style="padding:10px;background:rgba(8,145,178,.05);border-left:3px solid #0891b2;border-radius:6px;font-size:11px;color:var(--t-3);margin-bottom:18px"><b>💡 What this does:</b> the A40 stays powered ON but the LED panel turns OFF during sleep hours (saves power, extends LED life). It wakes up automatically.</div>'+
     '<div style="display:flex;gap:10px;margin-bottom:14px">'+
-      '<button class="btn-s" onclick="manualSleepWake(\''+deviceId+'\',\'sleep\')" style="flex:1;justify-content:center;padding:10px;color:#818cf8">🌙 Sleep NOW</button>'+
+      '<button class="btn-s" onclick="manualSleepWake(\''+deviceId+'\',\'sleep\')" style="flex:1;justify-content:center;padding:10px;color:#0891b2">🌙 Sleep NOW</button>'+
       '<button class="btn-s" onclick="manualSleepWake(\''+deviceId+'\',\'wakeup\')" style="flex:1;justify-content:center;padding:10px;color:var(--green-l)">🌅 Wake NOW</button>'+
     '</div>'+
     '<button class="btn-p" onclick="saveSchedule(\''+deviceId+'\')" style="width:100%;justify-content:center;padding:12px">Save Schedule</button>'+
@@ -1953,7 +1953,7 @@ function openDirectControlsModal(deviceId, deviceName){
   ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,42,.85);backdrop-filter:blur(4px);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;overflow:auto';
   ov.innerHTML='<div class="card" style="max-width:480px;width:100%;padding:28px;background:var(--bg-2)">'+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:20px">'+
-      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(99,102,241,.12);color:#818cf8;display:flex;align-items:center;justify-content:center;font-size:20px">🎛</div>'+
+      '<div style="width:44px;height:44px;border-radius:12px;background:rgba(8,145,178,.12);color:#0891b2;display:flex;align-items:center;justify-content:center;font-size:20px">🎛</div>'+
       '<div style="flex:1"><h2 style="font-size:18px;font-weight:700;margin:0">Controls — '+deviceName+'</h2><p style="font-size:12px;color:var(--t-4);margin:4px 0 0">'+deviceId+'</p></div>'+
       '<button onclick="document.getElementById(\'dir-ctl-modal\').remove()" style="background:none;border:none;color:var(--t-4);font-size:24px;cursor:pointer">×</button>'+
     '</div>'+
@@ -2003,12 +2003,12 @@ async function loadColorlightPanel(){
   try{status=await api('/colorlight/status')}catch(e){panel.innerHTML='<div class="card" style="padding:24px;color:var(--red)">'+e.message+'</div>';return}
   try{direct=await api('/cls/devices')}catch(e){direct={devices:[],total:0}}
   // ===== Render Direct Mode banner first (the new pro flow) =====
-  let directHtml='<div class="card" style="padding:20px;margin-bottom:18px;border:1px solid rgba(34,211,238,.3);background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(99,102,241,.04))">'+
+  let directHtml='<div class="card" style="padding:20px;margin-bottom:18px;border:1px solid rgba(34,211,238,.3);background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(8,145,178,.04))">'+
     '<div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">'+
       '<div style="width:42px;height:42px;border-radius:10px;background:rgba(34,211,238,.15);color:var(--cyan);display:flex;align-items:center;justify-content:center;font-size:20px">⚡</div>'+
       '<div style="flex:1"><div style="font-size:15px;font-weight:700;color:var(--cyan)">Direct Mode — A40 ↔ MediAd View (no ColorlightCloud)</div>'+
         '<div style="font-size:11px;color:var(--t-4)">Devices configured to talk directly to YOUR server. Full control, zero dependency.</div></div>'+
-      '<a href="/api/web/apk-install-guide.html" target="_blank" style="font-size:11px;padding:7px 13px;border-radius:14px;background:linear-gradient(135deg,#22d3ee,#6366f1);color:#0b1220;font-weight:700;text-decoration:none;margin-right:6px">📖 Cómo instalar APK</a>'+
+      '<a href="/api/web/apk-install-guide.html" target="_blank" style="font-size:11px;padding:7px 13px;border-radius:14px;background:linear-gradient(135deg,#0891b2,#0891b2);color:#0b1220;font-weight:700;text-decoration:none;margin-right:6px">📖 Cómo instalar APK</a>'+
       '<span style="font-size:11px;padding:6px 12px;border-radius:14px;background:rgba(34,211,238,.15);color:var(--cyan);font-weight:600">'+direct.total+' direct device(s)</span>'+
     '</div>'+
     (direct.total===0

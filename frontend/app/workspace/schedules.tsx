@@ -12,7 +12,7 @@ export default function WorkspaceHorarios() {
 
   const load = useCallback(async () => {
     try { setLoading(true); setError(''); const res = await workspaceAPI.schedules(); setItems(res.data); }
-    catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
   }, []);
 

@@ -189,3 +189,50 @@ Reporte completo en `/app/design_guidelines.md`.
 
 **Pruebas**: `backend/tests/test_mediaview_iter28_premium.py` — 24/24 en verde.
 Flujo E2E verificado en navegador: pricing → signup → login → workspace.
+
+## Panel de administración aclarado (junio 2026)
+
+- El shell del panel (`web/styles.css`, `web/design-system.css`, `web/index.html`) ya era claro,
+  pero muchos bloques que se construyen en JS (`web/app.js`) seguían con superficies oscuras,
+  texto casi invisible sobre blanco y el acento índigo viejo.
+- Script: `backend/scripts/relight_admin_panel.py` (idempotente, solo literales de color).
+  Mapea: `#0f172a`/`#020617` (fondos) → `#f1f5f9`/`#e2e8f0`; `#1e293b` (bordes) → `#e2e8f0`;
+  `color:#e2e8f0`/`#334155`/`#94a3b8` → texto legible; índigo `#6366f1`/`#818cf8`/`#4338ca`
+  y cian neón `#22d3ee` → cian de marca `#0891b2`/`#0e7490`; `#34d399`→`#059669`,
+  `#f87171`→`#dc2626`, `#fbbf24`→`#d97706`. Los scrims de los modales siguen oscuros a propósito.
+- Extras: el placeholder de la campaña sin media ahora dice "Sin vista previa" en gris claro,
+  y el botón "View Plans & Create Account" del login pasó de índigo casi ilegible a cian claro
+  y apunta directo a `/pricing`.
+- Verificado en navegador con superadmin: pestañas Screens, Pending, Users, LED Cloud
+  y Managed Clients — todas claras y legibles. Cero colores prohibidos en
+  `app.js`, `index.html`, `styles.css` y `design-system.css`.
+- No requiere regenerar el export de Expo: estos archivos los sirve FastAPI directamente.
+
+## Marca del cliente (logo propio) — junio 2026
+
+- `organizations.logo_url` guarda el logo del negocio del cliente.
+- Helpers en `backend/org_branding_routes.py` (`save_org_logo` / `delete_org_logo`):
+  valida png/jpg/jpeg/webp/svg, máximo 2 MB, escribe en `backend/web/orgs/`
+  y expone la URL pública `/api/web/orgs/<archivo>`.
+- Endpoints en `workspace_routes.py`:
+  `POST /api/workspace/logo` (subir/reemplazar) y `DELETE /api/workspace/logo` (quitar),
+  ambos detrás del gate `require_workspace_user`.
+- `POST /api/auth/customer-signup` acepta `logo_filename` + `logo_base64` opcionales,
+  así el dueño puede subir su logo mientras crea la cuenta.
+- Frontend:
+  - `src/components/LogoPicker.tsx` — selector reutilizable con `expo-image-picker`,
+    permisos pedidos solo al tocar, y botón "Abrir Ajustes" si el permiso quedó bloqueado.
+  - `/account/signup` — campo opcional "LOGO DE TU NEGOCIO".
+  - `/workspace/settings` — tarjeta "Tu Marca" para subir, cambiar o quitar el logo.
+  - `app/workspace/_layout.tsx` — el logo y el nombre del negocio reemplazan la marca "MV"
+    en la esquina del panel (escritorio y móvil).
+- Demo: `backend/scripts/seed_demo_pizzeria.py` crea "Pizzería Don Luis" (Starter, 3 pantallas,
+  menú de 8 productos publicado) y tiene logo cargado.
+
+## Responsive del registro
+
+- `/account/signup` dejó de usar `Dimensions.get('window')` (valor congelado) y ahora usa
+  `useWindowDimensions()`, así reacciona al tamaño real de la ventana.
+- En escritorio (>900 px) muestra dos columnas: formulario a la izquierda (máx 560 px) y un
+  panel de valor a la derecha con los 4 beneficios y una vista del menú digital.
+  En móvil se apila en una sola columna.

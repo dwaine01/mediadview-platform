@@ -33,6 +33,7 @@ export interface Plan {
 export interface WorkspaceContext {
   organization: {
     id: string;
+    logo_url?: string | null;
     name: string;
     slug: string;
     plan: string;

@@ -50,7 +50,7 @@ export default function WorkspaceMenus() {
 
   const load = useCallback(async () => {
     try { setLoading(true); setError(''); const res = await workspaceAPI.menus(); setMenus(res.data || []); }
-    catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
   }, []);
 
@@ -127,7 +127,7 @@ export default function WorkspaceMenus() {
                   </View>
                   <View style={ms.pathBody}>
                     <Text style={ms.pathTitle}>{t.name} Template</Text>
-                    <Text style={ms.pathDesc}>{t.items.length} sample items · edit and add yours</Text>
+                    <Text style={ms.pathDesc}>{t.items.length} productos de ejemplo · edítalos y agrega los tuyos</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                 </TouchableOpacity>
@@ -143,7 +143,7 @@ export default function WorkspaceMenus() {
                 </View>
                 <View style={ms.pathBody}>
                   <Text style={ms.pathTitle}>Importar Imagen / PDF</Text>
-                  <Text style={ms.pathDesc}>Upload your existing menu image. AI extracts items for you to review.</Text>
+                  <Text style={ms.pathDesc}>Sube la imagen de tu menú actual. La IA extrae los productos para que los revises.</Text>
                 </View>
                 <View style={ms.comingPronto}><Text style={ms.comingProntoText}>Pronto</Text></View>
               </TouchableOpacity>
@@ -195,8 +195,8 @@ export default function WorkspaceMenus() {
               <View style={ms.menuBody}>
                 <Text style={ms.menuName}>{m.name}</Text>
                 <Text style={ms.menuMeta}>
-                  {m.items?.length || 0} item{(m.items?.length || 0) !== 1 ? 's' : ''}
-                  {m.source ? ` · ${m.source}` : ''}
+                  {m.items?.length || 0} producto{(m.items?.length || 0) !== 1 ? 's' : ''}
+                  {m.source && m.source !== 'blank' ? ` · ${m.source}` : ''}
                 </Text>
               </View>
               <View style={[ms.statusBadge, { backgroundColor: m.status === 'published' ? '#D1FAE5' : '#F8FAFC' }]}>

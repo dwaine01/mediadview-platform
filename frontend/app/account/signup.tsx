@@ -1,17 +1,16 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet,
-  KeyboardAvoidingView, Platform, ActivityIndicator, Dimensions,
+  KeyboardAvoidingView, Platform, ActivityIndicator, useWindowDimensions, Image,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { signupAPI, plansAPI } from '../../src/services/api';
+import LogoPicker, { type PickedLogo } from '../../src/components/LogoPicker';
 import { useAuthStore } from '../../src/store/authStore';
 import type { Plan } from '../../src/types';
 
-const { width: SW } = Dimensions.get('window');
-const IS_DESKTOP = Platform.OS === 'web' && SW > 768;
 
 const PLAN_COLORS: Record<string, string> = {
   free: '#64748B', starter: '#0E7490', pro: '#06B6D4', enterprise: '#D97706',
@@ -24,6 +23,8 @@ export default function SignupScreen() {
     useLocalSearchParams<{ plan_id?: string; billing_cycle?: string; screen_count?: string }>();
   const { login } = useAuthStore();
 
+  const { width } = useWindowDimensions();
+  const IS_DESKTOP = width > 900;
   const [selectedPlan] = useState(paramPlanId || 'starter');
   const billingCycle: 'monthly' | 'annual' = paramCycle === 'annual' ? 'annual' : 'monthly';
   const screenCount = Math.max(1, parseInt(paramScreens || '1', 10) || 1);
@@ -31,6 +32,7 @@ export default function SignupScreen() {
   const [loadingPlan, setLoadingPlan] = useState(true);
 
   const [businessName, setBusinessName] = useState('');
+  const [logo, setLogo] = useState<PickedLogo | null>(null);
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -67,6 +69,7 @@ export default function SignupScreen() {
         plan_id: selectedPlan,
         billing_cycle: billingCycle,
         business_name: businessName.trim(),
+        ...(logo ? { logo_filename: logo.filename, logo_base64: logo.base64 } : {}),
         contact_name: contactName.trim(),
         contact_email: email.trim().toLowerCase(),
         contact_phone: phone.trim() || null,
@@ -79,7 +82,7 @@ export default function SignupScreen() {
       setError(msg);
       setSubmitting(false);
     }
-  }, [businessName, contactName, email, phone, password, selectedPlan, billingCycle, login, router]);
+  }, [businessName, contactName, email, phone, password, selectedPlan, billingCycle, logo, login, router]);
 
   // ─── Label style helper ───
   const labelStyle = sf.label;
@@ -112,7 +115,7 @@ export default function SignupScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Centered form wrapper */}
+        <View style={IS_DESKTOP ? sf.cols : undefined}>
         <View style={IS_DESKTOP ? sf.formWrapperDesktop : sf.formWrapperMobile}>
 
           {/* Plan badge */}
@@ -164,6 +167,16 @@ export default function SignupScreen() {
                   onBlur={() => setFocused('')}
                 />
               </View>
+            </View>
+
+            {/* Optional branding — gives the owner a sense of ownership from day one */}
+            <View style={sf.field}>
+              <LogoPicker
+                picked={logo}
+                onPicked={setLogo}
+                label="LOGO DE TU NEGOCIO (OPCIONAL)"
+                hint="Lo verás en la esquina de tu panel. Puedes subirlo después desde Ajustes."
+              />
             </View>
 
             {/* Name + Phone — 2 columns on desktop, stacked on mobile */}
@@ -282,6 +295,37 @@ export default function SignupScreen() {
 
           <View style={{ height: insets.bottom + 40 }} />
         </View>
+
+        {/* Desktop-only value panel — fills the empty half of the screen */}
+        {IS_DESKTOP && (
+          <View style={sf.aside}>
+            <Text style={sf.asideEyebrow}>LO QUE OBTIENES HOY</Text>
+            <Text style={sf.asideTitle}>Tu primera pantalla en vivo en menos de 5 minutos</Text>
+            {[
+              { icon: 'tv' as const, t: 'Funciona en cualquier TV', d: 'Abre el MediaView Player, escribe el código de 6 dígitos y listo.' },
+              { icon: 'color-palette' as const, t: 'Todas las plantillas incluidas', d: 'Menús, promos y anuncios profesionales para tu rubro.' },
+              { icon: 'phone-portrait' as const, t: 'Cambia precios desde el celular', d: 'Cuatro toques detrás del mostrador y la pantalla se actualiza.' },
+              { icon: 'lock-open' as const, t: 'Sin tarjeta y sin contrato', d: 'Prueba gratis y cancela cuando quieras.' },
+            ].map(item => (
+              <View key={item.t} style={sf.asideRow}>
+                <View style={sf.asideIcon}><Ionicons name={item.icon} size={17} color="#0891B2" /></View>
+                <View style={{ flex: 1 }}>
+                  <Text style={sf.asideRowT}>{item.t}</Text>
+                  <Text style={sf.asideRowD}>{item.d}</Text>
+                </View>
+              </View>
+            ))}
+            <View style={sf.asideShot}>
+              <Image
+                source={{ uri: `${process.env.EXPO_PUBLIC_BACKEND_URL || ''}/api/web/assets/mv-rest-pizza-sm.webp` }}
+                style={sf.asideImg}
+                resizeMode="cover"
+              />
+              <Text style={sf.asideCap}>Un menú digital real hecho en MediaView</Text>
+            </View>
+          </View>
+        )}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -305,11 +349,24 @@ const sf = StyleSheet.create({
   scrollDesktop: { flexGrow: 1, alignItems: 'center', paddingVertical: 40 },
 
   /* ── Form wrappers ── */
-  formWrapperMobile: { padding: 24 },
-  formWrapperDesktop: {
-    width: '100%', maxWidth: 700,
-    paddingHorizontal: 40, paddingVertical: 8,
+  cols: {
+    flexDirection: 'row', gap: 56, width: '100%', maxWidth: 1180,
+    alignSelf: 'center', paddingHorizontal: 32, alignItems: 'flex-start',
   },
+  formWrapperMobile: { padding: 24 },
+  formWrapperDesktop: { flex: 1, maxWidth: 560, paddingVertical: 8 },
+
+  /* ── Desktop value panel ── */
+  aside: { flex: 1, maxWidth: 460, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, padding: 28, marginTop: 8 },
+  asideEyebrow: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.8, color: '#0891B2', marginBottom: 10 },
+  asideTitle: { fontSize: 21, fontWeight: '900', color: '#0F172A', letterSpacing: -0.6, lineHeight: 28, marginBottom: 22 },
+  asideRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 16 },
+  asideIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#ECFEFF', alignItems: 'center', justifyContent: 'center' },
+  asideRowT: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
+  asideRowD: { fontSize: 12.5, color: '#64748B', lineHeight: 18, marginTop: 2 },
+  asideShot: { marginTop: 8, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
+  asideImg: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#0B1220' },
+  asideCap: { fontSize: 11.5, color: '#64748B', padding: 12, textAlign: 'center' },
 
   /* ── Row / column helpers for 2-col layout ── */
   row2: { flexDirection: 'row', gap: 16 },

@@ -47,7 +47,7 @@ export default function WorkspaceScreens() {
       setLoading(true); setError('');
       const res = await workspaceAPI.screens();
       setScreens(res.data || []);
-    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
   }, []);
 

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="120" viewBox="0 0 320 120">
+<circle cx="46" cy="60" r="30" fill="#D97706"/>
+<circle cx="38" cy="52" r="5" fill="#B91C1C"/><circle cx="55" cy="62" r="5" fill="#B91C1C"/>
+<circle cx="42" cy="70" r="4.5" fill="#B91C1C"/>
+<text x="88" y="55" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#0F172A">Pizzer&#237;a</text>
+<text x="88" y="84" font-family="Georgia,serif" font-size="26" font-weight="700" fill="#D97706">Don Luis</text>
+</svg>

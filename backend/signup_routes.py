@@ -17,6 +17,8 @@ import bcrypt
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
+from org_branding_routes import save_org_logo
+
 from rbac import Role
 
 
@@ -54,6 +56,9 @@ def _ser(doc):
 class CustomerSignupRequest(BaseModel):
     plan_id: str = Field("starter", description="free | starter | pro | enterprise")
     billing_cycle: str = Field("monthly", description="monthly | annual")
+    # Optional branding: the owner can upload their logo while creating the account.
+    logo_filename: Optional[str] = Field(None, max_length=200)
+    logo_base64: Optional[str] = None
     business_name: str = Field(..., min_length=1, max_length=300)
     contact_name: str = Field(..., min_length=1, max_length=200)
     contact_email: str = Field(..., min_length=3, max_length=320)
@@ -138,11 +143,17 @@ def create_signup_routes(db, create_token_fn):
             slug = f"{base_slug}-{suffix}"
             suffix += 1
 
+        logo_url = (
+            save_org_logo(data.logo_filename, data.logo_base64)
+            if (data.logo_base64 and data.logo_filename) else None
+        )
+
         org = {
             "id": _gen_id(),
             "name": org_name,
             "slug": slug,
             "plan": plan_id,
+            "logo_url": logo_url,
             "status": "active",
             "customer_id": customer["id"],
             "schema_source": "self_service_signup",

@@ -77,7 +77,7 @@ export default function MenuEditor() {
       const res = await workspaceAPI.getMenu(menuId);
       setMenu(res.data);
       setMenuName(res.data.name || '');
-    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load menu'); }
+    } catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar el menú'); }
     finally { setLoading(false); }
   }, [menuId]);
 
@@ -107,7 +107,7 @@ export default function MenuEditor() {
   };
 
   const saveItem = async () => {
-    if (!itemName.trim()) { setItemError('Item name is required'); return; }
+    if (!itemName.trim()) { setItemError('El nombre del producto es obligatorio'); return; }
     const price = parseFloat(itemPrice) || 0;
     setItemSaving(true); setItemError('');
     try {
@@ -124,7 +124,7 @@ export default function MenuEditor() {
       }
       await load();
       setShowItemModal(false);
-    } catch (e: any) { setItemError(e.response?.data?.detail || e.message || 'Failed to save'); }
+    } catch (e: any) { setItemError(e.response?.data?.detail || e.message || 'No se pudo guardar'); }
     finally { setItemSaving(false); }
   };
 
@@ -140,7 +140,7 @@ export default function MenuEditor() {
 
   const publishMenu = async () => {
     if (!menu?.items?.length) {
-      Alert.alert('No Items', 'Add at least one item before publishing.'); return;
+      Alert.alert('Sin productos', 'Agrega al menos un producto antes de publicar.'); return;
     }
     Alert.alert(
       'Publish Menu',
@@ -255,7 +255,7 @@ export default function MenuEditor() {
         <View style={ed.publishInfo}>
           <Text style={ed.publishCount}>{menu?.items?.length || 0} items</Text>
           <Text style={ed.publishHint}>
-            {menu?.status === 'published' ? 'Currently live on screens' : 'Not published yet'}
+            {menu?.status === 'published' ? 'En vivo en tus pantallas' : 'Todavía sin publicar'}
           </Text>
         </View>
         <TouchableOpacity

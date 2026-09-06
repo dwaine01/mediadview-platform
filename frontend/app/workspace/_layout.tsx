@@ -1,11 +1,14 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform, ScrollView,
+  View, Text, TouchableOpacity, StyleSheet, useWindowDimensions, Platform, ScrollView, Image,
 } from 'react-native';
 import { useRouter, usePathname, Slot } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
+import { workspaceAPI } from '../../src/services/api';
+
+const MEDIA = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const WS_NAV = [
   { key: 'index', label: 'Panel', icon: 'grid' as const, path: '/workspace' },
@@ -31,6 +34,21 @@ export default function WorkspaceLayout() {
   // `isInitialized` is read from the store so this re-runs when hydration lands,
   // not only when the token reference changes.
   const isInitialized = useAuthStore(st => st.isInitialized);
+
+  // The customer's own branding in the corner of their panel.
+  const [orgLogo, setOrgLogo] = useState<string | null>(null);
+  const [orgName, setOrgName] = useState<string>('');
+  useEffect(() => {
+    if (!token) { setOrgLogo(null); setOrgName(''); return; }
+    workspaceAPI.context()
+      .then(res => {
+        const org = res.data?.organization;
+        setOrgName(org?.name || '');
+        const url = org?.logo_url;
+        setOrgLogo(url ? (url.startsWith('http') ? url : `${MEDIA}${url}`) : null);
+      })
+      .catch(() => { setOrgLogo(null); });
+  }, [token]);
   useEffect(() => {
     if (isInitialized && !token) {
       router.replace('/account/login');
@@ -54,9 +72,11 @@ export default function WorkspaceLayout() {
         <View style={[ws.sidebar, { paddingTop: insets.top + 12 }]}>
           {/* Brand */}
           <View style={ws.brand}>
-            <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>
-            <View>
-              <Text style={ws.brandName}>MediaView</Text>
+            {orgLogo
+              ? <View style={ws.brandLogoBox}><Image source={{ uri: orgLogo }} style={ws.brandLogo} resizeMode="contain" /></View>
+              : <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>}
+            <View style={{ flex: 1 }}>
+              <Text style={ws.brandName} numberOfLines={1}>{orgName || 'MediaView'}</Text>
               <Text style={ws.brandSub}>Panel del Cliente</Text>
             </View>
           </View>
@@ -115,9 +135,11 @@ export default function WorkspaceLayout() {
       {/* Mobile Header */}
       <View style={[ws.mobileHeader, { paddingTop: insets.top }]}>
         <View style={ws.mobileBrand}>
-          <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>
+          {orgLogo
+            ? <View style={ws.brandLogoBox}><Image source={{ uri: orgLogo }} style={ws.brandLogo} resizeMode="contain" /></View>
+            : <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>}
           <View>
-            <Text style={ws.brandName}>MediaView</Text>
+            <Text style={ws.brandName} numberOfLines={1}>{orgName || 'MediaView'}</Text>
             <Text style={ws.brandSub}>Panel del Cliente</Text>
           </View>
         </View>
@@ -166,6 +188,12 @@ const ws = StyleSheet.create({
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 14, marginBottom: 8 },
   brandIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0891B2', justifyContent: 'center', alignItems: 'center' },
+  brandLogoBox: {
+    width: 36, height: 36, borderRadius: 10, backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center',
+    overflow: 'hidden', padding: 3,
+  },
+  brandLogo: { width: '100%', height: '100%' },
   brandIconText: { fontSize: 14, fontWeight: '900', color: '#FFF' },
   brandName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   brandSub: { fontSize: 10, color: '#64748B', marginTop: 1 },

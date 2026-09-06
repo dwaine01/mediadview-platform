@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
 from rbac import Role, get_effective_role
 
 _WORKSPACE_ROLES = frozenset({
@@ -132,6 +133,33 @@ def create_workspace_routes(db, get_current_user, require_admin):
                 "organization_id": org_id,
             },
         }
+
+    @router.post("/logo", summary="Upload or replace the organization logo")
+    async def workspace_upload_logo(data: OrgLogoUpload, current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        org = await db.organizations.find_one({"id": org_id})
+        if not org:
+            raise HTTPException(status_code=404, detail="Organización no encontrada")
+
+        new_url = save_org_logo(data.logo_filename, data.logo_base64)
+        await db.organizations.update_one(
+            {"id": org_id}, {"$set": {"logo_url": new_url, "updated_at": datetime.utcnow()}}
+        )
+        delete_org_logo(org.get("logo_url"))
+        return {"logo_url": new_url}
+
+    @router.delete("/logo", summary="Remove the organization logo")
+    async def workspace_delete_logo(current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        org = await db.organizations.find_one({"id": org_id})
+        if not org:
+            raise HTTPException(status_code=404, detail="Organización no encontrada")
+
+        await db.organizations.update_one(
+            {"id": org_id}, {"$set": {"logo_url": None, "updated_at": datetime.utcnow()}}
+        )
+        delete_org_logo(org.get("logo_url"))
+        return {"logo_url": None}
 
     @router.get("/screens", summary="List org-scoped screens")
     async def workspace_screens(current_user: dict = Depends(require_workspace_user)):

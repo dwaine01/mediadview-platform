@@ -1,8 +1,11 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { workspaceAPI } from '../../src/services/api';
+import { workspaceAPI, orgBrandingAPI } from '../../src/services/api';
+import LogoPicker, { type PickedLogo } from '../../src/components/LogoPicker';
+
+const MEDIA = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 import { useAuthStore } from '../../src/store/authStore';
 import type { WorkspaceContext } from '../../src/types';
 
@@ -21,16 +24,41 @@ export default function WorkspaceAjustes() {
   const [ctx, setCtx] = useState<WorkspaceContext | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [logo, setLogo] = useState<PickedLogo | null>(null);
+  const [savingLogo, setSavingLogo] = useState(false);
 
   const load = useCallback(async () => {
     try { setLoading(true); setError(''); const res = await workspaceAPI.context(); setCtx(res.data); }
-    catch (e: any) { setError(e.response?.data?.detail || e.message || 'Failed to load'); }
+    catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
 
   const org = ctx?.organization;
+  const savedLogo = org?.logo_url
+    ? (org.logo_url.startsWith('http') ? org.logo_url : `${MEDIA}${org.logo_url}`)
+    : null;
+
+  const saveLogo = useCallback(async () => {
+    if (!logo) return;
+    setSavingLogo(true);
+    try {
+      await orgBrandingAPI.uploadLogo(logo.filename, logo.base64);
+      setLogo(null);
+      await load();
+      Alert.alert('Logo actualizado', 'Ya aparece en la esquina de tu panel.');
+    } catch (e: any) {
+      Alert.alert('No se pudo guardar', e.response?.data?.detail || 'Intenta de nuevo.');
+    } finally { setSavingLogo(false); }
+  }, [logo, load]);
+
+  const removeLogo = useCallback(async () => {
+    setSavingLogo(true);
+    try { await orgBrandingAPI.removeLogo(); setLogo(null); await load(); }
+    catch (e: any) { Alert.alert('No se pudo quitar', e.response?.data?.detail || 'Intenta de nuevo.'); }
+    finally { setSavingLogo(false); }
+  }, [load]);
   const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
   return (
@@ -49,6 +77,33 @@ export default function WorkspaceAjustes() {
               <InfoRow label="Identificador" value={org.slug} />
               <InfoRow label="Estado" value={org.status} />
               <InfoRow label="Creado" value={fmtDate(org.created_at)} />
+            </View>
+          )}
+
+          {/* Branding — the customer's own logo */}
+          {org && (
+            <View style={st.section}>
+              <Text style={st.sectionTitle}>Tu Marca</Text>
+              <LogoPicker
+                currentUrl={savedLogo}
+                picked={logo}
+                onPicked={next => {
+                  if (next === null && savedLogo && !logo) { removeLogo(); return; }
+                  setLogo(next);
+                }}
+                label="LOGO DE TU NEGOCIO"
+                hint="PNG, JPG, WEBP o SVG · máximo 2 MB. Aparece en la esquina de tu panel."
+              />
+              {!!logo && (
+                <TouchableOpacity
+                  style={[st.saveBtn, savingLogo && { opacity: 0.6 }]}
+                  onPress={saveLogo}
+                  disabled={savingLogo}
+                  activeOpacity={0.85}
+                >
+                  <Text style={st.saveBtnText}>{savingLogo ? 'Guardando…' : 'Guardar logo'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           )}
 
@@ -79,6 +134,8 @@ const st = StyleSheet.create({
   error: { color: '#DC2626', fontSize: 13, padding: 16 },
   section: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, padding: 16 },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#64748B', marginBottom: 12, letterSpacing: 0.5 },
+  saveBtn: { backgroundColor: '#0891B2', borderRadius: 10, paddingVertical: 13, alignItems: 'center', minHeight: 46, justifyContent: 'center', marginTop: 4 },
+  saveBtnText: { fontSize: 14, fontWeight: '800', color: '#FFFFFF' },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
   rowLabel: { fontSize: 13, color: '#64748B', fontWeight: '500' }, rowValue: { fontSize: 13, color: '#334155', fontWeight: '600' },
   contactNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14 },
