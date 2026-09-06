@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
 
 from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
+from managed_portal_routes import create_audit_log as _audit
 from rbac import Role, get_effective_role
 
 _WORKSPACE_ROLES = frozenset({
@@ -157,6 +158,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": org_id}, {"$set": {"logo_url": new_url, "updated_at": datetime.utcnow()}}
         )
         delete_org_logo(org.get("logo_url"))
+        await _log(current_user, "org.logo_updated", "organization", org_id, {})
         return {"logo_url": new_url}
 
     @router.delete("/logo", summary="Remove the organization logo")
@@ -171,6 +173,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": org_id}, {"$set": {"logo_url": None, "updated_at": datetime.utcnow()}}
         )
         delete_org_logo(org.get("logo_url"))
+        await _log(current_user, "org.logo_removed", "organization", org_id, {})
         return {"logo_url": None}
 
     @router.get("/screens", summary="List org-scoped screens")
@@ -220,6 +223,24 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         ).sort("created_at", -1).to_list(1000)
         return _ser(media)
 
+    async def _log(user: dict, action: str, resource_type: str,
+                   resource_id: str | None = None, details: dict | None = None) -> None:
+        """Activity feed entry (who changed what, when). Never raises."""
+        await _audit(
+            db, action,
+            user_id=user.get("id"), user_email=user.get("email"),
+            resource_type=resource_type, resource_id=resource_id,
+            details=details or {}, org_id=user.get("organization_id"),
+        )
+
+    @router.get("/activity", summary="Activity feed for my organization")
+    async def workspace_activity(limit: int = 60, current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        events = await db.audit_logs.find(
+            {"org_id": org_id}, {"_id": 0},
+        ).sort("created_at", -1).to_list(max(1, min(limit, 200)))
+        return _ser(events)
+
     async def _org_screen_ids(org_id: str) -> list[str]:
         return [
             s["id"]
@@ -236,22 +257,18 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         playlists = await db.playlists.find(query).sort("created_at", -1).to_list(500)
         return _ser(playlists)
 
-    @router.post("/playlists", summary="Create an org playlist", status_code=201)
-    async def workspace_create_playlist(data: dict, current_user: dict = Depends(require_workspace_user)):
-        org_id = current_user["organization_id"]
-        name = (data.get("name") or "").strip()[:160]
-        if not name:
-            raise HTTPException(status_code=400, detail="Playlist name is required")
-
-        raw_items = data.get("items") or []
+    async def _build_playlist_items(raw_items, org_id: str) -> list[dict]:
+        """Validates every item belongs to this org and normalises it for the player."""
+        if raw_items is None:
+            raw_items = []
         if not isinstance(raw_items, list):
             raise HTTPException(status_code=400, detail="items must be a list")
 
         org_user_ids = [
             u["id"] for u in await db.users.find({"organization_id": org_id}, {"id": 1}).to_list(500)
         ]
-        items = []
-        for index, raw in enumerate(raw_items):
+        items: list[dict] = []
+        for index, raw in enumerate(raw_items[:200]):
             item_type = str((raw or {}).get("type") or "media").lower()
             ref_id = str((raw or {}).get("ref_id") or "").strip()
             if item_type not in ("media", "menu"):
@@ -268,7 +285,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 raise HTTPException(status_code=404, detail="Content not found in your library")
             duration = int((raw or {}).get("duration") or 15)
             items.append({
-                "id": str(_uuid.uuid4()),
+                "id": str((raw or {}).get("id") or _uuid.uuid4()),
                 "type": item_type,
                 "ref_id": ref_id,
                 "title": str((raw or {}).get("title") or owned.get("filename") or owned.get("name") or "Contenido")[:160],
@@ -277,6 +294,16 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 "display_mode": str((raw or {}).get("display_mode") or "cover"),
                 "order": index,
             })
+        return items
+
+    @router.post("/playlists", summary="Create an org playlist", status_code=201)
+    async def workspace_create_playlist(data: dict, current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        name = (data.get("name") or "").strip()[:160]
+        if not name:
+            raise HTTPException(status_code=400, detail="Playlist name is required")
+
+        items = await _build_playlist_items(data.get("items"), org_id)
 
         now = datetime.utcnow()
         playlist = {
@@ -305,6 +332,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "updated_at": now,
         }
         await db.playlists.insert_one(playlist)
+        await _log(current_user, "playlist.created", "playlist", playlist["id"],
+                   {"name": name, "items": len(items)})
         return _ser(playlist)
 
     @router.post("/playlists/{playlist_id}/publish", summary="Publish an org playlist to screens")
@@ -335,11 +364,41 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if bump_playlist_version:
             for sid in set((playlist.get("screen_ids") or []) + screen_ids):
                 await bump_playlist_version(sid, reason="workspace playlist published")
+        await _log(current_user, "playlist.published", "playlist", playlist_id,
+                   {"name": playlist.get("name"), "screens": len(screen_ids)})
         return {
             "message": f"Playlist publicada en {len(screen_ids)} pantalla(s)",
             "playlist_id": playlist_id,
             "screen_ids": screen_ids,
         }
+
+    @router.patch("/playlists/{playlist_id}", summary="Rename, reorder or retime playlist items")
+    async def workspace_update_playlist(playlist_id: str, data: dict,
+                                        current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        playlist = await db.playlists.find_one({"id": playlist_id, "org_id": org_id})
+        if not playlist:
+            raise HTTPException(status_code=404, detail="Playlist not found")
+
+        update: dict = {"updated_at": datetime.utcnow()}
+        if "name" in data:
+            name = (data.get("name") or "").strip()[:160]
+            if not name:
+                raise HTTPException(status_code=400, detail="Playlist name is required")
+            update["name"] = name
+        if "items" in data:
+            update["items"] = await _build_playlist_items(data.get("items"), org_id)
+            update["version"] = int(playlist.get("version") or 0) + 1
+
+        await db.playlists.update_one({"id": playlist_id}, {"$set": update})
+        await _log(current_user, "playlist.updated", "playlist", playlist_id, {
+            "name": update.get("name", playlist.get("name")),
+            "items": len(update["items"]) if "items" in update else len(playlist.get("items") or []),
+        })
+        if "items" in update and bump_playlist_version:
+            for sid in set(playlist.get("screen_ids") or []):
+                await bump_playlist_version(sid, reason="workspace playlist edited")
+        return _ser({**playlist, **update})
 
     @router.delete("/playlists/{playlist_id}", summary="Delete an org playlist")
     async def workspace_delete_playlist(playlist_id: str,
@@ -349,6 +408,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if not playlist:
             raise HTTPException(status_code=404, detail="Playlist not found")
         await db.playlists.delete_one({"id": playlist_id})
+        await _log(current_user, "playlist.deleted", "playlist", playlist_id,
+                   {"name": playlist.get("name")})
         if bump_playlist_version:
             for sid in set(playlist.get("screen_ids") or []):
                 await bump_playlist_version(sid, reason="workspace playlist deleted")
@@ -442,6 +503,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "updated_at": now,
         }
         await db.screens.insert_one(screen)
+        await _log(current_user, "screen.created", "screen", screen["id"], {"name": screen_name})
         return _ser(screen)
 
     def _assert_owner(user: dict, detail: str) -> None:
@@ -508,6 +570,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "updated_at": now,
         }
         await db.screens.insert_one(screen)
+        await _log(current_user, "screen.connected", "screen", screen["id"], {"name": screen_name})
 
         # Activate device
         await db.devices.update_one(
@@ -573,6 +636,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "updated_at": now,
         }
         await db.menus.insert_one(menu)
+        await _log(current_user, "menu.created", "menu", menu["id"],
+                   {"name": name, "items": len(items), "source": menu["source"]})
         return _ser(menu)
 
     @router.get("/menus/{menu_id}", summary="Get a single menu with items")
@@ -596,6 +661,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if "description" in data:
             update["description"] = data["description"]
         await db.menus.update_one({"id": menu_id}, {"$set": update})
+        await _log(current_user, "menu.updated", "menu", menu_id,
+                   {"name": update.get("name", menu.get("name"))})
         return _ser({**menu, **update})
 
     @router.delete("/menus/{menu_id}", summary="Delete a menu")
@@ -605,6 +672,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if not menu:
             raise HTTPException(status_code=404, detail="Menu not found")
         await db.menus.delete_one({"id": menu_id})
+        await _log(current_user, "menu.deleted", "menu", menu_id, {"name": menu.get("name")})
         return {"message": "Menu deleted", "menu_id": menu_id}
 
     @router.post("/menus/{menu_id}/items", summary="Add item to menu", status_code=201)
@@ -631,6 +699,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": menu_id},
             {"$push": {"items": item}, "$set": {"updated_at": now}},
         )
+        await _log(current_user, "menu_item.added", "menu", menu_id,
+                   {"menu_name": menu.get("name"), "item": item["name"], "price": item["price"]})
         return _ser(item)
 
     @router.put("/menus/{menu_id}/items/{item_id}", summary="Update a menu item")
@@ -650,6 +720,14 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": menu_id, "items.id": item_id},
             {"$set": upd},
         )
+        previous = next((i for i in (menu.get("items") or []) if i.get("id") == item_id), {})
+        details = {"menu_name": menu.get("name"), "item": data.get("name") or previous.get("name")}
+        if "price" in data and float(data["price"]) != float(previous.get("price") or 0):
+            details["price_from"] = previous.get("price")
+            details["price_to"] = data["price"]
+        if "image_url" in data or "media_id" in data:
+            details["photo_changed"] = True
+        await _log(current_user, "menu_item.updated", "menu", menu_id, details)
         return {"message": "Item updated", "item_id": item_id}
 
     @router.delete("/menus/{menu_id}/items/{item_id}", summary="Remove a menu item")
@@ -665,6 +743,9 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": menu_id},
             {"$pull": {"items": {"id": item_id}}, "$set": {"updated_at": now}},
         )
+        removed = next((i for i in (menu.get("items") or []) if i.get("id") == item_id), {})
+        await _log(current_user, "menu_item.deleted", "menu", menu_id,
+                   {"menu_name": menu.get("name"), "item": removed.get("name")})
         return {"message": "Item removed", "item_id": item_id}
 
     @router.post("/menus/{menu_id}/publish", summary="Publish menu to screens")
@@ -688,6 +769,8 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 {"id": {"$in": screen_ids}, "organization_id": org_id},
                 {"$set": {"active_menu_id": menu_id, "updated_at": now}},
             )
+        await _log(current_user, "menu.published", "menu", menu_id,
+                   {"name": menu.get("name"), "screens": len(screen_ids)})
         return {
             "message": f"Menu '{menu['name']}' published to {len(screen_ids)} screen(s)",
             "menu_id": menu_id,

@@ -146,7 +146,11 @@ export default function WorkspacePlaylists() {
           const published = p.status === 'published';
           return (
             <View key={p.id || i} style={sp.card}>
-              <View style={sp.cardLeft}>
+              <TouchableOpacity
+                style={sp.cardLeft}
+                activeOpacity={0.8}
+                onPress={() => router.push({ pathname: '/workspace/playlist-edit', params: { id: p.id } })}
+              >
                 <View style={sp.icon}><Ionicons name="list" size={18} color="#0891B2" /></View>
                 <View style={{ flex: 1 }}>
                   <Text style={sp.cardName}>{p.name || 'Playlist'}</Text>
@@ -155,7 +159,8 @@ export default function WorkspacePlaylists() {
                     {' · '}{(p.screen_ids || []).length} pantalla{(p.screen_ids || []).length !== 1 ? 's' : ''}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="create-outline" size={17} color="#94A3B8" />
+              </TouchableOpacity>
               {published ? (
                 <View style={[sp.badge, { backgroundColor: '#D1FAE5' }]}>
                   <Text style={{ color: '#059669', fontSize: 11, fontWeight: '700' }}>Publicada</Text>

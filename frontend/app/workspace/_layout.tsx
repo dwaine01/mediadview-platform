@@ -17,6 +17,7 @@ const WS_NAV = [
   { key: 'content', label: 'Contenido', icon: 'images' as const, path: '/workspace/content' },
   { key: 'playlists', label: 'Playlists', icon: 'list' as const, path: '/workspace/playlists' },
   { key: 'schedules', label: 'Horarios', icon: 'calendar' as const, path: '/workspace/schedules' },
+  { key: 'activity', label: 'Actividad', icon: 'time' as const, path: '/workspace/activity' },
   { key: 'users', label: 'Equipo', icon: 'people' as const, path: '/workspace/users', ownerOnly: true },
   { key: 'billing', label: 'Facturación', icon: 'card' as const, path: '/workspace/billing', ownerOnly: true },
   { key: 'settings', label: 'Ajustes', icon: 'settings' as const, path: '/workspace/settings' },

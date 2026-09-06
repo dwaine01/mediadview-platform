@@ -20,6 +20,7 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from managed_portal_routes import create_audit_log as _audit
 from rbac import Role, get_effective_role
 
 TeamRole = Literal["admin", "manager", "employee"]
@@ -84,6 +85,15 @@ def _public(user: dict, current_user_id: str) -> dict:
     }
 
 
+async def _log(db, user: dict, action: str, resource_id: str, details: dict) -> None:
+    await _audit(
+        db, action,
+        user_id=user.get("id"), user_email=user.get("email"),
+        resource_type="user", resource_id=resource_id,
+        details=details, org_id=user.get("organization_id"),
+    )
+
+
 def create_workspace_team_routes(db, get_current_user):
     router = APIRouter(prefix="/api/workspace", tags=["Workspace — Team"])
 
@@ -145,6 +155,8 @@ def create_workspace_team_routes(db, get_current_user):
             "updated_at": now,
         }
         await db.users.insert_one(member)
+        await _log(db, current_user, "team.member_created", member["id"],
+                   {"email": email, "name": member["name"], "role": data.role})
         return _public(member, current_user["id"])
 
     @router.patch("/team/{member_id}", summary="Change a member role or activate/deactivate")
@@ -160,6 +172,10 @@ def create_workspace_team_routes(db, get_current_user):
             # invalidate existing sessions on role change / deactivation
             update["session_epoch"] = int(member.get("session_epoch") or 0) + 1
         await db.users.update_one({"id": member_id}, {"$set": update})
+        await _log(db, current_user, "team.member_updated", member_id, {
+            "email": member.get("email"),
+            "role": data.role, "active": data.active,
+        })
         return _public({**member, **update}, current_user["id"])
 
     @router.post("/team/{member_id}/reset-password", summary="Set a new temporary password")
@@ -173,6 +189,7 @@ def create_workspace_team_routes(db, get_current_user):
             "password_reset_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
         }})
+        await _log(db, current_user, "team.password_reset", member_id, {"email": member.get("email")})
         return {"message": "Contraseña temporal actualizada", "member_id": member_id}
 
     @router.delete("/team/{member_id}", summary="Deactivate a member (soft delete)")
@@ -183,6 +200,7 @@ def create_workspace_team_routes(db, get_current_user):
             "session_epoch": int(member.get("session_epoch") or 0) + 1,
             "updated_at": datetime.utcnow(),
         }})
+        await _log(db, current_user, "team.member_deactivated", member_id, {"email": member.get("email")})
         return {"message": "Miembro desactivado", "member_id": member_id}
 
     @router.post("/change-password", summary="Change my own password (clears the forced flag)")

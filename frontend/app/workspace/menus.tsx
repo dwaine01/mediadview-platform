@@ -1,12 +1,12 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, ActivityIndicator,
-  Alert, useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
+import AppDialog, { type DialogState } from '../../src/components/AppDialog';
 
 type Menu = {
   id: string; name: string; description?: string;
@@ -41,11 +41,11 @@ const TEMPLATES = [
 
 export default function WorkspaceMenus() {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const [menus, setMenus] = useState<Menu[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>(null);
   const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
@@ -61,7 +61,7 @@ export default function WorkspaceMenus() {
     try {
       const res = await workspaceAPI.createMenu({ name: 'New Menu', source: 'blank', items: [] });
       router.push({ pathname: '/workspace/menu-edit', params: { id: res.data.id } });
-    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
+    } catch (e: any) { setDialog({ title: 'No se pudo crear', message: e.response?.data?.detail || e.message }); }
     finally { setCreating(false); setShowCreate(false); }
   };
 
@@ -74,18 +74,23 @@ export default function WorkspaceMenus() {
         items: template.items.map(it => ({ ...it, available: true })),
       });
       router.push({ pathname: '/workspace/menu-edit', params: { id: res.data.id } });
-    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
+    } catch (e: any) { setDialog({ title: 'No se pudo crear', message: e.response?.data?.detail || e.message }); }
     finally { setCreating(false); setShowCreate(false); }
   };
 
   const deleteMenu = (menu: Menu) => {
-    Alert.alert('Delete Menu', `Delete "${menu.name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: async () => {
-        try { await workspaceAPI.deleteMenu(menu.id); load(); }
-        catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
-      }},
-    ]);
+    setDialog({
+      title: `¿Eliminar "${menu.name}"?`,
+      message: 'Esta acción no se puede deshacer.',
+      icon: 'trash-outline',
+      options: [
+        { label: 'Eliminar', destructive: true, onPress: async () => {
+          try { await workspaceAPI.deleteMenu(menu.id); load(); }
+          catch (e: any) { setDialog({ title: 'No se pudo eliminar', message: e.response?.data?.detail || e.message }); }
+        }},
+        { label: 'Cancelar' },
+      ],
+    });
   };
 
   if (showCreate) {
@@ -135,17 +140,17 @@ export default function WorkspaceMenus() {
 
               {/* Path C: Import image */}
               <TouchableOpacity
-                style={[ms.pathCard, { opacity: 0.6 }]}
-                onPress={() => Alert.alert('Coming Pronto', 'Image import with AI extraction coming soon. Use templates or start blank for now.')}
+                style={ms.pathCard}
+                onPress={() => { setShowCreate(false); router.push('/workspace/menu-import'); }}
               >
                 <View style={[ms.pathIcon, { backgroundColor: '#FFEDD5' }]}>
-                  <Ionicons name="image-outline" size={28} color="#EA580C" />
+                  <Ionicons name="sparkles-outline" size={28} color="#EA580C" />
                 </View>
                 <View style={ms.pathBody}>
-                  <Text style={ms.pathTitle}>Importar Imagen / PDF</Text>
-                  <Text style={ms.pathDesc}>Sube la imagen de tu menú actual. La IA extrae los productos para que los revises.</Text>
+                  <Text style={ms.pathTitle}>Importar con IA (foto del menú)</Text>
+                  <Text style={ms.pathDesc}>Sube la foto de tu menú físico. La IA escribe los productos y precios; tú solo revisas.</Text>
                 </View>
-                <View style={ms.comingPronto}><Text style={ms.comingProntoText}>Pronto</Text></View>
+                <View style={ms.comingPronto}><Text style={ms.comingProntoText}>NUEVO</Text></View>
               </TouchableOpacity>
             </>
           )}
@@ -212,6 +217,7 @@ export default function WorkspaceMenus() {
           </View>
         ))}
       </ScrollView>
+      <AppDialog state={dialog} onDismiss={() => setDialog(null)} />
     </View>
   );
 }

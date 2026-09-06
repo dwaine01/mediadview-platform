@@ -190,7 +190,14 @@ export const workspaceAPI = {
   }) => api.post('/workspace/playlists', data),
   publishPlaylist: (id: string, screen_ids?: string[]) =>
     api.post(`/workspace/playlists/${id}/publish`, { screen_ids: screen_ids || [] }),
+  updatePlaylist: (id: string, data: {
+    name?: string;
+    items?: { type: 'media' | 'menu'; ref_id: string; title?: string; duration?: number }[];
+  }) => api.patch(`/workspace/playlists/${id}`, data),
   deletePlaylist: (id: string) => api.delete(`/workspace/playlists/${id}`),
+  activity: (limit = 60) => api.get(`/workspace/activity?limit=${limit}`),
+  aiImportMenu: (data: { image_base64: string; content_type: string }) =>
+    api.post('/workspace/menus/ai-import', data, { timeout: 180000 }),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),
 };

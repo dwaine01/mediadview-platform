@@ -281,3 +281,38 @@ Flujo E2E verificado en navegador: pricing → signup → login → workspace.
 - P2: Importar menú con IA desde una foto (Emergent LLM Key).
 - P2: Stripe real para facturación anual.
 - Menor: no existe `DELETE /api/workspace/screens/{id}`.
+
+## Iteración 30 — Menú con IA, edición de playlists y registro de actividad
+
+### Importar Menú con IA (foto → productos)
+- `backend/menu_ai_routes.py`: `POST /api/workspace/menus/ai-import`
+  (emergentintegrations · OpenAI `gpt-5.4` visión · EMERGENT_LLM_KEY).
+  Acepta JPG/PNG/WebP hasta 10 MB en base64; devuelve `{menu_name, currency, items[], raw_count}`
+  y **no escribe en la base**: es una vista previa editable.
+- `app/workspace/menu-import.tsx`: foto → "Leyendo tu menú…" → lista editable de nombre/precio →
+  "Crear Menú con N productos" (usa el `POST /api/workspace/menus` existente, `source: ai_photo`)
+  y salta al editor del menú. La tarjeta "Importar con IA" reemplaza el placeholder "Pronto" en menus.tsx.
+- Reglas de imagen documentadas en `/app/image_testing.md`.
+
+### Editar Playlists (orden y duración)
+- `PATCH /api/workspace/playlists/{id}` (renombrar, reordenar, cambiar duración, quitar/agregar items).
+  Revalida que cada `ref_id` sea del propio org, recalcula `order`, sube `version` y refresca las pantallas.
+- `app/workspace/playlist-edit.tsx`: flechas arriba/abajo, segundos por elemento (mínimo 3), quitar,
+  "Agregar contenido" desde la biblioteca y total del ciclo. Se abre tocando la tarjeta en /workspace/playlists.
+
+### Registro de Actividad
+- Se reutiliza `audit_logs` vía `create_audit_log`. Nuevos eventos con `org_id`:
+  menu.created/updated/deleted/published, menu_item.added/updated (con `price_from`→`price_to` y
+  `photo_changed`)/deleted, media.uploaded, playlist.created/updated/published/deleted,
+  screen.created/connected, org.logo_updated/removed, team.member_created/updated/password_reset/deactivated.
+- `GET /api/workspace/activity?limit=` (aislado por organización) + `app/workspace/activity.tsx`
+  con textos en español, detalle de cambio de precio y tiempo relativo. Enlace "Actividad" en la barra lateral.
+
+### Pruebas
+- `backend/tests/test_workspace_iter30.py` (3) + `test_workspace_iter30_extra.py` del testing agent
+  (IA con imagen real, invariante de no-escritura, aislamiento entre organizaciones): 7 pasan, 1 skip esperado.
+- Export estático regenerado en `backend/web/saas`.
+
+### Pendiente
+- P2: Stripe real para facturación mensual/anual.
+- Menor: falta `DELETE /api/workspace/screens/{id}`; sin testIDs en menu-import/playlist-edit.

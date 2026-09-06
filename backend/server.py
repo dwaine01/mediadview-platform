@@ -1418,6 +1418,14 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         })
 
     await db.media.insert_one(media_doc)
+    if current_user.get("organization_id"):
+        await _audit(
+            db, "media.uploaded",
+            user_id=current_user["id"], user_email=current_user.get("email"),
+            resource_type="media", resource_id=file_id,
+            details={"filename": data.filename, "size": size},
+            org_id=current_user["organization_id"],
+        )
     return {"id": file_id, "filename": data.filename, "size": size,
             "content_type": data.content_type, "type": kind,
             "storage": media_doc["storage"],
@@ -6007,8 +6015,10 @@ from plans_routes import create_plans_routes, seed_default_plans
 from workspace_routes import create_workspace_routes
 from signup_routes import create_signup_routes
 from workspace_team_routes import create_workspace_team_routes
+from menu_ai_routes import create_menu_ai_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
 app.include_router(create_workspace_team_routes(db, get_current_user))
+app.include_router(create_menu_ai_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version))
 app.include_router(create_signup_routes(db, create_token))
 
