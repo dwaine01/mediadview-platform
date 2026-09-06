@@ -6090,6 +6090,12 @@ async def serve_admin_orders_page():
     via the standard /api/auth/v2/me endpoint."""
     return FileResponse(os.path.join(WEB_DIR, 'admin-orders.html'), media_type='text/html')
 
+@api_router.get("/admin/clients-view")
+async def serve_admin_clients_page():
+    """Admin panel to manage the client logos shown on the marketing pages.
+    Auth is checked by the JS after load via /api/auth/v2/me."""
+    return FileResponse(os.path.join(WEB_DIR, 'admin-clients.html'), media_type='text/html')
+
 @api_router.get("/admin/reports-view")
 async def serve_admin_reports_page():
     """Executive reports dashboard (HTML). Auth is checked by JS via /api/auth/v2/me."""
@@ -6298,6 +6304,11 @@ app.include_router(build_stripe_router(db))
 from admin_orders_routes import build_admin_orders_router
 
 app.include_router(build_admin_orders_router(db, require_admin))
+
+# Client logos — admin-managed social proof shown on the public marketing pages
+from client_logos_routes import create_client_logos_routes
+
+app.include_router(create_client_logos_routes(db, require_admin))
 
 # Sprint 1 · Etapa C2 — Admin Invoices (list / detail / PDF / reissue)
 from admin_invoices_routes import build_admin_invoices_router

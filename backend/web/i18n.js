@@ -261,6 +261,7 @@
       "cta.sub": "Join hundreds of businesses already using MediAd View to attract more customers and increase revenue.",
       "cta.call": "Call 1-877-202-8181",
       "ft.about": "Enterprise-grade digital signage solutions for businesses of all sizes. From LED screens to cloud-managed content platforms.",
+      "clients.lead": "Businesses already running MediaView",
       "lang.toggle": "ES"
     },
     es: {
@@ -511,6 +512,7 @@
       "cta.sub": "Únete a cientos de negocios que ya usan MediAd View para atraer más clientes y aumentar sus ingresos.",
       "cta.call": "Llama al 1-877-202-8181",
       "ft.about": "Soluciones de señalización digital de nivel empresarial para negocios de todos los tamaños. Desde pantallas LED hasta plataformas de contenido en la nube.",
+      "clients.lead": "Negocios que ya usan MediaView",
       "lang.toggle": "EN"
     }
   };

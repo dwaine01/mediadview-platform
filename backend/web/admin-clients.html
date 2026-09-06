@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MediAd View — Logos de Clientes</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',sans-serif;background:#020617;color:#e2e8f0;min-height:100vh}
+.top{padding:14px 28px;display:flex;align-items:center;gap:14px;border-bottom:1px solid rgba(30,41,59,.4);background:rgba(2,6,23,.9);position:sticky;top:0;z-index:50;backdrop-filter:blur(12px)}
+.top .brand{font-size:9px;color:#22d3ee;letter-spacing:2.5px;font-weight:700}
+.top .who{margin-left:auto;font-size:11px;color:#64748b}
+.wrap{max-width:1200px;margin:0 auto;padding:24px}
+h1{font-size:22px;font-weight:900;letter-spacing:-.3px}
+.sub{color:#64748b;font-size:12px;margin-bottom:22px;line-height:1.6}
+.hidden{display:none!important}
+.card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;padding:20px}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end}
+label{display:block;font-size:10px;font-weight:800;color:#64748b;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:6px}
+input[type=text],input[type=number],input[type=url]{background:#020617;border:1px solid #1e293b;border-radius:9px;padding:10px 12px;color:#e2e8f0;font-family:inherit;font-size:13px;min-width:170px}
+input[type=file]{font-size:12px;color:#94a3b8}
+input:focus{outline:none;border-color:#0891b2}
+button{font-family:inherit;cursor:pointer;border:none;border-radius:9px;font-weight:700;font-size:13px;padding:11px 18px;transition:opacity .15s}
+button:hover{opacity:.88}
+button:disabled{opacity:.45;cursor:not-allowed}
+.primary{background:#0891b2;color:#fff}
+.ghost{background:transparent;border:1px solid #1e293b;color:#94a3b8;padding:8px 12px;font-size:12px}
+.danger{background:rgba(239,68,68,.12);color:#f87171;border:1px solid rgba(239,68,68,.3);padding:8px 12px;font-size:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-top:22px}
+.logo-card{background:#0f172a;border:1px solid #1e293b;border-radius:14px;overflow:hidden}
+.logo-box{height:110px;background:#fff;display:flex;align-items:center;justify-content:center;padding:18px}
+.logo-box img{max-width:100%;max-height:100%;object-fit:contain}
+.logo-body{padding:14px}
+.logo-name{font-size:14px;font-weight:800}
+.logo-meta{font-size:11px;color:#64748b;margin-top:3px}
+.logo-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.pill{display:inline-block;font-size:10px;font-weight:800;padding:3px 8px;border-radius:6px;letter-spacing:.5px;text-transform:uppercase}
+.on{background:rgba(16,185,129,.12);color:#34d399}
+.off{background:rgba(148,163,184,.12);color:#94a3b8}
+.empty{padding:56px 20px;text-align:center;color:#475569;font-size:13px}
+.msg{margin-top:14px;font-size:12.5px;padding:10px 14px;border-radius:9px}
+.msg.ok{background:rgba(16,185,129,.1);color:#34d399}
+.msg.err{background:rgba(239,68,68,.1);color:#f87171}
+@media(max-width:640px){.wrap{padding:16px}.row{flex-direction:column;align-items:stretch}input{width:100%}}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <span class="brand">MEDIAD VIEW · ADMIN</span>
+  <span class="who" id="who">…</span>
+</div>
+
+<div class="wrap">
+  <h1>Logos de Clientes</h1>
+  <div class="sub">
+    Estos logos se muestran en la página de precios y en el sitio público como prueba social.
+    Solo se publican logos reales de clientes — nada inventado. Si no hay ninguno activo,
+    la sección simplemente no aparece en el sitio.
+  </div>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Nombre del negocio *</label><input type="text" id="f-name" placeholder="Pizzería Don Luis"></div>
+      <div><label>Rubro</label><input type="text" id="f-industry" placeholder="Restaurante"></div>
+      <div><label>Ciudad</label><input type="text" id="f-city" placeholder="San Juan, PR"></div>
+      <div><label>Sitio web</label><input type="url" id="f-website" placeholder="https://…"></div>
+      <div style="max-width:110px"><label>Orden</label><input type="number" id="f-order" value="0" min="0"></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <div><label>Logo (PNG, JPG, WEBP o SVG · máx 2 MB) *</label><input type="file" id="f-file" accept=".png,.jpg,.jpeg,.webp,.svg"></div>
+      <button class="primary" id="btn-add">Agregar logo</button>
+    </div>
+    <div id="msg" class="hidden"></div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="empty hidden" id="empty">Todavía no hay logos de clientes. Agrega el primero arriba.</div>
+</div>
+
+<script>
+function getToken(){ return (window.__mv_token || sessionStorage.getItem('mv_access_token') || ''); }
+
+async function api(path, opts){
+  opts = opts || {};
+  const r = await fetch(path, {
+    ...opts,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(getToken() ? {'Authorization': 'Bearer ' + getToken()} : {}),
+      ...(opts.headers || {}),
+    },
+  });
+  if (r.status === 401 || r.status === 403) {
+    alert('Sesión expirada — inicia sesión desde el panel.');
+    location.href = '/api/dashboard';
+    throw new Error('unauth');
+  }
+  if (!r.ok) {
+    const err = await r.json().catch(function(){ return {detail:'Falló la petición'}; });
+    throw new Error(err.detail || 'Falló la petición');
+  }
+  return r.status === 204 ? null : r.json();
+}
+
+function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, function(c){
+  return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+}); }
+
+function say(text, kind){
+  const el = document.getElementById('msg');
+  el.className = 'msg ' + kind;
+  el.textContent = text;
+  setTimeout(function(){ el.className = 'msg hidden'; }, 5000);
+}
+
+function fileToBase64(file){
+  return new Promise(function(resolve, reject){
+    const fr = new FileReader();
+    fr.onload = function(){ resolve(String(fr.result).split(',')[1]); };
+    fr.onerror = reject;
+    fr.readAsDataURL(file);
+  });
+}
+
+async function render(){
+  const items = await api('/api/admin/client-logos');
+  const grid = document.getElementById('grid');
+  document.getElementById('empty').classList.toggle('hidden', items.length > 0);
+  grid.innerHTML = items.map(function(it){
+    const meta = [it.industry, it.city].filter(Boolean).join(' · ') || '—';
+    return '<div class="logo-card">' +
+      '<div class="logo-box"><img src="' + esc(it.logo_url) + '" alt="' + esc(it.name) + '"></div>' +
+      '<div class="logo-body">' +
+        '<div class="logo-name">' + esc(it.name) + '</div>' +
+        '<div class="logo-meta">' + esc(meta) + '</div>' +
+        '<div class="logo-meta">Orden ' + it.display_order + ' · <span class="pill ' +
+          (it.is_active ? 'on">visible' : 'off">oculto') + '</span></div>' +
+        '<div class="logo-actions">' +
+          '<button class="ghost" data-toggle="' + it.id + '" data-active="' + (it.is_active ? '1' : '0') + '">' +
+            (it.is_active ? 'Ocultar' : 'Mostrar') + '</button>' +
+          '<button class="danger" data-del="' + it.id + '">Eliminar</button>' +
+        '</div>' +
+      '</div></div>';
+  }).join('');
+
+  grid.querySelectorAll('[data-toggle]').forEach(function(b){
+    b.addEventListener('click', async function(){
+      await api('/api/admin/client-logos/' + b.dataset.toggle, {
+        method: 'PATCH',
+        body: JSON.stringify({ is_active: b.dataset.active !== '1' }),
+      });
+      render();
+    });
+  });
+  grid.querySelectorAll('[data-del]').forEach(function(b){
+    b.addEventListener('click', async function(){
+      if (!confirm('¿Eliminar este logo de cliente?')) return;
+      await api('/api/admin/client-logos/' + b.dataset.del, { method: 'DELETE' });
+      render();
+    });
+  });
+}
+
+document.getElementById('btn-add').addEventListener('click', async function(){
+  const btn = this;
+  const name = document.getElementById('f-name').value.trim();
+  const file = document.getElementById('f-file').files[0];
+  if (!name)  { say('El nombre del negocio es obligatorio.', 'err'); return; }
+  if (!file)  { say('Selecciona el archivo del logo.', 'err'); return; }
+  if (file.size > 2 * 1024 * 1024) { say('El logo pesa más de 2 MB.', 'err'); return; }
+
+  btn.disabled = true;
+  try {
+    await api('/api/admin/client-logos', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: name,
+        industry: document.getElementById('f-industry').value.trim() || null,
+        city: document.getElementById('f-city').value.trim() || null,
+        website: document.getElementById('f-website').value.trim() || null,
+        display_order: parseInt(document.getElementById('f-order').value || '0', 10),
+        logo_filename: file.name,
+        logo_base64: await fileToBase64(file),
+      }),
+    });
+    ['f-name','f-industry','f-city','f-website'].forEach(function(id){ document.getElementById(id).value = ''; });
+    document.getElementById('f-file').value = '';
+    say('Logo agregado. Ya se ve en el sitio público.', 'ok');
+    render();
+  } catch (e) {
+    say(e.message, 'err');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+(async function init(){
+  try {
+    const res = await fetch('/api/auth/v2/me', {
+      credentials: 'include',
+      headers: getToken() ? {'Authorization': 'Bearer ' + getToken()} : {},
+    });
+    if (!res.ok) { alert('Inicia sesión en el panel primero.'); location.href = '/api/dashboard'; return; }
+    const me = await res.json();
+    document.getElementById('who').textContent = me.email + ' · ' + me.role;
+  } catch (e) {
+    location.href = '/api/dashboard';
+    return;
+  }
+  render();
+})();
+</script>
+</body>
+</html>

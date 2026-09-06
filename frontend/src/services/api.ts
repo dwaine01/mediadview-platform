@@ -105,6 +105,7 @@ export const plansAPI = {
 export const signupAPI = {
   customerSignup: (data: {
     plan_id: string;
+    billing_cycle?: 'monthly' | 'annual';
     business_name: string;
     contact_name: string;
     contact_email: string;
@@ -115,6 +116,10 @@ export const signupAPI = {
 };
 
 // Phase 2C P1: Customer Workspace API (auth required, org-scoped)
+export const clientLogosAPI = {
+  listPublic: () => api.get('/client-logos'),
+};
+
 export const workspaceAPI = {
   context: () => api.get('/workspace/context'),
   // Screens

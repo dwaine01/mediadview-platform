@@ -23,6 +23,7 @@ DEFAULT_PLANS = [
         "display_name": "Free",
         "monthly_price": 0.0,
         "annual_price": 0.0,
+        "annual_free_months": 0,
         "screens_included": 1,
         "screens_limit": 1,
         "price_per_extra_screen": 0.0,
@@ -44,7 +45,8 @@ DEFAULT_PLANS = [
         "plan_id": "starter",
         "display_name": "Starter",
         "monthly_price": 49.0,
-        "annual_price": 470.0,
+        "annual_price": 490.0,
+        "annual_free_months": 2,
         "screens_included": 3,
         "screens_limit": 3,
         "price_per_extra_screen": 15.0,
@@ -67,7 +69,8 @@ DEFAULT_PLANS = [
         "plan_id": "pro",
         "display_name": "Pro",
         "monthly_price": 149.0,
-        "annual_price": 1430.0,
+        "annual_price": 1490.0,
+        "annual_free_months": 2,
         "screens_included": 10,
         "screens_limit": 10,
         "price_per_extra_screen": 12.0,
@@ -92,7 +95,8 @@ DEFAULT_PLANS = [
         "plan_id": "enterprise",
         "display_name": "Enterprise",
         "monthly_price": 499.0,
-        "annual_price": 4790.0,
+        "annual_price": 4990.0,
+        "annual_free_months": 2,
         "screens_included": 50,
         "screens_limit": None,
         "price_per_extra_screen": 9.0,
@@ -142,6 +146,7 @@ class PlanUpdate(BaseModel):
     display_name: Optional[str] = None
     monthly_price: Optional[float] = Field(None, ge=0)
     annual_price: Optional[float] = Field(None, ge=0)
+    annual_free_months: Optional[int] = Field(None, ge=0, le=11)
     screens_included: Optional[int] = Field(None, ge=0)
     screens_limit: Optional[int] = Field(None, ge=0)
     price_per_extra_screen: Optional[float] = Field(None, ge=0)
@@ -194,6 +199,7 @@ def create_plans_routes(db, get_current_user, require_admin):
             "display_name": data.get("display_name", plan_id.title()),
             "monthly_price": float(data.get("monthly_price", 0)),
             "annual_price": float(data.get("annual_price", 0)),
+            "annual_free_months": int(data.get("annual_free_months", 0)),
             "screens_included": int(data.get("screens_included", 1)),
             "screens_limit": data.get("screens_limit"),
             "price_per_extra_screen": float(data.get("price_per_extra_screen", 0)),
@@ -219,6 +225,18 @@ def create_plans_routes(db, get_current_user, require_admin):
         updates = data.dict(exclude_unset=True)
         if not updates:
             return _ser_plan(doc)
+
+        # Keep the annual price consistent with the "free months" rule unless the
+        # admin sets an explicit annual_price in the same request.
+        if "annual_price" not in updates and (
+            "monthly_price" in updates or "annual_free_months" in updates
+        ):
+            monthly = float(updates.get("monthly_price", doc.get("monthly_price") or 0))
+            free = int(updates.get("annual_free_months", doc.get("annual_free_months") or 0))
+            free = 0 if monthly == 0 else min(free, 11)
+            updates["annual_free_months"] = free
+            updates["annual_price"] = round(monthly * (12 - free), 2)
+
         updates["updated_at"] = datetime.utcnow()
         await db.plans.update_one({"plan_id": plan_id}, {"$set": updates})
         return _ser_plan(await db.plans.find_one({"plan_id": plan_id}))

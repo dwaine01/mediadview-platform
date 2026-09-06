@@ -53,6 +53,7 @@ def _ser(doc):
 
 class CustomerSignupRequest(BaseModel):
     plan_id: str = Field("starter", description="free | starter | pro | enterprise")
+    billing_cycle: str = Field("monthly", description="monthly | annual")
     business_name: str = Field(..., min_length=1, max_length=300)
     contact_name: str = Field(..., min_length=1, max_length=200)
     contact_email: str = Field(..., min_length=3, max_length=320)
@@ -75,6 +76,12 @@ def create_signup_routes(db, create_token_fn):
         The org is marked schema_source='self_service_signup'.
         """
         email = data.contact_email.strip().lower()
+        billing_cycle = data.billing_cycle.strip().lower()
+        if billing_cycle not in ("monthly", "annual"):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid billing_cycle '{data.billing_cycle}'. Valid: monthly, annual",
+            )
 
         # ── Guard: no duplicate email ──────────────────────────────────────────
         existing = await db.users.find_one({"email": email})
@@ -170,8 +177,9 @@ def create_signup_routes(db, create_token_fn):
             "suspended_at": None,
             "cancelled_at": None,
             "reactivated_at": None,
+            "billing_cycle": billing_cycle,
             "current_period_start": now,
-            "current_period_end": now + timedelta(days=30),
+            "current_period_end": now + timedelta(days=365 if billing_cycle == "annual" else 30),
             "last_synced_at": None,
             "created_at": now,
             "updated_at": now,
@@ -189,14 +197,15 @@ def create_signup_routes(db, create_token_fn):
             "screens_limit": plan_config.get("screens_limit"),
             "overage_price_per_screen": plan_config.get("price_per_extra_screen"),
             "agreed_monthly_price": plan_config.get("monthly_price", 0.0),
+            "agreed_annual_price": plan_config.get("annual_price", 0.0),
             "currency": "USD",
-            "billing_cycle": "monthly",
+            "billing_cycle": billing_cycle,
             "discount_percent": None,
             "credit_balance": None,
             "effective_from": now.isoformat(),
             "effective_to": None,
             "created_by": "self_signup",
-            "notes": f"Auto-created on self-signup — plan: {plan_id}",
+            "notes": f"Auto-created on self-signup — plan: {plan_id} ({billing_cycle})",
             "created_at": now,
         }
         await db.pricing_agreements.insert_one(pricing_agreement)

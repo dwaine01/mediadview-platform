@@ -233,7 +233,10 @@ export default function WorkspaceDashboard() {
               </View>
               <View style={[sd.pill, s.status === 'active' ? { backgroundColor: C.greenBg } : { backgroundColor: '#F1F5F9' }]}>
                 <Text style={[sd.pillText, { color: s.status === 'active' ? C.green : C.muted }]}>
-                  {s.status === 'active' ? 'Activa' : (s.status || 'Pendiente')}
+                  {s.status === 'active' ? 'Activa'
+                    : s.status === 'offline' ? 'Desconectada'
+                    : s.status === 'pending' ? 'Pendiente'
+                    : (s.status || 'Pendiente')}
                 </Text>
               </View>
               <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />

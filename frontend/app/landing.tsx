@@ -93,7 +93,7 @@ export default function LandingPage() {
           <Text style={s.navName}>MediaView</Text>
         </View>
         <View style={s.navActions}>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={s.navLogin}>
+          <TouchableOpacity onPress={() => router.push('/account/login')} style={s.navLogin}>
             <Text style={s.navLoginText}>Iniciar Sesión</Text>
           </TouchableOpacity>
           <TouchableOpacity onPress={() => router.push('/(auth)/pricing')} style={s.navCta} activeOpacity={0.85}>
@@ -128,7 +128,7 @@ export default function LandingPage() {
             </TouchableOpacity>
             <TouchableOpacity
               style={s.heroSecondary}
-              onPress={() => router.push('/(auth)/signup')}
+              onPress={() => router.push('/account/signup')}
               activeOpacity={0.85}
             >
               <Ionicons name="play-circle" size={16} color="#06B6D4" />
@@ -289,7 +289,7 @@ export default function LandingPage() {
             <Text style={s.ctaBtnText}>Comenzar Ahora — Es Gratis</Text>
             <Ionicons name="arrow-forward" size={18} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={s.ctaLoginLink}>
+          <TouchableOpacity onPress={() => router.push('/account/login')} style={s.ctaLoginLink}>
             <Text style={s.ctaLoginText}>¿Ya tienes cuenta? Inicia sesión →</Text>
           </TouchableOpacity>
         </View>

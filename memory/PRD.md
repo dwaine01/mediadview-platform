@@ -145,3 +145,47 @@ Reporte completo en `/app/design_guidelines.md`.
 2. En producción `/login` y `/signup` sirven el legacy `customer.html` (anunciantes),
    no las páginas Expo del SaaS. Decidir destino antes de tocar.
 3. Producir los 4 videos de producto (storyboard en `design_guidelines.md`, sección 7).
+
+## Iteración 28 — Precio anual, logos de clientes y export de producción
+
+**Precio anual (sin hardcode)**
+- Cada plan tiene `annual_free_months` en Mongo (2 para los pagos, 0 para Free) y
+  `annual_price = monthly_price * (12 - annual_free_months)`.
+  Script: `backend/scripts/set_annual_pricing.py [free_months]`.
+- `PUT /api/admin/plans/{plan_id}` recalcula `annual_price` automáticamente al cambiar
+  `monthly_price` o `annual_free_months`, salvo que el admin mande un `annual_price` explícito.
+- `/pricing` tiene toggle Mensual/Anual: muestra el equivalente por mes, el total anual
+  y el ahorro. Los meses gratis se leen de la API, nunca están escritos en el código.
+- La calculadora del landing (`#pt-annual`) muestra la línea anual con la misma regla.
+
+**Ciclo de facturación real**
+- `POST /api/auth/customer-signup` acepta `billing_cycle` (`monthly` | `annual`, default monthly,
+  valor inválido → 400). Guarda el ciclo en `subscriptions` y en `pricing_agreements`,
+  y pone `current_period_end` a 365 días si es anual.
+- `billing_status` queda en `pending`: **no se simula ningún cobro** (Stripe no está integrado).
+
+**Logos de clientes (administrable, sin testimonios inventados)**
+- `backend/client_logos_routes.py`:
+  `GET /api/client-logos` (público) · `GET|POST|PATCH|DELETE /api/admin/client-logos` (admin).
+  Los archivos se guardan en `backend/web/clients/` y se sirven en `/api/web/clients/<archivo>`.
+  Validación: png/jpg/jpeg/webp/svg, máximo 2 MB.
+- Panel de administración: `backend/web/admin-clients.html`, ruta `GET /api/admin/clients-view`.
+- La sección se muestra en `/pricing` y en `landing.html` (id `clients`) y queda **oculta
+  cuando no hay logos activos**. No hay testimonios ficticios en ninguna parte.
+
+**Rutas de auth separadas (decisión de seguridad)**
+- Las páginas SaaS pasaron de `/login` y `/signup` a **`/account/login`** y **`/account/signup`**
+  (archivos movidos de `app/(auth)/` a `app/account/`).
+- `/login`, `/signup`, `/portal` y `/marketplace` siguen sirviendo el SPA legacy de
+  anunciantes (`customer.html`) — sin cambios, sin romper ese flujo.
+- Encabezado navy unificado en `/pricing`, `/account/login` y `/account/signup`.
+
+**Export de producción regenerado**
+- `npx expo export --platform web` → copiado a `backend/web/saas/` (7.7 MB).
+- Diff de rutas verificado: idénticas a la versión anterior salvo
+  `login.html`/`signup.html` → `account/login.html`/`account/signup.html`.
+- Verificado: `/`, `/pricing`, `/account/login`, `/account/signup`, `/workspace`,
+  `/login` y `/marketplace` responden 200 en el backend.
+
+**Pruebas**: `backend/tests/test_mediaview_iter28_premium.py` — 24/24 en verde.
+Flujo E2E verificado en navegador: pricing → signup → login → workspace.

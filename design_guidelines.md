@@ -170,12 +170,22 @@ Requisito técnico: `poster` obligatorio, `preload="none"`, `loop muted playsinl
 - `metro.config.js`, `package.json`, y las variables de entorno protegidas.
 - El export estático `web/saas/` (ver decisiones pendientes).
 
+## Resueltos después del reporte inicial
+
+1. **`web/saas/` regenerado.** `npx expo export --platform web` → copiado a `backend/web/saas/`.
+   Diff de rutas verificado (idéntico salvo el cambio de `login`/`signup` a `account/*`).
+2. **Conflicto de rutas de auth resuelto sin romper nada.** Las páginas SaaS viven ahora en
+   `/account/login` y `/account/signup`; `/login`, `/signup`, `/portal` y `/marketplace`
+   siguen sirviendo el SPA de anunciantes (`customer.html`) exactamente como antes.
+3. **Precio anual** con dos meses gratis, configurable por plan (`annual_free_months`),
+   sin descuentos escritos en el código.
+4. **Prueba social sin inventar clientes**: sección de logos administrable
+   (`/api/admin/clients-view`), oculta mientras no haya logos reales.
+
 ## Decisiones pendientes (requieren al dueño)
 
-1. **`web/saas/` está desactualizado.** En producción `/pricing` y `/workspace/*` se sirven desde
-   ese export estático de Expo, generado antes de este rediseño. Hay que regenerarlo
-   (`npx expo export -p web` → copiar a `web/saas/`) o el cliente no verá el workspace claro en mediadview.com.
-2. **Conflicto de rutas de auth.** En producción `/login` y `/signup` sirven el SPA legacy
-   `customer.html` (cuenta de anunciante), no las páginas Expo del SaaS. Hay que decidir a dónde
-   deben ir esas dos URLs antes de tocarlas, para no romper el flujo de anunciantes.
-3. **Videos de producto** (sección 7) — 4 loops por producir.
+1. **Videos de producto** (sección 7) — 4 loops por producir.
+2. **Cobro real**: el ciclo anual se guarda pero `billing_status` queda en `pending`.
+   Falta integrar Stripe (requiere la API key del dueño).
+3. **Logos reales de clientes**: subirlos desde `/api/admin/clients-view` para que la
+   sección de prueba social aparezca en el sitio.

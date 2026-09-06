@@ -400,6 +400,16 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 .mv-tpl-ov span{font-size:12.5px;font-weight:700;color:#fff}
 .mv-tpl.hide{display:none}
 
+/* annual saving line inside the calculator */
+.mv-calc-annual{font-size:12.5px;font-weight:700;color:var(--brand-dark);margin-bottom:8px;min-height:16px}
+
+/* ── CLIENT LOGOS ── */
+.mv-clients-lead{font-size:11.5px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:var(--text3);text-align:center;margin-bottom:26px}
+.mv-clients-row{display:flex;flex-wrap:wrap;gap:16px;justify-content:center}
+.mv-client{width:160px;height:78px;background:var(--surface);border:1px solid var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;padding:16px;transition:border-color .25s,transform .25s}
+.mv-client:hover{border-color:rgba(6,182,212,.35);transform:translateY(-2px)}
+.mv-client img{max-width:100%;max-height:100%;object-fit:contain}
+
 /* ── PRICING TEASER ── */
 .mv-price{background:var(--surface2);border:1px solid var(--border);border-radius:24px;padding:44px;display:grid;grid-template-columns:1fr 340px;gap:48px;align-items:center}
 .mv-price h2{font-size:32px;font-weight:900;letter-spacing:-1px;color:var(--text-dark);margin-bottom:12px;line-height:1.2}
@@ -475,7 +485,7 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     <a href="/pricing" data-i18n="nav.pricing">Pricing</a>
     <a href="/about" data-i18n="nav.about">About</a>
     <a href="/marketplace" class="nav-anuncia" data-i18n="nav.publish">Publica tu anuncio aquí</a>
-    <a href="/login" data-i18n="nav.login">Log in</a>
+    <a href="/account/login" data-i18n="nav.login">Log in</a>
     <a href="/pricing" class="nav-cta" data-i18n="nav.start">Start Free</a>
   </div>
 </div>
@@ -565,10 +575,10 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
       <a href="/pricing" style="display:inline-flex;align-items:center;gap:8px;background:#06b6d4;color:#020c1b;font-weight:700;font-size:15px;padding:14px 28px;border-radius:100px;text-decoration:none;white-space:nowrap;box-shadow:0 4px 20px rgba(6,182,212,.3);transition:all .2s" onmouseover="this.style.background='#67e8f9';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#06b6d4';this.style.transform='translateY(0)'">
         Ver planes y precios →
       </a>
-      <a href="/signup" style="font-size:13px;color:#67e8f9;text-decoration:none;padding:4px 0;border-bottom:1px solid rgba(6,182,212,.25);transition:color .15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#67e8f9'">
+      <a href="/account/signup" style="font-size:13px;color:#67e8f9;text-decoration:none;padding:4px 0;border-bottom:1px solid rgba(6,182,212,.25);transition:color .15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#67e8f9'">
         Prueba gratis 14 días · sin tarjeta
       </a>
-      <div style="font-size:12px;color:#64748b">¿Ya tienes cuenta? <a href="/login" style="color:#06b6d4;font-weight:600;text-decoration:none" data-i18n="saas.login">Inicia sesión →</a></div>
+      <div style="font-size:12px;color:#64748b">¿Ya tienes cuenta? <a href="/account/login" style="color:#06b6d4;font-weight:600;text-decoration:none" data-i18n="saas.login">Inicia sesión →</a></div>
     </div>
   </div>
 </div>
@@ -783,7 +793,7 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
         <div class="mv-flow-row"><div class="mv-flow-n">2</div><div class="mv-flow-t"><span data-i18n="imp.f2">We rebuild it as a MediaView project</span><span class="mv-flow-sub" data-i18n="imp.f2s">Categories, items, prices and photos become editable fields.</span></div></div>
         <div class="mv-flow-row"><div class="mv-flow-n">3</div><div class="mv-flow-t"><span data-i18n="imp.f3">Edit name, price and photo any time</span><span class="mv-flow-sub" data-i18n="imp.f3s">Plus description, category and availability where supported.</span></div></div>
       </div>
-      <a href="/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="imp.cta">Import my menu</a>
+      <a href="/account/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="imp.cta">Import my menu</a>
     </div>
     <div class="mv-shot reveal reveal-d1"><img src="/api/web/assets/mv-import-001.webp" alt="Printed menu converted into an editable digital menu" loading="lazy"></div>
   </div>
@@ -805,7 +815,7 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
         <div class="mv-flow-row"><div class="mv-flow-n">3</div><div class="mv-flow-t" data-i18n="mob.f3">Change $12.99 → $13.99, or replace the photo</div></div>
         <div class="mv-flow-row"><div class="mv-flow-n">4</div><div class="mv-flow-t" data-i18n="mob.f4">Save &amp; Publish — the TV updates in seconds</div></div>
       </div>
-      <a href="/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="mob.cta">Try it free for 14 days</a>
+      <a href="/account/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="mob.cta">Try it free for 14 days</a>
     </div>
   </div>
 </div>
@@ -1009,6 +1019,14 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 </div>
 </section>
 
+<!-- ═══════ CLIENT LOGOS (admin-managed · hidden when empty) ═══════ -->
+<section class="section" id="clients" style="background:var(--surface);padding-top:52px;padding-bottom:52px;display:none">
+<div class="section-inner">
+  <div class="mv-clients-lead" data-i18n="clients.lead">Businesses already running MediaView</div>
+  <div class="mv-clients-row" id="clients-row"></div>
+</div>
+</section>
+
 <!-- ═══════ PRICING TEASER (live plan data — nothing hardcoded) ═══════ -->
 <section class="section" id="pricing-teaser" style="background:var(--surface)">
 <div class="section-inner">
@@ -1032,6 +1050,7 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
       </div>
       <div class="mv-calc-lbl" data-i18n="pt.estimate">Estimated monthly</div>
       <div class="mv-calc-total"><span class="amt" id="pt-amt">—</span><span class="per" data-i18n="pt.permonth">/ month</span></div>
+      <div class="mv-calc-annual" id="pt-annual"></div>
       <div class="mv-calc-note" id="pt-note">Loading current plans…</div>
       <a href="/pricing" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="pt.cta">See full pricing</a>
     </div>
@@ -1205,6 +1224,25 @@ setInterval(function(){
   wireFilter('ind-tabs', 'ind-grid', '.mv-ind-card');
   wireFilter('tpl-tabs', 'tpl-grid', '.mv-tpl');
 
+  /* ── Client logos — admin-managed, hidden when empty ── */
+  fetch('/api/client-logos')
+    .then(function(r){ return r.json(); })
+    .then(function(items){
+      if (!Array.isArray(items) || !items.length) return;
+      var row = document.getElementById('clients-row');
+      var sec = document.getElementById('clients');
+      if (!row || !sec) return;
+      row.innerHTML = items.map(function(it){
+        var name = String(it.name || '').replace(/[&<>"']/g, function(c){
+          return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c];
+        });
+        return '<div class="mv-client"><img src="' + it.logo_url + '" alt="' + name +
+               '" loading="lazy"></div>';
+      }).join('');
+      sec.style.display = '';
+    })
+    .catch(function(){ /* no logos yet — section stays hidden */ });
+
   /* ── Pricing teaser — live plan data, nothing hardcoded ── */
   (function(){
     var nEl = document.getElementById('pt-n');
@@ -1264,6 +1302,19 @@ setInterval(function(){
       if (w.extra > 0) parts.push(w.extra + ' ' + (w.extra > 1 ? t.extras : t.extra) + ' · ' + fmt(w.plan.price_per_extra_screen) + ' ' + t.each);
       if (w.plan.trial_days > 0) parts.push(w.plan.trial_days + t.trial);
       noteEl.textContent = parts.join(' · ');
+
+      var annualEl = document.getElementById('pt-annual');
+      if (annualEl) {
+        var free = w.plan.annual_free_months || 0;
+        if (free > 0 && w.cost > 0) {
+          var yearly = w.cost * (12 - free);
+          annualEl.textContent = lang() === 'es'
+            ? fmt(yearly) + ' al año · ' + free + ' meses gratis'
+            : fmt(yearly) + ' billed yearly · ' + free + ' months free';
+        } else {
+          annualEl.textContent = '';
+        }
+      }
     }
 
     minus.addEventListener('click', function(){ if (screens > 1) { screens--; render(); } });

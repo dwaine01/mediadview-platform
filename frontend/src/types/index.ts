@@ -17,6 +17,7 @@ export interface Plan {
   display_name: string;
   monthly_price: number;
   annual_price?: number;
+  annual_free_months?: number;
   screens_included: number;
   screens_limit?: number | null;
   price_per_extra_screen: number;

@@ -6,7 +6,7 @@ import {
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { plansAPI } from '../../src/services/api';
+import { plansAPI, clientLogosAPI } from '../../src/services/api';
 import type { Plan } from '../../src/types';
 
 const MEDIA = process.env.EXPO_PUBLIC_BACKEND_URL || '';
@@ -86,9 +86,32 @@ const FAQS = [
   },
 ];
 
+type Cycle = 'monthly' | 'annual';
+
+type ClientLogo = {
+  id: string; name: string; logo_url: string;
+  industry?: string | null; city?: string | null;
+};
+
+/** Monthly run-rate for `screens` screens (base plan + extra screens). */
 function calcMonthly(plan: Plan, screens: number): number {
   const extra = Math.max(0, screens - (plan.screens_included || 1));
   return plan.monthly_price + extra * (plan.price_per_extra_screen || 0);
+}
+
+/**
+ * Annual total. The discount is NOT hardcoded: it comes from the plan's
+ * `annual_free_months` (admin-configurable) — you pay 12 - freeMonths months.
+ */
+function calcAnnual(plan: Plan, screens: number): number {
+  const monthly = calcMonthly(plan, screens);
+  const free = plan.annual_free_months ?? 0;
+  return monthly * (12 - free);
+}
+
+/** What the customer effectively pays per month when billed annually. */
+function calcAnnualPerMonth(plan: Plan, screens: number): number {
+  return calcAnnual(plan, screens) / 12;
 }
 
 function money(v: number): string {
@@ -107,6 +130,8 @@ export default function PricingScreen() {
   const [error, setError] = useState('');
   const [screenCount, setScreenCount] = useState(1);
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+  const [cycle, setCycle] = useState<Cycle>('monthly');
+  const [logos, setLogos] = useState<ClientLogo[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -120,8 +145,20 @@ export default function PricingScreen() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    clientLogosAPI.listPublic()
+      .then(res => setLogos(Array.isArray(res.data) ? res.data : []))
+      .catch(() => setLogos([]));
+  }, []);
+
+  // Biggest "free months" offered by any plan — drives the savings label.
+  const freeMonths = plans.reduce((m, p) => Math.max(m, p.annual_free_months ?? 0), 0);
+
   const selectPlan = (planId: string) => {
-    router.push({ pathname: '/(auth)/signup', params: { plan_id: planId, screen_count: String(screenCount) } });
+    router.push({
+      pathname: '/account/signup',
+      params: { plan_id: planId, screen_count: String(screenCount), billing_cycle: cycle },
+    });
   };
 
   const color = (planId: string) => PLAN_COLORS[planId] || C.brand;
@@ -139,7 +176,7 @@ export default function PricingScreen() {
             <View style={s.brandMark}><Text style={s.brandMarkText}>MV</Text></View>
             <Text style={s.brandName}>MediaView</Text>
           </View>
-          <TouchableOpacity onPress={() => router.push('/(auth)/login')} style={s.loginBtn} activeOpacity={0.75}>
+          <TouchableOpacity onPress={() => router.push('/account/login')} style={s.loginBtn} activeOpacity={0.75}>
             <Text style={s.loginText}>Iniciar sesión</Text>
           </TouchableOpacity>
         </View>
@@ -186,12 +223,39 @@ export default function PricingScreen() {
               )}
             </View>
 
+            {/* Billing cycle switch */}
+            <View style={s.cycleWrap}>
+              <View style={s.cycleSwitch}>
+                {(['monthly', 'annual'] as Cycle[]).map(c => (
+                  <TouchableOpacity
+                    key={c}
+                    style={[s.cycleBtn, cycle === c && s.cycleBtnOn]}
+                    onPress={() => setCycle(c)}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={[s.cycleText, cycle === c && s.cycleTextOn]}>
+                      {c === 'monthly' ? 'Mensual' : 'Anual'}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {freeMonths > 0 && (
+                <View style={s.savePill}>
+                  <Ionicons name="pricetag" size={12} color="#04212B" />
+                  <Text style={s.saveText}>
+                    {freeMonths} {freeMonths === 1 ? 'mes' : 'meses'} gratis pagando anual
+                  </Text>
+                </View>
+              )}
+            </View>
+
             {/* Screen selector — sits inside the band so the header has a purpose */}
             <View style={[s.selector, mid && s.selectorMid]}>
               <View style={{ flex: 1, minWidth: 200 }}>
                 <Text style={s.selectorLabel}>¿CUÁNTAS PANTALLAS NECESITAS?</Text>
                 <Text style={s.selectorHint}>
-                  Los precios de abajo se recalculan al instante para {screenCount} pantalla{screenCount !== 1 ? 's' : ''}.
+                  Los precios de abajo se recalculan al instante para {screenCount} pantalla{screenCount !== 1 ? 's' : ''}
+                  {cycle === 'annual' ? ', con cobro anual.' : ', con cobro mensual.'}
                 </Text>
               </View>
               <View style={s.stepper}>
@@ -240,6 +304,9 @@ export default function PricingScreen() {
             <View style={[s.cards, wide && s.cardsWide]}>
               {plans.map(plan => {
                 const monthly = calcMonthly(plan, screenCount);
+                const planFree = plan.annual_free_months ?? 0;
+                const annual = cycle === 'annual' && planFree > 0;
+                const shown = annual ? calcAnnualPerMonth(plan, screenCount) : monthly;
                 const extra = Math.max(0, screenCount - (plan.screens_included || 1));
                 const overLimit = plan.screens_limit != null && screenCount > plan.screens_limit;
                 const pc = color(plan.plan_id);
@@ -268,10 +335,19 @@ export default function PricingScreen() {
 
                     <View style={s.priceRow}>
                       <Text style={[s.priceAmount, { color: pc }]}>
-                        {monthly === 0 ? 'Gratis' : money(monthly)}
+                        {shown === 0 ? 'Gratis' : money(shown)}
                       </Text>
-                      {monthly > 0 && <Text style={s.pricePer}>/mes</Text>}
+                      {shown > 0 && (
+                        <Text style={s.pricePer}>{annual ? '/mes' : '/mes'}</Text>
+                      )}
                     </View>
+
+                    {annual && shown > 0 && (
+                      <Text style={s.priceAnnual}>
+                        {money(calcAnnual(plan, screenCount))} facturado al año
+                        {planFree > 0 ? ` · ahorras ${money(monthly * planFree)}` : ''}
+                      </Text>
+                    )}
 
                     <Text style={s.priceNote}>
                       {overLimit
@@ -321,6 +397,25 @@ export default function PricingScreen() {
           )}
         </View>
 
+        {/* ═══ CLIENT LOGOS (admin-managed · hidden when empty) ═══ */}
+        {logos.length > 0 && (
+          <View style={[s.wrap, wide && s.wrapWide, { marginTop: 40 }]}>
+            <Text style={s.logosLead}>Negocios que ya usan MediaView</Text>
+            <View style={s.logosRow}>
+              {logos.map(l => (
+                <View key={l.id} style={s.logoBox}>
+                  <Image
+                    source={{ uri: l.logo_url.startsWith('http') ? l.logo_url : `${MEDIA}${l.logo_url}` }}
+                    style={s.logoImg}
+                    resizeMode="contain"
+                    accessibilityLabel={l.name}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
         {/* ═══ INCLUDED IN EVERY PLAN ═══ */}
         <View style={[s.wrap, wide && s.wrapWide, { marginTop: 44 }]}>
           <Text style={s.secEyebrow}>EN TODOS LOS PLANES</Text>
@@ -356,6 +451,8 @@ export default function PricingScreen() {
                 </View>
                 {([
                   ['Precio base / mes', (p: Plan) => p.monthly_price === 0 ? 'Gratis' : money(p.monthly_price)],
+                  ['Precio base / año', (p: Plan) => p.monthly_price === 0 ? 'Gratis' : money(p.monthly_price * (12 - (p.annual_free_months ?? 0)))],
+                  ['Meses gratis al pagar anual', (p: Plan) => (p.annual_free_months ?? 0) > 0 ? `${p.annual_free_months}` : '—'],
                   ['Pantallas incluidas', (p: Plan) => String(p.screens_included)],
                   ['Máximo de pantallas', (p: Plan) => p.screens_limit == null ? 'Ilimitado' : String(p.screens_limit)],
                   ['Pantalla extra / mes', (p: Plan) => p.price_per_extra_screen > 0 ? money(p.price_per_extra_screen) : '—'],
@@ -427,7 +524,7 @@ export default function PricingScreen() {
               <TouchableOpacity style={s.ctaBandPrimary} onPress={() => selectPlan('starter')} activeOpacity={0.85}>
                 <Text style={s.ctaBandPrimaryText}>Empezar ahora</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={s.ctaBandGhost} onPress={() => router.push('/(auth)/login')} activeOpacity={0.75}>
+              <TouchableOpacity style={s.ctaBandGhost} onPress={() => router.push('/account/login')} activeOpacity={0.75}>
                 <Text style={s.ctaBandGhostText}>Ya tengo cuenta</Text>
               </TouchableOpacity>
             </View>
@@ -488,6 +585,31 @@ const s = StyleSheet.create({
   tvFoot: { width: 150, height: 6, backgroundColor: '#0B1220', borderRadius: 5, alignSelf: 'center' },
   heroVisualCap: { fontSize: 12, color: '#64748B', textAlign: 'center', marginTop: 14 },
 
+  /* billing cycle switch */
+  cycleWrap: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginTop: 30 },
+  cycleSwitch: {
+    flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.07)',
+    borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+  },
+  cycleBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 9, minHeight: 40, justifyContent: 'center' },
+  cycleBtnOn: { backgroundColor: '#FFFFFF' },
+  cycleText: { fontSize: 13.5, fontWeight: '700', color: '#94A3B8' },
+  cycleTextOn: { color: '#0F172A' },
+  savePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#67E8F9', borderRadius: 100, paddingVertical: 6, paddingHorizontal: 12,
+  },
+  saveText: { fontSize: 12, fontWeight: '800', color: '#04212B' },
+
+  /* client logos */
+  logosLead: { fontSize: 12, fontWeight: '800', letterSpacing: 1.6, color: '#94A3B8', textAlign: 'center', marginBottom: 18 },
+  logosRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, justifyContent: 'center' },
+  logoBox: {
+    width: 150, height: 74, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0',
+    borderRadius: 12, alignItems: 'center', justifyContent: 'center', padding: 14,
+  },
+  logoImg: { width: '100%', height: '100%' },
+
   /* selector */
   selector: {
     marginTop: 30, backgroundColor: C.card, borderRadius: 18, padding: 20,
@@ -528,6 +650,7 @@ const s = StyleSheet.create({
   priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
   priceAmount: { fontSize: 36, fontWeight: '900', letterSpacing: -1.6 },
   pricePer: { fontSize: 14, color: C.faint, fontWeight: '600' },
+  priceAnnual: { fontSize: 12, color: C.brandDark, fontWeight: '700', marginTop: 5 },
   priceNote: { fontSize: 12.5, color: C.muted, marginTop: 4, lineHeight: 17 },
   trialPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',

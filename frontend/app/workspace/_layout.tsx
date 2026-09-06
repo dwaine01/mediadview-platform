@@ -27,12 +27,15 @@ export default function WorkspaceLayout() {
   const { width: SW } = useWindowDimensions();
   const IS_WEB_WIDE = Platform.OS === 'web' && SW > 860;
 
-  // Auth guard: redirect to login if not authenticated
+  // Auth guard: redirect to login as soon as the persisted store is hydrated.
+  // `isInitialized` is read from the store so this re-runs when hydration lands,
+  // not only when the token reference changes.
+  const isInitialized = useAuthStore(st => st.isInitialized);
   useEffect(() => {
-    if (token === null && useAuthStore.getState().isInitialized) {
-      router.replace('/(auth)/login');
+    if (isInitialized && !token) {
+      router.replace('/account/login');
     }
-  }, [token]);
+  }, [isInitialized, token, router]);
 
   const activeKey = WS_NAV.find(n => {
     if (n.key === 'index') return pathname === '/workspace' || pathname === '/workspace/';
@@ -41,7 +44,7 @@ export default function WorkspaceLayout() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/(auth)/login');
+    router.replace('/account/login');
   };
 
   if (IS_WEB_WIDE) {
