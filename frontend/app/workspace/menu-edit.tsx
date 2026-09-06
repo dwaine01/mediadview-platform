@@ -25,7 +25,7 @@ function ItemCard({
     <View style={ed.itemCard}>
       <View style={ed.itemLeft}>
         <View style={ed.itemAvailDot}>
-          <View style={[ed.availDot, { backgroundColor: item.available ? '#34D399' : '#4B5563' }]} />
+          <View style={[ed.availDot, { backgroundColor: item.available ? '#059669' : '#94A3B8' }]} />
         </View>
         <View style={ed.itemBody}>
           <Text style={ed.itemName}>{item.name}</Text>
@@ -36,10 +36,10 @@ function ItemCard({
       <View style={ed.itemRight}>
         <Text style={ed.itemPrice}>${Number(item.price).toFixed(2)}</Text>
         <TouchableOpacity onPress={onEdit} style={ed.iconBtn}>
-          <Ionicons name="pencil-outline" size={16} color="#818CF8" />
+          <Ionicons name="pencil-outline" size={16} color="#0891B2" />
         </TouchableOpacity>
         <TouchableOpacity onPress={onDelete} style={ed.iconBtn}>
-          <Ionicons name="trash-outline" size={16} color="#F87171" />
+          <Ionicons name="trash-outline" size={16} color="#DC2626" />
         </TouchableOpacity>
       </View>
     </View>
@@ -172,7 +172,7 @@ export default function MenuEditor() {
   if (loading) {
     return (
       <View style={[ed.root, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator color="#6366F1" size="large" />
+        <ActivityIndicator color="#0891B2" size="large" />
       </View>
     );
   }
@@ -181,10 +181,10 @@ export default function MenuEditor() {
     return (
       <View style={[ed.root, { padding: 24 }]}>
         <TouchableOpacity style={ed.backBtn} onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={20} color="#9CA3AF" />
-          <Text style={ed.backBtnText}>Back</Text>
+          <Ionicons name="arrow-back" size={20} color="#64748B" />
+          <Text style={ed.backBtnText}>Atrás</Text>
         </TouchableOpacity>
-        <Text style={{ color: '#F87171', marginTop: 24, fontSize: 14 }}>{error}</Text>
+        <Text style={{ color: '#DC2626', marginTop: 24, fontSize: 14 }}>{error}</Text>
       </View>
     );
   }
@@ -195,38 +195,38 @@ export default function MenuEditor() {
         {/* Header */}
         <View style={ed.topBar}>
           <TouchableOpacity style={ed.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#9CA3AF" />
-            <Text style={ed.backBtnText}>Menus</Text>
+            <Ionicons name="arrow-back" size={20} color="#64748B" />
+            <Text style={ed.backBtnText}>Menús</Text>
           </TouchableOpacity>
-          <View style={[ed.liveTag, { backgroundColor: menu?.status === 'published' ? '#064E3B' : '#1C1917' }]}>
-            <View style={[ed.liveDot, { backgroundColor: menu?.status === 'published' ? '#34D399' : '#6B7280' }]} />
-            <Text style={{ color: menu?.status === 'published' ? '#34D399' : '#9CA3AF', fontSize: 11, fontWeight: '700' }}>
+          <View style={[ed.liveTag, { backgroundColor: menu?.status === 'published' ? '#D1FAE5' : '#F8FAFC' }]}>
+            <View style={[ed.liveDot, { backgroundColor: menu?.status === 'published' ? '#059669' : '#64748B' }]} />
+            <Text style={{ color: menu?.status === 'published' ? '#059669' : '#64748B', fontSize: 11, fontWeight: '700' }}>
               {menu?.status === 'published' ? 'LIVE' : 'DRAFT'}
             </Text>
           </View>
         </View>
 
-        {/* Menu name */}
+        {/* Nombre del menú */}
         <View style={ed.nameSec}>
           <TextInput
             style={ed.nameInput}
             value={menuName}
             onChangeText={setMenuName}
             onBlur={saveMenuName}
-            placeholder="Menu name"
-            placeholderTextColor="#374151"
+            placeholder="Nombre del menú"
+            placeholderTextColor="#CBD5E1"
             returnKeyType="done"
             onSubmitEditing={saveMenuName}
           />
-          {saving && <ActivityIndicator size={14} color="#6366F1" style={{ marginLeft: 8 }} />}
+          {saving && <ActivityIndicator size={14} color="#0891B2" style={{ marginLeft: 8 }} />}
         </View>
 
         {/* Items by category */}
         {Object.keys(grouped).length === 0 ? (
           <View style={ed.empty}>
-            <Ionicons name="fast-food-outline" size={36} color="#374151" />
-            <Text style={ed.emptyTitle}>No items yet</Text>
-            <Text style={ed.emptyText}>Add your first menu item below.</Text>
+            <Ionicons name="fast-food-outline" size={36} color="#CBD5E1" />
+            <Text style={ed.emptyTitle}>Todavía no hay productos</Text>
+            <Text style={ed.emptyText}>Agrega tu primer producto abajo.</Text>
           </View>
         ) : (
           Object.entries(grouped).map(([cat, catItems]) => (
@@ -245,8 +245,8 @@ export default function MenuEditor() {
 
         {/* Add item button */}
         <TouchableOpacity style={ed.addItemBtn} onPress={openAddItem}>
-          <Ionicons name="add-circle-outline" size={20} color="#818CF8" />
-          <Text style={ed.addItemBtnText}>Add Item</Text>
+          <Ionicons name="add-circle-outline" size={20} color="#0891B2" />
+          <Text style={ed.addItemBtnText}>Agregar Producto</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -268,7 +268,7 @@ export default function MenuEditor() {
             : <>
                 <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
                 <Text style={ed.publishBtnText}>
-                  {menu?.status === 'published' ? 'Update Live' : 'Publish to Screens'}
+                  {menu?.status === 'published' ? 'Update Live' : 'Publicar en Pantallas'}
                 </Text>
               </>
           }
@@ -280,9 +280,9 @@ export default function MenuEditor() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={ed.modalOverlay}>
           <View style={ed.modal}>
             <View style={ed.modalHeader}>
-              <Text style={ed.modalTitle}>{editingItem ? 'Edit Item' : 'Add Item'}</Text>
+              <Text style={ed.modalTitle}>{editingItem ? 'Edit Item' : 'Agregar Producto'}</Text>
               <TouchableOpacity onPress={() => setShowItemModal(false)}>
-                <Ionicons name="close" size={22} color="#9CA3AF" />
+                <Ionicons name="close" size={22} color="#64748B" />
               </TouchableOpacity>
             </View>
 
@@ -291,32 +291,32 @@ export default function MenuEditor() {
                 <View style={ed.fieldFlex}>
                   <Text style={ed.fieldLabel}>Name *</Text>
                   <TextInput style={ed.fieldInput} value={itemName} onChangeText={setItemName}
-                    placeholder="e.g. Margherita Pizza" placeholderTextColor="#374151" />
+                    placeholder="ej. Pizza Margherita" placeholderTextColor="#CBD5E1" />
                 </View>
                 <View style={{ width: 100 }}>
                   <Text style={ed.fieldLabel}>Price ($)</Text>
                   <TextInput style={ed.fieldInput} value={itemPrice} onChangeText={setItemPrice}
-                    placeholder="12.50" placeholderTextColor="#374151" keyboardType="decimal-pad" />
+                    placeholder="12.50" placeholderTextColor="#CBD5E1" keyboardType="decimal-pad" />
                 </View>
               </View>
 
               <View style={ed.fieldWrap}>
-                <Text style={ed.fieldLabel}>Category</Text>
+                <Text style={ed.fieldLabel}>Categoría</Text>
                 <TextInput style={ed.fieldInput} value={itemCat} onChangeText={setItemCat}
-                  placeholder="e.g. Pizza, Drinks, Desserts" placeholderTextColor="#374151" />
+                  placeholder="ej. Pizza, Bebidas, Postres" placeholderTextColor="#CBD5E1" />
               </View>
 
               <View style={ed.fieldWrap}>
                 <Text style={ed.fieldLabel}>Description (optional)</Text>
                 <TextInput style={[ed.fieldInput, { minHeight: 64 }]}
                   value={itemDesc} onChangeText={setItemDesc} multiline
-                  placeholder="Short description…" placeholderTextColor="#374151" />
+                  placeholder="Descripción corta…" placeholderTextColor="#CBD5E1" />
               </View>
 
               <View style={ed.availRow}>
-                <Text style={ed.fieldLabel}>Available</Text>
+                <Text style={ed.fieldLabel}>Disponible</Text>
                 <Switch value={itemAvail} onValueChange={setItemAvail}
-                  trackColor={{ false: '#1E293B', true: '#4F46E5' }} thumbColor="#fff" />
+                  trackColor={{ false: '#E2E8F0', true: '#0E7490' }} thumbColor="#fff" />
               </View>
 
               {!!itemError && <Text style={ed.itemErrText}>{itemError}</Text>}
@@ -327,7 +327,7 @@ export default function MenuEditor() {
               >
                 {itemSaving
                   ? <ActivityIndicator color="#fff" size={16} />
-                  : <Text style={ed.saveItemBtnText}>{editingItem ? 'Save Changes' : 'Add Item'}</Text>
+                  : <Text style={ed.saveItemBtnText}>{editingItem ? 'Save Changes' : 'Agregar Producto'}</Text>
                 }
               </TouchableOpacity>
             </ScrollView>
@@ -339,50 +339,50 @@ export default function MenuEditor() {
 }
 
 const ed = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0F1A' },
+  root: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20, gap: 16 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   backBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, padding: 8 },
-  backBtnText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
+  backBtnText: { fontSize: 14, color: '#64748B', fontWeight: '600' },
   liveTag: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   liveDot: { width: 6, height: 6, borderRadius: 3 },
   nameSec: { flexDirection: 'row', alignItems: 'center' },
-  nameInput: { flex: 1, fontSize: 24, fontWeight: '800', color: '#F1F5F9', padding: 0 },
+  nameInput: { flex: 1, fontSize: 24, fontWeight: '800', color: '#0F172A', padding: 0 },
   empty: { alignItems: 'center', paddingVertical: 40, gap: 8 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#9CA3AF' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#64748B' },
   emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center' },
   catSection: { gap: 8 },
-  catLabel: { fontSize: 11, fontWeight: '700', color: '#6366F1', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
-  itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, padding: 14, gap: 8 },
+  catLabel: { fontSize: 11, fontWeight: '700', color: '#0891B2', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
+  itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, gap: 8 },
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   itemAvailDot: { justifyContent: 'center', alignItems: 'center' },
   availDot: { width: 8, height: 8, borderRadius: 4 },
   itemBody: { flex: 1, gap: 2 },
-  itemName: { fontSize: 14, fontWeight: '700', color: '#F1F5F9' },
-  itemCat: { fontSize: 11, color: '#6366F1', fontWeight: '600' },
+  itemName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
+  itemCat: { fontSize: 11, color: '#0891B2', fontWeight: '600' },
   itemDesc: { fontSize: 11, color: '#64748B' },
   itemRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  itemPrice: { fontSize: 15, fontWeight: '800', color: '#34D399' },
+  itemPrice: { fontSize: 15, fontWeight: '800', color: '#059669' },
   iconBtn: { padding: 6 },
-  addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderColor: '#1E293B', borderStyle: 'dashed', borderRadius: 12, padding: 16, marginTop: 4 },
-  addItemBtnText: { fontSize: 14, fontWeight: '600', color: '#818CF8' },
-  publishBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#111827', borderTopWidth: 1, borderTopColor: '#1E293B', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12 },
+  addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderColor: '#E2E8F0', borderStyle: 'dashed', borderRadius: 12, padding: 16, marginTop: 4 },
+  addItemBtnText: { fontSize: 14, fontWeight: '600', color: '#0891B2' },
+  publishBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12 },
   publishInfo: { gap: 2 },
-  publishCount: { fontSize: 15, fontWeight: '700', color: '#F1F5F9' },
+  publishCount: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   publishHint: { fontSize: 11, color: '#64748B' },
   publishBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#059669', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
   publishBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
-  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' },
-  modal: { backgroundColor: '#111827', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36, maxHeight: '90%' },
+  modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.45)' },
+  modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36, maxHeight: '90%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: '800', color: '#F1F5F9' },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
   fieldRow: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   fieldFlex: { flex: 1 },
   fieldWrap: { marginBottom: 14 },
   fieldLabel: { fontSize: 11, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 6 },
-  fieldInput: { fontSize: 15, color: '#F1F5F9', backgroundColor: '#0B0F1A', borderWidth: 1, borderColor: '#1E293B', borderRadius: 10, padding: 12 },
+  fieldInput: { fontSize: 15, color: '#0F172A', backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10, padding: 12 },
   availRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  itemErrText: { color: '#F87171', fontSize: 13, marginBottom: 12, textAlign: 'center' },
-  saveItemBtn: { backgroundColor: '#6366F1', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 4 },
+  itemErrText: { color: '#DC2626', fontSize: 13, marginBottom: 12, textAlign: 'center' },
+  saveItemBtn: { backgroundColor: '#0891B2', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 4 },
   saveItemBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });

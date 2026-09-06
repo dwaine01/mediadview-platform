@@ -8,15 +8,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../../src/store/authStore';
 
 const WS_NAV = [
-  { key: 'index', label: 'Dashboard', icon: 'grid' as const, path: '/workspace' },
-  { key: 'screens', label: 'Screens', icon: 'tv' as const, path: '/workspace/screens' },
-  { key: 'menus', label: 'Menus', icon: 'fast-food' as const, path: '/workspace/menus' },
-  { key: 'content', label: 'Content', icon: 'images' as const, path: '/workspace/content' },
+  { key: 'index', label: 'Panel', icon: 'grid' as const, path: '/workspace' },
+  { key: 'screens', label: 'Pantallas', icon: 'tv' as const, path: '/workspace/screens' },
+  { key: 'menus', label: 'Menús', icon: 'fast-food' as const, path: '/workspace/menus' },
+  { key: 'content', label: 'Contenido', icon: 'images' as const, path: '/workspace/content' },
   { key: 'playlists', label: 'Playlists', icon: 'list' as const, path: '/workspace/playlists' },
-  { key: 'schedules', label: 'Schedules', icon: 'calendar' as const, path: '/workspace/schedules' },
-  { key: 'users', label: 'Team', icon: 'people' as const, path: '/workspace/users' },
-  { key: 'billing', label: 'Billing', icon: 'card' as const, path: '/workspace/billing' },
-  { key: 'settings', label: 'Settings', icon: 'settings' as const, path: '/workspace/settings' },
+  { key: 'schedules', label: 'Horarios', icon: 'calendar' as const, path: '/workspace/schedules' },
+  { key: 'users', label: 'Equipo', icon: 'people' as const, path: '/workspace/users' },
+  { key: 'billing', label: 'Facturación', icon: 'card' as const, path: '/workspace/billing' },
+  { key: 'settings', label: 'Ajustes', icon: 'settings' as const, path: '/workspace/settings' },
 ];
 
 export default function WorkspaceLayout() {
@@ -54,14 +54,14 @@ export default function WorkspaceLayout() {
             <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>
             <View>
               <Text style={ws.brandName}>MediaView</Text>
-              <Text style={ws.brandSub}>Customer Workspace</Text>
+              <Text style={ws.brandSub}>Panel del Cliente</Text>
             </View>
           </View>
 
           {/* Nav */}
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={ws.navSection}>
-              <Text style={ws.navSectionLabel}>WORKSPACE</Text>
+              <Text style={ws.navSectionLabel}>MI NEGOCIO</Text>
               {WS_NAV.map(item => {
                 const active = activeKey === item.key;
                 return (
@@ -74,7 +74,7 @@ export default function WorkspaceLayout() {
                     <Ionicons
                       name={(item.icon + (active ? '' : '-outline')) as any}
                       size={19}
-                      color={active ? '#818CF8' : '#64748B'}
+                      color={active ? '#0891B2' : '#64748B'}
                     />
                     <Text style={[ws.navLabel, active && ws.navLabelActive]}>{item.label}</Text>
                   </TouchableOpacity>
@@ -115,7 +115,7 @@ export default function WorkspaceLayout() {
           <View style={ws.brandIcon}><Text style={ws.brandIconText}>MV</Text></View>
           <View>
             <Text style={ws.brandName}>MediaView</Text>
-            <Text style={ws.brandSub}>Customer Workspace</Text>
+            <Text style={ws.brandSub}>Panel del Cliente</Text>
           </View>
         </View>
         <TouchableOpacity onPress={handleLogout} style={ws.logoutBtn}>
@@ -142,9 +142,9 @@ export default function WorkspaceLayout() {
               <Ionicons
                 name={(item.icon + (active ? '' : '-outline')) as any}
                 size={22}
-                color={active ? '#818CF8' : '#64748B'}
+                color={active ? '#0891B2' : '#64748B'}
               />
-              <Text style={[ws.bottomNavLabel, active && { color: '#818CF8' }]}>{item.label}</Text>
+              <Text style={[ws.bottomNavLabel, active && { color: '#0891B2' }]}>{item.label}</Text>
             </TouchableOpacity>
           );
         })}
@@ -154,34 +154,34 @@ export default function WorkspaceLayout() {
 }
 
 const ws = StyleSheet.create({
-  root: { flex: 1, flexDirection: 'row', backgroundColor: '#0B0F1A' },
+  root: { flex: 1, flexDirection: 'column', backgroundColor: '#F8FAFC' },
 
   // Sidebar (web)
   sidebar: {
-    width: 240, backgroundColor: '#0F172A', borderRightWidth: 1,
-    borderRightColor: '#1E293B', paddingHorizontal: 14, paddingBottom: 16,
+    width: 240, backgroundColor: '#FFFFFF', borderRightWidth: 1,
+    borderRightColor: '#E2E8F0', paddingHorizontal: 14, paddingBottom: 16,
   },
   brand: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 8, paddingVertical: 14, marginBottom: 8 },
-  brandIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center' },
+  brandIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#0891B2', justifyContent: 'center', alignItems: 'center' },
   brandIconText: { fontSize: 14, fontWeight: '900', color: '#FFF' },
-  brandName: { fontSize: 15, fontWeight: '700', color: '#F1F5F9' },
+  brandName: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   brandSub: { fontSize: 10, color: '#64748B', marginTop: 1 },
   navSection: { paddingTop: 4 },
-  navSectionLabel: { fontSize: 10, fontWeight: '700', color: '#374151', letterSpacing: 1.5, paddingHorizontal: 12, marginBottom: 6 },
+  navSectionLabel: { fontSize: 10, fontWeight: '800', color: '#94A3B8', letterSpacing: 1.5, paddingHorizontal: 12, marginBottom: 6 },
   navItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginBottom: 2,
   },
-  navItemActive: { backgroundColor: 'rgba(99,102,241,0.12)' },
-  navLabel: { fontSize: 14, color: '#94A3B8', fontWeight: '500' },
-  navLabelActive: { color: '#818CF8', fontWeight: '600' },
+  navItemActive: { backgroundColor: 'rgba(6,182,212,0.10)' },
+  navLabel: { fontSize: 14, color: '#64748B', fontWeight: '500' },
+  navLabelActive: { color: '#0891B2', fontWeight: '600' },
   sidebarFooter: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingTop: 14, borderTopWidth: 1, borderTopColor: '#1E293B', marginTop: 8,
+    paddingTop: 14, borderTopWidth: 1, borderTopColor: '#E2E8F0', marginTop: 8,
   },
-  userAvatar: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#312E81', justifyContent: 'center', alignItems: 'center' },
-  userAvatarText: { fontSize: 14, fontWeight: '700', color: '#818CF8' },
-  userName: { fontSize: 13, fontWeight: '600', color: '#E2E8F0' },
+  userAvatar: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#CFFAFE', justifyContent: 'center', alignItems: 'center' },
+  userAvatarText: { fontSize: 14, fontWeight: '700', color: '#0891B2' },
+  userName: { fontSize: 13, fontWeight: '600', color: '#1E293B' },
   userEmail: { fontSize: 11, color: '#64748B' },
   main: { flex: 1, overflow: 'hidden' },
 
@@ -189,15 +189,15 @@ const ws = StyleSheet.create({
   mobileHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingBottom: 12,
-    backgroundColor: '#0F172A', borderBottomWidth: 1, borderBottomColor: '#1E293B',
+    backgroundColor: '#FFFFFF', borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
   },
   mobileBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoutBtn: { padding: 8 },
   bottomNav: {
-    flexDirection: 'row', backgroundColor: '#0F172A',
-    borderTopWidth: 1, borderTopColor: '#1E293B',
+    flexDirection: 'row', backgroundColor: '#FFFFFF',
+    borderTopWidth: 1, borderTopColor: '#E2E8F0',
     paddingTop: 8,
   },
-  bottomNavItem: { flex: 1, alignItems: 'center', paddingVertical: 6, gap: 3 },
+  bottomNavItem: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 8, gap: 3, minHeight: 48 },
   bottomNavLabel: { fontSize: 10, color: '#64748B', fontWeight: '600' },
 });

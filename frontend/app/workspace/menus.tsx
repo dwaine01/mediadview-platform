@@ -94,58 +94,58 @@ export default function WorkspaceMenus() {
         <ScrollView contentContainerStyle={[ms.content, { paddingBottom: insets.bottom + 24 }]}>
           <View style={ms.createHeader}>
             <TouchableOpacity onPress={() => setShowCreate(false)} style={ms.backBtn}>
-              <Ionicons name="arrow-back" size={20} color="#9CA3AF" />
+              <Ionicons name="arrow-back" size={20} color="#64748B" />
             </TouchableOpacity>
             <View>
-              <Text style={ms.pageTitle}>Create Menu</Text>
-              <Text style={ms.pageSub}>Choose how to start</Text>
+              <Text style={ms.pageTitle}>Crear Menú</Text>
+              <Text style={ms.pageSub}>Elige cómo empezar</Text>
             </View>
           </View>
 
-          {creating && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+          {creating && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
 
           {!creating && (
             <>
               {/* Path A: Start blank */}
               <TouchableOpacity style={ms.pathCard} onPress={createBlank}>
-                <View style={[ms.pathIcon, { backgroundColor: '#312E8122' }]}>
-                  <Ionicons name="create-outline" size={28} color="#818CF8" />
+                <View style={[ms.pathIcon, { backgroundColor: '#CFFAFE22' }]}>
+                  <Ionicons name="create-outline" size={28} color="#0891B2" />
                 </View>
                 <View style={ms.pathBody}>
-                  <Text style={ms.pathTitle}>Start from Scratch</Text>
-                  <Text style={ms.pathDesc}>Empty menu. Add items one by one with name, price, and photo.</Text>
+                  <Text style={ms.pathTitle}>Empezar de Cero</Text>
+                  <Text style={ms.pathDesc}>Menú vacío. Agrega productos uno por uno con nombre, precio y foto.</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#4B5563" />
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
               </TouchableOpacity>
 
               {/* Path B: Template */}
-              <Text style={ms.sectionLabel}>Or choose a template</Text>
+              <Text style={ms.sectionLabel}>O elige una plantilla</Text>
               {TEMPLATES.map(t => (
                 <TouchableOpacity key={t.id} style={ms.pathCard} onPress={() => createFromTemplate(t)}>
-                  <View style={[ms.pathIcon, { backgroundColor: '#0C4A2222' }]}>
-                    <Ionicons name={t.icon as any} size={24} color="#34D399" />
+                  <View style={[ms.pathIcon, { backgroundColor: '#D1FAE522' }]}>
+                    <Ionicons name={t.icon as any} size={24} color="#059669" />
                   </View>
                   <View style={ms.pathBody}>
                     <Text style={ms.pathTitle}>{t.name} Template</Text>
                     <Text style={ms.pathDesc}>{t.items.length} sample items · edit and add yours</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#4B5563" />
+                  <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
                 </TouchableOpacity>
               ))}
 
               {/* Path C: Import image */}
               <TouchableOpacity
                 style={[ms.pathCard, { opacity: 0.6 }]}
-                onPress={() => Alert.alert('Coming Soon', 'Image import with AI extraction coming soon. Use templates or start blank for now.')}
+                onPress={() => Alert.alert('Coming Pronto', 'Image import with AI extraction coming soon. Use templates or start blank for now.')}
               >
-                <View style={[ms.pathIcon, { backgroundColor: '#431407' }]}>
-                  <Ionicons name="image-outline" size={28} color="#FB923C" />
+                <View style={[ms.pathIcon, { backgroundColor: '#FFEDD5' }]}>
+                  <Ionicons name="image-outline" size={28} color="#EA580C" />
                 </View>
                 <View style={ms.pathBody}>
-                  <Text style={ms.pathTitle}>Import Image / PDF</Text>
+                  <Text style={ms.pathTitle}>Importar Imagen / PDF</Text>
                   <Text style={ms.pathDesc}>Upload your existing menu image. AI extracts items for you to review.</Text>
                 </View>
-                <View style={ms.comingSoon}><Text style={ms.comingSoonText}>Soon</Text></View>
+                <View style={ms.comingPronto}><Text style={ms.comingProntoText}>Pronto</Text></View>
               </TouchableOpacity>
             </>
           )}
@@ -159,26 +159,26 @@ export default function WorkspaceMenus() {
       <ScrollView contentContainerStyle={[ms.content, { paddingBottom: insets.bottom + 24 }]}>
         <View style={ms.header}>
           <View>
-            <Text style={ms.pageTitle}>Menus</Text>
-            <Text style={ms.pageSub}>{menus.length} menu{menus.length !== 1 ? 's' : ''}</Text>
+            <Text style={ms.pageTitle}>Menús</Text>
+            <Text style={ms.pageSub}>{menus.length} menú{menus.length !== 1 ? 's' : ''}</Text>
           </View>
           <TouchableOpacity style={ms.addBtn} onPress={() => setShowCreate(true)}>
             <Ionicons name="add" size={16} color="#fff" />
-            <Text style={ms.addBtnText}>Create Menu</Text>
+            <Text style={ms.addBtnText}>Crear Menú</Text>
           </TouchableOpacity>
         </View>
 
-        {loading && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+        {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
         {!!error && !loading && <Text style={ms.errorText}>{error}</Text>}
 
         {!loading && menus.length === 0 && !error && (
           <View style={ms.empty}>
-            <Ionicons name="fast-food-outline" size={40} color="#374151" />
-            <Text style={ms.emptyTitle}>No menus yet</Text>
-            <Text style={ms.emptyText}>Create a menu to publish it to your screens.</Text>
+            <Ionicons name="fast-food-outline" size={40} color="#CBD5E1" />
+            <Text style={ms.emptyTitle}>Todavía no tienes menús</Text>
+            <Text style={ms.emptyText}>Crea un menú para publicarlo en tus pantallas.</Text>
             <TouchableOpacity style={[ms.addBtn, { marginTop: 16 }]} onPress={() => setShowCreate(true)}>
               <Ionicons name="add" size={16} color="#fff" />
-              <Text style={ms.addBtnText}>Create First Menu</Text>
+              <Text style={ms.addBtnText}>Crear Primer Menú</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -190,7 +190,7 @@ export default function WorkspaceMenus() {
               onPress={() => router.push({ pathname: '/workspace/menu-edit', params: { id: m.id } })}
             >
               <View style={ms.menuIcon}>
-                <Ionicons name="fast-food" size={20} color="#818CF8" />
+                <Ionicons name="fast-food" size={20} color="#0891B2" />
               </View>
               <View style={ms.menuBody}>
                 <Text style={ms.menuName}>{m.name}</Text>
@@ -199,15 +199,15 @@ export default function WorkspaceMenus() {
                   {m.source ? ` · ${m.source}` : ''}
                 </Text>
               </View>
-              <View style={[ms.statusBadge, { backgroundColor: m.status === 'published' ? '#064E3B' : '#1C1917' }]}>
-                <Text style={{ color: m.status === 'published' ? '#34D399' : '#9CA3AF', fontSize: 10, fontWeight: '700' }}>
+              <View style={[ms.statusBadge, { backgroundColor: m.status === 'published' ? '#D1FAE5' : '#F8FAFC' }]}>
+                <Text style={{ color: m.status === 'published' ? '#059669' : '#64748B', fontSize: 10, fontWeight: '700' }}>
                   {m.status === 'published' ? '● LIVE' : 'DRAFT'}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#4B5563" />
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
             </TouchableOpacity>
             <TouchableOpacity style={ms.deleteBtn} onPress={() => deleteMenu(m)}>
-              <Ionicons name="trash-outline" size={16} color="#F87171" />
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
             </TouchableOpacity>
           </View>
         ))}
@@ -217,33 +217,33 @@ export default function WorkspaceMenus() {
 }
 
 const ms = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0F1A' },
+  root: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20, gap: 12 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   createHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 24 },
-  backBtn: { padding: 8, backgroundColor: '#111827', borderRadius: 10 },
-  pageTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9' },
+  backBtn: { padding: 8, backgroundColor: '#FFFFFF', borderRadius: 10 },
+  pageTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
   pageSub: { fontSize: 13, color: '#64748B', marginTop: 2 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#6366F1', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#0891B2', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  errorText: { color: '#F87171', fontSize: 13, padding: 16 },
+  errorText: { color: '#DC2626', fontSize: 13, padding: 16 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#9CA3AF' },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#64748B' },
   emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center', maxWidth: 280 },
-  pathCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 14, padding: 16 },
+  pathCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, padding: 16 },
   pathIcon: { width: 52, height: 52, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
   pathBody: { flex: 1, gap: 3 },
-  pathTitle: { fontSize: 15, fontWeight: '700', color: '#F1F5F9' },
+  pathTitle: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   pathDesc: { fontSize: 12, color: '#64748B', lineHeight: 18 },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#4B5563', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8, marginBottom: -4 },
-  comingSoon: { backgroundColor: '#1C1917', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  comingSoonText: { color: '#D97706', fontSize: 10, fontWeight: '700' },
-  menuCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 14 },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#94A3B8', textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 8, marginBottom: -4 },
+  comingPronto: { backgroundColor: '#F8FAFC', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  comingProntoText: { color: '#D97706', fontSize: 10, fontWeight: '700' },
+  menuCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14 },
   menuCardMain: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 14, gap: 12 },
-  menuIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#312E8122', justifyContent: 'center', alignItems: 'center' },
+  menuIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#CFFAFE22', justifyContent: 'center', alignItems: 'center' },
   menuBody: { flex: 1, gap: 2 },
-  menuName: { fontSize: 14, fontWeight: '700', color: '#F1F5F9' },
+  menuName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   menuMeta: { fontSize: 12, color: '#64748B' },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  deleteBtn: { padding: 14, borderLeftWidth: 1, borderLeftColor: '#1E293B' },
+  deleteBtn: { padding: 14, borderLeftWidth: 1, borderLeftColor: '#E2E8F0' },
 });

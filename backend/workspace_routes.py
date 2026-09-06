@@ -6,7 +6,7 @@ All data is strictly scoped to user.organization_id — NO cross-tenant leakage.
 from __future__ import annotations
 
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -103,6 +103,14 @@ def create_workspace_routes(db, get_current_user, require_admin):
             await db.devices.count_documents({"screen_id": {"$in": org_screen_ids}})
             if org_screen_ids else 0
         )
+        # Online = heartbeat within the last 2 minutes (same window the admin panel uses).
+        online_count = (
+            await db.devices.count_documents({
+                "screen_id": {"$in": org_screen_ids},
+                "last_heartbeat": {"$gte": datetime.utcnow() - timedelta(minutes=2)},
+            })
+            if org_screen_ids else 0
+        )
 
         return {
             "organization": _ser(org),
@@ -113,6 +121,8 @@ def create_workspace_routes(db, get_current_user, require_admin):
                 "screens": screen_count,
                 "users": user_count,
                 "devices": device_count,
+                "devices_online": online_count,
+                "devices_offline": max(0, device_count - online_count),
             },
             "current_user": {
                 "id": current_user.get("id"),

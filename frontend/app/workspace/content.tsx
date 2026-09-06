@@ -28,17 +28,17 @@ export default function WorkspaceContent() {
 
   return (
     <ScrollView style={sc.root} contentContainerStyle={[sc.content, { paddingBottom: insets.bottom + 24 }]}>
-      <Text style={sc.pageTitle}>Content / Media</Text>
-      <Text style={sc.pageSub}>{media.length} file{media.length !== 1 ? 's' : ''} in your media library</Text>
+      <Text style={sc.pageTitle}>Contenido / Medios</Text>
+      <Text style={sc.pageSub}>{media.length} archivo{media.length !== 1 ? 's' : ''} en tu biblioteca</Text>
 
-      {loading && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+      {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
       {error !== '' && !loading && <Text style={sc.error}>{error}</Text>}
 
       {!loading && media.length === 0 && !error && (
         <View style={sc.empty}>
-          <Ionicons name="images-outline" size={40} color="#374151" />
-          <Text style={sc.emptyTitle}>Media library is empty</Text>
-          <Text style={sc.emptyText}>Upload images or videos to start creating playlists and content schedules.</Text>
+          <Ionicons name="images-outline" size={40} color="#CBD5E1" />
+          <Text style={sc.emptyTitle}>Tu biblioteca de medios está vacía</Text>
+          <Text style={sc.emptyText}>Sube imágenes o videos para empezar a crear playlists y programar contenido.</Text>
         </View>
       )}
 
@@ -48,8 +48,8 @@ export default function WorkspaceContent() {
         return (
           <View key={m.id || i} style={sc.card}>
             <View style={sc.cardLeft}>
-              <View style={[sc.mimeBox, { backgroundColor: isImg ? '#312E8122' : '#1E3A5F44' }]}>
-                <Ionicons name={isImg ? 'image' : 'videocam'} size={20} color={isImg ? '#818CF8' : '#22D3EE'} />
+              <View style={[sc.mimeBox, { backgroundColor: isImg ? '#CFFAFE22' : '#ECFEFF44' }]}>
+                <Ionicons name={isImg ? 'image' : 'videocam'} size={20} color={isImg ? '#0891B2' : '#06B6D4'} />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={sc.fileName} numberOfLines={1}>{m.filename || m.name || 'File'}</Text>
@@ -65,18 +65,18 @@ export default function WorkspaceContent() {
 }
 
 const sc = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0F1A' },
+  root: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20, gap: 12 },
-  pageTitle: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', marginBottom: 4 },
+  pageTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
   pageSub: { fontSize: 13, color: '#64748B', marginBottom: 8 },
-  error: { color: '#F87171', fontSize: 13, padding: 16 },
+  error: { color: '#DC2626', fontSize: 13, padding: 16 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#9CA3AF' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#64748B' },
   emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center', maxWidth: 280 },
-  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, padding: 14, gap: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, gap: 12 },
   cardLeft: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   mimeBox: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
-  fileName: { fontSize: 13, fontWeight: '600', color: '#F1F5F9' },
+  fileName: { fontSize: 13, fontWeight: '600', color: '#0F172A' },
   fileMeta: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  date: { fontSize: 11, color: '#4B5563' },
+  date: { fontSize: 11, color: '#94A3B8' },
 });

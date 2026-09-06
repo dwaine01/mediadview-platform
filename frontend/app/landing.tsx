@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Dimensions, Platform, ActivityIndicator,
+  Dimensions, Platform, ActivityIndicator, Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -11,11 +11,29 @@ import type { Plan } from '../src/types';
 
 const { width: SW } = Dimensions.get('window');
 const IS_WIDE = Platform.OS === 'web' && SW > 860;
+const MEDIA_BASE = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+// Real MediaView screen designs, rendered inside the device frame below the hero.
+const SHOTS = [
+  { file: 'mv-rest-pizza.webp', label: 'Restaurantes' },
+  { file: 'mv-ice-001.webp', label: 'Heladerías' },
+  { file: 'mv-market-001.webp', label: 'Supermercados' },
+  { file: 'mv-auto-001.webp', label: 'Talleres' },
+  { file: 'mv-church-001.webp', label: 'Iglesias' },
+  { file: 'mv-gym-001.webp', label: 'Gimnasios' },
+];
+
+const ENVS = [
+  { file: 'mv-hero-002-sm.webp', label: 'Muro de menús en restaurante' },
+  { file: 'mv-env-icecream-sm.webp', label: 'Pantalla vertical · heladería' },
+  { file: 'mv-env-auto-sm.webp', label: 'Sala de espera de taller' },
+  { file: 'mv-env-retail-sm.webp', label: 'Vidriera comercial' },
+];
 
 const FEATURES = [
   {
     icon: 'tv' as const,
-    color: '#6366F1',
+    color: '#06B6D4',
     title: 'Pantallas Conectadas',
     desc: 'Conecta cualquier TV o monitor en segundos con un código de 6 dígitos.',
   },
@@ -41,7 +59,7 @@ const FEATURES = [
 
 const PLAN_COLORS: Record<string, string> = {
   free: '#6B7280',
-  starter: '#6366F1',
+  starter: '#06B6D4',
   pro: '#22D3EE',
   enterprise: '#F59E0B',
 };
@@ -51,6 +69,13 @@ export default function LandingPage() {
   const insets = useSafeAreaInsets();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [loadingPlans, setLoadingPlans] = useState(true);
+  const [shot, setShot] = useState(0);
+
+  // Rotate the screen preview so the hero feels alive (paused on manual pick).
+  useEffect(() => {
+    const t = setInterval(() => setShot(p => (p + 1) % SHOTS.length), 4000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     plansAPI.listPublic()
@@ -81,7 +106,7 @@ export default function LandingPage() {
         {/* ── HERO ── */}
         <View style={s.hero}>
           <View style={s.heroBadge}>
-            <Ionicons name="flash" size={13} color="#6366F1" />
+            <Ionicons name="flash" size={13} color="#06B6D4" />
             <Text style={s.heroBadgeText}>Digital Signage para Restaurantes y Negocios</Text>
           </View>
           <Text style={s.heroTitle}>
@@ -106,7 +131,7 @@ export default function LandingPage() {
               onPress={() => router.push('/(auth)/signup')}
               activeOpacity={0.85}
             >
-              <Ionicons name="play-circle" size={16} color="#6366F1" />
+              <Ionicons name="play-circle" size={16} color="#06B6D4" />
               <Text style={s.heroSecondaryText}>Prueba 14 días gratis</Text>
             </TouchableOpacity>
           </View>
@@ -125,7 +150,48 @@ export default function LandingPage() {
           </View>
         </View>
 
-        {/* ── FEATURES ── */}
+        {/* ── PRODUCT VISUAL: real MediaView screens on a real TV ── */}
+        <View style={s.showcase}>
+          <View style={s.tvFrame}>
+            <Image
+              source={{ uri: `${MEDIA_BASE}/api/web/assets/${SHOTS[shot].file}` }}
+              style={s.tvImage}
+              resizeMode="contain"
+            />
+          </View>
+          <View style={s.tvStand} />
+          <View style={s.tvFoot} />
+          <View style={s.chipRow}>
+            {SHOTS.map((sh, i) => (
+              <TouchableOpacity
+                key={sh.file}
+                style={[s.chip, i === shot && s.chipOn]}
+                onPress={() => setShot(i)}
+                activeOpacity={0.8}
+              >
+                <Text style={[s.chipText, i === shot && s.chipTextOn]}>{sh.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* ── ENVIRONMENTS ── */}
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>INSTALACIONES REALES</Text>
+          <Text style={s.sectionTitle}>Así se ve MediaView{'\n'}dentro de un negocio</Text>
+          <View style={[s.envGrid, IS_WIDE && s.envGridWide]}>
+            {ENVS.map(env => (
+              <View key={env.file} style={[s.envCard, IS_WIDE && s.envCardWide]}>
+                <Image
+                  source={{ uri: `${MEDIA_BASE}/api/web/assets/${env.file}` }}
+                  style={s.envImage}
+                  resizeMode="cover"
+                />
+                <Text style={s.envCap}>{env.label}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
         <View style={s.section}>
           <Text style={s.sectionLabel}>CARACTERÍSTICAS</Text>
           <Text style={s.sectionTitle}>Todo lo que necesitas para{'\n'}gestionar tus pantallas</Text>
@@ -148,7 +214,7 @@ export default function LandingPage() {
           <Text style={s.sectionTitle}>En 3 pasos, listo para usarse</Text>
           <View style={s.steps}>
             {[
-              { n: '01', icon: 'add-circle' as const, color: '#6366F1', t: 'Crea tu cuenta', d: 'Regístrate gratis, elige tu plan y configura tu negocio en minutos.' },
+              { n: '01', icon: 'add-circle' as const, color: '#06B6D4', t: 'Crea tu cuenta', d: 'Regístrate gratis, elige tu plan y configura tu negocio en minutos.' },
               { n: '02', icon: 'tv' as const, color: '#22D3EE', t: 'Conecta tu pantalla', d: 'Ingresa el código de 6 dígitos que aparece en tu TV. Listo.' },
               { n: '03', icon: 'fast-food' as const, color: '#10B981', t: 'Publica tu menú', d: 'Crea tu menú digital con imágenes y precios. Se actualiza al instante.' },
             ].map((step, i) => (
@@ -174,7 +240,7 @@ export default function LandingPage() {
 
           {loadingPlans && (
             <View style={s.planLoading}>
-              <ActivityIndicator color="#6366F1" />
+              <ActivityIndicator color="#06B6D4" />
             </View>
           )}
 
@@ -192,7 +258,7 @@ export default function LandingPage() {
                       <Text style={s.planPopularText}>Más Popular</Text>
                     </View>
                   )}
-                  <Text style={[s.planName, { color: PLAN_COLORS[plan.plan_id] || '#6366F1' }]}>
+                  <Text style={[s.planName, { color: PLAN_COLORS[plan.plan_id] || '#06B6D4' }]}>
                     {plan.display_name}
                   </Text>
                   <View style={s.planPriceRow}>
@@ -235,7 +301,34 @@ export default function LandingPage() {
 }
 
 const s = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#050816' },
+  /* ── Product showcase (device frame + real screen artwork) ── */
+  showcase: { paddingHorizontal: 20, paddingBottom: 44, width: '100%', maxWidth: 900, alignSelf: 'center' },
+  tvFrame: {
+    width: '100%', aspectRatio: 16 / 9.6, backgroundColor: '#0B1220',
+    borderRadius: 16, padding: 12, overflow: 'hidden',
+  },
+  tvImage: { width: '100%', height: '100%', borderRadius: 4, backgroundColor: '#05080F' },
+  tvStand: { width: 110, height: 12, backgroundColor: '#0B1220', alignSelf: 'center' },
+  tvFoot: { width: 200, height: 7, backgroundColor: '#0B1220', borderRadius: 6, alignSelf: 'center' },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginTop: 20 },
+  chip: {
+    paddingVertical: 8, paddingHorizontal: 14, borderRadius: 100,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', minHeight: 36, justifyContent: 'center',
+  },
+  chipOn: { backgroundColor: '#06B6D4', borderColor: '#06B6D4' },
+  chipText: { fontSize: 12.5, fontWeight: '600', color: '#94A3B8' },
+  chipTextOn: { color: '#04212B', fontWeight: '800' },
+
+  /* ── Real environments gallery ── */
+  envGrid: { gap: 14, marginTop: 24 },
+  envGridWide: { flexDirection: 'row', flexWrap: 'wrap' },
+  envCard: { borderRadius: 14, overflow: 'hidden', backgroundColor: '#16233B' },
+  envCardWide: { flexBasis: '48%', flexGrow: 1 },
+  envImage: { width: '100%', aspectRatio: 4 / 3 },
+  envCap: { fontSize: 12.5, fontWeight: '700', color: '#E2E8F0', padding: 14 },
+
+
+  root: { flex: 1, backgroundColor: '#0F172A' },
   nav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: IS_WIDE ? 48 : 20, paddingVertical: 16,
@@ -244,7 +337,7 @@ const s = StyleSheet.create({
   navBrand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   navLogo: {
     width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#6366F1', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#06B6D4', justifyContent: 'center', alignItems: 'center',
   },
   navLogoText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   navName: { fontSize: 18, fontWeight: '800', color: '#F1F5F9' },
@@ -252,7 +345,7 @@ const s = StyleSheet.create({
   navLogin: { paddingVertical: 8, paddingHorizontal: 16 },
   navLoginText: { fontSize: 14, color: '#94A3B8', fontWeight: '600' },
   navCta: {
-    backgroundColor: '#6366F1', paddingVertical: 9, paddingHorizontal: 18,
+    backgroundColor: '#06B6D4', paddingVertical: 9, paddingHorizontal: 18,
     borderRadius: 10,
   },
   navCtaText: { fontSize: 14, fontWeight: '700', color: '#fff' },
@@ -266,15 +359,15 @@ const s = StyleSheet.create({
   },
   heroBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#6366F115', borderWidth: 1, borderColor: '#6366F130',
+    backgroundColor: '#06B6D415', borderWidth: 1, borderColor: '#06B6D430',
     paddingVertical: 6, paddingHorizontal: 14, borderRadius: 20, marginBottom: 24,
   },
-  heroBadgeText: { fontSize: 12, color: '#818CF8', fontWeight: '600' },
+  heroBadgeText: { fontSize: 12, color: '#67E8F9', fontWeight: '600' },
   heroTitle: {
     fontSize: IS_WIDE ? 52 : 32, fontWeight: '900', color: '#F1F5F9',
     textAlign: 'center', letterSpacing: -1.5, lineHeight: IS_WIDE ? 60 : 40, marginBottom: 20,
   },
-  heroTitleAccent: { color: '#6366F1' },
+  heroTitleAccent: { color: '#06B6D4' },
   heroSub: {
     fontSize: IS_WIDE ? 17 : 15, color: '#94A3B8', textAlign: 'center',
     lineHeight: IS_WIDE ? 26 : 22, maxWidth: 560, marginBottom: 36,
@@ -282,17 +375,17 @@ const s = StyleSheet.create({
   heroCtas: { flexDirection: IS_WIDE ? 'row' : 'column', gap: 12, marginBottom: 48, width: '100%', maxWidth: 440, alignSelf: 'center' },
   heroPrimary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#6366F1', paddingVertical: 16, paddingHorizontal: 28,
+    backgroundColor: '#06B6D4', paddingVertical: 16, paddingHorizontal: 28,
     borderRadius: 14, flex: IS_WIDE ? 1 : undefined,
   },
   heroPrimaryText: { fontSize: 15, fontWeight: '700', color: '#fff' },
   heroSecondary: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    backgroundColor: '#6366F115', borderWidth: 1.5, borderColor: '#6366F1',
+    backgroundColor: '#06B6D415', borderWidth: 1.5, borderColor: '#06B6D4',
     paddingVertical: 16, paddingHorizontal: 28, borderRadius: 14,
     flex: IS_WIDE ? 1 : undefined,
   },
-  heroSecondaryText: { fontSize: 15, fontWeight: '700', color: '#6366F1' },
+  heroSecondaryText: { fontSize: 15, fontWeight: '700', color: '#06B6D4' },
   heroStats: {
     flexDirection: 'row', gap: IS_WIDE ? 48 : 24,
     borderTopWidth: 1, borderTopColor: '#1E293B', paddingTop: 32, width: '100%', maxWidth: 560, justifyContent: 'center',
@@ -303,8 +396,8 @@ const s = StyleSheet.create({
 
   // Sections
   section: { paddingHorizontal: IS_WIDE ? 48 : 24, paddingVertical: IS_WIDE ? 72 : 48 },
-  howSection: { backgroundColor: '#0D1225' },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#6366F1', letterSpacing: 2, marginBottom: 12 },
+  howSection: { backgroundColor: '#16233B' },
+  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#06B6D4', letterSpacing: 2, marginBottom: 12 },
   sectionTitle: {
     fontSize: IS_WIDE ? 36 : 26, fontWeight: '800', color: '#F1F5F9',
     letterSpacing: -0.5, marginBottom: 8,
@@ -314,7 +407,7 @@ const s = StyleSheet.create({
   // Features
   featureGrid: { gap: 16, marginTop: 32 },
   featureGridWide: { flexDirection: 'row', flexWrap: 'wrap' },
-  featureCard: { backgroundColor: '#0D1225', borderWidth: 1, borderColor: '#1E293B', borderRadius: 16, padding: 24 },
+  featureCard: { backgroundColor: '#16233B', borderWidth: 1, borderColor: '#1E293B', borderRadius: 16, padding: 24 },
   featureCardWide: { flex: 1, minWidth: 220 },
   featureIcon: { width: 48, height: 48, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
   featureTitle: { fontSize: 16, fontWeight: '700', color: '#F1F5F9', marginBottom: 8 },
@@ -337,11 +430,11 @@ const s = StyleSheet.create({
   planRow: { gap: 12, marginBottom: 24 },
   planRowWide: { flexDirection: 'row', flexWrap: 'wrap' },
   planCard: {
-    backgroundColor: '#0D1225', borderWidth: 1, borderColor: '#1E293B',
+    backgroundColor: '#16233B', borderWidth: 1, borderColor: '#1E293B',
     borderRadius: 16, padding: 20, position: 'relative',
     ...(IS_WIDE ? { flex: 1, minWidth: 180 } : {}),
   },
-  planCardHighlight: { borderColor: '#6366F1', borderWidth: 2 },
+  planCardHighlight: { borderColor: '#06B6D4', borderWidth: 2 },
   planPopular: {
     position: 'absolute', top: -11, alignSelf: 'center',
     paddingHorizontal: 12, paddingVertical: 3, borderRadius: 20,
@@ -354,19 +447,19 @@ const s = StyleSheet.create({
   planScreens: { fontSize: 11, color: '#64748B', marginBottom: 4 },
   planTrial: { fontSize: 11, color: '#34D399', fontWeight: '600' },
   viewAllPlans: { alignItems: 'center', paddingVertical: 14, borderWidth: 1, borderColor: '#1E293B', borderRadius: 12 },
-  viewAllText: { fontSize: 14, color: '#818CF8', fontWeight: '600' },
+  viewAllText: { fontSize: 14, color: '#67E8F9', fontWeight: '600' },
 
   // Bottom CTA
   ctaBottom: {
     margin: IS_WIDE ? 48 : 24, borderRadius: 24,
-    backgroundColor: '#0D1225', borderWidth: 1, borderColor: '#6366F130',
+    backgroundColor: '#16233B', borderWidth: 1, borderColor: '#06B6D430',
     padding: IS_WIDE ? 64 : 32, alignItems: 'center',
   },
   ctaTitle: { fontSize: IS_WIDE ? 36 : 26, fontWeight: '900', color: '#F1F5F9', textAlign: 'center', marginBottom: 12 },
   ctaSub: { fontSize: 14, color: '#94A3B8', textAlign: 'center', maxWidth: 400, marginBottom: 32, lineHeight: 22 },
   ctaBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#6366F1', paddingVertical: 18, paddingHorizontal: 36,
+    backgroundColor: '#06B6D4', paddingVertical: 18, paddingHorizontal: 36,
     borderRadius: 14, marginBottom: 16,
   },
   ctaBtnText: { fontSize: 16, fontWeight: '700', color: '#fff' },

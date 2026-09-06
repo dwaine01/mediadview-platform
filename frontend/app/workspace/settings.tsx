@@ -15,7 +15,7 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-export default function WorkspaceSettings() {
+export default function WorkspaceAjustes() {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const [ctx, setCtx] = useState<WorkspaceContext | null>(null);
@@ -35,36 +35,36 @@ export default function WorkspaceSettings() {
 
   return (
     <ScrollView style={st.root} contentContainerStyle={[st.content, { paddingBottom: insets.bottom + 24 }]}>
-      <Text style={st.title}>Settings</Text>
-      {loading && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+      <Text style={st.title}>Ajustes</Text>
+      {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
       {error !== '' && !loading && <Text style={st.error}>{error}</Text>}
 
       {!loading && (
         <>
-          {/* Organization */}
+          {/* Organización */}
           {org && (
             <View style={st.section}>
-              <Text style={st.sectionTitle}>Organization</Text>
-              <InfoRow label="Name" value={org.name} />
-              <InfoRow label="Slug" value={org.slug} />
-              <InfoRow label="Status" value={org.status} />
-              <InfoRow label="Created" value={fmtDate(org.created_at)} />
+              <Text style={st.sectionTitle}>Organización</Text>
+              <InfoRow label="Nombre" value={org.name} />
+              <InfoRow label="Identificador" value={org.slug} />
+              <InfoRow label="Estado" value={org.status} />
+              <InfoRow label="Creado" value={fmtDate(org.created_at)} />
             </View>
           )}
 
           {/* Profile */}
           <View style={st.section}>
-            <Text style={st.sectionTitle}>Your Profile</Text>
-            <InfoRow label="Name" value={user?.name || ''} />
-            <InfoRow label="Email" value={user?.email || ''} />
-            <InfoRow label="Role" value={(user?.rbac_role || user?.role || '').replace(/_/g, ' ')} />
+            <Text style={st.sectionTitle}>Tu Perfil</Text>
+            <InfoRow label="Nombre" value={user?.name || ''} />
+            <InfoRow label="Correo" value={user?.email || ''} />
+            <InfoRow label="Rol" value={(user?.rbac_role || user?.role || '').replace(/_/g, ' ')} />
           </View>
 
           <View style={st.contactNote}>
             <Ionicons name="information-circle-outline" size={16} color="#64748B" />
             <Text style={st.contactText}>
-              To update organization details or change your password, contact{' '}
-              <Text style={{ color: '#818CF8' }}>support@mediadview.com</Text>
+              Para actualizar los datos de tu organización o cambiar tu contraseña, escribe a{' '}
+              <Text style={{ color: '#0891B2' }}>support@mediadview.com</Text>
             </Text>
           </View>
         </>
@@ -74,13 +74,13 @@ export default function WorkspaceSettings() {
 }
 
 const st = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0F1A' }, content: { padding: 20, gap: 16 },
-  title: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', marginBottom: 4 },
-  error: { color: '#F87171', fontSize: 13, padding: 16 },
-  section: { backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 14, padding: 16 },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#94A3B8', marginBottom: 12, letterSpacing: 0.5 },
-  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#1A2234' },
-  rowLabel: { fontSize: 13, color: '#64748B', fontWeight: '500' }, rowValue: { fontSize: 13, color: '#D1D5DB', fontWeight: '600' },
-  contactNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, padding: 14 },
+  root: { flex: 1, backgroundColor: '#F8FAFC' }, content: { padding: 20, gap: 16 },
+  title: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
+  error: { color: '#DC2626', fontSize: 13, padding: 16 },
+  section: { backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 14, padding: 16 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#64748B', marginBottom: 12, letterSpacing: 0.5 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  rowLabel: { fontSize: 13, color: '#64748B', fontWeight: '500' }, rowValue: { fontSize: 13, color: '#334155', fontWeight: '600' },
+  contactNote: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14 },
   contactText: { fontSize: 13, color: '#64748B', flex: 1, lineHeight: 18 },
 });

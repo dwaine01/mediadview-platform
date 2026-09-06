@@ -50,6 +50,8 @@ export interface WorkspaceContext {
     screens: number;
     users: number;
     devices: number;
+    devices_online?: number;
+    devices_offline?: number;
   };
   current_user: {
     id: string;

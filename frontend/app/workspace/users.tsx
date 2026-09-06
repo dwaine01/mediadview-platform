@@ -22,13 +22,13 @@ export default function WorkspaceUsers() {
 
   return (
     <ScrollView style={su.root} contentContainerStyle={[su.content, { paddingBottom: insets.bottom + 24 }]}>
-      <Text style={su.title}>Team</Text>
-      <Text style={su.sub}>{users.length} team member{users.length !== 1 ? 's' : ''}</Text>
-      {loading && <ActivityIndicator color="#6366F1" style={{ marginTop: 40 }} />}
+      <Text style={su.title}>Equipo</Text>
+      <Text style={su.sub}>{users.length} miembro{users.length !== 1 ? 's' : ''} del equipo</Text>
+      {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
       {error !== '' && !loading && <Text style={su.error}>{error}</Text>}
       {!loading && users.length === 0 && !error && (
-        <View style={su.empty}><Ionicons name="people-outline" size={40} color="#374151" />
-          <Text style={su.emptyTitle}>No team members</Text><Text style={su.emptyText}>Invite team members to collaborate in your workspace.</Text>
+        <View style={su.empty}><Ionicons name="people-outline" size={40} color="#CBD5E1" />
+          <Text style={su.emptyTitle}>Todavía no hay miembros del equipo</Text><Text style={su.emptyText}>Invita a tu equipo a colaborar en tu workspace.</Text>
         </View>
       )}
       {users.map((u, i) => {
@@ -52,16 +52,16 @@ export default function WorkspaceUsers() {
 }
 
 const su = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B0F1A' }, content: { padding: 20, gap: 12 },
-  title: { fontSize: 22, fontWeight: '800', color: '#F1F5F9', marginBottom: 4 }, sub: { fontSize: 13, color: '#64748B', marginBottom: 8 },
-  error: { color: '#F87171', fontSize: 13, padding: 16 },
+  root: { flex: 1, backgroundColor: '#F8FAFC' }, content: { padding: 20, gap: 12 },
+  title: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 4 }, sub: { fontSize: 13, color: '#64748B', marginBottom: 8 },
+  error: { color: '#DC2626', fontSize: 13, padding: 16 },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 12 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#9CA3AF' }, emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center', maxWidth: 280 },
-  card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#111827', borderWidth: 1, borderColor: '#1E293B', borderRadius: 12, padding: 14 },
-  avatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#312E81', justifyContent: 'center', alignItems: 'center' },
-  avatarText: { fontSize: 16, fontWeight: '700', color: '#818CF8' },
-  name: { fontSize: 14, fontWeight: '600', color: '#F1F5F9' }, email: { fontSize: 11, color: '#64748B', marginTop: 2 },
-  roleBadge: { backgroundColor: '#1F2937', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, alignSelf: 'flex-end' },
-  roleText: { fontSize: 10, color: '#9CA3AF', fontWeight: '600' },
-  joinedDate: { fontSize: 10, color: '#4B5563', textAlign: 'right', marginTop: 3 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#64748B' }, emptyText: { fontSize: 13, color: '#64748B', textAlign: 'center', maxWidth: 280 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14 },
+  avatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#CFFAFE', justifyContent: 'center', alignItems: 'center' },
+  avatarText: { fontSize: 16, fontWeight: '700', color: '#0891B2' },
+  name: { fontSize: 14, fontWeight: '600', color: '#0F172A' }, email: { fontSize: 11, color: '#64748B', marginTop: 2 },
+  roleBadge: { backgroundColor: '#F1F5F9', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, alignSelf: 'flex-end' },
+  roleText: { fontSize: 10, color: '#64748B', fontWeight: '600' },
+  joinedDate: { fontSize: 10, color: '#94A3B8', textAlign: 'right', marginTop: 3 },
 });

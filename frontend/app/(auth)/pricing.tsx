@@ -14,9 +14,9 @@ const CARD_W = Math.min(SW - 48, 320);
 
 const PLAN_COLORS: Record<string, string> = {
   free: '#64748B',
-  starter: '#6366F1',
+  starter: '#0E7490',
   pro: '#06B6D4',
-  enterprise: '#F59E0B',
+  enterprise: '#D97706',
 };
 
 function calcMonthly(plan: Plan, screens: number): number {

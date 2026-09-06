@@ -81,8 +81,10 @@ nav.scrolled .lang-toggle{border-color:var(--border-mid);color:var(--text-dark)}
 nav.scrolled .nav-toggle span{background:var(--text-dark)}
 .nav-inner{max-width:1280px;margin:0 auto;padding:0 40px;display:flex;justify-content:flex-start;align-items:center;width:100%;position:relative}
 .nav-logo{font-size:22px;font-weight:900;color:var(--white);letter-spacing:-.5px;margin-right:auto}
-.nav-links{display:flex;gap:32px;align-items:center}
-.nav-links a{font-size:14px;color:rgba(255,255,255,.8);font-weight:500;transition:color .2s}
+nav.scrolled .nav-logo .logo-light{display:none!important}
+nav.scrolled .nav-logo .logo-dark{display:block!important}
+.nav-links{display:flex;gap:22px;align-items:center}
+.nav-links a{font-size:13.5px;color:rgba(255,255,255,.8);font-weight:500;transition:color .2s;white-space:nowrap}
 .nav-links a:hover{color:var(--white)}
 .nav-cta{background:var(--brand);color:#020c1b;padding:10px 24px;border-radius:100px;font-size:14px;font-weight:700;transition:all .2s;border:none;cursor:pointer}
 .nav-cta:hover{background:var(--brand-light);transform:translateY(-1px);box-shadow:0 4px 20px rgba(6,182,212,.4)}
@@ -105,7 +107,7 @@ nav.scrolled .nav-toggle span{background:var(--text-dark)}
 .hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.22);border-radius:100px;padding:6px 16px;font-size:11px;color:var(--brand-light);font-weight:600;margin-bottom:24px;letter-spacing:1.2px;text-transform:uppercase}
 .hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
-.hero h1{font-size:58px;font-weight:900;line-height:1.07;letter-spacing:-2px;margin-bottom:22px;color:var(--white)}
+.hero h1{font-size:52px;font-weight:900;line-height:1.08;letter-spacing:-1.6px;margin-bottom:20px;color:var(--white);max-width:560px}
 .hero h1 span:first-child{color:var(--white)}
 .hero h1 span:last-child{color:var(--brand)}
 .hero p{font-size:18px;color:var(--text2);line-height:1.78;margin-bottom:36px;max-width:520px}
@@ -136,21 +138,7 @@ nav.scrolled .nav-toggle span{background:var(--text-dark)}
 .btn-secondary:hover{border-color:var(--brand);color:var(--brand)}
 
 /* ──── TV MOCKUP ──── */
-.tv-mockup{position:relative;width:100%;max-width:520px;margin:0 auto}
-.tv-frame{background:#020c1b;border-radius:18px;border:3px solid rgba(6,182,212,.14);box-shadow:0 0 0 1px rgba(6,182,212,.07),0 40px 80px rgba(0,0,0,.5),0 0 60px rgba(6,182,212,.09);overflow:hidden;aspect-ratio:16/10;position:relative}
-.tv-screen{width:100%;height:100%;background:linear-gradient(135deg,#020c1b,#0f172a);display:flex;flex-direction:column;overflow:hidden;position:relative}
-.tv-topbar{background:#010810;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(6,182,212,.12)}
-.tv-topbar-logo{font-size:12px;font-weight:800;color:var(--brand);letter-spacing:1px}
-.tv-topbar-dots{display:flex;gap:5px}
-.tv-topbar-dot{width:6px;height:6px;border-radius:50%}
-.tv-menu-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px;flex:1}
-.tv-menu-item{background:rgba(6,182,212,.06);border:1px solid rgba(6,182,212,.1);border-radius:8px;padding:10px;display:flex;flex-direction:column;gap:4px}
-.tv-item-img{height:36px;border-radius:5px;background:linear-gradient(135deg,rgba(6,182,212,.2),rgba(59,130,246,.15));margin-bottom:4px}
-.tv-item-name{font-size:9px;font-weight:700;color:#e2e8f0}
-.tv-item-price{font-size:11px;font-weight:900;color:var(--brand)}
-.tv-item-desc{font-size:7px;color:#64748b;line-height:1.4}
-.tv-stand-neck{width:60px;height:18px;background:linear-gradient(to bottom,#0f172a,#020c1b);margin:0 auto;border-left:1px solid rgba(6,182,212,.08);border-right:1px solid rgba(6,182,212,.08)}
-.tv-stand-base{width:120px;height:10px;background:#020c1b;border-radius:0 0 8px 8px;margin:0 auto;border:1px solid rgba(6,182,212,.08);border-top:none}
+/* (legacy CSS TV mockup removed — replaced by .mv-tv premium device frame) */
 
 .hero-float{position:absolute;background:rgba(2,12,27,.92);backdrop-filter:blur(16px);border:1px solid rgba(6,182,212,.18);border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:10px;z-index:10}
 .hero-float-1{bottom:-20px;left:-30px;animation:float 3s ease-in-out infinite}
@@ -292,6 +280,176 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
   .section-title{font-size:28px;letter-spacing:-1px}
   .cta h2{font-size:30px;letter-spacing:-1px}
 }
+
+/* ═══════════════════════════════════════════════════════════
+   MEDIAVIEW PREMIUM DESIGN SYSTEM — 2026
+   Scroll reveal · device frames · industry showcase · story
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Scroll reveal (respects reduced motion) ── */
+.reveal{opacity:0;transform:translateY(24px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+.reveal-d1{transition-delay:.08s}.reveal-d2{transition-delay:.16s}.reveal-d3{transition-delay:.24s}.reveal-d4{transition-delay:.32s}
+@media(prefers-reduced-motion:reduce){
+  .reveal{opacity:1!important;transform:none!important;transition:none!important}
+  .mv-screen img{transition:none!important}
+  *{animation:none!important}
+}
+
+/* ── Shared section heading helper (centered) ── */
+.mv-head{text-align:center;max-width:720px;margin:0 auto 56px}
+.mv-head .section-sub{margin:12px auto 0}
+.mv-eyebrow{display:inline-block;font-size:11px;font-weight:800;letter-spacing:2.4px;text-transform:uppercase;color:var(--brand-dark);margin-bottom:14px}
+
+/* ── DEVICE FRAME (landscape TV) ── */
+.mv-tv{position:relative;width:100%;border-radius:16px;background:linear-gradient(160deg,#232c3b,#080e18);padding:14px 14px 16px;box-shadow:0 1px 0 rgba(255,255,255,.08) inset,0 30px 70px -20px rgba(2,12,27,.6),0 8px 24px rgba(2,12,27,.25)}
+.mv-tv-inner{position:relative;border-radius:5px;overflow:hidden;aspect-ratio:16/9;background:#05080f}
+.mv-screen img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .9s ease;background:#05080f}
+.mv-tv-stand{width:26%;max-width:150px;height:12px;margin:0 auto;background:linear-gradient(180deg,#131c29,#0b1220);border-radius:0 0 10px 10px}
+.mv-tv-foot{width:42%;max-width:240px;height:7px;margin:0 auto;background:#0b1220;border-radius:6px;opacity:.85}
+.mv-tv-glare{position:absolute;inset:0;pointer-events:none;background:linear-gradient(115deg,rgba(255,255,255,.09) 0%,rgba(255,255,255,0) 38%)}
+
+/* portrait variant */
+.mv-tv.portrait .mv-tv-inner{aspect-ratio:9/16}
+
+/* ── Rotating screen content ── */
+.mv-screen img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;opacity:0;transition:opacity .9s ease;background:#05080f}
+.mv-screen img.on{opacity:1}
+
+/* ── HERO stage ── */
+.mv-hero-stage{position:relative}
+.mv-hero-chips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:22px}
+.mv-chip{font-size:12px;font-weight:600;color:rgba(255,255,255,.62);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:6px 14px;border-radius:100px;cursor:pointer;transition:all .25s;font-family:inherit}
+.mv-chip:hover{color:#fff;border-color:rgba(6,182,212,.4)}
+.mv-chip.on{color:#020c1b;background:var(--brand);border-color:var(--brand);font-weight:700}
+.mv-live{position:absolute;top:20px;left:20px;z-index:3;display:flex;align-items:center;gap:8px;background:rgba(2,12,27,.72);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.14);border-radius:100px;padding:6px 14px}
+.mv-live i{width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+.mv-live span{font-size:11px;font-weight:700;color:#f1f5f9;letter-spacing:.6px}
+
+/* ── Trust logos / social proof strip ── */
+.mv-proof{display:flex;flex-wrap:wrap;gap:10px 28px;align-items:center;justify-content:center;margin-top:34px}
+.mv-proof-item{display:flex;align-items:center;gap:8px;font-size:13px;color:rgba(255,255,255,.55);font-weight:500}
+.mv-proof-item svg{flex-shrink:0}
+
+/* ── ENVIRONMENT BAND (full-bleed real photo) ── */
+.mv-envband{position:relative;overflow:hidden;background:var(--dark2)}
+.mv-envband img{width:100%;display:block;object-fit:cover;max-height:560px}
+.mv-envband-cap{position:absolute;left:0;right:0;bottom:0;padding:56px 40px 32px;background:linear-gradient(transparent,rgba(2,12,27,.92))}
+.mv-envband-cap div{max-width:1280px;margin:0 auto}
+.mv-envband-t{font-size:26px;font-weight:800;color:#fff;letter-spacing:-.6px}
+.mv-envband-s{font-size:15px;color:rgba(255,255,255,.72);margin-top:6px;max-width:620px;line-height:1.6}
+
+/* ── PRODUCT STORY (4 steps) ── */
+.mv-story{display:grid;grid-template-columns:repeat(4,1fr);gap:28px;margin-top:8px}
+.mv-story-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;overflow:hidden;box-shadow:var(--shadow);transition:transform .3s,box-shadow .3s}
+.mv-story-card:hover{transform:translateY(-5px);box-shadow:0 18px 50px rgba(15,23,42,.1)}
+.mv-story-img{position:relative;aspect-ratio:4/3;overflow:hidden;background:var(--surface3)}
+.mv-story-img img{width:100%;height:100%;object-fit:cover;display:block}
+.mv-story-step{position:absolute;top:12px;left:12px;width:30px;height:30px;border-radius:50%;background:var(--brand);color:#052b33;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;box-shadow:0 4px 14px rgba(6,182,212,.4)}
+.mv-story-body{padding:22px 22px 26px}
+.mv-story-body h3{font-size:17px;font-weight:800;color:var(--text-dark);margin-bottom:7px;letter-spacing:-.3px}
+.mv-story-body p{font-size:13.5px;color:var(--text-body);line-height:1.7}
+
+/* ── INDUSTRY SHOWCASE ── */
+.mv-tabs{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:40px}
+.mv-tab{font-size:13px;font-weight:600;color:var(--text-body);background:var(--surface);border:1px solid var(--border);padding:9px 18px;border-radius:100px;cursor:pointer;transition:all .2s;font-family:inherit}
+.mv-tab:hover{border-color:var(--brand);color:var(--brand-dark)}
+.mv-tab.on{background:var(--text-dark);border-color:var(--text-dark);color:#fff}
+.mv-tabs.on-dark .mv-tab{background:transparent;border-color:rgba(255,255,255,.18);color:var(--text2)}
+.mv-tabs.on-dark .mv-tab:hover{border-color:var(--brand);color:var(--brand-light)}
+.mv-tabs.on-dark .mv-tab.on{background:#fff;border-color:#fff;color:var(--dark)}
+.mv-ind-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:26px}
+.mv-ind-card{background:var(--surface);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);transition:transform .3s,box-shadow .3s,border-color .3s}
+.mv-ind-card:hover{transform:translateY(-6px);border-color:rgba(6,182,212,.35);box-shadow:0 20px 55px rgba(6,182,212,.12)}
+.mv-ind-card.hide{display:none}
+.mv-ind-shot{position:relative;aspect-ratio:16/9;overflow:hidden;background:#0b1220}
+.mv-ind-shot img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.16,1,.3,1)}
+.mv-ind-card:hover .mv-ind-shot img{transform:scale(1.04)}
+.mv-ind-body{padding:18px 20px 22px;display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.mv-ind-body h4{font-size:15px;font-weight:800;color:var(--text-dark);letter-spacing:-.2px}
+.mv-ind-body p{font-size:12.5px;color:var(--text3);margin-top:4px;line-height:1.55}
+.mv-ind-tag{flex-shrink:0;font-size:10px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--brand-dark);background:rgba(6,182,212,.09);border:1px solid rgba(6,182,212,.2);padding:4px 9px;border-radius:6px}
+
+/* ── ENVIRONMENT GALLERY ── */
+.mv-env-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.mv-env-card{position:relative;border-radius:16px;overflow:hidden;aspect-ratio:4/3;box-shadow:0 10px 30px rgba(15,23,42,.1)}
+.mv-env-card img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .7s cubic-bezier(.16,1,.3,1)}
+.mv-env-card:hover img{transform:scale(1.06)}
+.mv-env-cap{position:absolute;inset:auto 0 0 0;padding:34px 18px 16px;background:linear-gradient(transparent,rgba(2,12,27,.88));font-size:13.5px;font-weight:700;color:#fff}
+
+/* ── SPLIT FEATURE (import / mobile) ── */
+.mv-split{display:grid;grid-template-columns:1.05fr .95fr;gap:64px;align-items:center}
+.mv-split.rev{grid-template-columns:.95fr 1.05fr}
+.mv-split h2{font-size:36px;font-weight:900;letter-spacing:-1.2px;color:var(--text-dark);line-height:1.16;margin-bottom:16px}
+.mv-split .lead{font-size:16.5px;color:var(--text-body);line-height:1.75;margin-bottom:28px}
+.mv-flow{display:flex;flex-direction:column;gap:14px;margin-bottom:30px}
+.mv-flow-row{display:flex;gap:14px;align-items:flex-start}
+.mv-flow-n{flex-shrink:0;width:26px;height:26px;border-radius:8px;background:rgba(6,182,212,.1);border:1px solid rgba(6,182,212,.22);color:var(--brand-dark);font-size:12px;font-weight:900;display:flex;align-items:center;justify-content:center}
+.mv-flow-t{font-size:14.5px;color:var(--text-dark);font-weight:600;line-height:1.5}
+.mv-flow-t .mv-flow-sub{display:block;font-weight:400;color:var(--text-body);font-size:13.5px;margin-top:3px}
+.mv-shot{border-radius:20px;overflow:hidden;box-shadow:0 24px 70px -18px rgba(15,23,42,.3);border:1px solid var(--border)}
+.mv-shot img{width:100%;display:block}
+
+/* ── TEMPLATE LIBRARY ── */
+.mv-tpl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+.mv-tpl{position:relative;border-radius:14px;overflow:hidden;aspect-ratio:16/9;background:#0b1220;cursor:pointer;box-shadow:0 8px 26px rgba(15,23,42,.12);border:1px solid var(--border)}
+.mv-tpl img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .6s cubic-bezier(.16,1,.3,1)}
+.mv-tpl:hover img{transform:scale(1.05)}
+.mv-tpl-ov{position:absolute;inset:0;display:flex;align-items:flex-end;padding:14px;background:linear-gradient(transparent 45%,rgba(2,12,27,.85));opacity:0;transition:opacity .3s}
+.mv-tpl:hover .mv-tpl-ov{opacity:1}
+.mv-tpl-ov span{font-size:12.5px;font-weight:700;color:#fff}
+.mv-tpl.hide{display:none}
+
+/* ── PRICING TEASER ── */
+.mv-price{background:var(--surface2);border:1px solid var(--border);border-radius:24px;padding:44px;display:grid;grid-template-columns:1fr 340px;gap:48px;align-items:center}
+.mv-price h2{font-size:32px;font-weight:900;letter-spacing:-1px;color:var(--text-dark);margin-bottom:12px;line-height:1.2}
+.mv-price p{font-size:15.5px;color:var(--text-body);line-height:1.7}
+.mv-calc{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:26px;box-shadow:var(--shadow)}
+.mv-calc-lbl{font-size:11px;font-weight:800;letter-spacing:1.6px;text-transform:uppercase;color:var(--text3);margin-bottom:12px}
+.mv-stepper{display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:8px 12px;margin-bottom:22px}
+.mv-stepper button{width:36px;height:36px;border-radius:9px;border:1px solid var(--border-mid);background:var(--surface);color:var(--text-dark);font-size:19px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .15s;line-height:1}
+.mv-stepper button:hover{border-color:var(--brand);color:var(--brand-dark)}
+.mv-stepper button:disabled{opacity:.35;cursor:not-allowed}
+.mv-stepper .n{font-size:26px;font-weight:900;color:var(--text-dark);font-variant-numeric:tabular-nums}
+.mv-calc-total{display:flex;align-items:baseline;gap:6px;margin-bottom:6px}
+.mv-calc-total .amt{font-size:38px;font-weight:900;color:var(--brand-dark);letter-spacing:-1.5px;font-variant-numeric:tabular-nums}
+.mv-calc-total .per{font-size:14px;color:var(--text3);font-weight:600}
+.mv-calc-note{font-size:12px;color:var(--text3);line-height:1.55;margin-bottom:20px}
+.mv-calc .btn-primary{width:100%;justify-content:center}
+
+/* ── RESPONSIVE ── */
+@media(max-width:1100px){
+  .mv-story{grid-template-columns:repeat(2,1fr)}
+  .mv-ind-grid{grid-template-columns:repeat(2,1fr)}
+  .mv-env-grid{grid-template-columns:repeat(2,1fr)}
+  .mv-tpl-grid{grid-template-columns:repeat(3,1fr)}
+  .mv-split,.mv-split.rev{grid-template-columns:1fr;gap:36px}
+  .mv-price{grid-template-columns:1fr;gap:28px;padding:32px}
+}
+@media(max-width:768px){
+  .mv-head{margin-bottom:36px}
+  .mv-story{grid-template-columns:1fr;gap:18px}
+  .mv-ind-grid{grid-template-columns:1fr;gap:18px}
+  .mv-env-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .mv-tpl-grid{grid-template-columns:repeat(2,1fr);gap:12px}
+  .mv-split h2{font-size:27px;letter-spacing:-.8px}
+  .mv-split .lead{font-size:15px}
+  .mv-envband-cap{padding:40px 20px 22px}
+  .mv-envband-t{font-size:20px}
+  .mv-envband-s{font-size:13.5px}
+  .mv-price{padding:24px;border-radius:18px}
+  .mv-price h2{font-size:24px}
+  .mv-tabs{gap:6px;margin-bottom:26px}
+  .mv-tab{font-size:12px;padding:8px 14px}
+  .mv-chip{font-size:11px;padding:5px 12px}
+  .mv-proof{gap:8px 18px;margin-top:24px}
+  .mv-proof-item{font-size:12px}
+  .mv-tv{padding:6px;border-radius:10px}
+  .mv-live{top:auto;bottom:10px;left:10px;padding:4px 10px}
+  .mv-live span{font-size:9.5px}
+  .mv-live i{width:5px;height:5px}
+}
+
 </style>
 </head>
 <body>
@@ -299,7 +457,10 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <!-- NAV -->
 <nav id="nav">
 <div class="nav-inner" id="nav-inner">
-  <a href="#" class="nav-logo"><img src="/api/web/logo-new.png" style="height:75px;margin-left:-20px" alt="MediAd View"></a>
+  <a href="#" class="nav-logo">
+    <img class="logo-light" src="/api/web/logo-new.png" style="height:58px;margin-left:-14px" alt="MediAd View">
+    <img class="logo-dark" src="/api/web/logo-dark.png" style="height:46px;display:none" alt="MediAd View">
+  </a>
   <div class="nav-mobile-actions">
     <button id="lang-toggle" class="lang-toggle" aria-label="Change language" title="Change language">ES</button>
     <button class="nav-toggle" id="nav-toggle" aria-label="Toggle menu" aria-expanded="false">
@@ -307,14 +468,15 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     </button>
   </div>
   <div class="nav-links">
-    <a href="#services">Services</a>
-    <a href="#how">How It Works</a>
+    <a href="#how" data-i18n="nav.how">How It Works</a>
+    <a href="#industries" data-i18n="nav.industries">Industries</a>
+    <a href="#templates" data-i18n="nav.templates">Templates</a>
     <a href="#menus" data-i18n="nav.menus">Digital Menus</a>
-    <a href="#platform">Platform</a>
+    <a href="/pricing" data-i18n="nav.pricing">Pricing</a>
     <a href="/about" data-i18n="nav.about">About</a>
-    <a href="#contact" data-i18n="nav.contact">Contact</a>
     <a href="/marketplace" class="nav-anuncia" data-i18n="nav.publish">Publica tu anuncio aquí</a>
-    <a href="https://panel.mediadview.com" class="nav-cta" data-i18n="nav.dashboard">Dashboard Login</a>
+    <a href="/login" data-i18n="nav.login">Log in</a>
+    <a href="/pricing" class="nav-cta" data-i18n="nav.start">Start Free</a>
   </div>
 </div>
 </nav>
@@ -323,31 +485,45 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <section class="hero">
 <div class="hero-inner">
   <div class="hero-text">
-    <div class="hero-badge" data-i18n="landing.badge">Specialists in Window &amp; Indoor Displays</div>
-    <h1><span data-i18n="landing.h1a">Your Storefront Window Is Your</span> <span data-i18n="landing.h1b">Best Billboard</span></h1>
-    <p data-i18n="landing.p">We install high-brightness LED displays on storefront windows, churches, and outdoor walls. Attract customers 24/7 with eye-catching digital content — managed from our cloud platform.</p>
+    <div class="hero-badge" data-i18n="landing.badge">Digital Signage Platform &amp; LED Displays</div>
+    <h1><span data-i18n="landing.h1a">Turn Any Screen Into a</span> <span data-i18n="landing.h1b">Powerful Business Tool</span></h1>
+    <p data-i18n="landing.p">Create, schedule and update beautiful content on every screen in your business — menus, promotions, announcements — from your phone or laptop, in seconds.</p>
+    <div class="hero-btns">
+      <a href="/pricing" class="btn-primary" data-i18n="landing.cta.start">Get Started Free</a>
+      <a href="#how" class="btn-secondary" data-i18n="landing.cta.how">See How It Works</a>
+    </div>
+    <div class="mv-proof">
+      <div class="mv-proof-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="landing.proof1">No special hardware</span></div>
+      <div class="mv-proof-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="landing.proof2">Live in under 5 minutes</span></div>
+      <div class="mv-proof-item"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg><span data-i18n="landing.proof3">Cancel anytime</span></div>
+    </div>
   </div>
-  <div class="hero-visual" style="position:relative">
-    <div style="border-radius:20px;overflow:hidden;box-shadow:0 0 0 1px rgba(6,182,212,.12),0 40px 80px rgba(0,0,0,.5);position:relative">
-      <video autoplay muted loop playsinline poster="/api/web/og-image.png" style="width:100%;display:block;border-radius:20px;min-height:280px;object-fit:cover">
-        <source src="/api/web/promo-video.mp4" type="video/mp4">
-        <img src="/api/web/og-image.png" style="width:100%;border-radius:20px;display:block;min-height:280px;object-fit:cover" alt="MediaView Digital Signage">
-      </video>
-      <!-- Live badge overlay on the video -->
-      <div style="position:absolute;top:16px;left:16px;background:rgba(2,12,27,.85);backdrop-filter:blur(12px);border:1px solid rgba(6,182,212,.22);border-radius:100px;padding:7px 16px;display:flex;align-items:center;gap:8px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#10b981;display:inline-block;animation:pulse 2s infinite;flex-shrink:0"></span>
-        <span style="font-size:12px;font-weight:600;color:#f1f5f9;white-space:nowrap">Live Digital Signage</span>
+
+  <div class="hero-visual mv-hero-stage">
+    <div class="mv-tv">
+      <div class="mv-tv-inner mv-screen" id="hero-screen">
+        <img class="on" src="/api/web/assets/mv-rest-pizza.webp" alt="Digital pizza menu board" width="1376" height="768">
+        <img src="/api/web/assets/mv-ice-001.webp" alt="Ice cream digital menu" loading="lazy" width="1376" height="768">
+        <img src="/api/web/assets/mv-retail-001.webp" alt="Retail promotion screen" loading="lazy" width="1376" height="768">
+        <img src="/api/web/assets/mv-auto-001.webp" alt="Automotive service screen" loading="lazy" width="1376" height="768">
+        <img src="/api/web/assets/mv-church-001.webp" alt="Church announcements screen" loading="lazy" width="1376" height="768">
+        <img src="/api/web/assets/mv-corp-001.webp" alt="Corporate welcome screen" loading="lazy" width="1376" height="768">
+        <div class="mv-tv-glare"></div>
       </div>
+      <div class="mv-live"><i></i><span id="hero-live-label" data-i18n="hero.livelbl">RESTAURANT · LIVE</span></div>
     </div>
-    <!-- Floating stat badges -->
-    <div class="hero-float hero-float-1">
-      <div class="hf-icon" style="background:rgba(6,182,212,.12)">📺</div>
-      <div><div class="hf-text">Pantallas Activas</div><div class="hf-val" style="color:#67e8f9">500+</div></div>
+    <div class="mv-tv-stand"></div>
+    <div class="mv-tv-foot"></div>
+
+    <div class="mv-hero-chips" id="hero-chips">
+      <button class="mv-chip on" data-i="0" data-i18n="ind.restaurant">Restaurants</button>
+      <button class="mv-chip" data-i="1" data-i18n="ind.icecream">Ice Cream</button>
+      <button class="mv-chip" data-i="2" data-i18n="ind.retail">Retail</button>
+      <button class="mv-chip" data-i="3" data-i18n="ind.auto">Automotive</button>
+      <button class="mv-chip" data-i="4" data-i18n="ind.church">Churches</button>
+      <button class="mv-chip" data-i="5" data-i18n="ind.corporate">Corporate</button>
     </div>
-    <div class="hero-float hero-float-2">
-      <div class="hf-icon" style="background:rgba(16,185,129,.1)">⚡</div>
-      <div><div class="hf-text">Actualización</div><div class="hf-val" style="color:var(--green)">En segundos</div></div>
-    </div>
+
   </div>
 </div>
 
@@ -381,9 +557,9 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
   ">
     <div style="position:absolute;right:-60px;top:-60px;width:240px;height:240px;background:radial-gradient(circle,rgba(6,182,212,.06),transparent 70%);pointer-events:none"></div>
     <div style="flex:1;min-width:260px">
-      <div style="font-size:11px;font-weight:700;color:#67e8f9;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Para Restaurantes · Retail · Negocios</div>
-      <div style="font-size:24px;font-weight:800;color:#fff;line-height:1.25;margin-bottom:10px">Tu menú digital en cualquier TV.<br><span style="color:#06b6d4">En minutos. Desde $0.</span></div>
-      <div style="font-size:14px;color:#94a3b8;line-height:1.6">Conecta tu pantalla, sube tu menú, programa el contenido.<br>Sin hardware especial. Sin técnicos. Sin contratos.</div>
+      <div style="font-size:11px;font-weight:700;color:#67e8f9;letter-spacing:2px;text-transform:uppercase;margin-bottom:12px" data-i18n="saas.badge">Para Restaurantes · Retail · Negocios</div>
+      <div style="font-size:24px;font-weight:800;color:#fff;line-height:1.25;margin-bottom:10px" data-i18n="saas.t1">Tu menú digital en cualquier TV.<br><span style="color:#06b6d4" data-i18n="saas.t2">En minutos. Desde $0.</span></div>
+      <div style="font-size:14px;color:#94a3b8;line-height:1.6" data-i18n="saas.p1">Conecta tu pantalla, sube tu menú, programa el contenido.<br data-i18n="saas.p2">Sin hardware especial. Sin técnicos. Sin contratos.</div>
     </div>
     <div style="display:flex;flex-direction:column;gap:12px;align-items:flex-start;min-width:200px">
       <a href="/pricing" style="display:inline-flex;align-items:center;gap:8px;background:#06b6d4;color:#020c1b;font-weight:700;font-size:15px;padding:14px 28px;border-radius:100px;text-decoration:none;white-space:nowrap;box-shadow:0 4px 20px rgba(6,182,212,.3);transition:all .2s" onmouseover="this.style.background='#67e8f9';this.style.transform='translateY(-1px)'" onmouseout="this.style.background='#06b6d4';this.style.transform='translateY(0)'">
@@ -392,19 +568,28 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
       <a href="/signup" style="font-size:13px;color:#67e8f9;text-decoration:none;padding:4px 0;border-bottom:1px solid rgba(6,182,212,.25);transition:color .15s" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#67e8f9'">
         Prueba gratis 14 días · sin tarjeta
       </a>
-      <div style="font-size:12px;color:#64748b">¿Ya tienes cuenta? <a href="/login" style="color:#06b6d4;font-weight:600;text-decoration:none">Inicia sesión →</a></div>
+      <div style="font-size:12px;color:#64748b">¿Ya tienes cuenta? <a href="/login" style="color:#06b6d4;font-weight:600;text-decoration:none" data-i18n="saas.login">Inicia sesión →</a></div>
     </div>
   </div>
 </div>
 </section>
 
+<!-- REAL ENVIRONMENT BAND — social proof that this runs in real businesses -->
+<section class="mv-envband">
+  <img src="/api/web/assets/mv-hero-001.webp" alt="MediaView digital menu board running in a real pizzeria" width="1376" height="768">
+  <div class="mv-envband-cap"><div>
+    <div class="mv-envband-t" data-i18n="envband.title">Already running in real businesses</div>
+    <div class="mv-envband-s" data-i18n="envband.sub">Restaurants, ice cream shops, supermarkets, workshops, retail stores, churches, gyms and offices — one platform for every screen you own.</div>
+  </div></div>
+</section>
+
 <!-- STATS -->
 <section class="stats">
 <div class="stats-inner">
-  <div><div class="stat-num">500+</div><div class="stat-label">Screens Installed</div></div>
-  <div><div class="stat-num">120+</div><div class="stat-label">Churches Served</div></div>
-  <div><div class="stat-num">1,500+</div><div class="stat-label">Businesses Trust Us</div></div>
-  <div><div class="stat-num">99.9%</div><div class="stat-label">Uptime Guarantee</div></div>
+  <div><div class="stat-num">500+</div><div class="stat-label" data-i18n="stat.screens">Screens Installed</div></div>
+  <div><div class="stat-num">120+</div><div class="stat-label" data-i18n="stat.churches">Churches Served</div></div>
+  <div><div class="stat-num">1,500+</div><div class="stat-label" data-i18n="stat.trust">Businesses Trust Us</div></div>
+  <div><div class="stat-num">99.9%</div><div class="stat-label" data-i18n="stat.uptime">Uptime Guarantee</div></div>
 </div>
 </section>
 
@@ -417,16 +602,250 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     </video>
   </div>
   <div style="display:flex;flex-direction:column;justify-content:center;align-self:stretch;padding-top:0">
-    <div style="font-size:13px;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px">See The Difference</div>
-    <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:14px;line-height:1.15;color:#0f172a">Why Digital Beats Paper</div>
-    <div style="font-size:17px;color:#475569;line-height:1.7;margin-bottom:28px">Our Ultra Slim LED transforms your storefront window into a dynamic 24/7 advertisement that attracts more customers and increases sales.</div>
+    <div style="font-size:13px;font-weight:700;color:#0891b2;text-transform:uppercase;letter-spacing:3px;margin-bottom:12px" data-i18n="vs.badge">See The Difference</div>
+    <div style="font-size:36px;font-weight:900;letter-spacing:-1px;margin-bottom:14px;line-height:1.15;color:#0f172a" data-i18n="vs.title">Why Digital Beats Paper</div>
+    <div style="font-size:17px;color:#475569;line-height:1.7;margin-bottom:28px" data-i18n="vs.p">Our Ultra Slim LED transforms your storefront window into a dynamic 24/7 advertisement that attracts more customers and increases sales.</div>
     <div style="display:flex;flex-direction:column;gap:16px;margin-bottom:32px">
-      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500">Higher brightness than any printed poster</span></div>
-      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500">Animated content that catches every eye</span></div>
-      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500">Update content instantly from your phone</span></div>
-      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500">No more printing costs — ever</span></div>
+      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500" data-i18n="vs.b1">Higher brightness than any printed poster</span></div>
+      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500" data-i18n="vs.b2">Animated content that catches every eye</span></div>
+      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500" data-i18n="vs.b3">Update content instantly from your phone</span></div>
+      <div style="display:flex;align-items:center;gap:12px"><svg width="22" height="22" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="var(--cyan)" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="var(--cyan)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span style="font-size:17px;font-weight:500" data-i18n="vs.b4">No more printing costs — ever</span></div>
     </div>
-    <a href="#contact" class="btn-primary" style="font-size:16px;padding:14px 32px">Get a Free Quote →</a>
+    <a href="#contact" class="btn-primary" style="font-size:16px;padding:14px 32px" data-i18n="vs.cta">Get a Free Quote →</a>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ PRODUCT STORY — 4 STEPS ═══════ -->
+<section class="section" id="how">
+<div class="section-inner">
+  <div class="mv-head reveal">
+    <div class="mv-eyebrow" data-i18n="story.eyebrow">How MediaView Works</div>
+    <div class="section-title" data-i18n="story.title">From your phone to your TV in four steps</div>
+    <div class="section-sub" data-i18n="story.sub">No installers. No technicians. No cables to figure out. Plug in a player, pair the screen, publish.</div>
+  </div>
+  <div class="mv-story">
+    <div class="mv-story-card reveal">
+      <div class="mv-story-img">
+        <img src="/api/web/assets/mv-laptop-001-sm.webp" alt="Creating content on a laptop" loading="lazy">
+        <div class="mv-story-step">1</div>
+      </div>
+      <div class="mv-story-body">
+        <h3 data-i18n="story.s1t">Create</h3>
+        <p data-i18n="story.s1p">Start from a professional template or upload your own images and videos. Build a full digital menu in minutes.</p>
+      </div>
+    </div>
+    <div class="mv-story-card reveal reveal-d1">
+      <div class="mv-story-img">
+        <img src="/api/web/assets/mv-player-001-sm.webp" alt="TV showing a six digit pairing code" loading="lazy">
+        <div class="mv-story-step">2</div>
+      </div>
+      <div class="mv-story-body">
+        <h3 data-i18n="story.s2t">Connect</h3>
+        <p data-i18n="story.s2p">Open the MediaView Player on your TV. A six-digit code appears. Type it into your workspace — that's the whole setup.</p>
+      </div>
+    </div>
+    <div class="mv-story-card reveal reveal-d2">
+      <div class="mv-story-img">
+        <img src="/api/web/assets/mv-mobile-001-sm.webp" alt="Publishing from a phone" loading="lazy">
+        <div class="mv-story-step">3</div>
+      </div>
+      <div class="mv-story-body">
+        <h3 data-i18n="story.s3t">Publish</h3>
+        <p data-i18n="story.s3p">Pick the screens, choose a schedule if you need one, and hit Publish. From your phone, from anywhere.</p>
+      </div>
+    </div>
+    <div class="mv-story-card reveal reveal-d3">
+      <div class="mv-story-img">
+        <img src="/api/web/assets/mv-hero-001-sm.webp" alt="Content live on a restaurant TV" loading="lazy">
+        <div class="mv-story-step">4</div>
+      </div>
+      <div class="mv-story-body">
+        <h3 data-i18n="story.s4t">Live</h3>
+        <p data-i18n="story.s4p">Your content is on the screen in seconds — and the workspace confirms the screen is online and playing it.</p>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ INDUSTRY SHOWCASE ═══════ -->
+<section class="section" id="industries" style="background:var(--surface2)">
+<div class="section-inner">
+  <div class="mv-head reveal">
+    <div class="mv-eyebrow" data-i18n="ind.eyebrow">Built For Your Business</div>
+    <div class="section-title" data-i18n="ind.title">Beautiful content for every kind of business</div>
+    <div class="section-sub" data-i18n="ind.sub">Real MediaView designs — not the same template with the words changed.</div>
+  </div>
+
+  <div class="mv-tabs reveal" id="ind-tabs">
+    <button class="mv-tab on" data-cat="all" data-i18n="ind.all">All</button>
+    <button class="mv-tab" data-cat="food" data-i18n="ind.restaurant">Restaurants</button>
+    <button class="mv-tab" data-cat="dessert" data-i18n="ind.icecream">Ice Cream</button>
+    <button class="mv-tab" data-cat="market" data-i18n="ind.market">Supermarkets</button>
+    <button class="mv-tab" data-cat="auto" data-i18n="ind.auto">Automotive</button>
+    <button class="mv-tab" data-cat="retail" data-i18n="ind.retail">Retail</button>
+    <button class="mv-tab" data-cat="church" data-i18n="ind.church">Churches</button>
+    <button class="mv-tab" data-cat="gym" data-i18n="ind.gym">Gyms</button>
+    <button class="mv-tab" data-cat="corp" data-i18n="ind.corporate">Corporate</button>
+    <button class="mv-tab" data-cat="edu" data-i18n="ind.education">Education</button>
+    <button class="mv-tab" data-cat="health" data-i18n="ind.health">Healthcare</button>
+  </div>
+
+  <div class="mv-ind-grid" id="ind-grid">
+    <div class="mv-ind-card reveal" data-cat="food">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-rest-pizza-sm.webp" alt="Digital pizza menu board" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.pizza.t">Wood Fired Pizza Menu</h4><p data-i18n="ind.pizza.p">Six pizzas, photos and prices — updated from a phone.</p></div><div class="mv-ind-tag" data-i18n="ind.restaurant">Restaurants</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d1" data-cat="food">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-rest-burger-sm.webp" alt="Digital burger menu board" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.burger.t">Burgers &amp; Combos</h4><p data-i18n="ind.burger.p">Hero product shot with a clean combo price list.</p></div><div class="mv-ind-tag" data-i18n="ind.restaurant">Restaurants</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d2" data-cat="food">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-rest-coffee-sm.webp" alt="Digital coffee shop menu board" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.coffee.t">Coffee Shop Board</h4><p data-i18n="ind.coffee.p">Warm, minimal boutique layout for cafés.</p></div><div class="mv-ind-tag" data-i18n="ind.restaurant">Restaurants</div></div>
+    </div>
+    <div class="mv-ind-card reveal" data-cat="food">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-rest-breakfast-sm.webp" alt="Digital breakfast menu board" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.breakfast.t">Breakfast Until 11AM</h4><p data-i18n="ind.breakfast.p">Schedule it to appear only in the morning.</p></div><div class="mv-ind-tag" data-i18n="ind.restaurant">Restaurants</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d1" data-cat="dessert">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-ice-001-sm.webp" alt="Digital ice cream menu" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.ice.t">Scoops &amp; Shakes</h4><p data-i18n="ind.ice.p">Playful pastel design for ice cream and dessert shops.</p></div><div class="mv-ind-tag" data-i18n="ind.icecream">Ice Cream</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d2" data-cat="market">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-market-001-sm.webp" alt="Supermarket weekly specials screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.market.t">Weekly Specials</h4><p data-i18n="ind.market.p">Change grocery prices across every aisle screen at once.</p></div><div class="mv-ind-tag" data-i18n="ind.market">Supermarkets</div></div>
+    </div>
+    <div class="mv-ind-card reveal" data-cat="auto">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-auto-001-sm.webp" alt="Automotive service price screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.auto.t">Service &amp; Maintenance</h4><p data-i18n="ind.auto.p">Build trust with clear, visible service pricing.</p></div><div class="mv-ind-tag" data-i18n="ind.auto">Automotive</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d1" data-cat="retail">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-retail-001-sm.webp" alt="Retail seasonal sale screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.retail.t">End Of Season Sale</h4><p data-i18n="ind.retail.p">Editorial promo screens for storefront windows.</p></div><div class="mv-ind-tag" data-i18n="ind.retail">Retail</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d2" data-cat="church">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-church-001-sm.webp" alt="Church welcome and schedule screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.church.t">Welcome &amp; Service Times</h4><p data-i18n="ind.church.p">Announcements, events and schedules for congregations.</p></div><div class="mv-ind-tag" data-i18n="ind.church">Churches</div></div>
+    </div>
+    <div class="mv-ind-card reveal" data-cat="gym">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-gym-001-sm.webp" alt="Gym class schedule screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.gym.t">Today's Classes</h4><p data-i18n="ind.gym.p">Class schedules and membership promos that motivate.</p></div><div class="mv-ind-tag" data-i18n="ind.gym">Gyms</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d1" data-cat="corp">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-corp-001-sm.webp" alt="Corporate lobby welcome screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.corp.t">Lobby &amp; Announcements</h4><p data-i18n="ind.corp.p">Visitor welcome, meeting info and team dashboards.</p></div><div class="mv-ind-tag" data-i18n="ind.corporate">Corporate</div></div>
+    </div>
+    <div class="mv-ind-card reveal reveal-d2" data-cat="edu">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-edu-001-sm.webp" alt="School announcements screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.edu.t">Campus Today</h4><p data-i18n="ind.edu.p">Events, schedules and alerts for schools and campuses.</p></div><div class="mv-ind-tag" data-i18n="ind.education">Education</div></div>
+    </div>
+    <div class="mv-ind-card reveal" data-cat="health">
+      <div class="mv-ind-shot"><img src="/api/web/assets/mv-health-001-sm.webp" alt="Healthcare waiting room screen" loading="lazy"></div>
+      <div class="mv-ind-body"><div><h4 data-i18n="ind.health.t">Waiting Room Info</h4><p data-i18n="ind.health.p">Calm, reassuring information for patients while they wait.</p></div><div class="mv-ind-tag" data-i18n="ind.health">Healthcare</div></div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ REAL ENVIRONMENTS ═══════ -->
+<section class="section" id="environments">
+<div class="section-inner">
+  <div class="mv-head reveal">
+    <div class="mv-eyebrow" data-i18n="env.eyebrow">Real Installations</div>
+    <div class="section-title" data-i18n="env.title">Landscape, portrait, storefront or menu wall</div>
+    <div class="section-sub" data-i18n="env.sub">One screen or fifty. Any orientation. Any room.</div>
+  </div>
+  <div class="mv-env-grid">
+    <div class="mv-env-card reveal"><img src="/api/web/assets/mv-hero-002-sm.webp" alt="Three screen restaurant menu wall" loading="lazy"><div class="mv-env-cap" data-i18n="env.c1">Restaurant menu wall</div></div>
+    <div class="mv-env-card reveal reveal-d1"><img src="/api/web/assets/mv-env-icecream-sm.webp" alt="Portrait screen in an ice cream shop" loading="lazy"><div class="mv-env-cap" data-i18n="env.c2">Portrait display · ice cream shop</div></div>
+    <div class="mv-env-card reveal reveal-d2"><img src="/api/web/assets/mv-env-auto-sm.webp" alt="Screen in an automotive workshop" loading="lazy"><div class="mv-env-cap" data-i18n="env.c3">Auto shop waiting area</div></div>
+    <div class="mv-env-card reveal reveal-d3"><img src="/api/web/assets/mv-env-retail-sm.webp" alt="Retail storefront window display" loading="lazy"><div class="mv-env-cap" data-i18n="env.c4">Storefront window</div></div>
+    <div class="mv-env-card reveal"><img src="/api/web/assets/mv-env-lobby-sm.webp" alt="Corporate office lobby display" loading="lazy"><div class="mv-env-cap" data-i18n="env.c5">Office lobby</div></div>
+    <div class="mv-env-card reveal reveal-d1"><img src="/api/web/assets/mv-env-church-sm.webp" alt="Church sanctuary display" loading="lazy"><div class="mv-env-cap" data-i18n="env.c6">Church sanctuary</div></div>
+    <div class="mv-env-card reveal reveal-d2"><img src="/api/web/assets/mv-player-001-sm.webp" alt="TV pairing screen" loading="lazy"><div class="mv-env-cap" data-i18n="env.c7">Any TV + MediaView Player</div></div>
+    <div class="mv-env-card reveal reveal-d3"><img src="/api/web/assets/mv-laptop-001-sm.webp" alt="Laptop managing several screens" loading="lazy"><div class="mv-env-cap" data-i18n="env.c8">Manage every screen from one place</div></div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ SMART MENU IMPORT ═══════ -->
+<section class="section" id="import" style="background:var(--surface3)">
+<div class="section-inner">
+  <div class="mv-split">
+    <div class="reveal">
+      <div class="mv-eyebrow" data-i18n="imp.eyebrow">Smart Menu Import</div>
+      <h2 data-i18n="imp.title">Already have a menu? Upload it and make it editable.</h2>
+      <div class="lead" data-i18n="imp.lead">Send us the PNG, JPG or PDF you already print. MediaView turns it into a real digital menu project you can edit — item by item.</div>
+      <div class="mv-flow">
+        <div class="mv-flow-row"><div class="mv-flow-n">1</div><div class="mv-flow-t"><span data-i18n="imp.f1">Upload your current menu</span><span class="mv-flow-sub" data-i18n="imp.f1s">PNG, JPG or PDF — exactly the file you send to the printer.</span></div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">2</div><div class="mv-flow-t"><span data-i18n="imp.f2">We rebuild it as a MediaView project</span><span class="mv-flow-sub" data-i18n="imp.f2s">Categories, items, prices and photos become editable fields.</span></div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">3</div><div class="mv-flow-t"><span data-i18n="imp.f3">Edit name, price and photo any time</span><span class="mv-flow-sub" data-i18n="imp.f3s">Plus description, category and availability where supported.</span></div></div>
+      </div>
+      <a href="/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="imp.cta">Import my menu</a>
+    </div>
+    <div class="mv-shot reveal reveal-d1"><img src="/api/web/assets/mv-import-001.webp" alt="Printed menu converted into an editable digital menu" loading="lazy"></div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ MOBILE FIRST EDITING ═══════ -->
+<section class="section" id="mobile">
+<div class="section-inner">
+  <div class="mv-split rev">
+    <div class="mv-shot reveal" style="max-width:460px;margin:0 auto"><img src="/api/web/assets/mv-mobile-001.webp" alt="Changing a menu price from a phone" loading="lazy"></div>
+    <div class="reveal reveal-d1">
+      <div class="mv-eyebrow" data-i18n="mob.eyebrow">Made For Busy Owners</div>
+      <h2 data-i18n="mob.title">Change a price from your phone, behind the counter.</h2>
+      <div class="lead" data-i18n="mob.lead">No laptop. No waiting for the person who "knows the computer". Four taps and your screens are updated.</div>
+      <div class="mv-flow">
+        <div class="mv-flow-row"><div class="mv-flow-n">1</div><div class="mv-flow-t" data-i18n="mob.f1">Open MediaView → Menus</div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">2</div><div class="mv-flow-t" data-i18n="mob.f2">Tap the item — Pepperoni Pizza</div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">3</div><div class="mv-flow-t" data-i18n="mob.f3">Change $12.99 → $13.99, or replace the photo</div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">4</div><div class="mv-flow-t" data-i18n="mob.f4">Save &amp; Publish — the TV updates in seconds</div></div>
+      </div>
+      <a href="/signup" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="mob.cta">Try it free for 14 days</a>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ TEMPLATE LIBRARY ═══════ -->
+<section class="section" id="templates" style="background:var(--dark)">
+<div class="section-inner">
+  <div class="mv-head reveal">
+    <div class="mv-eyebrow" style="color:var(--brand-light)" data-i18n="tpl.eyebrow">Template Library</div>
+    <div class="section-title" style="color:#fff" data-i18n="tpl.title">Start from a design that already looks professional</div>
+    <div class="section-sub" style="color:var(--text2)" data-i18n="tpl.sub">Pick a template, swap your items and photos, publish. Every template is built for distance readability.</div>
+  </div>
+  <div class="mv-tabs reveal on-dark" id="tpl-tabs">
+    <button class="mv-tab on" data-cat="all" data-i18n="ind.all">All</button>
+    <button class="mv-tab" data-cat="food" data-i18n="ind.restaurant">Restaurants</button>
+    <button class="mv-tab" data-cat="dessert" data-i18n="ind.icecream">Ice Cream</button>
+    <button class="mv-tab" data-cat="market" data-i18n="ind.market">Supermarkets</button>
+    <button class="mv-tab" data-cat="auto" data-i18n="ind.auto">Automotive</button>
+    <button class="mv-tab" data-cat="retail" data-i18n="ind.retail">Retail</button>
+    <button class="mv-tab" data-cat="church" data-i18n="ind.church">Churches</button>
+    <button class="mv-tab" data-cat="gym" data-i18n="ind.gym">Gyms</button>
+    <button class="mv-tab" data-cat="corp" data-i18n="ind.corporate">Corporate</button>
+  </div>
+  <div class="mv-tpl-grid" id="tpl-grid">
+    <div class="mv-tpl reveal" data-cat="food"><img src="/api/web/assets/mv-rest-pizza-sm.webp" alt="Pizza menu template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.pizza">Pizza · Dark Amber</span></div></div>
+    <div class="mv-tpl reveal reveal-d1" data-cat="food"><img src="/api/web/assets/mv-rest-burger-sm.webp" alt="Burger menu template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.burger">Burgers · Bold Slate</span></div></div>
+    <div class="mv-tpl reveal reveal-d2" data-cat="food"><img src="/api/web/assets/mv-rest-coffee-sm.webp" alt="Coffee menu template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.coffee">Coffee · Warm Minimal</span></div></div>
+    <div class="mv-tpl reveal reveal-d3" data-cat="food"><img src="/api/web/assets/mv-rest-breakfast-sm.webp" alt="Breakfast menu template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.breakfast">Breakfast · Bright</span></div></div>
+    <div class="mv-tpl reveal" data-cat="dessert"><img src="/api/web/assets/mv-ice-001-sm.webp" alt="Ice cream menu template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.ice">Ice Cream · Pastel</span></div></div>
+    <div class="mv-tpl reveal reveal-d1" data-cat="market"><img src="/api/web/assets/mv-market-001-sm.webp" alt="Supermarket specials template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.market">Specials · Grid</span></div></div>
+    <div class="mv-tpl reveal reveal-d2" data-cat="auto"><img src="/api/web/assets/mv-auto-001-sm.webp" alt="Auto service template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.auto">Auto Service · Graphite</span></div></div>
+    <div class="mv-tpl reveal reveal-d3" data-cat="retail"><img src="/api/web/assets/mv-retail-001-sm.webp" alt="Retail sale template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.retail">Retail · Editorial</span></div></div>
+    <div class="mv-tpl reveal" data-cat="church"><img src="/api/web/assets/mv-church-001-sm.webp" alt="Church welcome template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.church">Church · Serene</span></div></div>
+    <div class="mv-tpl reveal reveal-d1" data-cat="gym"><img src="/api/web/assets/mv-gym-001-sm.webp" alt="Gym schedule template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.gym">Gym · High Contrast</span></div></div>
+    <div class="mv-tpl reveal reveal-d2" data-cat="corp"><img src="/api/web/assets/mv-corp-001-sm.webp" alt="Corporate welcome template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.corp">Corporate · Navy</span></div></div>
+    <div class="mv-tpl reveal reveal-d3" data-cat="corp"><img src="/api/web/assets/mv-edu-001-sm.webp" alt="Campus announcements template" loading="lazy"><div class="mv-tpl-ov"><span data-i18n="tpl.edu">Campus · Clean</span></div></div>
+  </div>
+  <div style="text-align:center;margin-top:44px" class="reveal">
+    <a href="/pricing" class="btn-primary" data-i18n="tpl.cta">Browse all templates free</a>
   </div>
 </div>
 </section>
@@ -434,57 +853,57 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <!-- SERVICES -->
 <section class="section" id="services">
 <div class="section-inner">
-  <div class="section-badge">Our Specialties</div>
-  <div class="section-title">What We Do Best</div>
-  <div class="section-sub">Professional LED display installation and management for storefronts, churches, and outdoor spaces.</div>
+  <div class="section-badge" data-i18n="srv.badge">Our Specialties</div>
+  <div class="section-title" data-i18n="srv.title">What We Do Best</div>
+  <div class="section-sub" data-i18n="srv.sub">Professional LED display installation and management for storefronts, churches, and outdoor spaces.</div>
   <div class="services-grid">
     <div class="service-card">
       <div class="service-icon" style="background:rgba(34,211,238,.1)"><svg width="24" height="24" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg></div>
-      <h3>Storefront Window Displays</h3>
+      <h3 data-i18n="srv.s1">Storefront Window Displays</h3>
       <p>Ultra-slim LED screens (30"x54") installed on your front glass window, hanging from above, projecting outward. Attract foot traffic 24/7 without blocking your view.</p>
     </div>
     <div class="service-card">
-      <div class="service-icon" style="background:rgba(99,102,241,.08)"><svg width="24" height="24" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></div>
-      <h3>Church LED Screens</h3>
+      <div class="service-icon" style="background:rgba(99,102,241,.08)"><svg width="24" height="24" fill="none" stroke="#0891b2" stroke-width="2" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 21v-4h6v4M9 9h.01M15 9h.01M9 13h.01M15 13h.01"/></svg></div>
+      <h3 data-i18n="srv.s2">Church LED Screens</h3>
       <p>High-quality indoor LED displays for churches and worship centers. Display sermons, announcements, lyrics, and live events with crystal-clear quality.</p>
     </div>
     <div class="service-card">
       <div class="service-icon" style="background:rgba(52,211,153,.1)"><svg width="24" height="24" fill="none" stroke="#34d399" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0H5m14 0h2m-16 0H3M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 4v4h4v-4"/></svg></div>
-      <h3>Outdoor Wall Displays</h3>
+      <h3 data-i18n="srv.s3">Outdoor Wall Displays</h3>
       <p>Waterproof, weather-resistant LED screens mounted on exterior walls. Built to last in rain, sun, and heat. Perfect for outdoor advertising and announcements.</p>
     </div>
     <div class="service-card">
       <div class="service-icon" style="background:rgba(251,191,36,.1)"><svg width="24" height="24" fill="none" stroke="#fbbf24" stroke-width="2" viewBox="0 0 24 24"><path d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg></div>
-      <h3>Digital Restaurant Menus</h3>
-      <p>Beautiful digital menu boards with 8 professional templates. Update prices and items from your phone. No more printing menus ever again.</p>
+      <h3 data-i18n="srv.s4">Digital Restaurant Menus</h3>
+      <p data-i18n="srv.d4">Beautiful digital menu boards with 8 professional templates. Update prices and items from your phone. No more printing menus ever again.</p>
     </div>
   </div>
 </div>
 </section>
 
 <!-- HOW IT WORKS -->
-<section class="section" id="how" style="background:var(--surface3)">
+<section class="section" id="process" style="background:var(--surface3)">
 <div class="section-inner">
   <div style="text-align:center">
-    <div class="section-badge">Simple Process</div>
-    <div class="section-title">Up and Running in 3 Steps</div>
-    <div class="section-sub" style="margin:12px auto 0">No technical expertise required. We handle everything.</div>
+    <div class="section-badge" data-i18n="proc.badge">Managed LED Service</div>
+    <div class="section-title" data-i18n="proc.title">Prefer us to handle everything?</div>
+    <div class="section-sub" style="margin:12px auto 0" data-i18n="proc.sub">For LED storefront, church and outdoor installations, MediaView supplies the hardware, installs it and manages the content for you.</div>
   </div>
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <h3>Choose Your Screen</h3>
-      <p>Select from our marketplace of premium LED displays. Indoor, outdoor, window-facing — we have the perfect screen for your needs.</p>
+      <h3 data-i18n="proc.p1">Choose Your Screen</h3>
+      <p data-i18n="proc.d1">Select from our marketplace of premium LED displays. Indoor, outdoor, window-facing — we have the perfect screen for your needs.</p>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <h3>Upload Your Content</h3>
-      <p>Use our drag-and-drop dashboard to upload images, videos, menus, or widgets. Schedule when and where your content plays.</p>
+      <h3 data-i18n="proc.p2">Upload Your Content</h3>
+      <p data-i18n="proc.d2">Use our drag-and-drop dashboard to upload images, videos, menus, or widgets. Schedule when and where your content plays.</p>
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <h3>Go Live & Track Results</h3>
-      <p>Your content goes live instantly. Monitor performance with real-time analytics, proof-of-play reports, and remote device management.</p>
+      <h3 data-i18n="proc.p3">Go Live & Track Results</h3>
+      <p data-i18n="proc.d3">Your content goes live instantly. Monitor performance with real-time analytics, proof-of-play reports, and remote device management.</p>
     </div>
   </div>
 </div>
@@ -493,39 +912,39 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <!-- DIGITAL MENUS -->
 <section class="section menus-section" id="menus">
 <div class="section-inner">
-  <div class="section-badge">For Restaurants</div>
-  <div class="section-title">Digital Menus That Drive Sales</div>
-  <div class="section-sub">Replace static printed menus with stunning digital displays. Update prices instantly. No reprinting ever again.</div>
+  <div class="section-badge" data-i18n="dm.badge">For Restaurants</div>
+  <div class="section-title" data-i18n="dm.title">Digital Menus That Drive Sales</div>
+  <div class="section-sub" data-i18n="dm.sub">Replace static printed menus with stunning digital displays. Update prices instantly. No reprinting ever again.</div>
   
   <!-- Menu Image Slideshow -->
   <div style="margin-top:40px;margin-bottom:40px;position:relative;border-radius:20px;overflow:hidden;height:420px;border:1px solid var(--dark3)">
     <div id="menu-slides" style="position:relative;width:100%;height:100%">
       <div class="menu-slide active" style="position:absolute;inset:0;opacity:1;transition:opacity 1s">
-        <img src="https://images.unsplash.com/photo-1617363052784-be65d7e6404d?w=1200&q=80" style="width:100%;height:100%;object-fit:cover" alt="Digital menu board in restaurant">
+        <img src="/api/web/assets/mv-hero-002.webp" style="width:100%;height:100%;object-fit:cover" alt="Digital menu wall in restaurant">
         <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
-          <div style="font-size:22px;font-weight:800;color:var(--white)">Fast Food Digital Menu Boards</div>
-          <div style="font-size:14px;color:var(--text2);margin-top:4px">High-brightness screens behind the counter displaying your full menu with photos and prices</div>
+          <div style="font-size:22px;font-weight:800;color:var(--white)" data-i18n="menus.s1t">Multi-Screen Menu Walls</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px" data-i18n="menus.s1p">Two, three or more screens above the counter acting as one continuous menu</div>
         </div>
       </div>
       <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
-        <img src="https://images.pexels.com/photos/12700809/pexels-photo-12700809.jpeg?auto=compress&w=1200" style="width:100%;height:100%;object-fit:cover" alt="Drive-thru digital menu">
+        <img src="/api/web/assets/mv-env-icecream.webp" style="width:100%;height:100%;object-fit:cover" alt="Portrait digital menu in ice cream shop" loading="lazy">
         <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
-          <div style="font-size:22px;font-weight:800;color:var(--white)">Drive-Thru & Counter Displays</div>
-          <div style="font-size:14px;color:var(--text2);margin-top:4px">Weather-resistant outdoor menu displays for drive-thru lanes and walk-up windows</div>
+          <div style="font-size:22px;font-weight:800;color:var(--white)" data-i18n="menus.s2t">Portrait Menu Displays</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px" data-i18n="menus.s2p">Vertical screens fit narrow walls beside the counter — perfect for ice cream and coffee shops</div>
         </div>
       </div>
       <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
-        <img src="https://images.unsplash.com/photo-1775879984830-2e773e81f08b?w=1200&q=80" style="width:100%;height:100%;object-fit:cover" alt="Restaurant counter with digital menus">
+        <img src="/api/web/assets/mv-hero-001.webp" style="width:100%;height:100%;object-fit:cover" alt="Pizzeria digital menu board" loading="lazy">
         <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
-          <div style="font-size:22px;font-weight:800;color:var(--white)">Quick Service Restaurant Menus</div>
-          <div style="font-size:14px;color:var(--text2);margin-top:4px">Replace your static menu board with dynamic digital displays that update in real-time</div>
+          <div style="font-size:22px;font-weight:800;color:var(--white)" data-i18n="menus.s3t">Pizzerias &amp; Quick Service</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px" data-i18n="menus.s3p">One screen above the register replaces every printed board you own</div>
         </div>
       </div>
       <div class="menu-slide" style="position:absolute;inset:0;opacity:0;transition:opacity 1s">
-        <img src="https://images.pexels.com/photos/19069612/pexels-photo-19069612.jpeg?auto=compress&w=1200" style="width:100%;height:100%;object-fit:cover" alt="Bistro digital menu">
+        <img src="/api/web/assets/mv-rest-coffee.webp" style="width:100%;height:100%;object-fit:cover" alt="Cafe digital menu design" loading="lazy">
         <div style="position:absolute;bottom:0;left:0;right:0;padding:24px 32px;background:linear-gradient(transparent,rgba(0,0,0,.85))">
-          <div style="font-size:22px;font-weight:800;color:var(--white)">Café & Bistro Menu Displays</div>
-          <div style="font-size:14px;color:var(--text2);margin-top:4px">Elegant digital menus for cafés, bistros, and fine dining with multiple design templates</div>
+          <div style="font-size:22px;font-weight:800;color:var(--white)" data-i18n="menus.s4t">Café &amp; Bistro Designs</div>
+          <div style="font-size:14px;color:var(--text2);margin-top:4px" data-i18n="menus.s4p">Elegant, minimal templates that match a boutique atmosphere</div>
         </div>
       </div>
     </div>
@@ -542,29 +961,29 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     <div class="menu-features">
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg></div>
-        <div class="mf-text"><h4>8 Professional Templates</h4><p>Classic, Modern, Fast Food, Mexican, Sushi, Pizza, Bar, Healthy — pick the perfect design for your restaurant.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f1">8 Professional Templates</h4><p data-i18n="dm.d1">Classic, Modern, Fast Food, Mexican, Sushi, Pizza, Bar, Healthy — pick the perfect design for your restaurant.</p></div>
       </div>
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg></div>
-        <div class="mf-text"><h4>Real-Time Price Updates</h4><p>Change prices from your phone or computer. Updates appear on the screen instantly. No waiting, no reprinting.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f2">Real-Time Price Updates</h4><p data-i18n="dm.d2">Change prices from your phone or computer. Updates appear on the screen instantly. No waiting, no reprinting.</p></div>
       </div>
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
-        <div class="mf-text"><h4>Photos & Promo Videos</h4><p>Upload mouth-watering photos of your dishes. Add promotional videos that auto-play at the bottom of the menu.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f3">Photos & Promo Videos</h4><p data-i18n="dm.d3">Upload mouth-watering photos of your dishes. Add promotional videos that auto-play at the bottom of the menu.</p></div>
       </div>
     </div>
     <div class="menu-features">
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg></div>
-        <div class="mf-text"><h4>Manage From Anywhere</h4><p>Edit your menu from any device — phone, tablet, or computer. Changes go live in seconds across all your screens.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f4">Manage From Anywhere</h4><p data-i18n="dm.d4">Edit your menu from any device — phone, tablet, or computer. Changes go live in seconds across all your screens.</p></div>
       </div>
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></div>
-        <div class="mf-text"><h4>Scheduled Content</h4><p>Show breakfast menu in the morning, lunch at noon, dinner at night. Set it once, it runs automatically.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f5">Scheduled Content</h4><p data-i18n="dm.d5">Show breakfast menu in the morning, lunch at noon, dinner at night. Set it once, it runs automatically.</p></div>
       </div>
       <div class="menu-feat">
         <div class="mf-icon"><svg width="18" height="18" fill="none" stroke="#22d3ee" stroke-width="2" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg></div>
-        <div class="mf-text"><h4>Auto-Rotating Slides</h4><p>Menus with many categories auto-slide every 12 seconds. Your customers see everything without scrolling.</p></div>
+        <div class="mf-text"><h4 data-i18n="dm.f6">Auto-Rotating Slides</h4><p data-i18n="dm.d6">Menus with many categories auto-slide every 12 seconds. Your customers see everything without scrolling.</p></div>
       </div>
     </div>
   </div>
@@ -575,17 +994,47 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <section class="section" id="platform">
 <div class="section-inner">
   <div style="text-align:center">
-    <div class="section-badge">Cloud Platform</div>
-    <div class="section-title">Powerful Management Dashboard</div>
-    <div class="section-sub" style="margin:12px auto 0">Everything you need to manage your digital signage network from a single interface.</div>
+    <div class="section-badge" data-i18n="pf.badge">Cloud Platform</div>
+    <div class="section-title" data-i18n="pf.title">Powerful Management Dashboard</div>
+    <div class="section-sub" style="margin:12px auto 0" data-i18n="pf.sub">Everything you need to manage your digital signage network from a single interface.</div>
   </div>
   <div class="platform-grid">
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--cyan)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0h6m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"/></svg></div><h3>Real-Time Analytics</h3><p>Track impressions, proof-of-play, and campaign performance with detailed reports.</p></div>
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--brand)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3>Remote Management</h3><p>Control all your screens remotely. Restart, update, and monitor from anywhere in the world.</p></div>
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--amber)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></div><h3>Smart Scheduling</h3><p>Schedule content by date, time, and day of week. Automate your entire content calendar.</p></div>
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><h3>Power Control</h3><p>Set automatic on/off schedules. Save energy and extend screen life with smart power management.</p></div>
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div><h3>Secure & Reliable</h3><p>99.9% uptime with automatic crash recovery. Your content never stops playing.</p></div>
-    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="#6366f1" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div><h3>Multi-User Access</h3><p>Admin, manager, and customer roles. Give your team the access they need, nothing more.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--cyan)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6m6 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0h6m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14"/></svg></div><h3 data-i18n="pf.c1">Real-Time Analytics</h3><p data-i18n="pf.c1d">Track impressions, proof-of-play, and campaign performance with detailed reports.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--brand)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><h3 data-i18n="pf.c2">Remote Management</h3><p data-i18n="pf.c2d">Control all your screens remotely. Restart, update, and monitor from anywhere in the world.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--amber)" stroke-width="1.5" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/></svg></div><h3 data-i18n="pf.c3">Smart Scheduling</h3><p data-i18n="pf.c3d">Schedule content by date, time, and day of week. Automate your entire content calendar.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--green)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M13 10V3L4 14h7v7l9-11h-7z"/></svg></div><h3 data-i18n="pf.c4">Power Control</h3><p data-i18n="pf.c4d">Set automatic on/off schedules. Save energy and extend screen life with smart power management.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="var(--red)" stroke-width="1.5" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div><h3 data-i18n="pf.c5">Secure & Reliable</h3><p data-i18n="pf.c5d">99.9% uptime with automatic crash recovery. Your content never stops playing.</p></div>
+    <div class="plat-card"><div class="emoji"><svg width="36" height="36" fill="none" stroke="#0891b2" stroke-width="1.5" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg></div><h3 data-i18n="pf.c6">Multi-User Access</h3><p data-i18n="pf.c6d">Admin, manager, and customer roles. Give your team the access they need, nothing more.</p></div>
+  </div>
+</div>
+</section>
+
+<!-- ═══════ PRICING TEASER (live plan data — nothing hardcoded) ═══════ -->
+<section class="section" id="pricing-teaser" style="background:var(--surface)">
+<div class="section-inner">
+  <div class="mv-price reveal">
+    <div>
+      <div class="mv-eyebrow" data-i18n="pt.eyebrow">Monthly Subscription</div>
+      <h2 data-i18n="pt.title">You pay for the screens you actually use.</h2>
+      <p data-i18n="pt.lead">MediaView is a monthly service. Choose how many screens you need and the plan adjusts — add screens as you grow, cancel whenever you want. Every paid plan starts with a free trial.</p>
+      <div class="mv-flow" style="margin-top:26px;margin-bottom:0">
+        <div class="mv-flow-row"><div class="mv-flow-n">✓</div><div class="mv-flow-t" data-i18n="pt.b1">Unlimited content, playlists and schedules</div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">✓</div><div class="mv-flow-t" data-i18n="pt.b2">All templates included — no extra design fees</div></div>
+        <div class="mv-flow-row"><div class="mv-flow-n">✓</div><div class="mv-flow-t" data-i18n="pt.b3">Works on any TV with the MediaView Player</div></div>
+      </div>
+    </div>
+    <div class="mv-calc">
+      <div class="mv-calc-lbl" data-i18n="pt.screens">Number of screens</div>
+      <div class="mv-stepper">
+        <button id="pt-minus" aria-label="Fewer screens">−</button>
+        <span class="n" id="pt-n">3</span>
+        <button id="pt-plus" aria-label="More screens">+</button>
+      </div>
+      <div class="mv-calc-lbl" data-i18n="pt.estimate">Estimated monthly</div>
+      <div class="mv-calc-total"><span class="amt" id="pt-amt">—</span><span class="per" data-i18n="pt.permonth">/ month</span></div>
+      <div class="mv-calc-note" id="pt-note">Loading current plans…</div>
+      <a href="/pricing" class="btn-primary" style="background:var(--brand-dark);color:#fff" data-i18n="pt.cta">See full pricing</a>
+    </div>
   </div>
 </div>
 </section>
@@ -593,17 +1042,17 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
 <!-- CTA -->
 <section class="section cta" id="contact">
 <div class="section-inner" style="text-align:center">
-  <div class="section-badge">Get Started Today</div>
-  <h2>Ready to Go Digital?</h2>
-  <p>Join hundreds of businesses already using MediAd View to attract more customers and increase revenue.</p>
+  <div class="section-badge" data-i18n="cta.badge">Get Started Today</div>
+  <h2 data-i18n="cta.title">Ready to Go Digital?</h2>
+  <p data-i18n="cta.sub">Join hundreds of businesses already using MediAd View to attract more customers and increase revenue.</p>
   <div class="cta-actions" style="display:flex;gap:16px;justify-content:center;margin-bottom:48px">
-    <a href="tel:18772028181" class="btn-primary" style="font-size:18px;padding:16px 36px">Call 1-877-202-8181</a>
+    <a href="tel:18772028181" class="btn-primary" style="font-size:18px;padding:16px 36px" data-i18n="cta.call">Call 1-877-202-8181</a>
     <a href="mailto:Sales@mediadview.com" class="btn-secondary" style="font-size:18px;padding:16px 36px">Sales@mediadview.com</a>
   </div>
   <div style="display:flex;gap:40px;justify-content:center;flex-wrap:wrap">
-    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--brand)">Free</div><div style="font-size:13px;color:var(--text2)">Consultation</div></div>
-    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--green)">24/7</div><div style="font-size:13px;color:var(--text2)">Support</div></div>
-    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--brand-light)">Custom</div><div style="font-size:13px;color:var(--text2)">Solutions</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--brand)" data-i18n="cta.free">Free</div><div style="font-size:13px;color:var(--text2)" data-i18n="cta.consult">Consultation</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--green)">24/7</div><div style="font-size:13px;color:var(--text2)" data-i18n="cta.support">Support</div></div>
+    <div style="text-align:center"><div style="font-size:28px;font-weight:900;color:var(--brand-light)" data-i18n="cta.custom">Custom</div><div style="font-size:13px;color:var(--text2)" data-i18n="cta.solutions">Solutions</div></div>
   </div>
 </div>
 </section>
@@ -614,25 +1063,25 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
   <div class="footer-top">
     <div>
       <div class="footer-brand"><img src="/api/web/logo-new.png" style="height:65px;margin-bottom:12px;margin-left:-20px" alt="MediAd View"></div>
-      <p class="footer-desc">Enterprise-grade digital signage solutions for businesses of all sizes. From LED screens to cloud-managed content platforms.</p>
+      <p class="footer-desc" data-i18n="ft.about">Enterprise-grade digital signage solutions for businesses of all sizes. From LED screens to cloud-managed content platforms.</p>
     </div>
     <div class="footer-col">
-      <h4>Services</h4>
-      <a href="#services">Window Displays</a>
-      <a href="#services">Church Screens</a>
-      <a href="#services">Outdoor Displays</a>
-      <a href="#menus">Restaurant Menus</a>
-      <a href="#platform">Cloud Platform</a>
+      <h4 data-i18n="ft.services">Services</h4>
+      <a href="#services" data-i18n="ft.window">Window Displays</a>
+      <a href="#services" data-i18n="ft.church">Church Screens</a>
+      <a href="#services" data-i18n="ft.outdoor">Outdoor Displays</a>
+      <a href="#menus" data-i18n="ft.menus">Restaurant Menus</a>
+      <a href="#platform" data-i18n="pf.badge">Cloud Platform</a>
     </div>
     <div class="footer-col">
-      <h4>Company</h4>
-      <a href="#how">How It Works</a>
-      <a href="#platform">Platform</a>
-      <a href="#contact">Contact Us</a>
-      <a href="https://panel.mediadview.com">Dashboard Login</a>
+      <h4 data-i18n="ft.company">Company</h4>
+      <a href="#how" data-i18n="ft.how">How It Works</a>
+      <a href="#platform" data-i18n="ft.plat">Platform</a>
+      <a href="#contact" data-i18n="ft.contactus">Contact Us</a>
+      <a href="https://panel.mediadview.com" data-i18n="ft.dash">Dashboard Login</a>
     </div>
     <div class="footer-col">
-      <h4>Contact</h4>
+      <h4 data-i18n="ft.contact">Contact</h4>
       <a href="tel:18772028181">1-877-202-8181</a>
       <a href="mailto:Sales@mediadview.com">Sales@mediadview.com</a>
       <a href="https://www.facebook.com/MediAd-View-101750995975421">Facebook</a>
@@ -640,8 +1089,8 @@ footer{background:#020617;border-top:1px solid rgba(255,255,255,.05);padding:64p
     </div>
   </div>
   <div class="footer-bottom">
-    <div>© 2026 MediAd View LLC. All rights reserved.</div>
-    <div>Digital Signage & LED Advertising Solutions</div>
+    <div data-i18n="ft.rights">© 2026 MediAd View LLC. All rights reserved.</div>
+    <div data-i18n="ft.tag">Digital Signage & LED Advertising Solutions</div>
   </div>
 </div>
 </footer>
@@ -687,6 +1136,157 @@ setInterval(function(){
   menuCurrent=(menuCurrent+1)%menuSlides.length;
   showMenuSlide(menuCurrent);
 },5000);
+
+/* ══════════════════════════════════════════════════════════
+   MEDIAVIEW PREMIUM — motion + interaction
+   ══════════════════════════════════════════════════════════ */
+(function(){
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ── Scroll reveal ── */
+  var revealEls = document.querySelectorAll('.reveal');
+  if (reduce || !('IntersectionObserver' in window)) {
+    revealEls.forEach(function(el){ el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+    revealEls.forEach(function(el){ io.observe(el); });
+  }
+
+  /* ── Hero screen rotation ── */
+  var stage = document.getElementById('hero-screen');
+  var chipsWrap = document.getElementById('hero-chips');
+  if (stage && chipsWrap) {
+    var shots = stage.querySelectorAll('img');
+    var chips = chipsWrap.querySelectorAll('.mv-chip');
+    var idx = 0, timer = null;
+
+    function show(n){
+      idx = ((n % shots.length) + shots.length) % shots.length;
+      shots.forEach(function(im, i){ im.classList.toggle('on', i === idx); });
+      chips.forEach(function(c, i){ c.classList.toggle('on', i === idx); });
+      var label = document.getElementById('hero-live-label');
+      if (label) label.textContent = (chips[idx].textContent || '').toUpperCase() + ' · LIVE';
+    }
+    function start(){ if (!reduce) timer = setInterval(function(){ show(idx + 1); }, 3800); }
+    function restart(){ clearInterval(timer); start(); }
+
+    chips.forEach(function(c){
+      c.addEventListener('click', function(){ show(parseInt(c.getAttribute('data-i'), 10)); restart(); });
+    });
+    show(0);
+    start();
+    // Pause rotation while the tab is hidden (saves CPU on TVs/laptops)
+    document.addEventListener('visibilitychange', function(){
+      if (document.hidden) clearInterval(timer); else restart();
+    });
+  }
+
+  /* ── Category filters (industries + templates) ── */
+  function wireFilter(tabsId, gridId, itemSel){
+    var tabs = document.getElementById(tabsId);
+    var grid = document.getElementById(gridId);
+    if (!tabs || !grid) return;
+    var items = grid.querySelectorAll(itemSel);
+    tabs.querySelectorAll('.mv-tab').forEach(function(tab){
+      tab.addEventListener('click', function(){
+        var cat = tab.getAttribute('data-cat');
+        tabs.querySelectorAll('.mv-tab').forEach(function(t){ t.classList.remove('on'); });
+        tab.classList.add('on');
+        items.forEach(function(it){
+          it.classList.toggle('hide', cat !== 'all' && it.getAttribute('data-cat') !== cat);
+        });
+      });
+    });
+  }
+  wireFilter('ind-tabs', 'ind-grid', '.mv-ind-card');
+  wireFilter('tpl-tabs', 'tpl-grid', '.mv-tpl');
+
+  /* ── Pricing teaser — live plan data, nothing hardcoded ── */
+  (function(){
+    var nEl = document.getElementById('pt-n');
+    var amtEl = document.getElementById('pt-amt');
+    var noteEl = document.getElementById('pt-note');
+    var minus = document.getElementById('pt-minus');
+    var plus = document.getElementById('pt-plus');
+    if (!nEl || !amtEl) return;
+
+    var plans = [];
+    var screens = 3;
+    var MAXN = 50;
+
+    function fmt(v){
+      return '$' + (Math.round(v * 100) / 100).toLocaleString('en-US', { maximumFractionDigits: 0 });
+    }
+
+    function best(n){
+      // Cheapest monthly cost across published plans for n screens.
+      var winner = null;
+      plans.forEach(function(p){
+        var inc = p.screens_included || 0;
+        var lim = p.screens_limit;
+        var extra = Math.max(0, n - inc);
+        if (lim != null && n > lim) return;                       // plan can't hold n screens
+        if (extra > 0 && !(p.price_per_extra_screen > 0)) return; // no add-ons available
+        var cost = (p.monthly_price || 0) + extra * (p.price_per_extra_screen || 0);
+        if (!winner || cost < winner.cost) winner = { cost: cost, plan: p, extra: extra };
+      });
+      return winner;
+    }
+
+    function lang(){
+      try { return localStorage.getItem('mv_lang') === 'es' ? 'es' : 'en'; } catch(e){ return 'en'; }
+    }
+    var TXT = {
+      en: { plan: 'plan', extra: 'extra screen', extras: 'extra screens', each: 'each', trial: '-day free trial',
+            contact: 'Contact sales for this many screens.', fallback: 'See the pricing page for current plans.', free: 'Free' },
+      es: { plan: 'plan', extra: 'pantalla extra', extras: 'pantallas extra', each: 'cada una', trial: ' días de prueba gratis',
+            contact: 'Contáctanos para esta cantidad de pantallas.', fallback: 'Consulta la página de precios para ver los planes.', free: 'Gratis' },
+    };
+
+    function render(){
+      var t = TXT[lang()];
+      nEl.textContent = screens;
+      minus.disabled = screens <= 1;
+      plus.disabled = screens >= MAXN;
+      if (!plans.length) return;
+      var w = best(screens);
+      if (!w) {
+        amtEl.textContent = '—';
+        noteEl.textContent = t.contact;
+        return;
+      }
+      amtEl.textContent = w.cost === 0 ? t.free : fmt(w.cost);
+      var parts = [lang() === 'es' ? ('Plan ' + w.plan.display_name) : (w.plan.display_name + ' ' + t.plan)];
+      if (w.extra > 0) parts.push(w.extra + ' ' + (w.extra > 1 ? t.extras : t.extra) + ' · ' + fmt(w.plan.price_per_extra_screen) + ' ' + t.each);
+      if (w.plan.trial_days > 0) parts.push(w.plan.trial_days + t.trial);
+      noteEl.textContent = parts.join(' · ');
+    }
+
+    minus.addEventListener('click', function(){ if (screens > 1) { screens--; render(); } });
+    plus.addEventListener('click', function(){ if (screens < MAXN) { screens++; render(); } });
+
+    fetch('/api/plans')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        plans = (data || []).filter(function(p){ return p.is_public !== false; });
+        render();
+      })
+      .catch(function(){
+        amtEl.textContent = '—';
+        noteEl.textContent = TXT[lang()].fallback;
+      });
+
+    // Re-render the note when the visitor switches language.
+    var lt = document.getElementById('lang-toggle');
+    if (lt) lt.addEventListener('click', function(){ setTimeout(render, 60); });
+
+    render();
+  })();
+})();
 </script>
 <script src="/api/web/i18n.js"></script>
 </body>

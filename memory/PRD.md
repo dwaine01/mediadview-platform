@@ -112,3 +112,36 @@ player), pero tres operaciones estrictamente separadas por backend RBAC:
 
 - Stripe está desactivado mientras no se inicie P2.
 - R2 no configurado; uploads mantienen fallback existente hasta migración explícita.
+
+---
+
+## Rediseño Premium UI/UX (junio 2026)
+
+Reporte completo en `/app/design_guidelines.md`.
+
+- Paleta oficial: cian `#06b6d4` / `#0891b2` / `#0e7490`, navy `#0f172a` / `#020c1b`,
+  superficies `#ffffff` / `#f8fafc` / `#f1f5f9`. Prohibidos: morados y amarillos de ScreenCloud.
+- 24 assets premium propios generados con Gemini Nano Banana
+  (`backend/scripts/gen_premium_assets.py`, re-ejecutable) en `backend/web/assets/*.webp`
+  (+ variantes `-sm.webp` para grids). PNG originales borrados: 15 MB -> 2.6 MB.
+- `web/landing.html`: hero con marco de TV y rotación de 6 industrias, banda de entorno real,
+  4 pasos de producto, showcase de 13 industrias filtrable, galería de 8 entornos,
+  importación de menú, edición móvil, 12 plantillas filtrables, calculadora de precios
+  alimentada por `GET /api/plans` (sin precios hardcodeados).
+- `web/i18n.js`: +180 claves; landing 100% bilingüe ES/EN con el toggle existente.
+- `app/workspace/*`: migrado de oscuro/índigo a claro cian/navy
+  (`frontend/scripts/relight_workspace.py`) y copy a español
+  (`frontend/scripts/translate_workspace.py`). Dashboard reconstruido con uso de pantallas,
+  estado de dispositivos, lista de pantallas y acciones rápidas.
+- `workspace_routes.py` → `GET /api/workspace/context` ahora devuelve
+  `stats.devices_online` y `stats.devices_offline` (heartbeat < 2 min).
+- Planes localizados a español en Mongo (`backend/scripts/localize_plans_es.py`).
+- Animaciones: scroll reveal + crossfade con `IntersectionObserver`, sin librerías nuevas,
+  respetando `prefers-reduced-motion`.
+
+### Pendiente / decisiones del dueño
+1. `web/saas/` (export estático de Expo que sirve `/pricing` y `/workspace/*` en producción)
+   está desactualizado — hay que regenerarlo antes del deploy.
+2. En producción `/login` y `/signup` sirven el legacy `customer.html` (anunciantes),
+   no las páginas Expo del SaaS. Decidir destino antes de tocar.
+3. Producir los 4 videos de producto (storyboard en `design_guidelines.md`, sección 7).
