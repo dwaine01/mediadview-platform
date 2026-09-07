@@ -468,6 +468,20 @@ def _legacy_media_sha256(media: dict) -> Optional[str]:
     return digest.hexdigest()
 
 
+async def _media_is_available(media: dict) -> bool:
+    """True when the bytes can still be served to a player or the panel.
+
+    Object storage keeps a public URL; legacy media needs either the disk copy
+    (which Render wipes on every deploy) or the base64 mirror in Mongo.
+    """
+    if media.get("public_url") or media.get("storage") in ("r2", "s3"):
+        return True
+    stored = media.get("stored_filename")
+    if stored and os.path.isfile(os.path.join(MEDIA_DIR, stored)):
+        return True
+    return await _media_has_inline_bytes(media["id"])
+
+
 async def _media_has_inline_bytes(media_id: str) -> bool:
     """True when the media document still carries the file as base64.
 
@@ -1714,12 +1728,20 @@ async def append_chunk(upload_id: str, request: Request,
     chunk = await request.body()
     if not chunk:
         raise HTTPException(400, "Empty chunk")
-    received = int(session.get("received", 0)) + len(chunk)
-    if received > int(session["size"]):
-        raise HTTPException(400, "Uploaded more bytes than announced")
+    # Writing at an explicit offset keeps retries idempotent: a phone that
+    # re-sends a chunk after a dropped response must not duplicate bytes.
+    try:
+        offset = int(request.headers.get("x-chunk-offset", session.get("received", 0)))
+    except ValueError:
+        raise HTTPException(400, "Invalid chunk offset")
+    if offset < 0 or offset + len(chunk) > int(session["size"]):
+        raise HTTPException(400, "Chunk falls outside the announced size")
     os.makedirs(CHUNK_TMP_DIR, exist_ok=True)
-    with open(_chunk_path(upload_id), "ab") as handle:
+    path = _chunk_path(upload_id)
+    with open(path, "r+b" if os.path.exists(path) else "wb") as handle:
+        handle.seek(offset)
         handle.write(chunk)
+    received = max(int(session.get("received", 0)), offset + len(chunk))
     await db.media_uploads.update_one({"id": upload_id}, {"$set": {"received": received}})
     return {"received": received, "size": session["size"],
             "percent": round(received * 100 / int(session["size"]), 1)}
@@ -2106,9 +2128,31 @@ async def admin_list_campaigns(status: Optional[str] = None, admin: dict = Depen
         {"advertising": 0}).to_list(500)}
     users_map   = {u["id"]: u for u in await db.users.find(
         {"id": {"$in": user_ids}}, {"password_hash": 0}).to_list(500)}
+    media_ids = list({m for c in campaigns for m in (c.get("media_ids") or [])})
+    media_map = {m["id"]: m for m in await db.media.find(
+        {"id": {"$in": media_ids}}, MEDIA_METADATA_PROJECTION).to_list(1000)}
     for c in campaigns:
         c["screen"] = serialize_doc(screens_map.get(c.get("screen_id")))
         c["user"]   = serialize_doc(users_map.get(c.get("user_id")))
+        # The panel needs to know the kind (a video cannot render in an <img>)
+        # and whether the file is still there, so it can ask the customer to
+        # re-upload instead of showing an empty box.
+        info = []
+        for mid in (c.get("media_ids") or []):
+            media = media_map.get(mid)
+            if not media:
+                info.append({"id": mid, "type": None, "available": False})
+                continue
+            info.append({
+                "id": mid,
+                "filename": media.get("filename"),
+                "type": media.get("type"),
+                "content_type": media.get("content_type"),
+                "orientation": media.get("orientation"),
+                "available": await _media_is_available(media),
+            })
+        c["media_info"] = info
+        c["media_available"] = all(i["available"] for i in info) if info else False
     return serialize_doc(campaigns)
 
 @api_router.put("/admin/campaigns/{campaign_id}/approve")

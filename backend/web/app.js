@@ -93,6 +93,24 @@ function go(p){
   setMobileSidebar(false);
   loaders[p]?.();
 }
+// Miniatura de un medio: un video no se puede pintar en un <img>, y si el
+// archivo ya no esta en el servidor hay que decirlo en vez de dejar un hueco.
+function mediaThumb(mid, info, h){
+  h = h || '100%';
+  var kind = (info && info.type) || 'image';
+  if(info && info.available === false){
+    return '<div style="width:100%;height:'+h+';min-height:120px;display:flex;flex-direction:column;gap:6px;align-items:center;justify-content:center;background:#fef2f2;color:#b91c1c;padding:10px;text-align:center">'+
+      '<span style="font-size:22px">!</span><span style="font-size:11.5px;font-weight:700">Archivo no disponible</span>'+
+      '<span style="font-size:10.5px;color:#dc2626">Pidele al cliente que lo suba de nuevo</span></div>';
+  }
+  var src = '/api/player/media/'+mid;
+  if(kind === 'video'){
+    return '<video src="'+src+'" muted playsinline preload="metadata" style="width:100%;height:'+h+';object-fit:cover;background:#0f172a"></video>'+
+      '<div style="position:absolute;bottom:8px;left:8px;background:rgba(15,23,42,.85);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px">VIDEO</div>';
+  }
+  return '<img src="'+src+'" style="width:100%;height:'+h+';object-fit:cover" onerror="this.style.display=\'none\'">';
+}
+
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
 function dot(s){const m={active:'#059669',pending:'#d97706',approved:'#a5b4fc',rejected:'#dc2626',draft:'#64748b',completed:'#67e8f9'};return m[s]||'#64748b'}
 const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#0e7490)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
@@ -396,7 +414,7 @@ const loaders={
           var hasMedia=c.media_ids&&c.media_ids.length>0;
           var mid=hasMedia?c.media_ids[0]:'';
           return '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex">'+
-            (hasMedia?'<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')"><img src="/api/player/media/'+mid+'" style="width:100%;height:100%;object-fit:cover" onerror="this.style.display=\'none\'"><div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
+            (hasMedia?'<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')">'+mediaThumb(mid,(c.media_info||[])[0])+'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
             '<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#94a3b8;font-size:12.5px;font-weight:600">Sin vista previa</span></div>')+
             '<div style="flex:1;padding:20px;display:flex;flex-direction:column">'+
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div>'+
@@ -1014,7 +1032,7 @@ async function showScreenPlaylist(screenId){
       var anim=item.animation||'fade';
       return '<div class="card" style="padding:0;overflow:hidden">'+
         '<div style="height:140px;background:#e2e8f0;display:flex;align-items:center;justify-content:center;cursor:pointer;position:relative" onclick="openReview(\'\',\''+item.media_id+'\',\'m\',\''+item.filename.replace(/'/g,'')+'\',\'\',\'active\')">'+
-          '<img src="/api/player/media/'+item.media_id+'" style="width:100%;height:100%;object-fit:cover" onerror="this.outerHTML=\'<div style=\\\'color:#64748b;font-size:12px\\\'>Video</div>\'">'+
+          mediaThumb(item.media_id,{type:((item.content_type||'').indexOf('video')===0?'video':'image')})+
           '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.4);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(8,145,178,.9);padding:6px 14px;border-radius:6px;font-size:12px;font-weight:700;color:#fff">View</div></div>'+
         '</div>'+
         '<div style="padding:10px">'+
