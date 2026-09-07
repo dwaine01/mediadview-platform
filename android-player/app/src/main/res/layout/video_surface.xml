@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  PlayerView backed by a TextureView instead of the default SurfaceView.
+  A SurfaceView lives on its own hardware layer, so view rotation and alpha
+  animations are not applied to the decoded frames: on many Android TV boxes
+  that renders as green/purple stripes and tearing. A TextureView is composited
+  like a normal view, so rotation + cross fade work correctly.
+-->
+<androidx.media3.ui.PlayerView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/video_surface"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/black"
+    app:surface_type="texture_view"
+    app:use_controller="false"
+    app:shutter_background_color="@android:color/transparent" />

@@ -17,6 +17,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.FrameLayout
 import android.widget.ImageView
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
@@ -87,7 +88,7 @@ class PlaybackController(
             index = preserved
             val incoming = items[preserved]
             if (playing != null && visualMatches(playing, incoming)) {
-                scheduleAdvance(incoming.durationSeconds)
+                scheduleAdvance(incoming)
                 return
             }
         } else {
@@ -169,7 +170,7 @@ class PlaybackController(
 
     private fun prepareVideo(item: PlaylistItemModel) {
         val player = ExoPlayer.Builder(activity).build()
-        val view = PlayerView(activity).apply {
+        val view = (activity.layoutInflater.inflate(R.layout.video_surface, host, false) as PlayerView).apply {
             useController = false
             setShutterBackgroundColor(Color.TRANSPARENT)
             resizeMode = videoResizeMode(item.displayMode)
@@ -288,7 +289,7 @@ class PlaybackController(
         if (previous == null) {
             incoming.view.alpha = 1f
             events.onReady(item)
-            scheduleAdvance(item.durationSeconds)
+            scheduleAdvance(item)
             return
         }
 
@@ -296,7 +297,7 @@ class PlaybackController(
         incoming.view.animate().alpha(1f).setDuration(220).withEndAction {
             disposeSession(previous)
             events.onReady(item)
-            scheduleAdvance(item.durationSeconds)
+            scheduleAdvance(item)
         }.start()
     }
 
@@ -334,7 +335,7 @@ class PlaybackController(
         if (items.isEmpty() || pendingSession != null) return
         if (items.size == 1) {
             activeSession?.player?.let { player -> player.seekTo(0); player.play() }
-            scheduleAdvance(items.first().durationSeconds)
+            scheduleAdvance(items.first())
             return
         }
         val activeIndex = activeSession?.item?.let { active ->
@@ -344,11 +345,24 @@ class PlaybackController(
         prepareCurrent()
     }
 
-    private fun scheduleAdvance(seconds: Int) {
+    /**
+     * Images/HTML advance on the configured duration. A video must always play
+     * to its own end: the playlist duration is only metadata and is often
+     * shorter than the clip, so for video we wait for the real remaining time
+     * (or for STATE_ENDED when the duration is not known yet).
+     */
+    private fun scheduleAdvance(item: PlaylistItemModel) {
         advanceRunnable?.let(handler::removeCallbacks)
-        advanceRunnable = Runnable { next() }.also {
-            handler.postDelayed(it, seconds.coerceAtLeast(1) * 1_000L)
+        advanceRunnable = null
+        val player = activeSession?.player
+        val delayMs: Long = if (item.kind == MediaKind.VIDEO && player != null) {
+            val duration = player.duration
+            if (duration == C.TIME_UNSET || duration <= 0) return
+            (duration - player.currentPosition).coerceAtLeast(1_000L) + 1_500L
+        } else {
+            item.durationSeconds.coerceAtLeast(1) * 1_000L
         }
+        advanceRunnable = Runnable { next() }.also { handler.postDelayed(it, delayMs) }
     }
 
     private fun clearSurface() {

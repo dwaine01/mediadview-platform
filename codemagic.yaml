@@ -12,6 +12,8 @@ workflows:
       branch_patterns:
         - pattern: main
           include: true
+        - pattern: 'player-v*'
+          include: true
     scripts:
       - name: Prepare project
         script: |
