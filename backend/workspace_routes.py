@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
 import time as _time
 
+from device_security import connectivity_from_heartbeat, progress_is_fresh
 from managed_portal_routes import create_audit_log as _audit
 from playlist_domain import normalize_schedule, schedule_is_active, select_winning_playlist
 from rbac import Role, get_effective_role
@@ -243,13 +244,16 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         screens = await db.screens.find({"organization_id": org_id}, {"_id": 0}).to_list(200)
         devices = await db.devices.find(
             {"screen_id": {"$in": [s["id"] for s in screens]}},
-            {"_id": 0, "screen_id": 1, "last_heartbeat": 1, "device_name": 1},
+            {"_id": 0, "screen_id": 1, "last_heartbeat": 1, "device_name": 1,
+             "player_state": 1, "sync_progress": 1, "diagnostics": 1, "device_info": 1},
         ).to_list(400)
         beat_by_screen: dict[str, datetime] = {}
+        device_by_screen: dict[str, dict] = {}
         for d in devices:
             hb = d.get("last_heartbeat")
             if hb and (d["screen_id"] not in beat_by_screen or hb > beat_by_screen[d["screen_id"]]):
                 beat_by_screen[d["screen_id"]] = hb
+                device_by_screen[d["screen_id"]] = d
 
         now = datetime.utcnow()
         epoch = int(_time.time())
@@ -280,11 +284,19 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                     cursor += duration
 
             hb = beat_by_screen.get(screen["id"])
+            device = device_by_screen.get(screen["id"]) or {}
+            connectivity = connectivity_from_heartbeat(hb, now)
+            progress = device.get("sync_progress")
             out.append({
                 "screen_id": screen["id"],
                 "screen_name": screen.get("name") or "Pantalla",
                 "location": screen.get("location"),
-                "is_online": bool(hb and (now - hb).total_seconds() < 120),
+                # Estado REAL informado por el reproductor (Sprint 1)
+                "connectivity": connectivity,
+                "player_state": device.get("player_state"),
+                "app_version": (device.get("diagnostics") or {}).get("app_version") or (device.get("device_info") or {}).get("app_version"),
+                "sync_progress": progress if progress_is_fresh(progress) else None,
+                "is_online": connectivity == "ONLINE",
                 "last_seen_seconds": int((now - hb).total_seconds()) if hb else None,
                 "cycle_seconds": cycle,
                 "now_playing": current,

@@ -60,6 +60,9 @@ class PlaybackController(
     val currentItem: PlaylistItemModel?
         get() = activeSession?.item ?: items.getOrNull(index)
 
+    /** ¿Hay contenido reproducible ahora mismo? (para decidir DEGRADED vs ERROR) */
+    fun hasContent(): Boolean = items.isNotEmpty()
+
     fun setPlaylist(newItems: List<PlaylistItemModel>) {
         val now = System.currentTimeMillis()
         quarantine.entries.removeAll { it.value.second <= now }

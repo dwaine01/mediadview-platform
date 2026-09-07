@@ -10,6 +10,13 @@ export type ScreenLive = {
   screen_name: string;
   location?: string | null;
   is_online: boolean;
+  connectivity?: 'ONLINE' | 'STALE' | 'OFFLINE' | 'NEVER';
+  player_state?: string | null;
+  app_version?: string | null;
+  sync_progress?: {
+    files_done: number; files_total: number; percent: number;
+    bytes_done: number; bytes_total: number; current_file?: string | null;
+  } | null;
   last_seen_seconds?: number | null;
   cycle_seconds: number;
   now_playing?: {
@@ -18,6 +25,16 @@ export type ScreenLive = {
     thumb_url?: string | null;
     duration: number; seconds_left: number; playlist_name?: string | null;
   } | null;
+};
+
+/** Etiquetas en español de los estados que reporta el reproductor. */
+const STATE_LABELS: Record<string, string> = {
+  BOOTING: 'Encendiendo', INITIALIZING: 'Iniciando', UNPAIRED: 'Sin emparejar',
+  PAIRING: 'Emparejando', PAIRED: 'Emparejada', WAITING_FOR_ASSIGNMENT: 'Sin contenido',
+  SYNCING: 'Sincronizando', DOWNLOADING: 'Descargando', VALIDATING: 'Validando',
+  READY: 'Lista', PLAYING: 'Reproduciendo', OFFLINE_PLAYING_CACHE: 'Sin internet · usando caché',
+  DEGRADED: 'Necesita atención', ERROR: 'Error', RECOVERING: 'Recuperándose',
+  UPDATING: 'Actualizando', RESTARTING: 'Reiniciando',
 };
 
 function lastSeen(seconds?: number | null): string {
@@ -30,7 +47,10 @@ function lastSeen(seconds?: number | null): string {
 
 /** One screen card with a thumbnail of whatever is on air right now. */
 function LiveCard({ item, onPress }: { item: ScreenLive; onPress?: () => void }) {
-  const np = item.now_playing;
+  // Regla de oro: si el reproductor no está en línea, NO mostramos lo que
+  // "debería" verse como si fuera real. Solo lo anunciamos como programado.
+  const np = item.is_online ? item.now_playing : null;
+  const scheduled = item.is_online ? null : item.now_playing;
   // Local 1s tick so the countdown feels live between polls
   const [left, setLeft] = useState(np?.seconds_left ?? 0);
 
@@ -52,17 +72,37 @@ function LiveCard({ item, onPress }: { item: ScreenLive; onPress?: () => void })
           </View>
         ) : (
           <View style={[lv.thumb, lv.blankThumb]}>
-            <Ionicons name="power-outline" size={24} color="#94A3B8" />
-            <Text style={lv.blankText}>Sin contenido</Text>
+            <Ionicons name={item.is_online ? 'power-outline' : 'cloud-offline-outline'} size={24} color="#94A3B8" />
+            <Text style={lv.blankText}>
+              {item.is_online ? 'Sin contenido' : 'Sin señal del reproductor'}
+            </Text>
           </View>
         )}
 
-        <View style={[lv.badge, item.is_online ? lv.badgeLive : lv.badgeOff]}>
-          <View style={[lv.dot, { backgroundColor: item.is_online ? '#22C55E' : '#94A3B8' }]} />
-          <Text style={[lv.badgeText, { color: item.is_online ? '#065F46' : '#475569' }]}>
-            {item.is_online ? 'EN VIVO' : 'OFFLINE'}
+        <View style={[
+          lv.badge,
+          item.is_online ? lv.badgeLive : item.connectivity === 'STALE' ? lv.badgeStale : lv.badgeOff,
+        ]}>
+          <View style={[lv.dot, {
+            backgroundColor: item.is_online ? '#22C55E' : item.connectivity === 'STALE' ? '#D97706' : '#94A3B8',
+          }]} />
+          <Text style={[lv.badgeText, {
+            color: item.is_online ? '#065F46' : item.connectivity === 'STALE' ? '#92400E' : '#475569',
+          }]}>
+            {item.is_online ? 'EN VIVO' : item.connectivity === 'STALE' ? 'SIN SEÑAL' : 'OFFLINE'}
           </Text>
         </View>
+
+        {!!item.sync_progress && (
+          <View style={lv.syncOverlay}>
+            <Text style={lv.syncText}>
+              Sincronizando {Math.round(item.sync_progress.percent)}% · {item.sync_progress.files_done} de {item.sync_progress.files_total}
+            </Text>
+            <View style={lv.syncTrack}>
+              <View style={[lv.syncFill, { width: `${Math.min(100, item.sync_progress.percent)}%` }]} />
+            </View>
+          </View>
+        )}
 
         {!!np && (
           <View style={lv.stamp}>
@@ -74,8 +114,18 @@ function LiveCard({ item, onPress }: { item: ScreenLive; onPress?: () => void })
       <View style={lv.meta}>
         <Text style={lv.name} numberOfLines={1}>{item.screen_name}</Text>
         <Text style={lv.detail} numberOfLines={1}>
-          {np ? `${np.title}${np.playlist_name ? ` · ${np.playlist_name}` : ''}` : `Última señal ${lastSeen(item.last_seen_seconds)}`}
+          {np
+            ? `${np.title}${np.playlist_name ? ` · ${np.playlist_name}` : ''}`
+            : scheduled
+              ? `Programado: ${scheduled.title} · última señal ${lastSeen(item.last_seen_seconds)}`
+              : `Última señal ${lastSeen(item.last_seen_seconds)}`}
         </Text>
+        {!!item.player_state && (
+          <Text style={lv.state} numberOfLines={1}>
+            {STATE_LABELS[item.player_state] || item.player_state}
+            {item.app_version ? ` · v${item.app_version}` : ''}
+          </Text>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -135,6 +185,14 @@ const lv = StyleSheet.create({
   },
   badgeLive: { backgroundColor: '#D1FAE5' },
   badgeOff: { backgroundColor: '#E2E8F0' },
+  badgeStale: { backgroundColor: '#FEF3C7' },
+  syncOverlay: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: 'rgba(15,23,42,0.82)', paddingHorizontal: 10, paddingVertical: 8, gap: 6,
+  },
+  syncText: { fontSize: 10.5, fontWeight: '700', color: '#FFFFFF' },
+  syncTrack: { height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)', overflow: 'hidden' },
+  syncFill: { height: 4, borderRadius: 2, backgroundColor: '#22D3EE' },
   dot: { width: 6, height: 6, borderRadius: 3 },
   badgeText: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.6 },
   stamp: {
@@ -145,5 +203,6 @@ const lv = StyleSheet.create({
   meta: { padding: 12, gap: 2 },
   name: { fontSize: 13.5, fontWeight: '700', color: '#0F172A' },
   detail: { fontSize: 11.5, color: '#64748B' },
+  state: { fontSize: 10.5, color: '#0891B2', fontWeight: '700', marginTop: 2 },
   error: { fontSize: 12.5, color: '#DC2626', paddingVertical: 12 },
 });

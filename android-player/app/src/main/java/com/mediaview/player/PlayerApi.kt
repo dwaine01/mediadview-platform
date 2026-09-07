@@ -38,13 +38,20 @@ object PlayerApi {
         DeviceIdentity.setServerUrl(ctx, url)
     }
 
-    private fun openConn(url: String, method: String = "GET", timeout: Int = 15000): HttpURLConnection {
+    private fun openConn(
+        url: String,
+        method: String = "GET",
+        timeout: Int = 15000,
+        deviceToken: String? = null,
+    ): HttpURLConnection {
         val c = URL(url).openConnection() as HttpURLConnection
         c.requestMethod = method
         c.connectTimeout = timeout
         c.readTimeout = timeout
         c.setRequestProperty("User-Agent", "MediAdViewPlayer/${BuildConfig.VERSION_NAME}")
         c.setRequestProperty("Accept", "application/json")
+        // Sprint 1: identidad propia del reproductor (el device_id ya no es la credencial)
+        if (!deviceToken.isNullOrBlank()) c.setRequestProperty("X-Device-Token", deviceToken)
         return c
     }
 
@@ -57,7 +64,7 @@ object PlayerApi {
 
     fun postJsonResult(ctx: Context, path: String, body: JSONObject): HttpResult {
         val url = baseUrl(ctx) + path
-        val c = openConn(url, "POST")
+        val c = openConn(url, "POST", deviceToken = DeviceIdentity.getDeviceToken(ctx))
         try {
             c.doOutput = true
             c.setRequestProperty("Content-Type", "application/json; charset=utf-8")
@@ -79,7 +86,7 @@ object PlayerApi {
 
     fun getJsonResult(ctx: Context, path: String): HttpResult {
         val url = baseUrl(ctx) + path
-        val c = openConn(url, "GET")
+        val c = openConn(url, "GET", deviceToken = DeviceIdentity.getDeviceToken(ctx))
         try {
             val code = c.responseCode
             val text = if (code in 200..299) readAll(c.inputStream) else readAll(c.errorStream)

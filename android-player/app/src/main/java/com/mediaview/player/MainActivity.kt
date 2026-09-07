@@ -119,6 +119,7 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun startRuntime() {
+        PlayerStateMachine.transitionTo(PlayerState.INITIALIZING)
         networkMonitor.start()
         HeartbeatWorker.enqueuePeriodic(this)
         scope.launch {
@@ -126,6 +127,13 @@ class MainActivity : Activity(), PlaybackEvents {
             if (!cached?.items.isNullOrEmpty()) {
                 applyOrientation(cached!!.resolution)
                 renderer.setPlaylist(cached.items)
+                // Arrancamos con el último contenido bueno: nunca pantalla en blanco.
+                PlayerStateMachine.transitionTo(
+                    if (PlayerApi.hasInternet(this@MainActivity)) PlayerState.PLAYING
+                    else PlayerState.OFFLINE_PLAYING_CACHE
+                )
+            } else {
+                PlayerStateMachine.transitionTo(PlayerState.PAIRED)
             }
             syncNow("startup")
         }
@@ -179,6 +187,7 @@ class MainActivity : Activity(), PlaybackEvents {
         if (syncing || !DeviceIdentity.isPaired(this)) return
         if (!PlayerApi.hasInternet(this)) {
             PlayerDiagnostics.connectivity(false)
+            if (renderer.hasContent()) PlayerStateMachine.transitionTo(PlayerState.OFFLINE_PLAYING_CACHE)
             scheduleRetry()
             return
         }
@@ -193,8 +202,12 @@ class MainActivity : Activity(), PlaybackEvents {
                 applyOrientation(result.snapshot.resolution)
                 if (result.snapshot.items.isEmpty()) {
                     renderer.setPlaylist(emptyList())
+                    PlayerStateMachine.transitionTo(PlayerState.WAITING_FOR_ASSIGNMENT)
                 } else {
                     renderer.setPlaylist(result.snapshot.items)
+                    PlayerStateMachine.transitionTo(
+                        if (result.fromCache) PlayerState.DEGRADED else PlayerState.PLAYING
+                    )
                 }
                 if (result.rejectedItems > 0) {
                     PlayerDiagnostics.playerError("${result.rejectedItems} archivo(s) rechazado(s)")
@@ -218,6 +231,9 @@ class MainActivity : Activity(), PlaybackEvents {
 
     private fun handleSyncFailure(reason: String, error: Exception) {
         PlayerDiagnostics.playerError("sync/$reason: ${error.message}")
+        PlayerStateMachine.transitionTo(
+            if (renderer.hasContent()) PlayerState.DEGRADED else PlayerState.ERROR
+        )
         scheduleRetry()
     }
 
@@ -247,6 +263,18 @@ class MainActivity : Activity(), PlaybackEvents {
                 put("resolution", "${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}")
                 put("orientation", if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "portrait" else "landscape")
                 put("last_sync", PlayerDiagnostics.current().lastSync)
+                // ── Sprint 1: estado real + progreso real ──
+                put("player_state", PlayerStateMachine.current().name)
+                PlayerStateMachine.currentProgress()?.let { progress ->
+                    put("sync_progress", JSONObject().apply {
+                        put("files_done", progress.filesDone)
+                        put("files_total", progress.filesTotal)
+                        put("bytes_done", progress.bytesDone)
+                        put("bytes_total", progress.bytesTotal)
+                        progress.currentFile?.let { put("current_file", it) }
+                        progress.manifestVersion?.let { put("manifest_version", it) }
+                    })
+                }
             }
             val response = PlayerApi.postJson(this@MainActivity, "/api/devices/$deviceId/heartbeat", payload)
             response.optJSONObject("update_available")?.let { AutoUpdater.tryUpdate(this@MainActivity, it) }
@@ -276,6 +304,9 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     override fun onReady(item: PlaylistItemModel) {
+        if (PlayerStateMachine.current() != PlayerState.OFFLINE_PLAYING_CACHE) {
+            PlayerStateMachine.transitionTo(PlayerState.PLAYING)
+        }
         PlayerDiagnostics.playerError(null)
         if (item.kind != MediaKind.HTML) PlayerDiagnostics.webError(null)
     }
@@ -300,6 +331,7 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun restartApp() {
+        PlayerStateMachine.transitionTo(PlayerState.RESTARTING)
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         startActivity(launch)

@@ -22,6 +22,7 @@ object DeviceIdentity {
     private const val KEY_SCREEN_ID = "screen_id"
     private const val KEY_SCREEN_NAME = "screen_name"
     private const val KEY_SERVER_URL = "server_url"
+    private const val KEY_DEVICE_TOKEN = "device_token"   // Sprint 1: credencial propia del reproductor
 
     private fun prefs(ctx: Context): SharedPreferences =
         ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
@@ -43,6 +44,15 @@ object DeviceIdentity {
         p.edit().putString(KEY_DEVICE_ID, generated).apply()
         Log.i(PlayerApp.TAG, "DeviceIdentity: new device_id=$generated")
         return generated
+    }
+
+    /** Token emitido por el backend en el registro. Sobrevive reinicios. */
+    fun getDeviceToken(ctx: Context): String? =
+        prefs(ctx).getString(KEY_DEVICE_TOKEN, null)
+
+    fun setDeviceToken(ctx: Context, token: String?) {
+        if (token.isNullOrBlank()) return
+        prefs(ctx).edit().putString(KEY_DEVICE_TOKEN, token).apply()
     }
 
     fun getBackendDeviceId(ctx: Context): String? =

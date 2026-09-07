@@ -398,3 +398,42 @@ Flujo E2E verificado en navegador: pricing → signup → login → workspace.
 - `expo-av` sigue declarado en package.json aunque no se usa (candidato a eliminar).
 - Warnings de consola: `shadow*` y `style.resizeMode` deprecados en RN Web.
 - Falta `DELETE /api/workspace/screens/{id}`.
+
+## Player Sprint 1 — Identidad, estados reales, progreso real y canal de eventos
+
+Auditoría previa completa en `/app/memory/PLAYER_AUDIT.md`; entrega y checklist de prueba
+física en `/app/memory/PLAYER_SPRINT1_REPORT.md`.
+
+Contexto: el reproductor de TV es un **APK nativo Android/Kotlin** (`/app/android-player`,
+ahora v3.3.0 / versionCode 18) que se compila en Codemagic, no la app Expo. La app Expo es
+la de gestión (iOS + Android + Web). iOS/tvOS no sirve como reproductor desatendido (Apple).
+
+1. **Seguridad de dispositivo** — `backend/device_security.py`: `device_token` emitido en
+   `POST /api/devices/register` (se guarda solo el hash), exigido en heartbeat, playlist y log
+   por `X-Device-Token` o `Bearer`. Modo gracia para la flota ya instalada (se adopta el primer
+   token presentado). El registro rota el token porque es el punto de enrolamiento.
+2. **Máquina de estados** — 17 estados canónicos compartidos: `PlayerStateMachine.kt` en el
+   player y validación en el backend (`normalize_player_state`); el heartbeat reporta
+   `player_state` y el panel lo muestra en español. Umbrales: heartbeat 30 s, ONLINE < 90 s,
+   STALE < 5 min, OFFLINE > 5 min (`connectivity_from_heartbeat`).
+3. **Progreso real de sincronización** — el player suma bytes/archivos reales del manifiesto
+   (`PlayerRepository.sync`) y los envía en el heartbeat; el backend los normaliza y el panel
+   dibuja "Sincronizando 62 % · 3 de 8". Se descarta si tiene más de 3 min o si el estado ya
+   es PLAYING/READY (no hay porcentajes pegados).
+4. **Canal de eventos** — `GET /api/events/screen/{screen_id}` (SSE) implementado: eventos
+   `hello`/`version`/`gone`, keepalive 20 s, cierre a los 10 min. El player ya llamaba a esa
+   ruta y no existía, así que los cambios de contenido dependían del polling de 15 s.
+5. **Honestidad en el panel** — si el reproductor no está en línea, ya NO se muestra lo que
+   "debería" verse como si fuera real: aparece "Sin señal del reproductor" y el ítem se anuncia
+   como "Programado: …".
+
+Pruebas: `backend/tests/test_player_sprint1.py` 5/5 + 21 de regresión (iteraciones 30-32).
+Pendiente de validación en hardware real por el dueño (checklist de 13 pasos en el reporte).
+
+### Deuda abierta (Sprints 2-5, en ese orden)
+- Sprint 2: cola de comandos con ID/ACK/estado, línea de tiempo por pantalla con TTL,
+  acciones en el panel, reconexión SSE con backoff explícito.
+- Sprint 3: historial de heartbeat → uptime 24 h/7 d/30 d, alertas, Device Center.
+- Sprint 4: watchdog reforzado, screenshot bajo demanda, diagnóstico, "Reemplazar reproductor".
+- Sprint 5: matriz de hardware, provisión de fábrica (Device Owner), Live View.
+- `check` y `update-check` seguirán sin token hasta cerrar el modo gracia.
