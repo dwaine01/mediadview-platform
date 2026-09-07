@@ -28,6 +28,11 @@ _WORKSPACE_ROLES = frozenset({
 _SCREEN_ADMIN_ROLES = frozenset({Role.SELF_SERVICE_OWNER, Role.SELF_SERVICE_MANAGER})
 
 
+def _norm_orientation(value) -> str:
+    """portrait or landscape — anything else falls back to landscape."""
+    return "portrait" if str(value or "").strip().lower() == "portrait" else "landscape"
+
+
 def _ser(doc):
     if isinstance(doc, list):
         return [_ser(d) for d in doc]
@@ -589,7 +594,9 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "code": None,
             "active_menu_id": None,
             "active_playlist_id": None,
-            "orientation": data.get("orientation", "landscape"),
+            # Stored inside `specs` like admin screens do: the player and the
+            # marketplace both read specs.orientation.
+            "specs": {"orientation": _norm_orientation(data.get("orientation"))},
             "created_by": current_user.get("id"),
             "created_at": now,
             "updated_at": now,
@@ -597,6 +604,42 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         await db.screens.insert_one(screen)
         await _log(current_user, "screen.created", "screen", screen["id"], {"name": screen_name})
         return _ser(screen)
+
+    @router.patch("/screens/{screen_id}", summary="Rename a screen or change its orientation")
+    async def workspace_update_screen(screen_id: str, data: dict,
+                                      current_user: dict = Depends(require_workspace_user)):
+        if get_effective_role(current_user) not in _SCREEN_ADMIN_ROLES:
+            raise HTTPException(403, "Tu rol no puede editar pantallas. Pide ayuda al dueño.")
+        org_id = current_user["organization_id"]
+        screen = await db.screens.find_one({"id": screen_id, "organization_id": org_id})
+        if not screen:
+            raise HTTPException(404, "Screen not found")
+
+        update: dict = {"updated_at": datetime.utcnow()}
+        if "name" in data:
+            name = (data.get("name") or "").strip()
+            if not name:
+                raise HTTPException(400, "Screen name is required")
+            update["name"] = name
+        orientation_changed = False
+        if "orientation" in data:
+            orientation = _norm_orientation(data.get("orientation"))
+            specs = dict(screen.get("specs") or {})
+            specs["orientation"] = orientation
+            update["specs"] = specs
+            # Legacy top-level value would keep shadowing the new one.
+            orientation_changed = orientation != (screen.get("specs") or {}).get("orientation")
+
+        await db.screens.update_one({"id": screen_id}, {"$set": update, "$unset": {"orientation": ""}})
+        await _log(current_user, "screen.updated", "screen", screen_id,
+                   {k: v for k, v in update.items() if k != "updated_at"})
+        # The player reads the orientation from the playlist, so bump the version
+        # to make the TV rotate on its next sync instead of waiting for a change.
+        if orientation_changed and bump_playlist_version:
+            await bump_playlist_version(screen_id, reason="screen orientation changed")
+
+        fresh = await db.screens.find_one({"id": screen_id})
+        return _ser(fresh)
 
     def _assert_owner(user: dict, detail: str) -> None:
         if get_effective_role(user) != Role.SELF_SERVICE_OWNER:
@@ -657,6 +700,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             "status": "active",
             "code": activation_code,
             "active_menu_id": None,
+            "specs": {"orientation": _norm_orientation(data.get("orientation"))},
             "created_by": current_user.get("id"),
             "created_at": now,
             "updated_at": now,
