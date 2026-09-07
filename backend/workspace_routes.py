@@ -321,7 +321,7 @@ def create_workspace_routes(db, get_current_user, require_admin):
     @router.patch("/screens/{screen_id}", summary="Rename a screen or change its orientation")
     async def workspace_update_screen(screen_id: str, data: dict,
                                       current_user: dict = Depends(require_workspace_user)):
-        if get_effective_role(current_user) not in _SCREEN_ADMIN_ROLES:
+        if get_effective_role(current_user) not in _WORKSPACE_ROLES:
             raise HTTPException(403, "Tu rol no puede editar pantallas. Pide ayuda al dueño.")
         org_id = current_user["organization_id"]
         screen = await db.screens.find_one({"id": screen_id, "organization_id": org_id})
@@ -344,12 +344,10 @@ def create_workspace_routes(db, get_current_user, require_admin):
             orientation_changed = orientation != (screen.get("specs") or {}).get("orientation")
 
         await db.screens.update_one({"id": screen_id}, {"$set": update, "$unset": {"orientation": ""}})
-        await _log(current_user, "screen.updated", "screen", screen_id,
-                   {k: v for k, v in update.items() if k != "updated_at"})
         # The player reads the orientation from the playlist, so bump the version
         # to make the TV rotate on its next sync instead of waiting for a change.
-        if orientation_changed and bump_playlist_version:
-            await bump_playlist_version(screen_id, reason="screen orientation changed")
+        if orientation_changed:
+            await db.screens.update_one({"id": screen_id}, {"$inc": {"playlist_version": 1}})
 
         fresh = await db.screens.find_one({"id": screen_id})
         return _ser(fresh)
