@@ -459,3 +459,26 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Tests: `backend/tests/test_marketplace_orientation_iter33.py` (9 passed).
 - APK v3.3.0 (Build #13 Codemagic) publicado en Release `player-latest` → `https://mediadview.com/apk`.
   Respaldo del v3.2.0 en el mismo release como `mediaview-player-v3.2.0-backup.apk`.
+
+## Iteración 34 — Auditoría de la cadena de orientación (3 niveles) + perf del player
+**Nivel 1 (superadmin panel)**: `editAdminScreen()` no inicializaba `window._editOrient` y `saveScreen()`
+  lo leía con fallback 'landscape' → editar cualquier otro campo (precio, dirección) volteaba la pantalla
+  a horizontal en silencio. Corregido; badges de lista/detalle aceptan `specs.orientation` y el legado.
+**Nivel 2 (workspace SaaS)**: `/workspace/screens` y `/workspace/screens/connect` guardaban la orientación
+  en el nivel superior (o no la guardaban) mientras todos los lectores usan `specs.orientation` → las
+  pantallas verticales de clientes SaaS siempre se reproducían horizontales. Ahora escriben
+  `specs.orientation`; `screen_orientation()` acepta el campo legado; nuevo
+  `PATCH /api/workspace/screens/{id}` (renombrar / cambiar orientación, hace bump de playlist_version).
+  UI Expo: selector de orientación al conectar + chip por tarjeta para cambiarla.
+**Nivel 3 (player)**: los 3 payloads de playlist resuelven la orientación con `screen_orientation()`.
+  Tarjeta de dispositivo del panel muestra orientación/resolución/versión reales del TV.
+  APK v3.3.3 (build #16): la Activity se queda en landscape nativo (1920x1080) y rota el *content host*
+  90° para pantallas verticales — antes `setRequestedOrientation(PORTRAIT)` daba una ventana 608x1080.
+**Perf crítico**: `/api/player/{screen}/playlist` tardaba **36 s** en producción porque cada item hacía
+  `find_one` completo sobre `media`, cuyos documentos legado llevan el archivo en base64 (`data`).
+  Con `MEDIA_METADATA_PROJECTION` bajó a **0.33 s** (también `/export`: 36 s → 0.27 s).
+**Hallazgo pendiente (P0 de contenido)**: los 8 campaigns de la pantalla "anuncio publico" están excluidos
+  porque sus archivos NO existen en disco (`/app/backend/media/*.jpeg`). El disco de Render es efímero:
+  cada deploy borra los medios. Hay soporte de R2 en el código (`scripts/migrate_media_to_r2.py`,
+  `storage: r2`) pero sin credenciales en producción → fallback a disco. **Requiere object storage.**
+- Tests: `backend/tests/test_orientation_chain_iter34.py` (10 passed).
