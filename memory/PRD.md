@@ -482,3 +482,8 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   cada deploy borra los medios. Hay soporte de R2 en el código (`scripts/migrate_media_to_r2.py`,
   `storage: r2`) pero sin credenciales en producción → fallback a disco. **Requiere object storage.**
 - Tests: `backend/tests/test_orientation_chain_iter34.py` (10 passed).
+**Recuperación de contenido (mismo día)**: el playlist descartaba medios cuyo archivo en disco fue borrado
+  por el deploy, aunque Mongo conserva el base64 y `/api/player/media/{id}` sí lo sirve. Con
+  `_media_has_inline_bytes()` la pantalla "anuncio publico" pasó de **0 → 5 items** en producción
+  (verificado; los 3 primeros medios descargan 119-208 KB con HTTP 200).
+  Test: `backend/tests/test_playlist_diskless_iter34.py`.
