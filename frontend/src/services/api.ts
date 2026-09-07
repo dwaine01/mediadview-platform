@@ -197,6 +197,13 @@ export const workspaceAPI = {
   deletePlaylist: (id: string) => api.delete(`/workspace/playlists/${id}`),
   activity: (limit = 60) => api.get(`/workspace/activity?limit=${limit}`),
   nowPlaying: () => api.get('/workspace/now-playing'),
+  weeklyReport: (weeksAgo = 0) => api.get(`/workspace/reports/weekly?weeks_ago=${weeksAgo}`),
+  activePromos: () => api.get('/workspace/promos/active'),
+  launchPromo: (data: {
+    kind: 'image' | 'text'; text?: string; subtitle?: string; media_id?: string;
+    duration_minutes?: number | null; screen_ids?: string[]; item_seconds?: number;
+  }) => api.post('/workspace/promos', data, { timeout: 60000 }),
+  stopPromo: (id: string) => api.delete(`/workspace/promos/${id}`),
   aiPhotoForItem: (menuId: string, itemId: string) =>
     api.post(`/workspace/menus/${menuId}/items/${itemId}/ai-photo`, {}, { timeout: 180000 }),
   aiImportMenu: (data: { image_base64: string; content_type: string }) =>

@@ -802,6 +802,18 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         )
         previous = next((i for i in (menu.get("items") or []) if i.get("id") == item_id), {})
         details = {"menu_name": menu.get("name"), "item": data.get("name") or previous.get("name")}
+        if "available" in data and bool(data["available"]) != bool(previous.get("available", True)):
+            sold_out = not bool(data["available"])
+            await _log(current_user, "menu_item.sold_out" if sold_out else "menu_item.restored",
+                       "menu", menu_id, {"menu_name": menu.get("name"), "item": previous.get("name")})
+            # Refresh every screen currently showing a playlist with this menu
+            if bump_playlist_version:
+                affected = await db.playlists.find(
+                    {"org_id": org_id, "items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
+                    {"_id": 0, "screen_ids": 1},
+                ).to_list(200)
+                for sid in {sid for pl in affected for sid in (pl.get("screen_ids") or [])}:
+                    await bump_playlist_version(sid, reason="menu item availability changed")
         if "price" in data and float(data["price"]) != float(previous.get("price") or 0):
             details["price_from"] = previous.get("price")
             details["price_to"] = data["price"]

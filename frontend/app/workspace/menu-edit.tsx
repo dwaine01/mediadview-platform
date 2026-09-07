@@ -22,13 +22,14 @@ type Menu = {
 };
 
 function ItemCard({
-  item, onEdit, onDelete, onAiPhoto, generating,
+  item, onEdit, onDelete, onAiPhoto, generating, onToggleAvailable, toggling,
 }: {
   item: MenuItem; onEdit: () => void; onDelete: () => void;
   onAiPhoto: () => void; generating: boolean;
+  onToggleAvailable: () => void; toggling: boolean;
 }) {
   return (
-    <View style={ed.itemCard}>
+    <View style={[ed.itemCard, !item.available && ed.itemCardOut]}>
       <View style={ed.itemLeft}>
         {item.image_url ? (
           <Image source={{ uri: `${API_URL}${item.image_url}` }} style={ed.itemPhoto} resizeMode="cover" />
@@ -44,9 +45,28 @@ function ItemCard({
           <View style={[ed.availDot, { backgroundColor: item.available ? '#059669' : '#94A3B8' }]} />
         </View>
         <View style={ed.itemBody}>
-          <Text style={ed.itemName}>{item.name}</Text>
+          <Text style={[ed.itemName, !item.available && ed.itemNameOut]}>{item.name}</Text>
           {!!item.category && <Text style={ed.itemCat}>{item.category}</Text>}
           {!!item.description && <Text style={ed.itemDesc} numberOfLines={1}>{item.description}</Text>}
+          <TouchableOpacity
+            style={[ed.soldOutChip, !item.available && ed.soldOutChipOn]}
+            onPress={onToggleAvailable}
+            disabled={toggling}
+            activeOpacity={0.8}
+          >
+            {toggling
+              ? <ActivityIndicator size="small" color={item.available ? '#64748B' : '#B45309'} />
+              : <>
+                  <Ionicons
+                    name={item.available ? 'ellipse-outline' : 'close-circle'}
+                    size={13}
+                    color={item.available ? '#64748B' : '#B45309'}
+                  />
+                  <Text style={[ed.soldOutText, !item.available && ed.soldOutTextOn]}>
+                    {item.available ? 'Marcar agotado' : 'AGOTADO · toca para reponer'}
+                  </Text>
+                </>}
+          </TouchableOpacity>
         </View>
       </View>
       <View style={ed.itemRight}>
@@ -97,6 +117,7 @@ export default function MenuEditor() {
   // AI photos
   const [dialog, setDialog] = useState<DialogState>(null);
   const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState('');
 
   const load = useCallback(async () => {
@@ -137,6 +158,20 @@ export default function MenuEditor() {
         message: e.response?.data?.detail || e.message || 'Intenta de nuevo en un momento.',
       });
     } finally { setGeneratingId(null); }
+  }, [menuId]);
+
+  const toggleAvailable = useCallback(async (item: MenuItem) => {
+    setTogglingId(item.id);
+    const next = !item.available;
+    try {
+      await workspaceAPI.updateMenuItem(menuId, item.id, { available: next });
+      setMenu(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === item.id ? { ...i, available: next } : i),
+      } : prev);
+    } catch (e: any) {
+      setDialog({ title: 'No se pudo actualizar', message: e.response?.data?.detail || e.message });
+    } finally { setTogglingId(null); }
   }, [menuId]);
 
   const generateMissingPhotos = useCallback(async () => {
@@ -312,6 +347,8 @@ export default function MenuEditor() {
                   onDelete={() => deleteItem(item)}
                   onAiPhoto={() => generatePhoto(item)}
                   generating={generatingId === item.id}
+                  onToggleAvailable={() => toggleAvailable(item)}
+                  toggling={togglingId === item.id}
                 />
               ))}
             </View>
@@ -458,6 +495,16 @@ const ed = StyleSheet.create({
   itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, gap: 8 },
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   itemPhoto: { width: 54, height: 42, borderRadius: 8, backgroundColor: '#E2E8F0' },
+  itemCardOut: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+  itemNameOut: { textDecorationLine: 'line-through', color: '#92400E' },
+  soldOutChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    marginTop: 6, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 20,
+    backgroundColor: '#F1F5F9', minHeight: 30,
+  },
+  soldOutChipOn: { backgroundColor: '#FEF3C7' },
+  soldOutText: { fontSize: 10.5, fontWeight: '700', color: '#64748B' },
+  soldOutTextOn: { color: '#B45309' },
   aiPhotoBtn: {
     width: 54, height: 42, borderRadius: 8, backgroundColor: '#ECFEFF',
     borderWidth: 1, borderColor: '#CFFAFE', borderStyle: 'dashed',

@@ -358,3 +358,43 @@ Flujo E2E verificado en navegador: pricing → signup → login → workspace.
 ### Pendiente
 - P2: Stripe real para facturación mensual/anual.
 - Menor: falta `DELETE /api/workspace/screens/{id}`; añadir testIDs en horarios y playlist-edit.
+
+## Iteración 32 — Producto Agotado, Promo Instantánea y Reporte Semanal
+
+### Producto Agotado (desaparece al instante)
+- `PUT /api/workspace/menus/{id}/items/{item_id}` con `available:false`: el renderizador
+  (`GET /api/menus/{id}/render`) ahora **omite** los productos no disponibles, se audita
+  `menu_item.sold_out` / `menu_item.restored` y se sube la versión de todas las pantallas que
+  muestran ese menú para que refresquen enseguida.
+- `menu-edit.tsx`: chip "Marcar agotado" en cada producto → tarjeta ámbar, nombre tachado y
+  "AGOTADO · toca para reponer".
+
+### Promo Instantánea
+- `backend/promo_routes.py`: `POST /api/workspace/promos`, `GET /api/workspace/promos/active`,
+  `DELETE /api/workspace/promos/{id}`. Una promo es una playlist con `is_promo`, prioridad 90 y
+  `expires_at` opcional, así que gana sobre el contenido normal y al vencer todo vuelve solo
+  (`_build_owned_playlist_items` filtra las expiradas).
+  - `kind: "text"` genera una tarjeta 1920x1080 con Pillow en navy + cian y la guarda como media.
+  - `kind: "image"` usa una foto de la biblioteca del negocio.
+  - Duraciones permitidas: 15, 60, 240, 480 minutos o `null` (hasta apagarla).
+- `app/workspace/promo.tsx`: pestañas Mensaje/Foto, vista previa en vivo, chips de duración,
+  botón "Lanzar a N pantallas", tarjeta "PROMO EN EL AIRE" con botón de apagado.
+  Banner de promo activa y acceso rápido "Lanzar Promo" en el Panel. Nav: "Promo".
+
+### Reporte Semanal (solo en el panel, por decisión del usuario)
+- `backend/workspace_reports_routes.py`: `GET /api/workspace/reports/weekly?weeks_ago=`
+  (semana lunes-domingo) con datos reales de `play_logs`, `audit_logs` y heartbeats:
+  totales, lo más mostrado, pantallas caídas (última señal y días sin reproducir),
+  cambios del equipo por tipo, precios que cambiaron (de → a, quién) y ranking de personas.
+- `app/workspace/reports.tsx` con selector de semana. Nav: "Reportes".
+
+### Pruebas
+- `backend/tests/test_workspace_iter32.py` (3) + `test_workspace_iter32_extra.py` del testing agent
+  (versionado de pantallas, expiración de promo forzada, price_changes, promo con foto): 18 pasan.
+- Frontend validado por el testing agent sin bugs. Export estático regenerado en `backend/web/saas`.
+
+### Pendiente / deuda menor
+- P2: Stripe real para facturación mensual/anual.
+- `expo-av` sigue declarado en package.json aunque no se usa (candidato a eliminar).
+- Warnings de consola: `shadow*` y `style.resizeMode` deprecados en RN Web.
+- Falta `DELETE /api/workspace/screens/{id}`.

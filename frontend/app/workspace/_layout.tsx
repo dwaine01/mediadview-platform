@@ -12,12 +12,14 @@ const MEDIA = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const WS_NAV = [
   { key: 'index', label: 'Panel', icon: 'grid' as const, path: '/workspace' },
+  { key: 'promo', label: 'Promo', icon: 'megaphone' as const, path: '/workspace/promo' },
   { key: 'screens', label: 'Pantallas', icon: 'tv' as const, path: '/workspace/screens' },
   { key: 'menus', label: 'Menús', icon: 'fast-food' as const, path: '/workspace/menus' },
   { key: 'content', label: 'Contenido', icon: 'images' as const, path: '/workspace/content' },
   { key: 'playlists', label: 'Playlists', icon: 'list' as const, path: '/workspace/playlists' },
   { key: 'schedules', label: 'Horarios', icon: 'calendar' as const, path: '/workspace/schedules' },
   { key: 'activity', label: 'Actividad', icon: 'time' as const, path: '/workspace/activity' },
+  { key: 'reports', label: 'Reportes', icon: 'stats-chart' as const, path: '/workspace/reports' },
   { key: 'users', label: 'Equipo', icon: 'people' as const, path: '/workspace/users', ownerOnly: true },
   { key: 'billing', label: 'Facturación', icon: 'card' as const, path: '/workspace/billing', ownerOnly: true },
   { key: 'settings', label: 'Ajustes', icon: 'settings' as const, path: '/workspace/settings' },

@@ -428,8 +428,15 @@ def _legacy_media_sha256(media: dict) -> Optional[str]:
 
 
 async def _build_owned_playlist_items(screen_id: str) -> list:
+    now = datetime.utcnow()
     playlists = await db.playlists.find(
-        {"screen_ids": screen_id, "status": "published"}, {"_id": 0}
+        {
+            "screen_ids": screen_id,
+            "status": "published",
+            # Instant promos carry an expiry; once it passes they stop playing.
+            "$or": [{"expires_at": None}, {"expires_at": {"$exists": False}}, {"expires_at": {"$gt": now}}],
+        },
+        {"_id": 0},
     ).to_list(200)
     winner = select_winning_playlist(playlists)
     if not winner:
@@ -5636,6 +5643,8 @@ async def render_menu(menu_id: str, request: Request):
         for flat in flat_items:
             if not isinstance(flat, dict):
                 continue
+            if not flat.get("available", True):
+                continue  # producto agotado: desaparece del menú
             group = str(flat.get("category") or "Menú")
             grouped.setdefault(group, []).append({
                 "name": flat.get("name") or "",
@@ -6039,9 +6048,13 @@ from workspace_routes import create_workspace_routes
 from signup_routes import create_signup_routes
 from workspace_team_routes import create_workspace_team_routes
 from menu_ai_routes import create_menu_ai_routes
+from promo_routes import create_promo_routes
+from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
 app.include_router(create_workspace_team_routes(db, get_current_user))
 app.include_router(create_menu_ai_routes(db, get_current_user))
+app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
+app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
                                              build_screen_playlist_items))
 app.include_router(create_signup_routes(db, create_token))
