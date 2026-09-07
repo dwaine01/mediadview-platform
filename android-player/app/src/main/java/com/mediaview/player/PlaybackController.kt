@@ -153,6 +153,7 @@ class PlaybackController(
             rotation = item.rotation.toFloat()
             alpha = 0f
         }
+        applyRotationFill(image, item.rotation)
         val session = RenderSession(item, image)
         pendingSession = session
         host.addView(image, fillParams())
@@ -175,6 +176,7 @@ class PlaybackController(
             rotation = item.rotation.toFloat()
             alpha = 0f
         }
+        applyRotationFill(view, item.rotation)
         val session = RenderSession(item, view, player = player)
         pendingSession = session
         host.addView(view, fillParams())
@@ -396,4 +398,21 @@ class PlaybackController(
         FrameLayout.LayoutParams.MATCH_PARENT,
         FrameLayout.LayoutParams.MATCH_PARENT,
     )
+
+    /**
+     * A view rotated 90/270 keeps the host's width as its own height, so it ends
+     * up letterboxed with black bars. Scaling by the host aspect ratio makes the
+     * rotated content cover the whole screen again.
+     */
+    private fun applyRotationFill(view: View, rotationDegrees: Int) {
+        if (rotationDegrees % 180 == 0) return
+        view.post {
+            val width = host.width.toFloat()
+            val height = host.height.toFloat()
+            if (width <= 0f || height <= 0f) return@post
+            val scale = maxOf(width / height, height / width)
+            view.scaleX = scale
+            view.scaleY = scale
+        }
+    }
 }

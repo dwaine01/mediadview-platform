@@ -43,6 +43,8 @@ data class PlaylistSnapshot(
     val version: Long,
     val generatedAt: String,
     val items: List<PlaylistItemModel>,
+    /** "portrait" | "landscape" — comes from the screen configured in the panel. */
+    val orientation: String = "",
 )
 
 object PlaylistJsonParser {
@@ -76,6 +78,7 @@ object PlaylistJsonParser {
             version = json.optLong("playlist_version", 0L),
             generatedAt = json.optString("generated_at", ""),
             items = items,
+            orientation = json.optString("orientation", ""),
         )
     }
 

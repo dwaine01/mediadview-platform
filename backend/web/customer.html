@@ -333,7 +333,7 @@ img{max-width:100%}
   <div class="upl" id="ec-upload" onclick="document.getElementById('ec-file').click()">
     <svg width="36" height="36" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 8px;display:block"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
     <p style="font-size:14px;font-weight:600;color:#334155">Subir nueva imagen o video</p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:4px">JPG, PNG o MP4 — 1920x1080</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:4px" id="ec-hint">JPG, PNG o MP4</p>
   </div>
   <input type="file" id="ec-file" accept="image/*,video/mp4" style="display:none" onchange="onEditFileSelect(this)">
   <div id="ec-preview" style="margin-top:12px;display:none"></div>
@@ -456,7 +456,7 @@ img{max-width:100%}
   <div class="upl" id="upload-area" onclick="document.getElementById('file-input').click()">
     <svg width="40" height="40" fill="none" stroke="#94a3b8" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 10px;display:block"><path d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
     <p style="font-size:14px;font-weight:600;color:#334155">Toque para seleccionar</p>
-    <p style="font-size:11px;color:#94a3b8;margin-top:4px">JPG, PNG o MP4 — 1920x1080</p>
+    <p style="font-size:11px;color:#94a3b8;margin-top:4px" id="upload-hint">JPG, PNG o MP4</p>
   </div>
   <input type="file" id="file-input" accept="image/*,video/mp4" style="display:none" onchange="onFileSelect(this)">
   <div id="upload-preview" style="margin-top:12px;display:none"></div>
@@ -518,8 +518,81 @@ function goToUpload(){
     }).catch(function(e){toast(e.message,false)});
     return;
   }
-if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
-async function onFileSelect(inp){const f=inp.files[0];if(!f)return;document.getElementById('upload-status').innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';const rd=new FileReader();rd.onload=async function(){const b=rd.result.split(',')[1];try{const r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b})});mediaId=r.id;document.getElementById('upload-area').style.display='none';document.getElementById('upload-preview').innerHTML='<div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:14px;display:flex;align-items:center;gap:10px"><svg width="20" height="20" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><div><div style="font-size:13px;font-weight:600;color:#059669">Archivo cargado</div><div style="font-size:11px;color:#6b7280">'+f.name+'</div></div></div>';document.getElementById('upload-preview').style.display='block';document.getElementById('upload-status').innerHTML='';const b2=document.getElementById('btn-submit');b2.disabled=false;b2.style.opacity='1';b2.textContent='Enviar para revision'}catch(e){document.getElementById('upload-status').innerHTML='<p style="color:#dc2626;font-size:12px">'+e.message+'</p>'}};rd.readAsDataURL(f)}
+if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
+
+// ── Orientación: preview con la forma real de la pantalla ────────────────────
+function scrOrientation(s){return (s&&s.specs&&s.specs.orientation)||'landscape'}
+function orLabel(o){return o==='portrait'?'vertical':'horizontal'}
+function measureFile(f){
+  return new Promise(function(res){
+    var url=URL.createObjectURL(f);
+    if((f.type||'').indexOf('video')===0){
+      var v=document.createElement('video');
+      v.preload='metadata';
+      v.onloadedmetadata=function(){res({w:v.videoWidth,h:v.videoHeight,url:url,isVideo:true})};
+      v.onerror=function(){res({w:0,h:0,url:url,isVideo:true})};
+      v.src=url;
+    }else{
+      var i=new Image();
+      i.onload=function(){res({w:i.naturalWidth,h:i.naturalHeight,url:url,isVideo:false})};
+      i.onerror=function(){res({w:0,h:0,url:url,isVideo:false})};
+      i.src=url;
+    }
+  });
+}
+function fileOrientation(w,h){if(!w||!h)return null;if(w>h)return 'landscape';if(h>w)return 'portrait';return 'square'}
+// Recuadro con la forma exacta de la pantalla — así se verá el anuncio en la TV
+function orientationPreview(m,required,fileOr){
+  var ok = !fileOr || fileOr==='square' || fileOr===required;
+  var ratio = required==='portrait' ? '9/16' : '16/9';
+  var maxW  = required==='portrait' ? '190px' : '320px';
+  var media = m.isVideo
+    ? '<video src="'+m.url+'" muted autoplay loop playsinline style="width:100%;height:100%;object-fit:cover"></video>'
+    : '<img src="'+m.url+'" style="width:100%;height:100%;object-fit:cover">';
+  return '<div style="text-align:center">'+
+    '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">Así se verá en la pantalla ('+orLabel(required)+')</div>'+
+    '<div style="margin:0 auto;width:100%;max-width:'+maxW+';aspect-ratio:'+ratio+';border-radius:12px;overflow:hidden;background:#0f172a;border:3px solid '+(ok?'#059669':'#dc2626')+'">'+media+'</div>'+
+    '<div style="font-size:11px;color:#94a3b8;margin-top:6px">Tu archivo: '+(m.w||'?')+'×'+(m.h||'?')+' px'+(fileOr?' · '+orLabel(fileOr):'')+'</div>'+
+    (ok
+      ? '<div style="margin-top:10px;background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:10px;font-size:12px;font-weight:600;color:#059669">Orientación correcta</div>'
+      : '<div style="margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;font-size:12px;color:#b91c1c;text-align:left">'+
+        '<b>Tu archivo es '+orLabel(fileOr)+' y esta pantalla es '+orLabel(required)+'.</b><br>'+
+        'Sube el archivo en '+orLabel(required)+' para que llene la pantalla completa. Este intento no consume ninguno de tus cambios.'+
+        '</div>')+
+    '</div>';
+}
+async function onFileSelect(inp){
+  var f=inp.files[0];if(!f)return;
+  var required=scrOrientation(selScreen);
+  var st=document.getElementById('upload-status');
+  var pv=document.getElementById('upload-preview');
+  var btn=document.getElementById('btn-submit');
+  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Revisando archivo...</p>';
+  var m=await measureFile(f);
+  var fo=fileOrientation(m.w,m.h);
+  pv.innerHTML=orientationPreview(m,required,fo);
+  pv.style.display='block';
+  document.getElementById('upload-area').style.display='block';
+  if(fo && fo!=='square' && fo!==required){
+    mediaId=null;st.innerHTML='';
+    btn.disabled=true;btn.style.opacity='.4';btn.textContent='Sube el archivo en '+orLabel(required);
+    inp.value='';
+    return;
+  }
+  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
+  var rd=new FileReader();
+  rd.onload=async function(){
+    var b=rd.result.split(',')[1];
+    try{
+      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b,width:m.w,height:m.h})});
+      mediaId=r.id;
+      document.getElementById('upload-area').style.display='none';
+      st.innerHTML='';
+      btn.disabled=false;btn.style.opacity='1';btn.textContent='Enviar para revision';
+    }catch(e){st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>'}
+  };
+  rd.readAsDataURL(f);
+}
 async function submitCampaign(){
   if(!mediaId||!selPlan)return;
   var scrIds=selectedScreens.length>0?selectedScreens:[selScreen?.id];
@@ -686,12 +759,27 @@ async function editCampaign(cid){
     var st=camp.status;
     var stc=st==='approved'||st==='active'?'#059669':st==='pending'?'#d97706':'#94a3b8';
     var stl=st==='approved'?'Activa':st==='active'?'Activa':st==='pending'?'Pendiente':st;
-    var sd=camp.schedule?camp.schedule.start_date:'';
-    var ed=camp.schedule?camp.schedule.end_date:'';
+    var sd=camp.schedule&&camp.schedule.start_date?camp.schedule.start_date:'Desde ya';
+    var ed=camp.schedule&&camp.schedule.end_date?camp.schedule.end_date:'Sin vencimiento';
+    var req=camp.screen_orientation||scrOrientation(scr);
+    window._ecOrientation=req;
+    var left=(typeof camp.media_changes_left==='number')?camp.media_changes_left:2;
     document.getElementById('ec-info').innerHTML=
       '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px"><div style="font-size:16px;font-weight:700">'+camp.name+'</div><div style="padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;color:'+stc+';background:'+stc+'12">'+stl+'</div></div>'+
       '<div style="font-size:12px;color:#94a3b8;margin-bottom:4px">'+sn+' · '+sc+'</div>'+
-      '<div style="font-size:12px;color:#94a3b8">'+sd+' a '+ed+'</div>';
+      '<div style="font-size:12px;color:#94a3b8;margin-bottom:8px">'+sd+' a '+ed+'</div>'+
+      '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+        '<span style="padding:4px 10px;border-radius:8px;background:#eef2ff;color:#4f46e5;font-size:11px;font-weight:700">Pantalla '+orLabel(req)+'</span>'+
+        '<span style="padding:4px 10px;border-radius:8px;background:'+(left>0?'#ecfdf5':'#fef2f2')+';color:'+(left>0?'#059669':'#b91c1c')+';font-size:11px;font-weight:700">'+
+          (left>0?('Te queda'+(left===1?'':'n')+' '+left+' de 2 cambios'):'Sin cambios disponibles')+
+        '</span>'+
+      '</div>';
+    if(left<=0){
+      document.getElementById('ec-upload').style.display='none';
+      document.getElementById('ec-status').innerHTML='<div style="background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;font-size:12px;color:#b91c1c">Ya usaste tus 2 cambios de archivo para esta publicación. Puedes eliminarla y publicar de nuevo.</div>';
+    }else{
+      var _eh=document.getElementById('ec-hint');if(_eh)_eh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(req);
+    }
     // Show current media
     var mids=camp.media_ids||[];
     if(mids.length>0){
@@ -702,19 +790,33 @@ async function editCampaign(cid){
 }
 async function onEditFileSelect(inp){
   var f=inp.files[0];if(!f)return;
-  document.getElementById('ec-status').innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
-  var rd=new FileReader();rd.onload=async function(){
+  var required=window._ecOrientation||'landscape';
+  var st=document.getElementById('ec-status');
+  var pv=document.getElementById('ec-preview');
+  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Revisando archivo...</p>';
+  var m=await measureFile(f);
+  var fo=fileOrientation(m.w,m.h);
+  pv.innerHTML=orientationPreview(m,required,fo);
+  pv.style.display='block';
+  if(fo && fo!=='square' && fo!==required){
+    editNewMediaId=null;st.innerHTML='';
+    document.getElementById('ec-save').style.display='none';
+    inp.value='';
+    return;
+  }
+  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
+  var rd=new FileReader();
+  rd.onload=async function(){
     var b=rd.result.split(',')[1];
     try{
-      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b})});
+      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b,width:m.w,height:m.h})});
       editNewMediaId=r.id;
       document.getElementById('ec-upload').style.display='none';
-      document.getElementById('ec-preview').innerHTML='<div style="background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:12px;display:flex;align-items:center;gap:10px"><svg width="18" height="18" fill="none" stroke="#059669" stroke-width="2" viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg><div><div style="font-size:13px;font-weight:600;color:#059669">Nuevo archivo listo</div><div style="font-size:11px;color:#6b7280">'+f.name+'</div></div></div>';
-      document.getElementById('ec-preview').style.display='block';
-      document.getElementById('ec-status').innerHTML='';
+      st.innerHTML='';
       document.getElementById('ec-save').style.display='block';
-    }catch(e){document.getElementById('ec-status').innerHTML='<p style="color:#dc2626;font-size:12px">'+e.message+'</p>'}
-  };rd.readAsDataURL(f);
+    }catch(e){st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>'}
+  };
+  rd.readAsDataURL(f);
 }
 async function saveEditMedia(){
   if(!editCampId||!editNewMediaId)return;
@@ -727,9 +829,9 @@ async function saveEditMedia(){
 }
 function deleteCampaign(){
   if(!editCampId)return;
-  if(!confirm('Seguro que desea eliminar esta campana? Se eliminara de la pantalla inmediatamente.'))return;
+  if(!confirm('¿Eliminar esta publicación?\n\nSe quita de la pantalla inmediatamente y el espacio queda libre. No hay devolución del dinero pagado.'))return;
   apiFetch('/campaigns/'+editCampId,{method:'DELETE'}).then(function(){
-    toast('Campana eliminada',true);
+    toast('Publicación eliminada de la pantalla',true);
     loadPortal();
   }).catch(function(e){toast(e.message,false)});
 }

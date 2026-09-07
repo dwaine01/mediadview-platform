@@ -45,6 +45,7 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val prefs by lazy { getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE) }
     private val handler = Handler(Looper.getMainLooper())
     private lateinit var contentHost: FrameLayout
     private lateinit var diagnosticsView: TextView
@@ -125,7 +126,7 @@ class MainActivity : Activity(), PlaybackEvents {
         scope.launch {
             val cached = repository.loadCached()
             if (!cached?.items.isNullOrEmpty()) {
-                applyOrientation(cached!!.resolution)
+                applyOrientation(cached!!.orientation, cached.resolution)
                 renderer.setPlaylist(cached.items)
                 // Arrancamos con el último contenido bueno: nunca pantalla en blanco.
                 PlayerStateMachine.transitionTo(
@@ -199,7 +200,7 @@ class MainActivity : Activity(), PlaybackEvents {
                 retryAttempt = 0
                 retryRunnable?.let(handler::removeCallbacks)
                 retryRunnable = null
-                applyOrientation(result.snapshot.resolution)
+                applyOrientation(result.snapshot.orientation, result.snapshot.resolution)
                 if (result.snapshot.items.isEmpty()) {
                     renderer.setPlaylist(emptyList())
                     PlayerStateMachine.transitionTo(PlayerState.WAITING_FOR_ASSIGNMENT)
@@ -315,12 +316,23 @@ class MainActivity : Activity(), PlaybackEvents {
         scope.launch { repository.invalidate(item) }
     }
 
-    private fun applyOrientation(resolution: String) {
-        val parts = resolution.lowercase().split("x")
-        val width = parts.getOrNull(0)?.toIntOrNull() ?: return
-        val height = parts.getOrNull(1)?.toIntOrNull() ?: return
-        requestedOrientation = if (height > width) ActivityInfo.SCREEN_ORIENTATION_SENSOR_PORTRAIT
-        else ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    private fun applyOrientation(orientation: String?, resolution: String) {
+        // The orientation configured on the screen wins: the installer never has
+        // to rotate anything on the TV. It is cached so a cold offline boot keeps
+        // the same orientation.
+        val wire = orientation?.trim()?.lowercase()
+        val effective = when {
+            wire == "portrait" || wire == "landscape" -> wire
+            else -> prefs.getString(PREF_ORIENTATION, null)
+                ?: resolution.lowercase().split("x").let { parts ->
+                    val w = parts.getOrNull(0)?.toIntOrNull() ?: return
+                    val h = parts.getOrNull(1)?.toIntOrNull() ?: return
+                    if (h > w) "portrait" else "landscape"
+                }
+        }
+        prefs.edit().putString(PREF_ORIENTATION, effective).apply()
+        requestedOrientation = if (effective == "portrait") ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
     }
 
     private fun launchPairing() {
