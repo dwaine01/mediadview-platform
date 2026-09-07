@@ -520,6 +520,45 @@ function goToUpload(){
   }
 if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
 
+// Videos y archivos grandes van por partes: el navegador no aguanta un archivo
+// de telefono en memoria y el proxy corta la peticion ("Load failed" en Safari).
+var CHUNK_THRESHOLD = 3 * 1024 * 1024;
+async function uploadFile(f, m, onProgress){
+  if(f.size <= CHUNK_THRESHOLD && !(f.type||'').startsWith('video/')){
+    var b = await new Promise(function(res,rej){
+      var rd = new FileReader();
+      rd.onload = function(){res(rd.result.split(',')[1])};
+      rd.onerror = function(){rej(new Error('No se pudo leer el archivo'))};
+      rd.readAsDataURL(f);
+    });
+    if(onProgress) onProgress(90);
+    return await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({
+      filename:f.name, content_type:f.type, data:b, width:m.w, height:m.h})});
+  }
+  var init = await apiFetch('/media/chunk/init',{method:'POST',body:JSON.stringify({
+    filename:f.name, content_type:f.type||'video/mp4', size:f.size,
+    width:m.w, height:m.h, duration_seconds:m.duration||null})});
+  var size = init.chunk_size || 2*1024*1024;
+  for(var off=0; off<f.size; off+=size){
+    var part = f.slice(off, Math.min(off+size, f.size));
+    var r = await fetch(API+'/media/chunk/'+init.upload_id, {
+      method:'POST',
+      headers:{'Content-Type':'application/octet-stream','Authorization':'Bearer '+token},
+      body: part});
+    if(!r.ok){
+      var e = await r.json().catch(function(){return {}});
+      throw new Error(e.detail || 'Se corto la subida, intenta de nuevo');
+    }
+    var st = await r.json();
+    if(onProgress) onProgress(st.percent);
+  }
+  return await apiFetch('/media/chunk/'+init.upload_id+'/complete',{method:'POST'});
+}
+function uploadProgressHtml(pct){
+  return '<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#4f46e5;margin-bottom:6px">Subiendo '+Math.round(pct)+'%</div>'+
+    '<div style="height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:#4f46e5;transition:width .2s"></div></div></div>';
+}
+
 // ── Orientación: preview con la forma real de la pantalla ────────────────────
 function scrOrientation(s){return (s&&s.specs&&s.specs.orientation)||'landscape'}
 function orLabel(o){return o==='portrait'?'vertical':'horizontal'}
@@ -529,7 +568,7 @@ function measureFile(f){
     if((f.type||'').indexOf('video')===0){
       var v=document.createElement('video');
       v.preload='metadata';
-      v.onloadedmetadata=function(){res({w:v.videoWidth,h:v.videoHeight,url:url,isVideo:true})};
+      v.onloadedmetadata=function(){res({w:v.videoWidth,h:v.videoHeight,duration:v.duration,url:url,isVideo:true})};
       v.onerror=function(){res({w:0,h:0,url:url,isVideo:true})};
       v.src=url;
     }else{
@@ -579,19 +618,18 @@ async function onFileSelect(inp){
     inp.value='';
     return;
   }
-  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
-  var rd=new FileReader();
-  rd.onload=async function(){
-    var b=rd.result.split(',')[1];
-    try{
-      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b,width:m.w,height:m.h})});
-      mediaId=r.id;
-      document.getElementById('upload-area').style.display='none';
-      st.innerHTML='';
-      btn.disabled=false;btn.style.opacity='1';btn.textContent='Enviar para revision';
-    }catch(e){st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>'}
-  };
-  rd.readAsDataURL(f);
+  st.innerHTML=uploadProgressHtml(0);
+  try{
+    var r=await uploadFile(f,m,function(pct){st.innerHTML=uploadProgressHtml(pct)});
+    mediaId=r.id;
+    document.getElementById('upload-area').style.display='none';
+    st.innerHTML='';
+    btn.disabled=false;btn.style.opacity='1';btn.textContent='Enviar para revision';
+  }catch(e){
+    mediaId=null;
+    btn.disabled=true;btn.style.opacity='.4';
+    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>';
+  }
 }
 async function submitCampaign(){
   if(!mediaId||!selPlan)return;
@@ -804,19 +842,18 @@ async function onEditFileSelect(inp){
     inp.value='';
     return;
   }
-  st.innerHTML='<p style="color:#4f46e5;font-size:13px;font-weight:600">Subiendo...</p>';
-  var rd=new FileReader();
-  rd.onload=async function(){
-    var b=rd.result.split(',')[1];
-    try{
-      var r=await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({filename:f.name,content_type:f.type,data:b,width:m.w,height:m.h})});
-      editNewMediaId=r.id;
-      document.getElementById('ec-upload').style.display='none';
-      st.innerHTML='';
-      document.getElementById('ec-save').style.display='block';
-    }catch(e){st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>'}
-  };
-  rd.readAsDataURL(f);
+  st.innerHTML=uploadProgressHtml(0);
+  try{
+    var r=await uploadFile(f,m,function(pct){st.innerHTML=uploadProgressHtml(pct)});
+    editNewMediaId=r.id;
+    document.getElementById('ec-upload').style.display='none';
+    st.innerHTML='';
+    document.getElementById('ec-save').style.display='block';
+  }catch(e){
+    editNewMediaId=null;
+    document.getElementById('ec-save').style.display='none';
+    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>';
+  }
 }
 async function saveEditMedia(){
   if(!editCampId||!editNewMediaId)return;
