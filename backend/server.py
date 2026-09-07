@@ -454,6 +454,14 @@ def is_campaign_playable(campaign: dict, now: Optional[datetime] = None) -> tupl
 MEDIA_METADATA_PROJECTION = {"data": 0, "thumbnail": 0}
 
 
+def _sha256_of_file(path: str) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def _legacy_media_sha256(media: dict) -> Optional[str]:
     """Return a verifiable SHA-256 for legacy disk media when available."""
     existing = str(media.get("sha256") or "").lower()
@@ -1632,6 +1640,145 @@ class MediaPresignRequest(BaseModel):
     duration_seconds: Optional[float] = None
     campaign_id: Optional[str] = None
     screen_id:   Optional[str] = None
+
+
+class ChunkedUploadInit(BaseModel):
+    filename: str
+    content_type: str
+    size: int
+    width: Optional[int] = None
+    height: Optional[int] = None
+    duration_seconds: Optional[float] = None
+
+
+CHUNK_TMP_DIR = os.path.join(MEDIA_DIR, "_chunks")
+
+
+@api_router.post("/media/chunk/init")
+async def init_chunked_upload(data: ChunkedUploadInit,
+                              current_user: dict = Depends(get_current_user)):
+    """Start a chunked upload.
+
+    A phone video is far too big for the base64 JSON endpoint: the browser has
+    to hold the whole file in memory and the request dies at the proxy (Safari
+    just says "Load failed"). Chunks of a couple of megabytes always get
+    through, so videos are uploaded this way.
+    """
+    if get_effective_role(current_user) == Role.MANAGED_VIEWER:
+        raise HTTPException(403, "Managed Viewer accounts cannot upload media.")
+    safe_fn = os.path.basename((data.filename or "").replace("\\", "/").replace("..", ""))
+    if not safe_fn or safe_fn.startswith("."):
+        raise HTTPException(400, "Invalid filename")
+    if data.size <= 0:
+        raise HTTPException(400, "Empty file")
+    # Reject oversized / too long files before a single byte is transferred.
+    kind = validate_upload(filename=safe_fn, mime=data.content_type, size=data.size,
+                           duration_seconds=(data.duration_seconds or 1)
+                           if data.content_type.startswith("video/") else None)
+    upload_id = str(uuid.uuid4())
+    os.makedirs(CHUNK_TMP_DIR, exist_ok=True)
+    await db.media_uploads.insert_one({
+        "id": upload_id,
+        "user_id": current_user["id"],
+        "filename": safe_fn,
+        "content_type": data.content_type,
+        "size": data.size,
+        "kind": kind,
+        "width": data.width,
+        "height": data.height,
+        "duration_seconds": data.duration_seconds,
+        "received": 0,
+        "created_at": datetime.utcnow(),
+    })
+    return {"upload_id": upload_id, "chunk_size": 2 * 1024 * 1024, "kind": kind}
+
+
+def _chunk_path(upload_id: str) -> str:
+    return os.path.join(CHUNK_TMP_DIR, f"{upload_id}.part")
+
+
+async def _load_upload_session(upload_id: str, current_user: dict) -> dict:
+    session = await db.media_uploads.find_one({"id": upload_id, "user_id": current_user["id"]})
+    if not session:
+        raise HTTPException(404, "Upload session not found")
+    return session
+
+
+@api_router.post("/media/chunk/{upload_id}")
+async def append_chunk(upload_id: str, request: Request,
+                       current_user: dict = Depends(get_current_user)):
+    """Append the raw bytes of the request body to the pending upload."""
+    session = await _load_upload_session(upload_id, current_user)
+    chunk = await request.body()
+    if not chunk:
+        raise HTTPException(400, "Empty chunk")
+    received = int(session.get("received", 0)) + len(chunk)
+    if received > int(session["size"]):
+        raise HTTPException(400, "Uploaded more bytes than announced")
+    os.makedirs(CHUNK_TMP_DIR, exist_ok=True)
+    with open(_chunk_path(upload_id), "ab") as handle:
+        handle.write(chunk)
+    await db.media_uploads.update_one({"id": upload_id}, {"$set": {"received": received}})
+    return {"received": received, "size": session["size"],
+            "percent": round(received * 100 / int(session["size"]), 1)}
+
+
+@api_router.post("/media/chunk/{upload_id}/complete")
+async def complete_chunked_upload(upload_id: str,
+                                  current_user: dict = Depends(get_current_user)):
+    """Validate the assembled file and register it like a normal upload."""
+    session = await _load_upload_session(upload_id, current_user)
+    part = _chunk_path(upload_id)
+    if not os.path.isfile(part):
+        raise HTTPException(400, "No chunks were uploaded")
+    actual = os.path.getsize(part)
+    if actual != int(session["size"]):
+        os.remove(part)
+        await db.media_uploads.delete_one({"id": upload_id})
+        raise HTTPException(400, f"Incomplete upload: got {actual} of {session['size']} bytes")
+
+    from media_validator import validate_magic_bytes
+    with open(part, "rb") as handle:
+        head = handle.read(64 * 1024)
+    try:
+        trusted_mime = validate_magic_bytes(head, declared_mime=session["content_type"],
+                                            filename=session["filename"])
+    except ValueError as exc:
+        os.remove(part)
+        await db.media_uploads.delete_one({"id": upload_id})
+        raise HTTPException(415, f"Upload rejected: {exc}")
+
+    digest = await run_in_threadpool(_sha256_of_file, part)
+    file_id = str(uuid.uuid4())
+    ext = os.path.splitext(session["filename"])[1].lower()
+    stored_name = f"{file_id}{ext or '.bin'}"
+    os.replace(part, os.path.join(MEDIA_DIR, stored_name))
+
+    media_doc = {
+        "id": file_id,
+        "user_id": current_user["id"],
+        "filename": session["filename"],
+        "content_type": trusted_mime,
+        "size": actual,
+        "type": session["kind"],
+        "sha256": digest,
+        "width": session.get("width"),
+        "height": session.get("height"),
+        "orientation": media_orientation(session.get("width"), session.get("height")),
+        "duration_seconds": session.get("duration_seconds"),
+        "storage": "legacy",
+        "stored_filename": stored_name,
+        "data": None,
+        "status": "ready",
+        "created_at": datetime.utcnow(),
+    }
+    await db.media.insert_one(media_doc)
+    await db.media_uploads.delete_one({"id": upload_id})
+    return {"id": file_id, "filename": session["filename"], "size": actual,
+            "content_type": trusted_mime, "type": session["kind"],
+            "width": media_doc["width"], "height": media_doc["height"],
+            "orientation": media_doc["orientation"],
+            "storage": "legacy", "public_url": None}
 
 
 @api_router.post("/media/presign")
