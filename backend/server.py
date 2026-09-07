@@ -447,6 +447,13 @@ def is_campaign_playable(campaign: dict, now: Optional[datetime] = None) -> tupl
     return True, ""
 
 
+# Playlist builders only need metadata. Media documents stored before object
+# storage keep the whole file as base64 in `data`, so fetching a full document
+# per playlist item moved megabytes per request (a screen with a handful of
+# campaigns took 36 s in production).
+MEDIA_METADATA_PROJECTION = {"data": 0, "thumbnail": 0}
+
+
 def _legacy_media_sha256(media: dict) -> Optional[str]:
     """Return a verifiable SHA-256 for legacy disk media when available."""
     existing = str(media.get("sha256") or "").lower()
@@ -514,7 +521,8 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
                 "content_type": "widget", "media_url": ref_id, "download_url": ref_id,
             })
         elif item_type == "media":
-            media = await db.media.find_one({"id": ref_id, "status": {"$ne": "pending"}})
+            media = await db.media.find_one({"id": ref_id, "status": {"$ne": "pending"}},
+                                            MEDIA_METADATA_PROJECTION)
             if not media:
                 continue
             if media.get("storage", "legacy") == "legacy":
@@ -556,7 +564,8 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
             continue
         schedule = campaign.get("schedule") or {}
         for media_id in campaign.get("media_ids") or []:
-            media = await db.media.find_one({"id": media_id, "status": {"$ne": "pending"}})
+            media = await db.media.find_one({"id": media_id, "status": {"$ne": "pending"}},
+                                            MEDIA_METADATA_PROJECTION)
             if not media:
                 logger.warning("Playlist skipped missing media document %s", media_id)
                 continue
@@ -1252,7 +1261,7 @@ async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get
     # Every media_id must resolve to a real media doc.
     missing = []
     for mid in (data.media_ids or []):
-        if not await db.media.find_one({"id": mid}):
+        if not await db.media.find_one({"id": mid}, {"_id": 1}):
             missing.append(mid)
     if missing:
         raise HTTPException(status_code=400,
@@ -1313,7 +1322,7 @@ async def get_campaign(campaign_id: str, current_user: dict = Depends(get_curren
     campaign["screen"] = serialize_doc(screen) if screen else None
     media_items = []
     for mid in campaign.get("media_ids", []):
-        media = await db.media.find_one({"id": mid})
+        media = await db.media.find_one({"id": mid}, MEDIA_METADATA_PROJECTION)
         if media:
             media_items.append(serialize_doc(media))
     campaign["media"] = media_items
@@ -1343,7 +1352,7 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user: 
     if "media_ids" in update and update["media_ids"] is not None:
         missing = []
         for mid in update["media_ids"]:
-            if not await db.media.find_one({"id": mid}):
+            if not await db.media.find_one({"id": mid}, {"_id": 1}):
                 missing.append(mid)
         if missing:
             raise HTTPException(status_code=400,
@@ -1684,7 +1693,7 @@ async def list_media(current_user: dict = Depends(get_current_user)):
 
 @api_router.get("/media/{media_id}")
 async def get_media(media_id: str):
-    media = await db.media.find_one({"id": media_id})
+    media = await db.media.find_one({"id": media_id}, MEDIA_METADATA_PROJECTION)
     if not media:
         raise HTTPException(404, "Media not found")
     # Strip base64 payload from metadata responses
@@ -2664,7 +2673,7 @@ async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
         clean_mids = []
         removed = []
         for mid in mids:
-            if await db.media.find_one({"id": mid}):
+            if await db.media.find_one({"id": mid}, {"_id": 1}):
                 clean_mids.append(mid)
             else:
                 removed.append(mid)
@@ -2783,7 +2792,7 @@ async def diagnose_playlist(screen_id: str, admin: dict = Depends(require_admin)
         # verify each media resolves
         media_status = []
         for mid in mids:
-            m = await db.media.find_one({"id": mid})
+            m = await db.media.find_one({"id": mid}, MEDIA_METADATA_PROJECTION)
             if not m:
                 media_status.append({"media_id": mid, "ok": False, "reason": "media doc missing in DB"})
                 reasons.append(f"media_id {mid!r} not found in media collection")
@@ -2851,7 +2860,7 @@ async def get_schedule(screen_id: str, date: Optional[str] = None):
     for c in campaigns:
         s = c.get("schedule", {})
         for mid in c.get("media_ids", []):
-            media = await db.media.find_one({"id": mid})
+            media = await db.media.find_one({"id": mid}, MEDIA_METADATA_PROJECTION)
             entries.append({
                 "campaign_id": c["id"], "campaign_name": c.get("name"),
                 "time_start": s.get("start_time", "08:00"),
