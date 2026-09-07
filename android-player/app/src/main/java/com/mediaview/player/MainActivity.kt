@@ -317,9 +317,13 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun applyOrientation(orientation: String?, resolution: String) {
-        // The orientation configured on the screen wins: the installer never has
-        // to rotate anything on the TV. It is cached so a cold offline boot keeps
-        // the same orientation.
+        // A TV panel cannot physically rotate: asking Android for a portrait
+        // activity only produces a narrow letterboxed window (it reported
+        // 608x1080 on a 1920x1080 TV). So the activity always stays in the
+        // display's native landscape and, for a screen configured as portrait,
+        // the content host itself is rotated 90 degrees. That gives a real
+        // 1080x1920 canvas that covers the whole panel, upright once the TV is
+        // mounted vertically.
         val wire = orientation?.trim()?.lowercase()
         val effective = when {
             wire == "portrait" || wire == "landscape" -> wire
@@ -331,8 +335,29 @@ class MainActivity : Activity(), PlaybackEvents {
                 }
         }
         prefs.edit().putString(PREF_ORIENTATION, effective).apply()
-        requestedOrientation = if (effective == "portrait") ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        applyContentRotation(effective == "portrait")
+    }
+
+    /** Rotates the whole content host so a portrait screen fills the panel. */
+    private fun applyContentRotation(portrait: Boolean) {
+        val parent = contentHost.parent as? FrameLayout ?: return
+        parent.post {
+            val width = parent.width
+            val height = parent.height
+            if (width <= 0 || height <= 0) return@post
+            if (portrait) {
+                contentHost.rotation = 90f
+                contentHost.layoutParams = FrameLayout.LayoutParams(height, width, Gravity.CENTER)
+            } else {
+                contentHost.rotation = 0f
+                contentHost.layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+            }
+            contentHost.requestLayout()
+        }
     }
 
     private fun launchPairing() {
