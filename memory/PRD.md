@@ -487,3 +487,21 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   `_media_has_inline_bytes()` la pantalla "anuncio publico" pasó de **0 → 5 items** en producción
   (verificado; los 3 primeros medios descargan 119-208 KB con HTTP 200).
   Test: `backend/tests/test_playlist_diskless_iter34.py`.
+
+## Iteración 35 — Subida de video por chunks (bug "Load failed")
+- Síntoma del usuario: en `mediadview.com/marketplace`, al subir un VIDEO daba "error / Load failed"
+  ("Load failed" es el error genérico de fetch en Safari/iOS).
+- Causa: el marketplace mandaba el archivo completo en base64 en un solo `POST /api/media/upload`;
+  un video de teléfono no cabe en memoria del navegador ni pasa por el proxy.
+- Fix: subida por partes de 2 MB —
+  `POST /api/media/chunk/init` (valida tipo/tamaño/duración ANTES de mover bytes),
+  `POST /api/media/chunk/{id}` (body binario crudo, devuelve `percent`),
+  `POST /api/media/chunk/{id}/complete` (verifica tamaño + magic bytes y registra el media).
+  El marketplace usa la ruta por chunks para video o cualquier archivo > 3 MB, con barra de progreso.
+- Tests: `backend/tests/test_chunked_upload_iter35.py` (7 passed, incluye comparación byte a byte).
+- Verificado por testing_agent: 26/26 backend + E2E en navegador (video 4.6 MB sube, progreso 45%,
+  botón habilitado, campaña enviada) y sin regresiones de orientación.
+- Verificado en PRODUCCIÓN por API: video de 4.6 MB sube en 3 chunks y `/api/player/media/{id}`
+  devuelve los 4 615 981 bytes idénticos en 1.8 s.
+- Pendiente relacionado: los videos legacy NO guardan copia base64 en Mongo, así que un deploy
+  sigue borrando videos del disco (las imágenes ya están cubiertas). R2 sigue siendo el fix definitivo.
