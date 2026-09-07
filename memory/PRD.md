@@ -521,3 +521,4 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   aún no se conoce no programa temporizador y espera `STATE_ENDED`.
 - Versión: v3.4.0 (versionCode 22). Rama `player-v3.4.0` (Codemagic ahora dispara con `player-v*`).
 - No compilable en este entorno (no hay SDK Android): validación = build de Codemagic + prueba física.
+- Publicado: APK v3.4.0 (release, build GitHub Actions run 34137380145) en el Release `player-latest` → https://mediadview.com/apk (8.5 MB, verificado 302 + descarga 200).
