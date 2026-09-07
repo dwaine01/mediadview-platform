@@ -232,6 +232,10 @@ class MediaUpload(BaseModel):
     filename: str
     content_type: str
     data: str
+    # Client-measured pixel size. Trusted only for video (the server re-measures
+    # images with PIL). Used to match the file against the screen orientation.
+    width: Optional[int] = None
+    height: Optional[int] = None
 
 class PlaylistCreate(BaseModel):
     name: str
@@ -332,6 +336,21 @@ def gen_activation_code():
     """Generate 6-char easy-to-read activation code (no ambiguous chars)"""
     chars = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
     return ''.join(random.choices(chars, k=6))
+
+
+def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[str]:
+    """portrait | landscape | square — None when the size is unknown."""
+    if not width or not height:
+        return None
+    if width > height:
+        return "landscape"
+    if height > width:
+        return "portrait"
+    return "square"
+
+
+def screen_orientation(screen: Optional[dict]) -> str:
+    return ((screen or {}).get("specs") or {}).get("orientation") or "landscape"
 
 
 # ============================================================
@@ -1210,6 +1229,21 @@ async def create_campaign(data: CampaignCreate, current_user: dict = Depends(get
         raise HTTPException(status_code=400,
             detail=f"Media not found: {', '.join(missing)}. Please re-upload.")
 
+    # Orientation gate: a portrait file on a landscape screen (or vice versa)
+    # can only be shown with black bars, so it is rejected up front.
+    required = screen_orientation(screen)
+    for mid in (data.media_ids or []):
+        media = await db.media.find_one({"id": mid}, {"orientation": 1})
+        found = (media or {}).get("orientation")
+        if found and found not in ("square", required):
+            raise HTTPException(status_code=422, detail={
+                "message": ("Tu archivo es " + ("vertical" if found == "portrait" else "horizontal")
+                            + " y esta pantalla es " + ("vertical" if required == "portrait" else "horizontal")
+                            + ". Sube el archivo en la orientación correcta."),
+                "required_orientation": required,
+                "file_orientation": found,
+            })
+
     pricing = calculate_campaign_price(screen.get("pricing", {}), sched)
     campaign = {
         "id": gen_id(), "user_id": current_user["id"],
@@ -1228,11 +1262,16 @@ async def list_campaigns(status: Optional[str] = None, current_user: dict = Depe
     query = {"user_id": current_user["id"]}
     if status:
         query["status"] = status
+    else:
+        # Publications the customer deleted stay in the books but not in their portal.
+        query["status"] = {"$ne": "archived"}
     campaigns = await db.campaigns.find(query).sort("created_at", -1).to_list(100)
     enriched = []
     for c in campaigns:
         screen = await db.screens.find_one({"id": c.get("screen_id")}, {"advertising": 0})
         c["screen"] = serialize_doc(screen) if screen else None
+        c["media_changes_used"] = int(c.get("media_changes_used", 0))
+        c["media_changes_left"] = max(0, MAX_MEDIA_CHANGES - c["media_changes_used"])
         enriched.append(c)
     return serialize_doc(enriched)
 
@@ -1252,6 +1291,9 @@ async def get_campaign(campaign_id: str, current_user: dict = Depends(get_curren
     if campaign.get("payment_id"):
         payment = await db.payments.find_one({"id": campaign["payment_id"]})
         campaign["payment"] = serialize_doc(payment)
+    campaign["media_changes_used"] = int(campaign.get("media_changes_used", 0))
+    campaign["media_changes_left"] = max(0, MAX_MEDIA_CHANGES - campaign["media_changes_used"])
+    campaign["screen_orientation"] = screen_orientation(screen)
     return serialize_doc(campaign)
 
 @api_router.put("/campaigns/{campaign_id}")
@@ -1284,16 +1326,97 @@ async def update_campaign(campaign_id: str, data: CampaignUpdate, current_user: 
     await bump_playlist_version(campaign.get("screen_id"), reason="campaign updated")
     return {"message": "Campaign updated"}
 
-@api_router.delete("/campaigns/{campaign_id}")
-async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+MAX_MEDIA_CHANGES = 2
+
+
+class CampaignMediaReplace(BaseModel):
+    media_ids: List[str]
+
+
+@api_router.put("/campaigns/{campaign_id}/media")
+async def replace_campaign_media(campaign_id: str, data: CampaignMediaReplace,
+                                 current_user: dict = Depends(get_current_user)):
+    """Marketplace customers may swap the creative of their own publication.
+
+    Business rules (marketplace, QR customers):
+      • hard limit of MAX_MEDIA_CHANGES swaps per publication (lifetime)
+      • screen and dates never change
+      • the new file must match the screen orientation, otherwise it would show
+        with black bars on the TV
+    """
     campaign = await db.campaigns.find_one({"id": campaign_id, "user_id": current_user["id"]})
     if not campaign:
         raise HTTPException(status_code=404, detail="Campaign not found")
-    if campaign["status"] != "draft":
-        raise HTTPException(status_code=400, detail="Can only delete draft campaigns")
-    await db.campaigns.delete_one({"id": campaign_id})
-    await bump_playlist_version(campaign.get("screen_id"), reason="campaign deleted")
-    return {"message": "Campaign deleted"}
+    if campaign.get("status") == "archived":
+        raise HTTPException(status_code=400, detail="This publication was deleted")
+    if not data.media_ids:
+        raise HTTPException(status_code=400, detail="media_ids cannot be empty")
+
+    used = int(campaign.get("media_changes_used", 0))
+    if used >= MAX_MEDIA_CHANGES:
+        raise HTTPException(status_code=409, detail={
+            "message": f"Ya usaste tus {MAX_MEDIA_CHANGES} cambios de archivo para esta publicación.",
+            "media_changes_used": used,
+            "media_changes_allowed": MAX_MEDIA_CHANGES,
+        })
+
+    screen = await db.screens.find_one({"id": campaign.get("screen_id")}, {"specs": 1, "name": 1, "id": 1})
+    required = screen_orientation(screen)
+    for mid in data.media_ids:
+        media = await db.media.find_one({"id": mid})
+        if not media:
+            raise HTTPException(status_code=400, detail=f"Media not found: {mid}")
+        found = media.get("orientation")
+        if found and found != "square" and found != required:
+            raise HTTPException(status_code=422, detail={
+                "message": ("Tu archivo es " + ("vertical" if found == "portrait" else "horizontal")
+                            + " y esta pantalla es " + ("vertical" if required == "portrait" else "horizontal")
+                            + ". Sube el archivo en la orientación correcta — este cambio no se ha consumido."),
+                "required_orientation": required,
+                "file_orientation": found,
+            })
+
+    now = datetime.utcnow()
+    await db.campaigns.update_one({"id": campaign_id}, {"$set": {
+        "media_ids": data.media_ids,
+        "media_changes_used": used + 1,
+        "needs_attention": False,
+        "last_media_change_at": now,
+        "updated_at": now,
+    }})
+    await bump_playlist_version(campaign.get("screen_id"), reason="customer replaced creative")
+    return {
+        "id": campaign_id,
+        "media_ids": data.media_ids,
+        "media_changes_used": used + 1,
+        "media_changes_left": MAX_MEDIA_CHANGES - (used + 1),
+    }
+
+
+@api_router.delete("/campaigns/{campaign_id}")
+async def delete_campaign(campaign_id: str, current_user: dict = Depends(get_current_user)):
+    """Owner removes their publication.
+
+    Drafts are deleted outright. A publication that was already paid for is
+    ARCHIVED instead: it disappears from the TV immediately and frees the slot,
+    but the payment history is preserved (no refund is issued).
+    """
+    campaign = await db.campaigns.find_one({"id": campaign_id, "user_id": current_user["id"]})
+    if not campaign:
+        raise HTTPException(status_code=404, detail="Campaign not found")
+    if campaign["status"] == "draft":
+        await db.campaigns.delete_one({"id": campaign_id})
+        await bump_playlist_version(campaign.get("screen_id"), reason="campaign deleted")
+        return {"message": "Campaign deleted", "refunded": False}
+    now = datetime.utcnow()
+    await db.campaigns.update_one({"id": campaign_id}, {"$set": {
+        "status": "archived",
+        "archived_at": now,
+        "archived_by": current_user["id"],
+        "updated_at": now,
+    }})
+    await bump_playlist_version(campaign.get("screen_id"), reason="customer deleted publication")
+    return {"message": "Publication removed from the screen", "refunded": False}
 
 # ============ ROUTES: MEDIA ============
 # Fase 4 (Cloudflare R2):
@@ -1382,6 +1505,22 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         "created_at": datetime.utcnow(),
     }
 
+    # Pixel size + orientation. Images are measured server-side (never trust the
+    # client); for video we keep the size the browser reported, if any.
+    width, height = data.width, data.height
+    if kind == "image":
+        try:
+            import io
+
+            from PIL import Image
+            with Image.open(io.BytesIO(file_bytes)) as im:
+                width, height = im.size
+        except Exception as exc:
+            logger.warning("Could not read image size for %s: %s", data.filename, exc)
+    media_doc["width"] = width
+    media_doc["height"] = height
+    media_doc["orientation"] = media_orientation(width, height)
+
     if R2_ENABLED:
         # ── Modern path: put in R2 via StorageService ─────────────────────
         from storage_service import get_storage_service as _get_ss
@@ -1420,6 +1559,8 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
     await db.media.insert_one(media_doc)
     return {"id": file_id, "filename": data.filename, "size": size,
             "content_type": data.content_type, "type": kind,
+            "width": media_doc.get("width"), "height": media_doc.get("height"),
+            "orientation": media_doc.get("orientation"),
             "storage": media_doc["storage"],
             "public_url": media_doc.get("public_url")}
 
@@ -2526,6 +2667,8 @@ async def get_playlist(screen_id: str):
     return {
         "screen_id": screen_id,
         "screen_name": screen.get("name"),
+        "resolution": screen.get("specs", {}).get("resolution", "1920x1080"),
+        "orientation": screen.get("specs", {}).get("orientation", "landscape"),
         "playlist_version": screen.get("playlist_version", 0),
         "schedule_key": await effective_playlist_schedule_key(screen_id),
         "generated_at": now.isoformat(),
@@ -3327,6 +3470,9 @@ async def device_playlist(device_id: str):
         "screen_id": screen_id,
         "screen_name": screen.get("name") if screen else "Unknown",
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080") if screen else "1920x1080",
+        # The player rotates itself to this value, so the admin never has to
+        # touch the TV: whatever orientation the screen was created with wins.
+        "orientation": screen.get("specs", {}).get("orientation", "landscape") if screen else "landscape",
         "generated_at": now.isoformat(),
         "playlist_version": screen.get("playlist_version", 0) if screen else 0,
         "schedule_key": await effective_playlist_schedule_key(screen_id),
