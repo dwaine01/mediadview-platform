@@ -505,3 +505,19 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   devuelve los 4 615 981 bytes idénticos en 1.8 s.
 - Pendiente relacionado: los videos legacy NO guardan copia base64 en Mongo, así que un deploy
   sigue borrando videos del disco (las imágenes ya están cubiertas). R2 sigue siendo el fix definitivo.
+
+## Iteración 37 — Video en el player: rayas de color y clip cortado (APK v3.4.0)
+- Síntoma del usuario (video del TV): al reproducirse un video se oía el audio pero la imagen salía
+  con rayas/bandas verdes-moradas y tearing; además el video se cortaba antes de terminar.
+- Causa 1 (rayas): `PlaybackController.prepareVideo()` creaba `PlayerView(activity)`, que usa
+  **SurfaceView** por defecto. Un SurfaceView vive en su propia capa de hardware, así que
+  `view.rotation` (orientación de la pantalla) y la animación de `alpha` (cross-fade) NO se aplican
+  a los frames decodificados → en cajas Android TV eso pinta basura/rayas.
+  Fix: `res/layout/video_surface.xml` con `app:surface_type="texture_view"` e inflado en
+  `prepareVideo()`. Un TextureView se compone como una vista normal, así que rotación + fade funcionan.
+- Causa 2 (video cortado): `scheduleAdvance()` usaba siempre `item.durationSeconds` (metadato de la
+  campaña, normalmente 10 s) también para videos.
+  Fix: `scheduleAdvance(item)` — para VIDEO calcula el tiempo real restante (`player.duration`) y si
+  aún no se conoce no programa temporizador y espera `STATE_ENDED`.
+- Versión: v3.4.0 (versionCode 22). Rama `player-v3.4.0` (Codemagic ahora dispara con `player-v*`).
+- No compilable en este entorno (no hay SDK Android): validación = build de Codemagic + prueba física.
