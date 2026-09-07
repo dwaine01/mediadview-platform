@@ -132,9 +132,11 @@ export const workspaceAPI = {
   context: () => api.get('/workspace/context'),
   // Screens
   screens: () => api.get('/workspace/screens'),
-  createScreen: (data: { name: string; location?: string }) => api.post('/workspace/screens', data),
-  connectScreen: (data: { activation_code: string; screen_name: string }) =>
+  createScreen: (data: { name: string; location?: string; orientation?: string }) => api.post('/workspace/screens', data),
+  connectScreen: (data: { activation_code: string; screen_name: string; orientation?: string }) =>
     api.post('/workspace/screens/connect', data),
+  updateScreen: (id: string, data: { name?: string; orientation?: string }) =>
+    api.patch(`/workspace/screens/${id}`, data),
   // Devices
   devices: () => api.get('/workspace/devices'),
   // Media

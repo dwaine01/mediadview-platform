@@ -374,7 +374,7 @@ const loaders={
             '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div>'+
             '<div style="flex:1">'+
               '<div style="font-size:15px;font-weight:700">'+s.name+'</div>'+
-              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+(s.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#10b981;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
+              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+((s.specs?.orientation||s.orientation)==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#10b981;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
             '</div>'+
             '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
               (s.operation_type==='PUBLIC_ADVERTISING'?'<button onclick="showScreenQR(\''+s.id+'\',\''+s.name.replace(/'/g,'')+'\');event.stopPropagation()" style="padding:5px 14px;border-radius:6px;background:rgba(16,185,129,.1);color:#059669;font-size:11px;font-weight:600;border:1px solid rgba(16,185,129,.2);cursor:pointer">📱 QR</button>':'')+
@@ -610,6 +610,7 @@ const loaders={
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">IP:</span> ${d.diagnostics?.ip_address||'—'}</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Uptime:</span> ${upD>0?upD+'d ':''}${upH%24}h</div>
                   <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Sync:</span> ${syncAgo!==null?(syncAgo<1?'Just now':syncAgo+'m ago'):'Never'}</div>
+                  <div style="font-size:11px;color:var(--t-4)"><span style="color:var(--t-2);font-weight:600">Display:</span> ${d.diagnostics?.orientation?(d.diagnostics.orientation==='portrait'?'↕ Portrait':'↔ Landscape'):'—'}${d.diagnostics?.resolution?' · '+d.diagnostics.resolution:''}${d.app_version?' · v'+d.app_version:''}</div>
                   ${d.power_schedule?.enabled?'<div style="font-size:11px;color:var(--brand-l)"><span style="font-weight:600">⏰ Schedule:</span> '+d.power_schedule.power_on+' → '+d.power_schedule.power_off+'</div>':''}
                 </div>
               </div>
@@ -740,7 +741,10 @@ async function addScreen(){
 async function editAdminScreen(id){
   var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error');return}
   var el=document.getElementById('pg-admin');
-  var orient=s.specs?.orientation||'landscape';
+  var orient=s.specs?.orientation||s.orientation||'landscape';
+  // saveScreen() reads window._editOrient, so seed it with the stored value:
+  // otherwise editing any other field silently reset the screen to landscape.
+  window._editOrient=orient;
   el.innerHTML='<div style="max-width:700px;margin:0 auto"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px"><h1 style="font-size:24px;font-weight:800">Edit Screen</h1><button class="btn-s" onclick="loaders.admin()">Cancel</button></div>'+
   '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #e2e8f0;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
   '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code <span style="color:var(--green);font-size:8px">(auto-generated, permanent)</span></div><div style="padding:10px 12px;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;font-size:16px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+(s.location_code||'—')+'</div></div></div>'+
@@ -1001,7 +1005,7 @@ async function showScreenPlaylist(screenId){
     var widgets=[];try{widgets=await api('/admin/widgets?screen_id='+screenId)}catch(e){/* widgets are optional */}
     var items=playlist.items||[];
     el.innerHTML='<div style="margin-bottom:20px"><button onclick="window._adminView=\'screens\';loaders.admin()" style="font-size:13px;color:#0891b2;cursor:pointer;font-weight:600;background:none;border:none;font-family:inherit;display:flex;align-items:center;gap:4px"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>Back to Screens</button></div>'+
-    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+(screen.specs?.orientation==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
+    '<div style="display:flex;align-items:center;gap:16px;margin-bottom:24px"><div style="width:56px;height:38px;border-radius:8px;background:'+(screen._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div><div><div style="font-size:22px;font-weight:800">'+screen.name+'</div><div style="font-size:13px;color:#475569">'+(screen.location_code||'')+' · '+screen.location?.city+', '+screen.location?.state+' · $'+(screen.pricing?.per_month||0).toLocaleString()+'/mo · '+((screen.specs?.orientation||screen.orientation)==='portrait'?'↕ Portrait':'↔ Landscape')+'</div></div></div>'+
     '<h2 style="font-size:16px;font-weight:700;margin-bottom:14px">Playlist ('+items.length+' items'+(widgets.length>0?' + '+widgets.length+' widgets':'')+')</h2>'+
     (items.length===0&&widgets.length===0?'<div class="card" style="padding:32px;text-align:center;color:#475569">No content on this screen</div>':
     '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">'+

@@ -10,7 +10,39 @@ import { workspaceAPI } from '../../src/services/api';
 type Screen = {
   id: string; name: string; status: string; code?: string;
   location?: string; active_menu_id?: string; created_at?: string;
+  specs?: { orientation?: string };
 };
+
+const orientationOf = (s: Screen) => (s.specs?.orientation === 'portrait' ? 'portrait' : 'landscape');
+
+function OrientationPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <View style={ss.fieldWrap}>
+      <Text style={ss.inputLabel}>Orientación de la Pantalla</Text>
+      <View style={ss.orientRow}>
+        {(['landscape', 'portrait'] as const).map((opt) => {
+          const on = value === opt;
+          return (
+            <TouchableOpacity
+              key={opt}
+              style={[ss.orientOpt, on && ss.orientOptOn]}
+              onPress={() => onChange(opt)}
+              activeOpacity={0.85}
+            >
+              <View style={[opt === 'portrait' ? ss.shapePortrait : ss.shapeLandscape, on && ss.shapeOn]} />
+              <Text style={[ss.orientLabel, on && ss.orientLabelOn]}>
+                {opt === 'portrait' ? 'Vertical' : 'Horizontal'}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={ss.codeHint}>
+        El televisor se coloca solo en esta orientación y tus diseños deben subirse así.
+      </Text>
+    </View>
+  );
+}
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
@@ -41,6 +73,8 @@ export default function WorkspaceScreens() {
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
   const [connectSuccess, setConnectSuccess] = useState('');
+  const [orientation, setOrientation] = useState('landscape');
+  const [savingOrient, setSavingOrient] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -54,9 +88,20 @@ export default function WorkspaceScreens() {
   useEffect(() => { load(); }, [load]);
 
   const openConnect = () => {
-    setCode(''); setScreenName('');
+    setCode(''); setScreenName(''); setOrientation('landscape');
     setConnectError(''); setConnectSuccess('');
     setShowConnect(true);
+  };
+
+  const toggleOrientation = async (s: Screen) => {
+    const next = orientationOf(s) === 'portrait' ? 'landscape' : 'portrait';
+    setSavingOrient(s.id);
+    try {
+      await workspaceAPI.updateScreen(s.id, { orientation: next });
+      setScreens(prev => prev.map(x => (x.id === s.id ? { ...x, specs: { ...x.specs, orientation: next } } : x)));
+    } catch (e: any) {
+      setError(e.response?.data?.detail || e.message || 'No se pudo cambiar la orientación');
+    } finally { setSavingOrient(null); }
   };
 
   const handleConnect = async () => {
@@ -67,6 +112,7 @@ export default function WorkspaceScreens() {
       const res = await workspaceAPI.connectScreen({
         activation_code: code.trim().toUpperCase(),
         screen_name: screenName.trim(),
+        orientation,
       });
       setConnectSuccess(res.data?.message || 'Screen connected!');
       load();
@@ -119,6 +165,27 @@ export default function WorkspaceScreens() {
                 {s.code ? `Código: ${s.code}` : ''}{s.location ? ` · ${s.location}` : ''}
                 {s.active_menu_id ? ' · Menú publicado' : ''}
               </Text>
+              <TouchableOpacity
+                style={ss.orientChip}
+                onPress={() => toggleOrientation(s)}
+                disabled={savingOrient === s.id}
+                activeOpacity={0.7}
+              >
+                {savingOrient === s.id
+                  ? <ActivityIndicator size="small" color="#0891B2" />
+                  : (
+                    <>
+                      <Ionicons
+                        name={orientationOf(s) === 'portrait' ? 'phone-portrait-outline' : 'tv-outline'}
+                        size={13}
+                        color="#0891B2"
+                      />
+                      <Text style={ss.orientChipText}>
+                        {orientationOf(s) === 'portrait' ? 'Vertical' : 'Horizontal'} · cambiar
+                      </Text>
+                    </>
+                  )}
+              </TouchableOpacity>
             </View>
             <StatusBadge status={s.status} />
           </View>
@@ -182,6 +249,8 @@ export default function WorkspaceScreens() {
 
                 {!!connectError && <Text style={ss.connectErr}>{connectError}</Text>}
 
+                <OrientationPicker value={orientation} onChange={setOrientation} />
+
                 <TouchableOpacity
                   style={[ss.connectBtn, connecting && ss.connectBtnDisabled]}
                   onPress={handleConnect}
@@ -215,6 +284,16 @@ const ss = StyleSheet.create({
   cardBody: { flex: 1, gap: 2 },
   cardName: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   cardMeta: { fontSize: 12, color: '#64748B' },
+  orientChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 6, minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#CFFAFE' },
+  orientChipText: { fontSize: 11, fontWeight: '700', color: '#0891B2' },
+  orientRow: { flexDirection: 'row', gap: 10 },
+  orientOpt: { flex: 1, minHeight: 88, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 2, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
+  orientOptOn: { borderColor: '#0891B2', backgroundColor: '#ECFEFF' },
+  shapeLandscape: { width: 40, height: 24, borderRadius: 4, backgroundColor: '#CBD5E1' },
+  shapePortrait: { width: 24, height: 40, borderRadius: 4, backgroundColor: '#CBD5E1' },
+  shapeOn: { backgroundColor: '#0891B2' },
+  orientLabel: { fontSize: 12, fontWeight: '700', color: '#64748B' },
+  orientLabelOn: { color: '#0891B2' },
   badge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   empty: { alignItems: 'center', paddingVertical: 60, gap: 10 },

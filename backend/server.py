@@ -350,7 +350,14 @@ def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[s
 
 
 def screen_orientation(screen: Optional[dict]) -> str:
-    return ((screen or {}).get("specs") or {}).get("orientation") or "landscape"
+    """Single source of truth for a screen's orientation.
+
+    Admin screens keep it in `specs.orientation`; screens created through the
+    workspace used to store it at the top level, so both are accepted.
+    """
+    screen = screen or {}
+    specs = screen.get("specs") or {}
+    return specs.get("orientation") or screen.get("orientation") or "landscape"
 
 
 # ============================================================
@@ -2668,7 +2675,7 @@ async def get_playlist(screen_id: str):
         "screen_id": screen_id,
         "screen_name": screen.get("name"),
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080"),
-        "orientation": screen.get("specs", {}).get("orientation", "landscape"),
+        "orientation": screen_orientation(screen),
         "playlist_version": screen.get("playlist_version", 0),
         "schedule_key": await effective_playlist_schedule_key(screen_id),
         "generated_at": now.isoformat(),
@@ -3008,7 +3015,7 @@ async def export_playlist_for_bridge(screen_id: str, date: Optional[str] = None)
         "screen_id": screen_id,
         "screen_name": screen.get("name"),
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080"),
-        "orientation": screen.get("specs", {}).get("orientation", "landscape"),
+        "orientation": screen_orientation(screen),
         "export_date": td,
         "generated_at": now.isoformat(),
         "total_items": len(export_items),
@@ -3472,7 +3479,7 @@ async def device_playlist(device_id: str):
         "resolution": screen.get("specs", {}).get("resolution", "1920x1080") if screen else "1920x1080",
         # The player rotates itself to this value, so the admin never has to
         # touch the TV: whatever orientation the screen was created with wins.
-        "orientation": screen.get("specs", {}).get("orientation", "landscape") if screen else "landscape",
+        "orientation": screen_orientation(screen),
         "generated_at": now.isoformat(),
         "playlist_version": screen.get("playlist_version", 0) if screen else 0,
         "schedule_key": await effective_playlist_schedule_key(screen_id),
