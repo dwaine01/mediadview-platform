@@ -1654,6 +1654,38 @@ class ChunkedUploadInit(BaseModel):
 CHUNK_TMP_DIR = os.path.join(MEDIA_DIR, "_chunks")
 
 
+class ClientErrorReport(BaseModel):
+    stage: str
+    message: str
+    context: Optional[dict] = None
+
+
+@api_router.post("/client-errors")
+async def report_client_error(data: ClientErrorReport, request: Request):
+    """Collect browser-side failures so uploads can be diagnosed with facts.
+
+    The marketplace runs on the customer's phone, where a failed upload only
+    shows a generic browser message ("Load failed" on Safari). Reporting the
+    real stage plus the file details is the only way to see what happened.
+    """
+    await db.client_errors.insert_one({
+        "id": str(uuid.uuid4()),
+        "stage": data.stage[:80],
+        "message": (data.message or "")[:500],
+        "context": data.context or {},
+        "user_agent": request.headers.get("user-agent", "")[:300],
+        "ip": request.client.host if request.client else None,
+        "created_at": datetime.utcnow(),
+    })
+    return {"logged": True}
+
+
+@api_router.get("/admin/client-errors")
+async def list_client_errors(limit: int = 50, admin: dict = Depends(require_admin)):
+    errors = await db.client_errors.find({}).sort("created_at", -1).to_list(min(limit, 200))
+    return serialize_doc(errors)
+
+
 @api_router.post("/media/chunk/init")
 async def init_chunked_upload(data: ChunkedUploadInit,
                               current_user: dict = Depends(get_current_user)):
@@ -6539,12 +6571,14 @@ async def serve_player_activate():
 async def serve_screen_public():
     """QR landing — serves the unified customer SPA. The SPA reads ?id= or
     ?code= to pre-select the scanned screen inside v-marketplace / v-plans."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @api_router.get("/marketplace")
 async def serve_marketplace():
     """Public /api/marketplace alias (same SPA)."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @api_router.get("/screen/legacy")
 async def serve_screen_public_legacy():
@@ -6661,24 +6695,28 @@ async def sign_permit_form_page():
 async def _signup():
     """Customer signup — served by the unified customer SPA (customer.html).
     The SPA reads 'screen' / 'code' query params and switches to v-register."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @app.get("/login", include_in_schema=False)
 async def _login():
     """Customer login — same SPA, opens on v-login. Admins/superadmins are
     still redirected to /api/dashboard by the app.js login handler."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @app.get("/portal", include_in_schema=False)
 async def _portal():
     """Customer 'Mi Cuenta' portal — same SPA, opens on v-portal after auth
     check restores the session from localStorage."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @app.get("/marketplace", include_in_schema=False)
 async def _marketplace():
     """Public landing / catalog — same SPA, opens on v-landing."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-store, must-revalidate'})
 
 # ─── Short URL for TV sideloading via Downloader app ─────────────────
 # Google TV remotes make typing long URLs painful. Serve the APK from
