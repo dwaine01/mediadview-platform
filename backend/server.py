@@ -863,7 +863,10 @@ async def list_screens(city: Optional[str] = None, status: Optional[str] = "acti
         query["status"] = status
     if city:
         query["location.city"] = {"$regex": city, "$options": "i"}
-    screens = await db.screens.find(query).to_list(100)
+    # PERF: the list view never renders advertising.photo_base64 (a ~100 KB
+    # base64 blob per screen). Excluding it turns a 600 KB response into ~2 KB.
+    # GET /screens/{id} still returns it for the screen editor.
+    screens = await db.screens.find(query, {"advertising.photo_base64": 0}).to_list(100)
     return serialize_doc(screens)
 
 @api_router.get("/screens/cities")
@@ -1228,7 +1231,7 @@ async def list_campaigns(status: Optional[str] = None, current_user: dict = Depe
     campaigns = await db.campaigns.find(query).sort("created_at", -1).to_list(100)
     enriched = []
     for c in campaigns:
-        screen = await db.screens.find_one({"id": c.get("screen_id")})
+        screen = await db.screens.find_one({"id": c.get("screen_id")}, {"advertising": 0})
         c["screen"] = serialize_doc(screen) if screen else None
         enriched.append(c)
     return serialize_doc(enriched)
@@ -1746,7 +1749,11 @@ async def admin_list_campaigns(status: Optional[str] = None, admin: dict = Depen
     # After:  15 campaigns → 3 total queries             → < 500 ms
     screen_ids = list({c.get("screen_id") for c in campaigns if c.get("screen_id")})
     user_ids   = list({c.get("user_id")   for c in campaigns if c.get("user_id")})
-    screens_map = {s["id"]: s for s in await db.screens.find({"id": {"$in": screen_ids}}).to_list(500)}
+    screens_map = {s["id"]: s for s in await db.screens.find({"id": {"$in": screen_ids}},
+        # PERF: the embedded screen is only used for name/location/pricing.
+        # Dropping `advertising` removes a ~100 KB base64 photo per campaign
+        # (11 campaigns previously produced a 5.4 MB response).
+        {"advertising": 0}).to_list(500)}
     users_map   = {u["id"]: u for u in await db.users.find(
         {"id": {"$in": user_ids}}, {"password_hash": 0}).to_list(500)}
     for c in campaigns:
@@ -3335,9 +3342,18 @@ async def device_playlist(device_id: str):
 
 # Admin: Device Management
 @api_router.get("/admin/devices")
-async def admin_list_devices(admin: dict = Depends(require_admin)):
-    """List all registered devices."""
-    devices = await db.devices.find({}).sort("created_at", -1).to_list(500)
+async def admin_list_devices(status: Optional[str] = None, limit: int = 200,
+                             admin: dict = Depends(require_admin)):
+    """List registered devices, newest first.
+
+    PERF: the collection accumulates one `pending` document per un-activated
+    player registration, so an unbounded list grew to 500 docs / ~300 KB and
+    the panel spun for seconds. Default page size is 200; pass ?limit= to widen
+    or ?status=active to filter.
+    """
+    query = {"status": status} if status else {}
+    limit = max(1, min(limit, 500))
+    devices = await db.devices.find(query).sort("created_at", -1).to_list(limit)
     if not devices:
         return []
     # P0 PERF FIX: batch-fetch related screens in 1 query instead of N sequential queries.
@@ -3345,7 +3361,7 @@ async def admin_list_devices(admin: dict = Depends(require_admin)):
     # After:  N devices → 2 total queries (1 devices + 1 screens batch)
     screen_ids = list({d["screen_id"] for d in devices if d.get("screen_id")})
     screens_map = {s["id"]: s for s in await db.screens.find(
-        {"id": {"$in": screen_ids}}).to_list(500)}
+        {"id": {"$in": screen_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
     for d in devices:
         sid = d.get("screen_id")
         d["screen_name"] = screens_map[sid].get("name", "Unknown") if (sid and sid in screens_map) else None
