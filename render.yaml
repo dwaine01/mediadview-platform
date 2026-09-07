@@ -29,7 +29,16 @@ services:
     branch: production                         # Phase 2C-1A: deploy from production branch only
     healthCheckPath: /api/livez
     numInstances: 1
+    # Uploaded media lived on the container filesystem, which Render recreates
+    # on every deploy — customer photos and videos vanished each time we
+    # shipped. A persistent disk keeps them until object storage is enabled.
+    disk:
+      name: mediadview-media
+      mountPath: /var/data/media
+      sizeGB: 10
     envVars:
+      - key: MEDIA_DIR
+        value: /var/data/media
       - key: ENVIRONMENT
         value: production
       - key: APP_NAME
