@@ -437,3 +437,25 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Sprint 4: watchdog reforzado, screenshot bajo demanda, diagnóstico, "Reemplazar reproductor".
 - Sprint 5: matriz de hardware, provisión de fábrica (Device Owner), Live View.
 - `check` y `update-check` seguirán sin token hasta cerrar el modo gracia.
+
+## Iteración 33 — Panel perf + Marketplace orientación (2026-06 / sesión fork)
+- **Fix P0 panel lento (producción)**: `/api/admin/campaigns` 5.47 MB→8.6 KB, `/api/screens` 610 KB→20 KB,
+  `/api/admin/devices` paginado (`?limit=`, `?status=`). Causa: `advertising.photo_base64` incrustado en listados
+  + lista de dispositivos sin paginar (498 "pending" fantasma). Commit `8534eef`, desplegado a `production`.
+- **Marketplace (clientes QR, mediadview.com/marketplace)**:
+  - Preview con la forma real de la pantalla antes de publicar (`orientationPreview` en customer.html);
+    archivo con orientación incorrecta se bloquea y NO consume cambios.
+  - Máximo **2 reemplazos de creativo** por publicación (`media_changes_used`), nuevo endpoint
+    `PUT /api/campaigns/{id}/media`. Pantalla y fechas no cambian.
+  - Eliminar publicación pagada → `status=archived`, sale de la pantalla al instante, libera slot, **sin reembolso**
+    (historial de pagos intacto). `DELETE /api/campaigns/{id}`.
+  - `POST /api/campaigns` y el swap rechazan (422) archivos con orientación distinta a la pantalla.
+  - `/media/upload` guarda `width`/`height`/`orientation` (PIL para imagen, medida del navegador para video).
+- **Player (requiere build nuevo, v3.3.1 / versionCode 19)**:
+  - `/api/devices/{id}/playlist` y `/api/player/{screen}/playlist` publican `orientation`;
+    `MainActivity.applyOrientation` fija la TV a esa orientación (cacheada en prefs para arranque offline).
+  - `PlaybackController.applyRotationFill` escala el contenido rotado 90/270 para cubrir la pantalla
+    (arregla las barras negras arriba/abajo reportadas en la TV).
+- Tests: `backend/tests/test_marketplace_orientation_iter33.py` (9 passed).
+- APK v3.3.0 (Build #13 Codemagic) publicado en Release `player-latest` → `https://mediadview.com/apk`.
+  Respaldo del v3.2.0 en el mismo release como `mediaview-player-v3.2.0-backup.apk`.
