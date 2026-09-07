@@ -536,7 +536,7 @@ if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getEle
   }catch(e){}
 })();
 
-var UPLOADER_VERSION = 'MV-UP-3';
+var UPLOADER_VERSION = 'MV-UP-4';
 function reportClientError(stage, err, f){
   try{
     fetch(API+'/client-errors',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -561,27 +561,55 @@ async function uploadFile(f, m, onProgress){
     return await apiFetch('/media/upload',{method:'POST',body:JSON.stringify({
       filename:f.name, content_type:f.type, data:b, width:m.w, height:m.h})});
   }
+  window._upMB = Math.round(f.size/1048576);
   var init = await apiFetch('/media/chunk/init',{method:'POST',body:JSON.stringify({
     filename:f.name, content_type:f.type||'video/mp4', size:f.size,
     width:m.w, height:m.h, duration_seconds:m.duration||null})});
   var size = init.chunk_size || 2*1024*1024;
+  var total = Math.ceil(f.size/size);
   for(var off=0; off<f.size; off+=size){
-    var part = f.slice(off, Math.min(off+size, f.size));
-    var r = await fetch(API+'/media/chunk/'+init.upload_id, {
-      method:'POST',
-      headers:{'Content-Type':'application/octet-stream','Authorization':'Bearer '+token},
-      body: part});
-    if(!r.ok){
-      var e = await r.json().catch(function(){return {}});
-      throw new Error((e.detail || 'Se corto la subida') + ' (parte '+(Math.floor(off/size)+1)+', codigo '+r.status+')');
+    var index = Math.floor(off/size)+1;
+    // Leer el pedazo primero: si el video vive en iCloud y no esta descargado,
+    // el telefono falla aqui y hay que decirlo claro en vez de "Load failed".
+    var buf;
+    try{
+      buf = await f.slice(off, Math.min(off+size, f.size)).arrayBuffer();
+    }catch(readErr){
+      throw new Error('Tu telefono no pudo leer el video (parte '+index+' de '+total+'). '+
+        'Abrelo primero en la app Fotos para que se descargue completo y vuelve a intentarlo.');
     }
-    var st = await r.json();
+    // Una subida de 90 MB son decenas de peticiones: un tropiezo de red no debe
+    // tirar todo el trabajo, se reintenta cada pedazo.
+    var attempt=0, st=null;
+    while(true){
+      attempt++;
+      try{
+        var r = await fetch(API+'/media/chunk/'+init.upload_id, {
+          method:'POST',
+          headers:{'Content-Type':'application/octet-stream','Authorization':'Bearer '+token,'X-Chunk-Offset':String(off)},
+          body: buf});
+        if(r.status===401) throw new Error('Tu sesion expiro durante la subida, entra de nuevo');
+        if(!r.ok){
+          var e = await r.json().catch(function(){return {}});
+          throw new Error((e.detail || 'Se corto la subida') + ' (parte '+index+' de '+total+', codigo '+r.status+')');
+        }
+        st = await r.json();
+        break;
+      }catch(netErr){
+        if(attempt>=4 || String(netErr.message||'').indexOf('sesion expiro')>=0){
+          reportClientError('chunk_'+index+'_of_'+total, netErr, f);
+          throw new Error((netErr.message||'Se corto la subida')+' — parte '+index+' de '+total+
+            ' tras '+attempt+' intentos. Revisa tu conexion (con WiFi funciona mejor).');
+        }
+        await new Promise(function(res){setTimeout(res, 800*attempt)});
+      }
+    }
     if(onProgress) onProgress(st.percent);
   }
   return await apiFetch('/media/chunk/'+init.upload_id+'/complete',{method:'POST'});
 }
 function uploadProgressHtml(pct){
-  return '<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#4f46e5;margin-bottom:6px">Subiendo '+Math.round(pct)+'%</div>'+
+  return '<div style="margin-top:8px"><div style="font-size:12px;font-weight:600;color:#4f46e5;margin-bottom:6px">Subiendo '+Math.round(pct)+'%'+(window._upMB?(' · '+window._upMB+' MB'):'')+' — no cierres esta pagina</div>'+
     '<div style="height:8px;border-radius:6px;background:#e2e8f0;overflow:hidden"><div style="height:100%;width:'+pct+'%;background:#4f46e5;transition:width .2s"></div></div></div>';
 }
 
