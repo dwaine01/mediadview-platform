@@ -5,6 +5,7 @@ import android.app.Activity
 import android.graphics.Color
 import android.net.Uri
 import android.os.Build
+import android.view.Gravity
 import android.view.View
 import android.webkit.RenderProcessGoneDetail
 import android.webkit.SslErrorHandler
@@ -400,19 +401,23 @@ class PlaybackController(
     )
 
     /**
-     * A view rotated 90/270 keeps the host's width as its own height, so it ends
-     * up letterboxed with black bars. Scaling by the host aspect ratio makes the
-     * rotated content cover the whole screen again.
+     * A view rotated 90/270 keeps the host's own width/height, so after the
+     * rotation it only covers a 9:16 strip of a 16:9 screen (black bars) — and
+     * scaling it up just crops the artwork.
+     *
+     * Swapping the view's box to host-height x host-width and centring it makes
+     * the rotated view land exactly on the host bounds, so a 1080x1920 poster
+     * rotated 90 degrees fills a 1920x1080 TV completely and without cropping.
      */
     private fun applyRotationFill(view: View, rotationDegrees: Int) {
         if (rotationDegrees % 180 == 0) return
         view.post {
-            val width = host.width.toFloat()
-            val height = host.height.toFloat()
-            if (width <= 0f || height <= 0f) return@post
-            val scale = maxOf(width / height, height / width)
-            view.scaleX = scale
-            view.scaleY = scale
+            val width = host.width
+            val height = host.height
+            if (width <= 0 || height <= 0) return@post
+            view.scaleX = 1f
+            view.scaleY = 1f
+            view.layoutParams = FrameLayout.LayoutParams(height, width, Gravity.CENTER)
         }
     }
 }
