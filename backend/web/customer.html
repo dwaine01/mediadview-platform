@@ -591,7 +591,7 @@ function orientationPreview(m,required,fileOr){
   return '<div style="text-align:center">'+
     '<div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:8px">Así se verá en la pantalla ('+orLabel(required)+')</div>'+
     '<div style="margin:0 auto;width:100%;max-width:'+maxW+';aspect-ratio:'+ratio+';border-radius:12px;overflow:hidden;background:#0f172a;border:3px solid '+(ok?'#059669':'#dc2626')+'">'+media+'</div>'+
-    '<div style="font-size:11px;color:#94a3b8;margin-top:6px">Tu archivo: '+(m.w||'?')+'×'+(m.h||'?')+' px'+(fileOr?' · '+orLabel(fileOr):'')+'</div>'+
+    '<div style="font-size:11px;color:#94a3b8;margin-top:6px">'+((m.w&&m.h)?('Tu archivo: '+m.w+'×'+m.h+' px'+(fileOr?' · '+orLabel(fileOr):'')):'Tu archivo se subirá tal como está')+'</div>'+
     (ok
       ? '<div style="margin-top:10px;background:#ecfdf5;border:1px solid #d1fae5;border-radius:10px;padding:10px;font-size:12px;font-weight:600;color:#059669">Orientación correcta</div>'
       : '<div style="margin-top:10px;background:#fef2f2;border:1px solid #fecaca;border-radius:10px;padding:12px;font-size:12px;color:#b91c1c;text-align:left">'+
