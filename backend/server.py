@@ -6580,6 +6580,22 @@ async def serve_marketplace():
     return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
                         headers={'Cache-Control': 'no-store, must-revalidate'})
 
+
+def _customer_spa_build() -> str:
+    """Short fingerprint of customer.html, used to bust phone caches."""
+    path = os.path.join(WEB_DIR, 'customer.html')
+    try:
+        stat = os.stat(path)
+        return hashlib.sha256(f"{stat.st_mtime_ns}:{stat.st_size}".encode()).hexdigest()[:8]
+    except OSError:
+        return "dev"
+
+
+@api_router.get("/app-build")
+async def app_build():
+    """Current SPA build id — the page reloads itself when it goes stale."""
+    return {"build": _customer_spa_build()}
+
 @api_router.get("/screen/legacy")
 async def serve_screen_public_legacy():
     """Legacy hourly checkout flow — kept for reference."""
@@ -6713,8 +6729,16 @@ async def _portal():
                         headers={'Cache-Control': 'no-store, must-revalidate'})
 
 @app.get("/marketplace", include_in_schema=False)
-async def _marketplace():
-    """Public landing / catalog — same SPA, opens on v-landing."""
+async def _marketplace(v: Optional[str] = None):
+    """Public landing / catalog — same SPA, opens on v-landing.
+
+    Phones (iOS Safari above all) hang on to a cached copy of the SPA for days,
+    which left customers running an old uploader. Redirecting to a URL stamped
+    with the current build makes every visit a fresh resource for the cache.
+    """
+    build = _customer_spa_build()
+    if v != build:
+        return RedirectResponse(f"/marketplace?v={build}", status_code=302)
     return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
                         headers={'Cache-Control': 'no-store, must-revalidate'})
 

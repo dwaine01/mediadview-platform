@@ -520,7 +520,23 @@ function goToUpload(){
   }
 if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
 
-var UPLOADER_VERSION = 'MV-UP-2';
+// Una copia vieja de esta pagina en el cache del telefono deja al cliente con un
+// subidor obsoleto: comprobamos el build del servidor y recargamos una sola vez.
+(function(){
+  try{
+    var qs = new URLSearchParams(location.search);
+    fetch('/api/app-build', {cache:'no-store'}).then(function(r){return r.json()}).then(function(d){
+      if(!d || !d.build) return;
+      if(qs.get('v') !== d.build && !sessionStorage.getItem('mv_reloaded_'+d.build)){
+        sessionStorage.setItem('mv_reloaded_'+d.build, '1');
+        qs.set('v', d.build);
+        location.replace(location.pathname + '?' + qs.toString() + location.hash);
+      }
+    }).catch(function(){});
+  }catch(e){}
+})();
+
+var UPLOADER_VERSION = 'MV-UP-3';
 function reportClientError(stage, err, f){
   try{
     fetch(API+'/client-errors',{method:'POST',headers:{'Content-Type':'application/json'},
@@ -573,8 +589,12 @@ function uploadProgressHtml(pct){
 function scrOrientation(s){return (s&&s.specs&&s.specs.orientation)||'landscape'}
 function orLabel(o){return o==='portrait'?'vertical':'horizontal'}
 function measureFile(f){
-  return new Promise(function(res){
+  return new Promise(function(resolve){
     var url=URL.createObjectURL(f);
+    var done=false;
+    // iOS Safari can silently never report video metadata; upload anyway.
+    function res(o){ if(done) return; done=true; resolve(o); }
+    setTimeout(function(){ res({w:0,h:0,url:url,isVideo:(f.type||'').indexOf('video')===0}) }, 6000);
     if((f.type||'').indexOf('video')===0){
       var v=document.createElement('video');
       v.preload='metadata';
