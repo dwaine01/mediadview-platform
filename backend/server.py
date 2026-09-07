@@ -472,6 +472,18 @@ def _legacy_media_sha256(media: dict) -> Optional[str]:
     return digest.hexdigest()
 
 
+async def _media_has_inline_bytes(media_id: str) -> bool:
+    """True when the media document still carries the file as base64.
+
+    Legacy uploads live on the container filesystem, which Render wipes on every
+    deploy — but the same document usually keeps a base64 copy in Mongo, and
+    /api/player/media/{id} can serve it. Without this check the playlist dropped
+    perfectly playable items just because the disk copy was gone.
+    """
+    return await db.media.count_documents(
+        {"id": media_id, "data": {"$exists": True, "$nin": [None, ""]}}, limit=1) > 0
+
+
 async def _build_owned_playlist_items(screen_id: str) -> list:
     now = datetime.utcnow()
     playlists = await db.playlists.find(
@@ -527,7 +539,8 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
                 continue
             if media.get("storage", "legacy") == "legacy":
                 stored = media.get("stored_filename")
-                if not stored or not os.path.isfile(os.path.join(MEDIA_DIR, stored)):
+                on_disk = bool(stored) and os.path.isfile(os.path.join(MEDIA_DIR, stored))
+                if not on_disk and not await _media_has_inline_bytes(ref_id):
                     continue
             checksum = await run_in_threadpool(_legacy_media_sha256, media)
             url = f"/api/player/media/{ref_id}"
@@ -571,8 +584,9 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
                 continue
             if media.get("storage", "legacy") == "legacy":
                 stored = media.get("stored_filename")
-                if not stored or not os.path.isfile(os.path.join(MEDIA_DIR, stored)):
-                    logger.error("Playlist skipped missing legacy file for media %s", media_id)
+                on_disk = bool(stored) and os.path.isfile(os.path.join(MEDIA_DIR, stored))
+                if not on_disk and not await _media_has_inline_bytes(media_id):
+                    logger.error("Playlist skipped media %s: no disk file and no inline bytes", media_id)
                     continue
             checksum = await run_in_threadpool(_legacy_media_sha256, media)
             if checksum and media.get("sha256") != checksum:
