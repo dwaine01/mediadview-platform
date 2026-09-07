@@ -3024,7 +3024,7 @@ async def export_playlist_for_bridge(screen_id: str, date: Optional[str] = None)
     for c in campaigns:
         s = c.get("schedule", {})
         for mid in c.get("media_ids", []):
-            media = await db.media.find_one({"id": mid})
+            media = await db.media.find_one({"id": mid}, MEDIA_METADATA_PROJECTION)
             if not media:
                 continue
             # Read file for base64 export
