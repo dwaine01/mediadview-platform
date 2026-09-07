@@ -520,6 +520,16 @@ function goToUpload(){
   }
 if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
 
+var UPLOADER_VERSION = 'MV-UP-2';
+function reportClientError(stage, err, f){
+  try{
+    fetch(API+'/client-errors',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({stage:stage, message:String((err&&err.message)||err||'').slice(0,400),
+        context:{uploader:UPLOADER_VERSION, name:f&&f.name, size:f&&f.size, type:f&&f.type,
+                 screen:(selScreen&&selScreen.name)||null, online:navigator.onLine}})}).catch(function(){});
+  }catch(e){}
+}
+
 // Videos y archivos grandes van por partes: el navegador no aguanta un archivo
 // de telefono en memoria y el proxy corta la peticion ("Load failed" en Safari).
 var CHUNK_THRESHOLD = 3 * 1024 * 1024;
@@ -547,7 +557,7 @@ async function uploadFile(f, m, onProgress){
       body: part});
     if(!r.ok){
       var e = await r.json().catch(function(){return {}});
-      throw new Error(e.detail || 'Se corto la subida, intenta de nuevo');
+      throw new Error((e.detail || 'Se corto la subida') + ' (parte '+(Math.floor(off/size)+1)+', codigo '+r.status+')');
     }
     var st = await r.json();
     if(onProgress) onProgress(st.percent);
@@ -628,7 +638,9 @@ async function onFileSelect(inp){
   }catch(e){
     mediaId=null;
     btn.disabled=true;btn.style.opacity='.4';
-    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>';
+    reportClientError('upload_new', e, f);
+    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+
+      '<br><span style="color:#94a3b8;font-size:10px">'+UPLOADER_VERSION+' · '+Math.round(f.size/1048576)+' MB · '+(f.type||'sin tipo')+'</span></p>';
   }
 }
 async function submitCampaign(){
@@ -852,7 +864,9 @@ async function onEditFileSelect(inp){
   }catch(e){
     editNewMediaId=null;
     document.getElementById('ec-save').style.display='none';
-    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+'</p>';
+    reportClientError('upload_edit', e, f);
+    st.innerHTML='<p style="color:#dc2626;font-size:12px">'+(e.message||'Error al subir')+
+      '<br><span style="color:#94a3b8;font-size:10px">'+UPLOADER_VERSION+' · '+Math.round(f.size/1048576)+' MB · '+(f.type||'sin tipo')+'</span></p>';
   }
 }
 async function saveEditMedia(){
