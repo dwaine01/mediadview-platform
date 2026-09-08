@@ -23,6 +23,28 @@ PENN_CODE = "MV-ADV-2BVHWZ"
 CREATIVE_URL = "https://example.com/test-creative.mp4"
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _free_up_test_slots():
+    """Las campañas TEST_ de corridas anteriores dejaban la pantalla de Miami a
+    capacidad máxima y el resto de la suite fallaba con 409. Se borran antes de
+    empezar (solo las que empiezan por TEST_, nunca datos reales)."""
+    mongo_url = os.environ.get("MONGO_URL")
+    if not mongo_url:
+        yield
+        return
+    from pymongo import MongoClient
+    client = MongoClient(mongo_url)
+    db = client[os.environ.get("DB_NAME", "mediadview")]
+    query = {"name": {"$regex": "^TEST_"}}
+    removed = db.ad_campaigns.delete_many(query).deleted_count
+    print(f"cleanup: {removed} campañas TEST_ borradas antes de la suite")
+    try:
+        yield
+    finally:
+        db.ad_campaigns.delete_many(query)
+        client.close()
+
+
 @pytest.fixture(scope="module")
 def advertiser_token():
     r = requests.post(f"{BASE_URL}/api/auth/login", json={"email": ADVERTISER_EMAIL, "password": ADVERTISER_PASS})

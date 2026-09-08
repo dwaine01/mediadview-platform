@@ -38,6 +38,18 @@ def _client_key(request: Request) -> str:
 
 REDIS_URL = os.environ.get("REDIS_URL", "").strip()
 
+
+def is_rate_limit_disabled() -> bool:
+    """True solo si ENVIRONMENT == "test" y RATE_LIMIT_DISABLED está activo.
+
+    Los tests leen esta misma función para saber si deben saltarse las
+    aserciones de 429, en vez de hardcodear el comportamiento.
+    """
+    if os.environ.get("ENVIRONMENT", "development").strip().lower() != "test":
+        return False
+    return os.environ.get("RATE_LIMIT_DISABLED", "").strip().lower() in ("1", "true", "yes")
+
+
 # Instantiate limiter. Storage:
 #   memory://   → single-instance (dev / Render single-worker)
 #   redis://... → multi-instance safe
@@ -55,6 +67,18 @@ def install_rate_limiter(app):
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_middleware(SlowAPIMiddleware)
+
+    # ── Interruptor SOLO para la suite de CI ────────────────────────────────
+    # La suite completa hace cientos de logins seguidos y se envenena a sí
+    # misma con 429. Se puede apagar el limitador ÚNICAMENTE cuando
+    # ENVIRONMENT == "test" (el valor que usa GitHub Actions). En development,
+    # staging y production la condición es imposible de cumplir, así que este
+    # interruptor NO puede desactivar el rate limit real ni por error de env.
+    if is_rate_limit_disabled():
+        limiter.enabled = False
+        log.warning("⚠ Rate limiter DISABLED (ENVIRONMENT=test + RATE_LIMIT_DISABLED)")
+        return
+
     log.info(
         "✓ Rate limiter installed (storage=%s)",
         "redis" if REDIS_URL else "memory (single-instance)",
