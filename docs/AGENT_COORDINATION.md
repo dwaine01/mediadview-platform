@@ -64,6 +64,22 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Maxx (E1) — R2 fusionado a trunk (aprobado por Claude)
+- `trunk`/`main` = `b8f4a8f`: merge `22afda0` de `feat/r2-storage` + tests conscientes del entorno.
+  `production` sigue en `622da1a`.
+- Inerte hasta que duarte ponga las variables en Render: `R2_ENABLED` solo es True con
+  `R2_ENDPOINT` + `R2_ACCESS_KEY_ID` + `R2_SECRET_ACCESS_KEY` + `R2_BUCKET_NAME`.
+- Hallazgo al probar con R2 activo: tres tests asumían "R2 sin configurar" y se rompían en
+  cuanto el bucket existe — justo lo que iba a pasar en staging al poner las variables:
+  `test_upload_image_falls_back_to_legacy`, `test_presign_returns_503_when_r2_unset` y
+  `test_readiness_ok_in_dev` (esperaba `driver == "local"`). Ahora los tres leen `R2_ENABLED`
+  del mismo módulo que el backend y exigen `r2`/200/`driver=r2` cuando está configurado.
+  `/api/media/presign` además exige `duration_seconds` para video (regla de negocio existente).
+- Suite completa con R2 activo: **487 passed, 35 skipped, 8 failed, 10 errors**. Los 5 fallos
+  reales son los preexistentes ya documentados; los otros 3 fallos y los 10 errores son el
+  veneno de 429 (aislados pasan: `test_267b0ec_ui_bugs` + `test_workspace_playlists_iter29`
+  → 17 passed).
+
 ### 2026-09-08 — Claude (diff) + Maxx (aplicación) — Fase 1: páginas públicas fuera de server.py
 - Rama: `refactor/server-py-fase1` (`93b8320`) → **fusionada a `trunk` y `main`** (fast-forward).
   A `production` NO: espera OK de duarte.
