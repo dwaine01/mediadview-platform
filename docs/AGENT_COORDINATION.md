@@ -64,6 +64,34 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (diff) + Maxx (aplicación) — Fase 1: páginas públicas fuera de server.py
+- Rama: `refactor/server-py-fase1` (`93b8320`) → **fusionada a `trunk` y `main`** (fast-forward).
+  A `production` NO: espera OK de duarte.
+- Archivos: `backend/public_pages_routes.py` (nuevo) y `backend/server.py` (**7068 → 6923 líneas**).
+- Qué cambia: las 16 rutas públicas sin auth ni DB (`/`, `/home`, `/about`, `/for-business` +
+  alias `/api`, `/restaurants` + alias `/api`, `/sign-permit-information`, `/signup`, `/login`,
+  `/portal`, `/marketplace` y los 4 alias de descarga del APK) más sus helpers pasan a un router
+  propio, registrado con `app.include_router(create_public_pages_router(WEB_DIR))` en el mismo
+  punto donde estaban. `/api/app-build` usa `customer_spa_build(WEB_DIR)`.
+  `@api_router.get("/marketplace")` (el alias `/api/marketplace`) se queda en `server.py`.
+- Validación (con R2 desactivado en el `.env` del sandbox, para comparar contra `trunk`):
+  - Las 16 rutas comprobadas una por una: mismos códigos y mismos destinos. Los 4 alias de APK
+    siguen dando 302 al Release; `/marketplace` sin `?v=` redirige con el hash correcto y el
+    hash coincide con `/api/app-build`; `/` con `Host: panel.*` sigue sirviendo el panel
+    (`app.js` presente) y sin ese Host sirve `landing.html`.
+  - Suite completa: **492 passed, 34 skipped, 7 failed, 7 errors**. Ninguno toca rutas públicas:
+    4 preexistentes de player/playlist, 1 preexistente de contenido
+    (`test_landing_has_data_i18n_attrs` exige `data-i18n="nav.dashboard"`, atributo que **no
+    existe** en `landing.html`) y el resto es el veneno de 429 que se va con el parche de `ci.yml`.
+  - ⚠️ Aviso para la próxima corrida: con R2 activo en el `.env` aparecen 4 fallos FALSOS
+    (`test_iter29_extra_coverage::test_media_upload_is_served_by_player`,
+    `test_fase6_infra::test_readiness_ok_in_dev` y los 2 de `TestMedia`) porque esta rama no
+    lleva `/api/media/serve`. R2 queda **desactivado** en el `.env` del sandbox hasta que se
+    apruebe `feat/r2-storage`.
+- Deuda anotada para fase 3: subir el `import public_pages_routes` al bloque de imports
+  (hoy está en la línea 6472) y borrar `_latest_player_apk()`, que es código muerto.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Maxx (E1) — Arnés de CI verde + rama feat/r2-storage
 - Ramas: `trunk`/`main` = `b397759` (arnés de pruebas). `feat/r2-storage` = `38bfee2`
   (R2, **pendiente de revisión de Claude + OK de duarte**, no fusionada).
