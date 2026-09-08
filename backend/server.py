@@ -1805,8 +1805,6 @@ async def complete_chunked_upload(upload_id: str,
     digest = await run_in_threadpool(_sha256_of_file, part)
     file_id = str(uuid.uuid4())
     ext = os.path.splitext(session["filename"])[1].lower()
-    stored_name = f"{file_id}{ext or '.bin'}"
-    os.replace(part, os.path.join(MEDIA_DIR, stored_name))
 
     media_doc = {
         "id": file_id,
@@ -1820,12 +1818,35 @@ async def complete_chunked_upload(upload_id: str,
         "height": session.get("height"),
         "orientation": media_orientation(session.get("width"), session.get("height")),
         "duration_seconds": session.get("duration_seconds"),
-        "storage": "legacy",
-        "stored_filename": stored_name,
         "data": None,
         "status": "ready",
         "created_at": datetime.utcnow(),
     }
+
+    if R2_ENABLED:
+        # Los videos son justo lo que no cabe en el disco efímero: se suben a R2
+        # en streaming (nunca se carga el archivo completo en memoria).
+        from storage import build_key, public_url_for_key, r2_upload_fileobj
+        tenant = current_user.get("organization_id") or "public"
+        key = build_key(tenant_id=tenant, client_id=current_user["id"],
+                        campaign_id="unassigned", ext=ext)
+        try:
+            with open(part, "rb") as handle:
+                await r2_upload_fileobj(key, handle, trusted_mime)
+        except Exception as exc:
+            logger.exception("R2 chunked upload failed: %s", exc)
+            raise HTTPException(502, "Media storage temporarily unavailable")
+        os.remove(part)
+        media_doc.update({
+            "storage": "r2",
+            "r2_key": key,
+            "public_url": public_url_for_key(key),
+        })
+    else:
+        stored_name = f"{file_id}{ext or '.bin'}"
+        os.replace(part, os.path.join(MEDIA_DIR, stored_name))
+        media_doc.update({"storage": "legacy", "stored_filename": stored_name})
+
     await db.media.insert_one(media_doc)
     await db.media_uploads.delete_one({"id": upload_id})
     return {"id": file_id, "filename": session["filename"], "size": actual,
@@ -1905,6 +1926,45 @@ async def list_media(current_user: dict = Depends(get_current_user)):
         {"data": 0}   # never send base64 in listings
     ).sort("created_at", -1).to_list(100)
     return serialize_doc(media)
+
+@api_router.get("/media/serve")
+async def serve_r2_media(key: str):
+    """Stream an object out of R2 when the bucket has no public domain yet.
+
+    `storage.public_url_for_key()` points here while R2_PUBLIC_BASE_URL is
+    empty. The key must belong to a registered media document, so the bucket
+    cannot be browsed through this endpoint. Declared BEFORE
+    `/media/{media_id}` or that route would swallow the path.
+    """
+    media = await db.media.find_one({"r2_key": key})
+    if not media:
+        raise HTTPException(status_code=404, detail="Media not found")
+
+    from storage import r2_get_stream, r2_head
+    if await r2_head(key) is None:
+        # Migración gradual: si el objeto todavía no está en R2 (o la subida
+        # quedó a medias) seguimos sirviendo la copia local/base64 en vez de
+        # devolver un 404 a la pantalla.
+        legacy = {k: v for k, v in media.items() if k != "r2_key"}
+        result = await run_in_threadpool(open_media_for_response, legacy, MEDIA_DIR)
+        if result.get("type") == "url":
+            return RedirectResponse(url=result["value"], status_code=302)
+        return Response(
+            content=result["value"],
+            media_type=result.get("mime") or media.get("content_type", "application/octet-stream"),
+            headers={"Content-Disposition": "inline", "Cache-Control": "public, max-age=300"},
+        )
+
+    body, content_type, length = await r2_get_stream(key)
+    headers = {"Cache-Control": "public, max-age=86400", "Content-Disposition": "inline"}
+    if length:
+        headers["Content-Length"] = str(length)
+    return StreamingResponse(
+        body,
+        media_type=content_type or media.get("content_type") or "application/octet-stream",
+        headers=headers,
+    )
+
 
 @api_router.get("/media/{media_id}")
 async def get_media(media_id: str):
