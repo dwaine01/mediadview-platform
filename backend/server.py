@@ -6469,6 +6469,8 @@ setTimeout(function(){{location.reload()}},300000);
 WEB_DIR = str(ROOT_DIR / 'web')
 SAAS_DIR = os.path.join(WEB_DIR, 'saas')  # Pre-built Expo SaaS frontend
 
+from public_pages_routes import create_public_pages_router, customer_spa_build
+
 @app.get("/advertise/{screen_code}", include_in_schema=False)
 async def advertise_landing(screen_code: str):
     """URL corta /advertise/{code} — sirve la landing pública del QR (local dev)."""
@@ -6582,20 +6584,10 @@ async def serve_marketplace():
                         headers={'Cache-Control': 'no-store, must-revalidate'})
 
 
-def _customer_spa_build() -> str:
-    """Short fingerprint of customer.html, used to bust phone caches."""
-    path = os.path.join(WEB_DIR, 'customer.html')
-    try:
-        stat = os.stat(path)
-        return hashlib.sha256(f"{stat.st_mtime_ns}:{stat.st_size}".encode()).hexdigest()[:8]
-    except OSError:
-        return "dev"
-
-
 @api_router.get("/app-build")
 async def app_build():
     """Current SPA build id — the page reloads itself when it goes stale."""
-    return {"build": _customer_spa_build()}
+    return {"build": customer_spa_build(WEB_DIR)}
 
 @api_router.get("/screen/legacy")
 async def serve_screen_public_legacy():
@@ -6664,150 +6656,7 @@ app.include_router(api_router)
 #   - mediadview.com/, www.*, else    → serves web/landing.html (corporate/marketing)
 #     The customer marketplace SPA (customer.html) lives at /marketplace and is
 #     the target of a 'Promociónate aquí' CTA inside landing.html.
-@app.get("/", include_in_schema=False)
-async def root(request: Request):
-    host = (request.headers.get("host") or "").lower()
-    if host.startswith("panel."):
-        return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
-    return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
-
-@app.get("/home", include_in_schema=False)
-async def home_marketing():
-    """Alias for the corporate landing."""
-    return FileResponse(os.path.join(WEB_DIR, 'landing.html'), media_type='text/html')
-
-# Clean public URLs at the apex domain (no /api prefix visible in the browser).
-@app.get("/about", include_in_schema=False)
-async def about():
-    return FileResponse(os.path.join(WEB_DIR, 'about.html'), media_type='text/html')
-
-# ── Phase 1 / 1B approved landing pages ─────────────────────────────────────
-
-@app.get("/for-business", include_in_schema=False)
-async def for_business():
-    """General multi-industry self-service landing page."""
-    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
-
-@app.get("/api/for-business", include_in_schema=False)
-async def for_business_api():
-    """API-prefixed canonical route for /for-business (Kubernetes ingress compatible)."""
-    return FileResponse(os.path.join(WEB_DIR, 'for-business.html'), media_type='text/html')
-
-@app.get("/restaurants", include_in_schema=False)
-async def restaurants_landing():
-    """Restaurant & Food Service specialized landing page."""
-    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
-
-@app.get("/api/restaurants", include_in_schema=False)
-async def restaurants_api():
-    """API-prefixed canonical route for /restaurants (Kubernetes ingress compatible)."""
-    return FileResponse(os.path.join(WEB_DIR, 'restaurants.html'), media_type='text/html')
-
-@app.get("/sign-permit-information", include_in_schema=False)
-async def sign_permit_form_page():
-    """Public form: /sign-permit-information — customers fill and submit."""
-    return FileResponse(os.path.join(WEB_DIR, 'sign-permit.html'), media_type='text/html')
-
-@app.get("/signup", include_in_schema=False)
-async def _signup():
-    """Customer signup — served by the unified customer SPA (customer.html).
-    The SPA reads 'screen' / 'code' query params and switches to v-register."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
-                        headers={'Cache-Control': 'no-store, must-revalidate'})
-
-@app.get("/login", include_in_schema=False)
-async def _login():
-    """Customer login — same SPA, opens on v-login. Admins/superadmins are
-    still redirected to /api/dashboard by the app.js login handler."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
-                        headers={'Cache-Control': 'no-store, must-revalidate'})
-
-@app.get("/portal", include_in_schema=False)
-async def _portal():
-    """Customer 'Mi Cuenta' portal — same SPA, opens on v-portal after auth
-    check restores the session from localStorage."""
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
-                        headers={'Cache-Control': 'no-store, must-revalidate'})
-
-@app.get("/marketplace", include_in_schema=False)
-async def _marketplace(v: Optional[str] = None):
-    """Public landing / catalog — same SPA, opens on v-landing.
-
-    Phones (iOS Safari above all) hang on to a cached copy of the SPA for days,
-    which left customers running an old uploader. Redirecting to a URL stamped
-    with the current build makes every visit a fresh resource for the cache.
-    """
-    build = _customer_spa_build()
-    if v != build:
-        return RedirectResponse(f"/marketplace?v={build}", status_code=302)
-    return FileResponse(os.path.join(WEB_DIR, 'customer.html'), media_type='text/html',
-                        headers={'Cache-Control': 'no-store, must-revalidate'})
-
-# ─── Short URL for TV sideloading via Downloader app ─────────────────
-# Google TV remotes make typing long URLs painful. Serve the APK from
-# a tiny memorable path: mediadview.com/apk
-
-def _latest_player_apk() -> str:
-    """Pick the highest-versioned mediaview-player-*.apk in web/. Falls back
-    to the unversioned mediaview-player.apk if no versioned APK is found."""
-    try:
-        candidates = []
-        for f in os.listdir(WEB_DIR):
-            if f.startswith("mediaview-player-v") and f.endswith(".apk"):
-                candidates.append(f)
-        if candidates:
-            # semver-like sort on the numeric parts inside "v<X.Y.Z>"
-            def _key(name: str):
-                import re
-                m = re.search(r"v(\d+)\.(\d+)\.(\d+)", name)
-                return tuple(int(x) for x in m.groups()) if m else (0, 0, 0)
-            candidates.sort(key=_key, reverse=True)
-            return candidates[0]
-    except Exception:
-        pass
-    return "mediaview-player.apk"
-
-def _player_release_url() -> str:
-    override = os.getenv("PLAYER_APK_RELEASE_URL", "").strip()
-    if override:
-        return override
-    repository = os.getenv("PLAYER_RELEASE_REPOSITORY", "dwaine01/mediadview-platform").strip()
-    tag = os.getenv("PLAYER_RELEASE_TAG", "player-latest").strip()
-    asset = os.getenv("PLAYER_RELEASE_ASSET", "mediaview-player.apk").strip()
-    return f"https://github.com/{repository}/releases/download/{tag}/{asset}"
-
-
-def _serve_player_apk() -> RedirectResponse:
-    """Keep the TV-friendly URL stable while APK binaries live in Releases."""
-    return RedirectResponse(
-        url=_player_release_url(),
-        status_code=302,
-        headers={
-            "Cache-Control": "no-store",
-            "X-Content-Type-Options": "nosniff",
-        },
-    )
-
-@app.get("/apk", include_in_schema=False)
-async def apk_short_url():
-    """Short URL for sideloading via TV Downloader app."""
-    return _serve_player_apk()
-
-@app.get("/apk.apk", include_in_schema=False)
-async def apk_dot_apk():
-    """URL ending in .apk — some Downloader versions require the extension
-    to correctly detect the file as an installable Android package."""
-    return _serve_player_apk()
-
-@app.get("/mediaview.apk", include_in_schema=False)
-async def mediaview_apk():
-    """Branded direct-download URL: mediadview.com/mediaview.apk"""
-    return _serve_player_apk()
-
-@app.get("/download.apk", include_in_schema=False)
-async def download_dot_apk():
-    """Alias — some users type /download.apk instead of /apk."""
-    return _serve_player_apk()
+app.include_router(create_public_pages_router(WEB_DIR))
 
 # ============ FINANCE & ADMIN MODULE ============
 from colorlight import create_colorlight_routes
