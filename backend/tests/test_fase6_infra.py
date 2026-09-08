@@ -426,7 +426,10 @@ class TestHealthReadiness:
         assert data["ok"] is True
         assert data["checks"]["mongo"]["ok"] is True
         assert data["checks"]["storage"]["ok"] is True
-        assert data["checks"]["storage"]["driver"] == "local"
+        # El driver depende de la configuración, no del entorno de ejecución:
+        # con R2 configurado es "r2" y sin él "local" (misma fuente que el backend).
+        from storage import R2_ENABLED
+        assert data["checks"]["storage"]["driver"] == ("r2" if R2_ENABLED else "local")
 
     # Liveness is always 200 (never touches DB)
     def test_liveness_always_ok(self):

@@ -24,6 +24,7 @@ import pytest
 import requests
 
 from rate_limit import LIMITS, is_rate_limit_disabled
+from storage import R2_ENABLED
 from tests.conftest import BASE_URL  # type: ignore
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -359,7 +360,13 @@ _PNG_B64 = ("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAA"
 
 
 class TestMedia:
-    def test_upload_image_falls_back_to_legacy(self, superadmin_token):
+    def test_upload_image_storage_matches_the_configured_backend(self, superadmin_token):
+        """Con R2 configurado el media va a R2; sin R2, al disco (legacy).
+
+        `R2_ENABLED` se lee del mismo módulo que usa el backend, así que el
+        test no asume un entorno concreto: en CI (sin R2) exige legacy y en
+        staging/production (con R2) exige r2 + clave en el bucket.
+        """
         h = {"Authorization": f"Bearer {superadmin_token}", "Content-Type": "application/json"}
         payload = {"filename": "TEST_1x1.png",
                    "content_type": "image/png",
@@ -367,7 +374,10 @@ class TestMedia:
         r = requests.post(f"{BASE_URL}/api/media/upload", json=payload, headers=h)
         assert r.status_code == 200, r.text
         j = r.json()
-        assert j["storage"] == "legacy", f"expected legacy fallback (R2 unset), got {j['storage']}"
+        expected = "r2" if R2_ENABLED else "legacy"
+        assert j["storage"] == expected, f"expected {expected} (R2_ENABLED={R2_ENABLED}), got {j['storage']}"
+        if R2_ENABLED:
+            assert j.get("public_url"), "R2 upload must expose a public_url"
         assert j["type"] == "image"
         # GET the media metadata to verify persistence.
         rid = j["id"]
@@ -375,12 +385,16 @@ class TestMedia:
         assert g.status_code == 200
         assert g.json()["id"] == rid
 
-    def test_presign_returns_503_when_r2_unset(self, superadmin_token):
+    def test_presign_depends_on_r2_being_configured(self, superadmin_token):
         h = {"Authorization": f"Bearer {superadmin_token}", "Content-Type": "application/json"}
         payload = {"filename": "big.mp4", "content_type": "video/mp4",
-                   "size_bytes": 5_000_000}
+                   "size_bytes": 5_000_000, "duration_seconds": 12}
         r = requests.post(f"{BASE_URL}/api/media/presign", json=payload, headers=h)
-        assert r.status_code == 503, f"expected 503 when R2 unset, got {r.status_code}: {r.text}"
+        if R2_ENABLED:
+            assert r.status_code == 200, f"expected a presigned URL, got {r.status_code}: {r.text[:200]}"
+            assert r.json().get("url"), r.text[:200]
+        else:
+            assert r.status_code == 503, f"expected 503 when R2 unset, got {r.status_code}: {r.text}"
 
     def test_upload_exe_rejected(self, superadmin_token):
         h = {"Authorization": f"Bearer {superadmin_token}", "Content-Type": "application/json"}
