@@ -21,6 +21,7 @@ Channels:
 import asyncio
 import json
 import logging
+import time
 from typing import Dict, Set
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -136,6 +137,29 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
+# The SSE channel for a screen also watches `playlist_version` in Mongo, so a
+# version bump made by another process (worker, scheduler or a second Render
+# instance) still reaches the player. server.py registers the reader at boot.
+_screen_version_reader = None
+
+
+def set_screen_version_reader(reader):
+    """`reader(screen_id) -> int | None` (None = screen not found)."""
+    global _screen_version_reader
+    _screen_version_reader = reader
+
+
+async def _read_screen_version(screen_id: str):
+    """Never let a DB hiccup kill a live stream: on error keep the last value."""
+    if _screen_version_reader is None:
+        return None
+    try:
+        return await _screen_version_reader(screen_id)
+    except Exception as error:  # pragma: no cover - defensive
+        logger.warning("screen version read failed for %s: %s", screen_id, error)
+        return None
+
+
 ws_router = APIRouter(prefix="/api")
 
 
@@ -163,22 +187,53 @@ async def ws_endpoint(ws: WebSocket, channel: str, rid: str):
 
 @ws_router.get("/events/{channel}/{rid}")
 async def sse_endpoint(channel: str, rid: str):
-    """Server-Sent Events for native players, with periodic keep-alives."""
+    """Server-Sent Events for native players, with periodic keep-alives.
+
+    This is the ONLY SSE implementation: the player listens on
+    /api/events/screen/{screen_id} and reacts to `playlist.updated` / `reload`.
+    """
     if channel not in ("menu", "screen", "device"):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail="Invalid event channel")
 
     async def stream():
         queue = await manager.subscribe_events(channel, rid)
+        watch_version = channel == "screen" and _screen_version_reader is not None
+        last_version = None
+        idle_since = time.monotonic()
         try:
-            yield "event: connected\ndata: {}\n\n"
+            yield "retry: 5000\nevent: connected\ndata: {}\n\n"
+            if watch_version:
+                last_version = await _read_screen_version(rid)
             while True:
                 try:
-                    payload = await asyncio.wait_for(queue.get(), timeout=20)
+                    payload = await asyncio.wait_for(queue.get(), timeout=2)
                     event = str(payload.get("event") or "message")
                     data = json.dumps(payload, separators=(",", ":"), default=str)
+                    idle_since = time.monotonic()
+                    if watch_version:
+                        last_version = await _read_screen_version(rid)
                     yield f"event: {event}\ndata: {data}\n\n"
+                    continue
                 except asyncio.TimeoutError:
+                    pass
+
+                # A bump from another process/instance never reaches the queue,
+                # so the screen channel also polls the stored version.
+                if watch_version:
+                    version = await _read_screen_version(rid)
+                    if version is not None and version != last_version:
+                        last_version = version
+                        idle_since = time.monotonic()
+                        yield (
+                            'event: playlist.updated\n'
+                            f'data: {{"type":"screen","event":"playlist.updated",'
+                            f'"screen_id":{json.dumps(rid)},"version":{int(version)}}}\n\n'
+                        )
+                        continue
+
+                if time.monotonic() - idle_since >= 20:
+                    idle_since = time.monotonic()
                     yield "event: keepalive\ndata: {}\n\n"
         except asyncio.CancelledError:
             raise

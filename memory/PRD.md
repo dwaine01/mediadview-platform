@@ -522,3 +522,14 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Versión: v3.4.0 (versionCode 22). Rama `player-v3.4.0` (Codemagic ahora dispara con `player-v*`).
 - No compilable en este entorno (no hay SDK Android): validación = build de Codemagic + prueba física.
 - Publicado: APK v3.4.0 (release, build GitHub Actions run 34137380145) en el Release `player-latest` → https://mediadview.com/apk (8.5 MB, verificado 302 + descarga 200).
+
+## Iteración 38 — SSE unificado (una sola implementación de /api/events/screen/{id})
+- Había dos handlers: el de Sprint 1 en `server.py` (`hello`/`version`, registrado primero) y el
+  genérico de `realtime.py` (`connected`/`playlist.updated`). El player solo sincroniza con
+  `playlist.updated`/`reload`, así que la ruta de Sprint 1 lo dejaba sin tiempo real (bug latente).
+- Se elimina la ruta de `server.py`. Queda solo `realtime.py`, que ahora además vigila
+  `playlist_version` en Mongo (reader registrado por `server.py`) para que un bump hecho por otro
+  proceso o instancia también emita `playlist.updated`.
+- Tests: `backend/tests/test_sse_single_channel_iter38.py` (3 passed) + Sprint 1 e iteración 9 (11 passed).
+  Suite completa: 479 passed / 15 failed (rate limit y datos de prueba; 2 fallos preexistentes verificados con git stash).
+- Login de workspace verificado E2E en navegador (testws@test.com → /workspace).

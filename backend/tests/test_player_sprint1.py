@@ -135,7 +135,15 @@ def test_player_state_and_real_sync_progress_reach_the_panel():
     db.devices.delete_one({"id": device_id})
 
 
-def test_sse_event_channel_exists_and_announces_version():
+def test_sse_event_channel_exists_and_announces_connection():
+    """Iteración 38: el canal SSE es UNO solo (realtime.py).
+
+    Contrato unificado: abre siempre con `event: connected` (el player resetea su
+    backoff con ese evento) y avisa los cambios con `playlist.updated`. Ya no
+    existe la variante `hello`/`version` de server.py ni el 404 por pantalla
+    inexistente; el detalle del bump se cubre en
+    tests/test_sse_single_channel_iter38.py.
+    """
     owner = _owner_headers()
     screen = requests.get(f"{BASE}/api/workspace/screens", headers=owner, timeout=30).json()[0]
 
@@ -145,13 +153,16 @@ def test_sse_event_channel_exists_and_announces_version():
         chunks = []
         for line in stream.iter_lines(decode_unicode=True):
             chunks.append(line or "")
-            if any(c.startswith("event: hello") for c in chunks) and any(c.startswith("data:") for c in chunks):
+            if any(c.strip() == "event: connected" for c in chunks):
                 break
-        joined = "\n".join(chunks)
-        assert "event: hello" in joined and '"version"' in joined
+        assert any(c.strip() == "event: connected" for c in chunks), chunks
 
-    missing = requests.get(f"{BASE}/api/events/screen/{uuid.uuid4()}", timeout=20)
-    assert missing.status_code == 404
+    unknown = requests.get(f"{BASE}/api/events/screen/{uuid.uuid4()}", stream=True, timeout=20)
+    assert unknown.status_code == 200
+    unknown.close()
+
+    bad_channel = requests.get(f"{BASE}/api/events/nope/{uuid.uuid4()}", timeout=20)
+    assert bad_channel.status_code == 404
 
 
 def test_connectivity_thresholds_are_real():

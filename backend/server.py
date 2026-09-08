@@ -3751,49 +3751,6 @@ async def device_power_control(device_id: str, data: dict, admin: dict = Depends
 
 
 
-@api_router.get("/events/screen/{screen_id}")
-async def screen_event_stream(screen_id: str, request: Request):
-    """Server-Sent Events channel the player already expects.
-
-    Emits `version` events when the screen playlist version changes, so content
-    changes land in ~2 s instead of waiting for the 15 s poll. Bounded lifetime
-    (10 min) so a stuck client cannot hold a connection forever.
-    """
-    screen = await db.screens.find_one({"id": screen_id}, {"_id": 0, "id": 1, "playlist_version": 1})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-
-    async def event_generator():
-        last_version = None
-        deadline = datetime.utcnow() + timedelta(minutes=10)
-        keepalive_at = datetime.utcnow()
-        yield "retry: 5000\n\n"
-        while datetime.utcnow() < deadline:
-            if await request.is_disconnected():
-                break
-            current = await db.screens.find_one({"id": screen_id}, {"_id": 0, "playlist_version": 1})
-            if not current:
-                yield "event: gone\ndata: {}\n\n"
-                break
-            version = current.get("playlist_version") or 0
-            if last_version is None:
-                last_version = version
-                yield f'event: hello\ndata: {{"version": {version}}}\n\n'
-            elif version != last_version:
-                last_version = version
-                yield f'event: version\ndata: {{"version": {version}}}\n\n'
-            elif (datetime.utcnow() - keepalive_at).total_seconds() >= 20:
-                keepalive_at = datetime.utcnow()
-                yield ": keepalive\n\n"
-            await asyncio.sleep(2)
-
-    return StreamingResponse(
-        event_generator(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no", "Connection": "keep-alive"},
-    )
-
-
 @api_router.get("/devices/{device_id}/playlist")
 async def device_playlist(device_id: str, request: Request):
     """Get playlist for an activated device. Used by the Player App."""
@@ -6861,7 +6818,18 @@ from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
 from realtime import manager as ws_manager
-from realtime import ws_router
+from realtime import set_screen_version_reader, ws_router
+
+
+async def _screen_playlist_version(screen_id: str):
+    """Reader used by the SSE screen channel (single source: realtime.py)."""
+    screen = await db.screens.find_one({"id": screen_id}, {"_id": 0, "playlist_version": 1})
+    if not screen:
+        return None
+    return int(screen.get("playlist_version") or 0)
+
+
+set_screen_version_reader(_screen_playlist_version)
 
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
