@@ -34,8 +34,6 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
-
 from domain_saas.models import (
     CustomerCreate,
     CustomerUpdate,
@@ -49,7 +47,7 @@ from domain_saas.models import (
     SubscriptionStatusUpdate,
     normalize_plan_id,
 )
-
+from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 

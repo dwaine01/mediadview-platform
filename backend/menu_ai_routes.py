@@ -19,9 +19,9 @@ from datetime import datetime
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel, Field
 
 from managed_portal_routes import create_audit_log as _audit
-from pydantic import BaseModel, Field
 
 load_dotenv()
 

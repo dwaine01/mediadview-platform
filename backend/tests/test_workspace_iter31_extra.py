@@ -3,6 +3,7 @@ render safe_src rejections, and dayparting winners between two playlists."""
 
 import os
 import time
+
 import pytest
 import requests
 
@@ -39,7 +40,8 @@ def test_now_playing_progresses_over_time():
         b = by_id.get(s["screen_id"])
         if not b or not b.get("now_playing"):
             continue
-        a = s["now_playing"]; c = b["now_playing"]
+        a = s["now_playing"]
+        c = b["now_playing"]
         if c["index"] != a["index"] or c["seconds_left"] < a["seconds_left"]:
             advanced = True
             break
