@@ -17,9 +17,9 @@ Objetivo: que dos (o más) agentes trabajen el mismo repo sin pisarse.
 
 | Rama | Tip | Qué contiene | Se despliega |
 |---|---|---|---|
-| `production` | `73d7d50` | Snapshot estable + hotfixes por *cherry-pick*. **NO** tiene Sprint 1 del player (tokens de dispositivo, `/api/events/screen/{id}` propio, progreso real) ni los routers de workspace (`team`, `menu-ai`, `promo`, `reports`, `signup`). | ✅ Render (`render.yaml` → `branch: production`) |
-| `main` | `c1fbe12` | Snapshot viejo del backend + `android-player/**` al día (fuente del APK). | ❌ (solo compila el APK en Actions) |
-| `fix/panel-perf` (rama de trabajo de Maxx) | `727a624` | **Superset funcional**: todo lo de `production` + Sprint 1 + workspace SaaS + frontend Expo completo. | ❌ |
+| `production` | `622da1a` | **Unificado con `trunk`** (merge del 2026-09-08): incluye Sprint 1 + workspace SaaS + SSE unificado. | ✅ Render (`render.yaml` → `branch: production`) |
+| `main` | `20af2d5` | = `trunk` (misma línea de historia). Compila el APK en Actions. | ❌ |
+| `trunk` | `20af2d5` | Fuente única de verdad. Todo el trabajo nuevo sale de aquí. | ❌ |
 
 Verificado con `git cherry` + `git diff --name-status`: **no hay ni un archivo ni un fix que exista
 en `production` y falte en la rama de trabajo** (los 4 commits que `git cherry` marca como
@@ -63,6 +63,38 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 ```
 
 ## Bitácora
+
+### 2026-09-08 — Maxx (E1) — MERGE A PRODUCTION: unificación ejecutada
+- Autorización: Claude (como ingeniero, por delegación de duarte) tras aclarar los 7 "errors"
+  de pytest → 6 eran `429 Rate limit exceeded: 60 per 1 minute` en el login de los fixtures de
+  `test_self_service_fase2.py` y 1 era `KeyError: 'id'` en el setup de
+  `test_playlist_diskless_iter34.py` por una respuesta 429 encadenada. Corridos en aislado:
+  **26 passed, 0 errors**. Ninguno toca código nuevo.
+- `production` = `622da1a` (merge con árbol de `trunk`), `main` = `trunk` = `20af2d5`.
+- Comprobaciones pre-merge (todas verdes):
+  - `render.yaml`, `Dockerfile`, `backend/requirements.txt` y `docker-compose.yml`
+    **idénticos** entre `production` y `trunk` → sin cambios de despliegue ni de dependencias.
+  - `npx expo export --platform web` en `trunk`: exit 0.
+  - Ojo detectado: el export commiteado en `backend/web/saas/` de `trunk` viene con
+    `baseURL:"https://menu-studio-3.preview.emergentagent.com/api"`. **No es un problema**
+    porque el `Dockerfile` reconstruye el SPA en el build (`npx expo export` → copia a
+    `backend/web/saas/`) y en Render no existe `frontend/.env` (no está trackeado, y ningún
+    archivo fuente tiene la URL hardcodeada) → el bundle de producción sale con `baseURL:"/api"`.
+    Verificado en vivo: el bundle nuevo (`entry-680d7b4…`) usa `/api` y no menciona el preview.
+- Verificación post-deploy en `https://mediadview.com`:
+  - `/api/livez` → `version: 622da1ad…` (el merge está corriendo), `/api/plans` 200,
+    `/api/workspace/team` **401** (antes 404 → los routers de workspace ya están vivos).
+  - SSE: `/api/events/screen/{id}` → `retry: 5000` + `event: connected` (implementación única).
+  - `/apk` → 302 al Release de GitHub (la TV box sigue pudiendo descargar).
+  - Panel admin (`/api/dashboard`) con superadmin: dashboard, **29 pantallas** y
+    **200 dispositivos** cargan sin spinners; un player real reporta `Sync: 3m ago` → los
+    heartbeats siguen entrando (modo gracia del token funcionando).
+  - Marketplace (`/marketplace`) renderiza el catálogo público.
+  - Se borró el dispositivo de prueba `ASMDCJ` que creé al sondear `/api/devices/register`.
+- Nota para duarte: la variable `ENVIRONMENT` del servicio vivo devuelve `staging`
+  (`/api/livez` → `"env":"staging"`) aunque `render.yaml` dice `production`. No bloquea nada,
+  pero conviene alinearlo en el dashboard de Render.
+- Estado: CERRADA.
 
 ### 2026-09-08 — Maxx (E1) — SSE unificado en una sola implementación (iteración 38)
 - Rama: `trunk` (nada a `production`).

@@ -533,3 +533,11 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Tests: `backend/tests/test_sse_single_channel_iter38.py` (3 passed) + Sprint 1 e iteración 9 (11 passed).
   Suite completa: 479 passed / 15 failed (rate limit y datos de prueba; 2 fallos preexistentes verificados con git stash).
 - Login de workspace verificado E2E en navegador (testws@test.com → /workspace).
+
+## Unificación de ramas (2026-09-08)
+- `production` = `main` = `trunk` = una sola línea de historia. Producción corre `622da1a`
+  (merge con árbol de trunk): Sprint 1 + workspace SaaS + SSE unificado ya están en vivo.
+- Verificado post-deploy: /api/livez con el sha del merge, /api/workspace/team 401 (antes 404),
+  SSE con connected, /apk 302, panel admin con 29 pantallas y 200 dispositivos sin spinners,
+  marketplace OK y heartbeats de players reales entrando (modo gracia del device token).
+- Pendiente menor: la variable ENVIRONMENT del servicio en Render devuelve "staging".
