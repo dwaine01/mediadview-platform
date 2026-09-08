@@ -64,6 +64,62 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Maxx (E1) — Arnés de CI verde + rama feat/r2-storage
+- Ramas: `trunk`/`main` = `b397759` (arnés de pruebas). `feat/r2-storage` = `38bfee2`
+  (R2, **pendiente de revisión de Claude + OK de duarte**, no fusionada).
+- 🔴 **BLOQUEO: no puedo pushear `.github/workflows/ci.yml`.** El token de este entorno no
+  tiene scope `workflow`: GitHub responde
+  `refusing to allow a Personal Access Token to create or update workflow`.
+  El cambio de `ci.yml` está listo y probado en local pero **duarte tiene que pegarlo desde la
+  web de GitHub** (o darme un token con scope `workflow`). Son dos cosas:
+  1. En el `env:` del job *Backend tests*, junto a `REDIS_URL: ""`, añadir:
+     `RATE_LIMIT_DISABLED: "1"` y `LOCKOUT_WINDOW_MIN: "0"`.
+  2. Un paso nuevo antes de *pytest (if any)* que siembra `testws@test.com` / `Test1234!` y
+     `pizzeria@demo.com` / `Pizza1234!` vía `POST /api/auth/customer-signup` (acepta 201 y
+     también 400/409 para poder re-ejecutar el job).
+  Sin esos dos cambios el job *Backend tests* seguirá rojo aunque el código esté bien.
+- Arnés (ya en `trunk`, código de producción intacto salvo el interruptor gateado):
+  - `rate_limit.is_rate_limit_disabled()` solo devuelve True si `ENVIRONMENT == "test"` **y**
+    `RATE_LIMIT_DISABLED` está activo → imposible apagar el rate limit de staging/production.
+  - `test_fase4_backend` lee `LIMITS.login` y `LOCKOUT_MAX_FAIL` de la misma fuente que el
+    backend en vez del `5` hardcodeado (en dev el login permite 60/min, así que el guardia que
+    salta primero es el bloqueo por fuerza bruta, y el test lo dice explícitamente).
+  - Fixtures idempotentes: invite con correo único por corrida y limpieza de las campañas
+    `TEST_` que dejaban "Miami Airport Terminal A" a capacidad máxima.
+  - Resultados locales: `test_fase4_backend` 20 passed, `test_self_service_fase2` 27 passed,
+    `test_fase3_advertising` 12 passed, `test_phase2c_1a` 77 passed.
+- Estado: CERRADA salvo el bloqueo de `ci.yml` (acción de duarte).
+
+### 2026-09-08 — Maxx (E1) — R2 (fase 2): videos a Cloudflare R2 · EN REVISIÓN
+- Rama: `feat/r2-storage` (`38bfee2`), partiendo de `trunk`. **No fusionada.**
+- Credenciales R2 recibidas de duarte y verificadas contra el bucket `mediaview-media`
+  (put/get/list/delete OK). Están solo en `backend/.env` local (no trackeado) — **faltan en
+  Render**: `R2_ACCOUNT_ID`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
+  `R2_BUCKET_NAME`, `R2_REGION=auto` en el env group `mediadview-secrets`.
+- Qué cambia:
+  - `complete_chunked_upload` (la ruta de los videos) sube el archivo ensamblado a R2 en
+    streaming; sin R2 configurado sigue el camino de disco de siempre.
+  - Nuevo `GET /api/media/serve?key=...` que hace streaming desde R2 mientras el bucket no
+    tenga dominio público. Declarado ANTES de `/media/{media_id}` (esa ruta se lo comía y
+    devolvía "Media not found"), y solo sirve claves registradas en `db.media`.
+  - **Fallback pedido por Claude**: si el objeto no está en R2 todavía, se sirve la copia
+    local/base64 en vez de 404. Verificado a mano con un media de `r2_key` inexistente +
+    copia en disco → 200 con los bytes correctos.
+- Tests (reales, en el sandbox, con R2 activo):
+  - chunks + miniaturas: `test_chunked_upload_iter35` + `test_admin_video_thumbnail_iter36`
+    → **12 passed, 1 skipped**. Los videos quedan en Mongo con `storage: "r2"` y se
+    recuperan byte a byte desde el bucket.
+  - media/playlist/orientación: `test_media_upload_wizard_flow`, `test_playlist_diskless_iter34`,
+    `test_playlist_iteration9_contracts`, `test_orientation_chain_iter34`,
+    `test_marketplace_orientation_iter33` → **24 passed, 1 skipped**.
+  - player/playlists: **18 passed, 4 failed**. Los 4 son PREEXISTENTES: los mismos 4 fallan
+    con `git stash` de mis cambios (`test_playlist_professional_platform` ×2,
+    `test_p0_player_diagnostics_playlist_contract`, `test_player_backend_contracts_2026`).
+- Pendiente antes de fusionar: revisión de Claude (diff/tree), OK de duarte, variables en
+  Render y `python -m scripts.migrate_media_to_r2 --dry-run` contra la base de producción
+  (yo no tengo el MONGO_URL de producción).
+- Estado: EN CURSO (esperando revisión).
+
 ### 2026-09-08 — Maxx (E1) — MERGE A PRODUCTION: unificación ejecutada
 - Autorización: Claude (como ingeniero, por delegación de duarte) tras aclarar los 7 "errors"
   de pytest → 6 eran `429 Rate limit exceeded: 60 per 1 minute` en el login de los fixtures de
