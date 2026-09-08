@@ -11,7 +11,9 @@ import pytest
 import requests
 
 BASE = os.environ.get("TEST_BASE_URL", "http://localhost:8001") + "/api"
-MEDIA_DIR = os.environ.get("MEDIA_DIR", "/app/backend/media")
+# Sin MEDIA_DIR, usa la carpeta media del propio repo (en CI no existe /app).
+MEDIA_DIR = os.environ.get("MEDIA_DIR") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "media")
 
 
 def _sample_video():

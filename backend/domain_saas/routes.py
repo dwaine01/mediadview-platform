@@ -674,7 +674,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
                 "subscription": sub_data,
                 "current_pricing_agreement": pricing,
                 "plan_config": _ser(plan_cfg),
-                "users": _ser(org_users),
+                "users": [_ser(u) for u in org_users],
             })
 
         return {

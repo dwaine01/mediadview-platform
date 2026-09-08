@@ -132,7 +132,9 @@ class TestAboutMobile:
 # --- Regression: admin panel still routes -----------------------------------
 class TestAdminPanelRegression:
     def test_panel_root_returns_admin_html(self):
-        r = requests.get(f"{PANEL_URL}/", timeout=15)
+        # PANEL_URL ya apunta al panel (panel.mediadview.com o .../api/dashboard en CI):
+        # añadirle "/" rompe la ruta /api/dashboard, que no acepta barra final.
+        r = requests.get(PANEL_URL, timeout=15)
         assert r.status_code == 200
         # admin index.html title
         assert "Digital Signage Platform" in r.text or "index" in r.text.lower()
@@ -141,7 +143,7 @@ class TestAdminPanelRegression:
         # Commit 93401f4 introduced the mobile sidebar (.sb, .mobile-menu, .sb-backdrop).
         # Verify these class hooks are still present in the panel HTML so 267b0ec did
         # not regress the responsive shell.
-        r = requests.get(f"{PANEL_URL}/", timeout=15)
+        r = requests.get(PANEL_URL, timeout=15)
         assert r.status_code == 200
         # design-system.css should be linked (holds the appended mobile-panel fix)
         html_lower = r.text.lower()
