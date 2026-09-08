@@ -16,6 +16,17 @@ const PLAN_COLORS: Record<string, string> = {
   free: '#64748B', starter: '#0E7490', pro: '#06B6D4', enterprise: '#D97706',
 };
 
+/** Formats a phone number as 555-123-4567 (or 1-555-123-4567) while typing. */
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  const hasCC = digits.length === 11 && digits.startsWith('1');
+  const cc = hasCC ? '1-' : '';
+  const local = hasCC ? digits.slice(1) : digits;
+  if (local.length <= 3) return cc + local;
+  if (local.length <= 6) return `${cc}${local.slice(0, 3)}-${local.slice(3)}`;
+  return `${cc}${local.slice(0, 3)}-${local.slice(3, 6)}-${local.slice(6, 10)}`;
+}
+
 export default function SignupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -84,12 +95,16 @@ export default function SignupScreen() {
     }
   }, [businessName, contactName, email, phone, password, selectedPlan, billingCycle, logo, login, router]);
 
-  // ─── Label style helper ───
+  // ─── Label / input style helpers ───
   const labelStyle = sf.label;
-  const inputBoxStyle = (key: string) => [sf.inputBox, focused === key && sf.inputFocused];
+  const inputBoxStyle = (key: string) => [
+    sf.inputBox,
+    IS_DESKTOP && sf.inputBoxDesktop,
+    focused === key && sf.inputFocused,
+  ];
 
   return (
-    <KeyboardAvoidingView style={sf.root} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={[sf.root, IS_DESKTOP && sf.rootDesktop]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {/* Header */}
       <View style={[sf.header, { paddingTop: insets.top + 12 }]}>
         <View style={sf.headerInner}>
@@ -146,10 +161,12 @@ export default function SignupScreen() {
             </View>
           )}
 
-          <Text style={sf.title}>Crea tu cuenta</Text>
-          <Text style={sf.subtitle}>Completa tus datos. No se requiere tarjeta de crédito.</Text>
+          <Text style={[sf.title, IS_DESKTOP && sf.titleDesktop]}>Crea tu cuenta</Text>
+          <Text style={[sf.subtitle, IS_DESKTOP && sf.subtitleDesktop]}>
+            Completa tus datos. No se requiere tarjeta de crédito.
+          </Text>
 
-          <View style={sf.form}>
+          <View style={[sf.form, IS_DESKTOP && sf.formDesktop]}>
 
             {/* Business Name — full width */}
             <View style={sf.field}>
@@ -203,10 +220,11 @@ export default function SignupScreen() {
                   <TextInput
                     style={sf.input}
                     value={phone}
-                    onChangeText={setPhone}
-                    placeholder="+1 555 000 0000"
+                    onChangeText={(t) => setPhone(formatPhone(t))}
+                    placeholder="555-123-4567"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="phone-pad"
+                    maxLength={14}
                     autoCapitalize="none"
                     autoCorrect={false}
                     onFocus={() => setFocused('phone')}
@@ -293,7 +311,7 @@ export default function SignupScreen() {
             </TouchableOpacity>
           </View>
 
-          <View style={{ height: insets.bottom + 40 }} />
+          <View style={{ height: IS_DESKTOP ? 0 : insets.bottom + 40 }} />
         </View>
 
         {/* Desktop-only value panel — fills the empty half of the screen */}
@@ -333,6 +351,7 @@ export default function SignupScreen() {
 
 const sf = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FFFFFF' },
+  rootDesktop: { backgroundColor: '#F8FAFC' },
 
   header: { backgroundColor: '#020C1B', paddingHorizontal: 20, paddingBottom: 12 },
   headerInner: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%', maxWidth: 1240, alignSelf: 'center' },
@@ -354,17 +373,22 @@ const sf = StyleSheet.create({
     alignSelf: 'center', paddingHorizontal: 32, alignItems: 'flex-start',
   },
   formWrapperMobile: { padding: 24 },
-  formWrapperDesktop: { flex: 1, maxWidth: 560, paddingVertical: 8 },
+  formWrapperDesktop: {
+    flex: 1, maxWidth: 580, backgroundColor: '#FFFFFF',
+    borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 22, padding: 40,
+    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.07, shadowRadius: 32, elevation: 4,
+  },
 
   /* ── Desktop value panel ── */
-  aside: { flex: 1, maxWidth: 460, backgroundColor: '#F8FAFC', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, padding: 28, marginTop: 8 },
+  aside: { flex: 1, maxWidth: 460, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 20, padding: 28 },
   asideEyebrow: { fontSize: 10.5, fontWeight: '800', letterSpacing: 1.8, color: '#0891B2', marginBottom: 10 },
   asideTitle: { fontSize: 21, fontWeight: '900', color: '#0F172A', letterSpacing: -0.6, lineHeight: 28, marginBottom: 22 },
   asideRow: { flexDirection: 'row', gap: 12, alignItems: 'flex-start', marginBottom: 16 },
   asideIcon: { width: 34, height: 34, borderRadius: 10, backgroundColor: '#ECFEFF', alignItems: 'center', justifyContent: 'center' },
   asideRowT: { fontSize: 14, fontWeight: '800', color: '#0F172A' },
   asideRowD: { fontSize: 12.5, color: '#64748B', lineHeight: 18, marginTop: 2 },
-  asideShot: { marginTop: 8, borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
+  asideShot: { marginTop: 8,  borderRadius: 14, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
   asideImg: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#0B1220' },
   asideCap: { fontSize: 11.5, color: '#64748B', padding: 12, textAlign: 'center' },
 
@@ -385,10 +409,13 @@ const sf = StyleSheet.create({
 
   /* ── Copy ── */
   title: { fontSize: 22, fontWeight: '800', color: '#0F172A', marginBottom: 6 },
+  titleDesktop: { fontSize: 30, letterSpacing: -0.8, marginBottom: 8 },
   subtitle: { fontSize: 13, color: '#475569', marginBottom: 24, lineHeight: 18 },
+  subtitleDesktop: { fontSize: 15, lineHeight: 22, marginBottom: 28 },
 
   /* ── Form ── */
   form: { gap: 14 },
+  formDesktop: { gap: 18 },
   field: { gap: 6 },
   label: { fontSize: 11, fontWeight: '700', color: '#475569', letterSpacing: 1.2 },
   inputBox: {
@@ -397,8 +424,13 @@ const sf = StyleSheet.create({
     borderRadius: 12, paddingHorizontal: 16,
     paddingVertical: Platform.OS === 'ios' ? 14 : 12,
   },
+  inputBoxDesktop: { paddingVertical: 15, paddingHorizontal: 18, borderRadius: 14 },
   inputFocused: { borderColor: '#06B6D4', backgroundColor: '#FFFFFF' },
-  input: { flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '500' },
+  input: {
+    flex: 1, fontSize: 15, color: '#0F172A', fontWeight: '500',
+    // Kills the browser's default focus outline on React Native Web
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none', outlineWidth: 0 } as any) : null),
+  },
 
   /* ── Error ── */
   errorBox: {

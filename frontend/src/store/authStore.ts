@@ -73,7 +73,9 @@ export const useAuthStore = create<AuthState>((set) => ({
 
 // Helpers
 export const isWorkspaceUser = (user: User | null): boolean =>
-  user?.rbac_role === 'SELF_SERVICE_OWNER' || user?.rbac_role === 'SELF_SERVICE_MANAGER';
+  user?.rbac_role === 'SELF_SERVICE_OWNER' ||
+  user?.rbac_role === 'SELF_SERVICE_MANAGER' ||
+  user?.rbac_role === 'SELF_SERVICE_STAFF';
 
 export const isAdminUser = (user: User | null): boolean =>
   user?.role === 'admin' || user?.rbac_role === 'SUPER_ADMIN' || user?.rbac_role === 'MEDIAVIEW_ADMIN';

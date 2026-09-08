@@ -12,13 +12,16 @@ const MEDIA = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 const WS_NAV = [
   { key: 'index', label: 'Panel', icon: 'grid' as const, path: '/workspace' },
+  { key: 'promo', label: 'Promo', icon: 'megaphone' as const, path: '/workspace/promo' },
   { key: 'screens', label: 'Pantallas', icon: 'tv' as const, path: '/workspace/screens' },
   { key: 'menus', label: 'Menús', icon: 'fast-food' as const, path: '/workspace/menus' },
   { key: 'content', label: 'Contenido', icon: 'images' as const, path: '/workspace/content' },
   { key: 'playlists', label: 'Playlists', icon: 'list' as const, path: '/workspace/playlists' },
   { key: 'schedules', label: 'Horarios', icon: 'calendar' as const, path: '/workspace/schedules' },
-  { key: 'users', label: 'Equipo', icon: 'people' as const, path: '/workspace/users' },
-  { key: 'billing', label: 'Facturación', icon: 'card' as const, path: '/workspace/billing' },
+  { key: 'activity', label: 'Actividad', icon: 'time' as const, path: '/workspace/activity' },
+  { key: 'reports', label: 'Reportes', icon: 'stats-chart' as const, path: '/workspace/reports' },
+  { key: 'users', label: 'Equipo', icon: 'people' as const, path: '/workspace/users', ownerOnly: true },
+  { key: 'billing', label: 'Facturación', icon: 'card' as const, path: '/workspace/billing', ownerOnly: true },
   { key: 'settings', label: 'Ajustes', icon: 'settings' as const, path: '/workspace/settings' },
 ];
 
@@ -47,15 +50,22 @@ export default function WorkspaceLayout() {
         const url = org?.logo_url;
         setOrgLogo(url ? (url.startsWith('http') ? url : `${MEDIA}${url}`) : null);
       })
-      .catch(() => { setOrgLogo(null); });
-  }, [token]);
+      .catch((e) => {
+        setOrgLogo(null);
+        // 428: member still using the temporary password created by the owner
+        if (e?.response?.status === 428) router.replace('/account/change-password');
+      });
+  }, [token, router]);
   useEffect(() => {
     if (isInitialized && !token) {
       router.replace('/account/login');
     }
   }, [isInitialized, token, router]);
 
-  const activeKey = WS_NAV.find(n => {
+  const isOwner = user?.rbac_role === 'SELF_SERVICE_OWNER';
+  const NAV = WS_NAV.filter(n => isOwner || !n.ownerOnly);
+
+  const activeKey = NAV.find(n => {
     if (n.key === 'index') return pathname === '/workspace' || pathname === '/workspace/';
     return pathname.startsWith(n.path);
   })?.key || 'index';
@@ -85,7 +95,7 @@ export default function WorkspaceLayout() {
           <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false}>
             <View style={ws.navSection}>
               <Text style={ws.navSectionLabel}>MI NEGOCIO</Text>
-              {WS_NAV.map(item => {
+              {NAV.map(item => {
                 const active = activeKey === item.key;
                 return (
                   <TouchableOpacity
@@ -155,7 +165,7 @@ export default function WorkspaceLayout() {
 
       {/* Bottom Nav */}
       <View style={[ws.bottomNav, { paddingBottom: insets.bottom }]}>
-        {WS_NAV.slice(0, 5).map(item => {
+        {NAV.slice(0, 5).map(item => {
           const active = activeKey === item.key;
           return (
             <TouchableOpacity

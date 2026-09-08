@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { workspaceAPI } from '../../src/services/api';
+import LiveScreens from '../../src/components/LiveScreens';
 import type { WorkspaceContext } from '../../src/types';
 
 const C = {
@@ -27,6 +28,7 @@ const C = {
 };
 
 const QUICK_ACTIONS = [
+  { label: 'Lanzar Promo', desc: 'A todas las pantallas en un toque', icon: 'megaphone' as const, color: '#DB2777', route: '/workspace/promo' },
   { label: 'Agregar Pantalla', desc: 'Conectar con código de 6 dígitos', icon: 'tv' as const, color: C.brand, route: '/workspace/screens' },
   { label: 'Editar Menú', desc: 'Cambiar precios y fotos', icon: 'fast-food' as const, color: '#EA580C', route: '/workspace/menus' },
   { label: 'Subir Contenido', desc: 'Imágenes y videos', icon: 'cloud-upload' as const, color: '#0EA5E9', route: '/workspace/content' },
@@ -43,6 +45,7 @@ export default function WorkspaceDashboard() {
 
   const [ctx, setCtx] = useState<WorkspaceContext | null>(null);
   const [screens, setScreens] = useState<Screen[]>([]);
+  const [promos, setPromos] = useState<{ id: string; name: string; text?: string | null; seconds_remaining?: number | null }[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -50,12 +53,14 @@ export default function WorkspaceDashboard() {
   const load = useCallback(async () => {
     try {
       setError('');
-      const [c, s] = await Promise.all([
+      const [c, s, p] = await Promise.all([
         workspaceAPI.context(),
         workspaceAPI.screens().catch(() => ({ data: [] })),
+        workspaceAPI.activePromos().catch(() => ({ data: [] })),
       ]);
       setCtx(c.data);
       setScreens(Array.isArray(s.data) ? s.data : []);
+      setPromos(Array.isArray(p.data) ? p.data : []);
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message || 'Error al cargar el workspace');
     } finally {
@@ -200,6 +205,34 @@ export default function WorkspaceDashboard() {
         </View>
       </View>
 
+      {/* ── Promo en el aire ── */}
+      {promos.map(promo => (
+        <TouchableOpacity
+          key={promo.id}
+          style={sd.promoBanner}
+          onPress={() => router.push('/workspace/promo')}
+          activeOpacity={0.85}
+        >
+          <View style={sd.promoDot} />
+          <View style={{ flex: 1 }}>
+            <Text style={sd.promoLabel}>PROMO EN EL AIRE</Text>
+            <Text style={sd.promoName} numberOfLines={1}>{promo.text || promo.name}</Text>
+          </View>
+          <Text style={sd.promoAction}>Administrar →</Text>
+        </TouchableOpacity>
+      ))}
+
+      {/* ── En vivo ahora ── */}
+      {screens.length > 0 && (
+        <View>
+          <View style={sd.liveHeader}>
+            <Text style={sd.sectionTitle}>En vivo ahora</Text>
+            <Text style={sd.liveHint}>Se actualiza cada 15 s</Text>
+          </View>
+          <LiveScreens onPressScreen={() => router.push('/workspace/screens')} />
+        </View>
+      )}
+
       {/* ── Pantallas list ── */}
       <View style={sd.card}>
         <View style={sd.cardHeaderRow}>
@@ -338,6 +371,16 @@ const sd = StyleSheet.create({
   emptyDesc: { fontSize: 13, color: C.muted, marginBottom: 10, textAlign: 'center' },
 
   sectionTitle: { fontSize: 16, fontWeight: '800', color: C.text, marginTop: 4, letterSpacing: -0.2 },
+  promoBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#0F172A',
+    borderRadius: 14, padding: 16,
+  },
+  promoDot: { width: 9, height: 9, borderRadius: 5, backgroundColor: '#22C55E' },
+  promoLabel: { fontSize: 9.5, fontWeight: '800', color: '#67E8F9', letterSpacing: 1 },
+  promoName: { fontSize: 14.5, fontWeight: '800', color: '#FFFFFF', marginTop: 2 },
+  promoAction: { fontSize: 12, fontWeight: '700', color: '#67E8F9' },
+  liveHeader: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 },
+  liveHint: { fontSize: 11.5, color: C.muted },
   actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 14 },
   actionCard: { flex: 1, minWidth: 150, backgroundColor: C.card, borderWidth: 1, borderColor: C.border, borderRadius: 14, padding: 18, gap: 5, ...shadow },
   actionIcon: { width: 42, height: 42, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 6 },

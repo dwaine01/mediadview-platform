@@ -4,6 +4,7 @@ export interface User {
   email: string;
   role: 'admin' | 'customer';
   rbac_role?: string;          // Phase 2C: SELF_SERVICE_OWNER | MEDIAVIEW_ADMIN | etc.
+  must_change_password?: boolean;  // owner-created member using a temporary password
   organization_id?: string;    // Phase 2C: workspace tenant scoping
   company_name?: string;
   phone?: string;

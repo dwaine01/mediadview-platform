@@ -32,6 +32,7 @@ object DeviceRegistrar {
         try {
             val res = PlayerApi.postJson(ctx, "/api/devices/register", payload)
             val backendId = res.optString("device_id")
+            DeviceIdentity.setDeviceToken(ctx, res.optString("device_token", ""))
             val code = res.optString("activation_code", null)
             if (backendId.isNotBlank()) {
                 DeviceIdentity.markRegistered(ctx, backendId, code)

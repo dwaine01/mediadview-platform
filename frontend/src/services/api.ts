@@ -128,6 +128,21 @@ export const clientLogosAPI = {
   listPublic: () => api.get('/client-logos'),
 };
 
+export type TeamRole = 'admin' | 'manager' | 'employee';
+
+export const teamAPI = {
+  list: () => api.get('/workspace/team'),
+  create: (data: { name: string; email: string; temporary_password: string; role: TeamRole }) =>
+    api.post('/workspace/team', data),
+  update: (id: string, data: { role?: TeamRole; active?: boolean }) =>
+    api.patch(`/workspace/team/${id}`, data),
+  resetPassword: (id: string, temporary_password: string) =>
+    api.post(`/workspace/team/${id}/reset-password`, { temporary_password }),
+  deactivate: (id: string) => api.delete(`/workspace/team/${id}`),
+  changeMyPassword: (current_password: string, new_password: string) =>
+    api.post('/workspace/change-password', { current_password, new_password }),
+};
+
 export const workspaceAPI = {
   context: () => api.get('/workspace/context'),
   // Screens
@@ -141,8 +156,8 @@ export const workspaceAPI = {
   devices: () => api.get('/workspace/devices'),
   // Media
   media: () => api.get('/workspace/media'),
-  uploadMedia: (formData: FormData) =>
-    api.post('/media/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  uploadMedia: (data: { filename: string; content_type: string; data: string }) =>
+    api.post('/media/upload', data, { timeout: 120000 }),
   // Menus
   menus: () => api.get('/workspace/menus'),
   getMenu: (id: string) => api.get(`/workspace/menus/${id}`),
@@ -169,8 +184,32 @@ export const workspaceAPI = {
     api.get(`/workspace/billing/screen-cost?additional_screens=${additionalScreens}`),
   addScreens: (additionalScreens: number) =>
     api.post('/workspace/billing/add-screens', { additional_screens: additionalScreens }),
-  // Legacy
+  // Playlists
   playlists: () => api.get('/workspace/playlists'),
+  createPlaylist: (data: {
+    name: string; description?: string;
+    items: { type: 'media' | 'menu'; ref_id: string; title?: string; duration?: number }[];
+  }) => api.post('/workspace/playlists', data),
+  publishPlaylist: (id: string, screen_ids?: string[]) =>
+    api.post(`/workspace/playlists/${id}/publish`, { screen_ids: screen_ids || [] }),
+  updatePlaylist: (id: string, data: {
+    name?: string;
+    items?: { type: 'media' | 'menu'; ref_id: string; title?: string; duration?: number }[];
+  }) => api.patch(`/workspace/playlists/${id}`, data),
+  deletePlaylist: (id: string) => api.delete(`/workspace/playlists/${id}`),
+  activity: (limit = 60) => api.get(`/workspace/activity?limit=${limit}`),
+  nowPlaying: () => api.get('/workspace/now-playing'),
+  weeklyReport: (weeksAgo = 0) => api.get(`/workspace/reports/weekly?weeks_ago=${weeksAgo}`),
+  activePromos: () => api.get('/workspace/promos/active'),
+  launchPromo: (data: {
+    kind: 'image' | 'text'; text?: string; subtitle?: string; media_id?: string;
+    duration_minutes?: number | null; screen_ids?: string[]; item_seconds?: number;
+  }) => api.post('/workspace/promos', data, { timeout: 60000 }),
+  stopPromo: (id: string) => api.delete(`/workspace/promos/${id}`),
+  aiPhotoForItem: (menuId: string, itemId: string) =>
+    api.post(`/workspace/menus/${menuId}/items/${itemId}/ai-photo`, {}, { timeout: 180000 }),
+  aiImportMenu: (data: { image_base64: string; content_type: string }) =>
+    api.post('/workspace/menus/ai-import', data, { timeout: 180000 }),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),
 };

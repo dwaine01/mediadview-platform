@@ -120,6 +120,7 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun startRuntime() {
+        PlayerStateMachine.transitionTo(PlayerState.INITIALIZING)
         networkMonitor.start()
         HeartbeatWorker.enqueuePeriodic(this)
         scope.launch {
@@ -127,6 +128,13 @@ class MainActivity : Activity(), PlaybackEvents {
             if (!cached?.items.isNullOrEmpty()) {
                 applyOrientation(cached!!.orientation, cached.resolution)
                 renderer.setPlaylist(cached.items)
+                // Arrancamos con el último contenido bueno: nunca pantalla en blanco.
+                PlayerStateMachine.transitionTo(
+                    if (PlayerApi.hasInternet(this@MainActivity)) PlayerState.PLAYING
+                    else PlayerState.OFFLINE_PLAYING_CACHE
+                )
+            } else {
+                PlayerStateMachine.transitionTo(PlayerState.PAIRED)
             }
             syncNow("startup")
         }
@@ -180,6 +188,7 @@ class MainActivity : Activity(), PlaybackEvents {
         if (syncing || !DeviceIdentity.isPaired(this)) return
         if (!PlayerApi.hasInternet(this)) {
             PlayerDiagnostics.connectivity(false)
+            if (renderer.hasContent()) PlayerStateMachine.transitionTo(PlayerState.OFFLINE_PLAYING_CACHE)
             scheduleRetry()
             return
         }
@@ -194,8 +203,12 @@ class MainActivity : Activity(), PlaybackEvents {
                 applyOrientation(result.snapshot.orientation, result.snapshot.resolution)
                 if (result.snapshot.items.isEmpty()) {
                     renderer.setPlaylist(emptyList())
+                    PlayerStateMachine.transitionTo(PlayerState.WAITING_FOR_ASSIGNMENT)
                 } else {
                     renderer.setPlaylist(result.snapshot.items)
+                    PlayerStateMachine.transitionTo(
+                        if (result.fromCache) PlayerState.DEGRADED else PlayerState.PLAYING
+                    )
                 }
                 if (result.rejectedItems > 0) {
                     PlayerDiagnostics.playerError("${result.rejectedItems} archivo(s) rechazado(s)")
@@ -219,6 +232,9 @@ class MainActivity : Activity(), PlaybackEvents {
 
     private fun handleSyncFailure(reason: String, error: Exception) {
         PlayerDiagnostics.playerError("sync/$reason: ${error.message}")
+        PlayerStateMachine.transitionTo(
+            if (renderer.hasContent()) PlayerState.DEGRADED else PlayerState.ERROR
+        )
         scheduleRetry()
     }
 
@@ -248,6 +264,18 @@ class MainActivity : Activity(), PlaybackEvents {
                 put("resolution", "${resources.displayMetrics.widthPixels}x${resources.displayMetrics.heightPixels}")
                 put("orientation", if (resources.configuration.orientation == Configuration.ORIENTATION_PORTRAIT) "portrait" else "landscape")
                 put("last_sync", PlayerDiagnostics.current().lastSync)
+                // ── Sprint 1: estado real + progreso real ──
+                put("player_state", PlayerStateMachine.current().name)
+                PlayerStateMachine.currentProgress()?.let { progress ->
+                    put("sync_progress", JSONObject().apply {
+                        put("files_done", progress.filesDone)
+                        put("files_total", progress.filesTotal)
+                        put("bytes_done", progress.bytesDone)
+                        put("bytes_total", progress.bytesTotal)
+                        progress.currentFile?.let { put("current_file", it) }
+                        progress.manifestVersion?.let { put("manifest_version", it) }
+                    })
+                }
             }
             val response = PlayerApi.postJson(this@MainActivity, "/api/devices/$deviceId/heartbeat", payload)
             response.optJSONObject("update_available")?.let { AutoUpdater.tryUpdate(this@MainActivity, it) }
@@ -277,6 +305,9 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     override fun onReady(item: PlaylistItemModel) {
+        if (PlayerStateMachine.current() != PlayerState.OFFLINE_PLAYING_CACHE) {
+            PlayerStateMachine.transitionTo(PlayerState.PLAYING)
+        }
         PlayerDiagnostics.playerError(null)
         if (item.kind != MediaKind.HTML) PlayerDiagnostics.webError(null)
     }
@@ -286,9 +317,13 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun applyOrientation(orientation: String?, resolution: String) {
-        // The orientation configured on the screen wins: the installer never has
-        // to rotate anything on the TV. It is cached so a cold offline boot keeps
-        // the same orientation.
+        // A TV panel cannot physically rotate: asking Android for a portrait
+        // activity only produces a narrow letterboxed window (it reported
+        // 608x1080 on a 1920x1080 TV). So the activity always stays in the
+        // display's native landscape and, for a screen configured as portrait,
+        // the content host itself is rotated 90 degrees. That gives a real
+        // 1080x1920 canvas that covers the whole panel, upright once the TV is
+        // mounted vertically.
         val wire = orientation?.trim()?.lowercase()
         val effective = when {
             wire == "portrait" || wire == "landscape" -> wire
@@ -300,8 +335,29 @@ class MainActivity : Activity(), PlaybackEvents {
                 }
         }
         prefs.edit().putString(PREF_ORIENTATION, effective).apply()
-        requestedOrientation = if (effective == "portrait") ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        applyContentRotation(effective == "portrait")
+    }
+
+    /** Rotates the whole content host so a portrait screen fills the panel. */
+    private fun applyContentRotation(portrait: Boolean) {
+        val parent = contentHost.parent as? FrameLayout ?: return
+        parent.post {
+            val width = parent.width
+            val height = parent.height
+            if (width <= 0 || height <= 0) return@post
+            if (portrait) {
+                contentHost.rotation = 90f
+                contentHost.layoutParams = FrameLayout.LayoutParams(height, width, Gravity.CENTER)
+            } else {
+                contentHost.rotation = 0f
+                contentHost.layoutParams = FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                )
+            }
+            contentHost.requestLayout()
+        }
     }
 
     private fun launchPairing() {
@@ -312,6 +368,7 @@ class MainActivity : Activity(), PlaybackEvents {
     }
 
     private fun restartApp() {
+        PlayerStateMachine.transitionTo(PlayerState.RESTARTING)
         val launch = packageManager.getLaunchIntentForPackage(packageName) ?: return
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
         startActivity(launch)

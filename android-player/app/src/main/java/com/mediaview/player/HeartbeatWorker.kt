@@ -41,6 +41,18 @@ class HeartbeatWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(
                 put("screen_id",          DeviceIdentity.getScreenId(ctx))
                 put("network",            "online")
                 put("storage",            "${freeStorageMb()} MB free")
+                // ── Sprint 1: estado real del reproductor + progreso real de descarga ──
+                put("player_state",       PlayerStateMachine.current().name)
+                PlayerStateMachine.currentProgress()?.let { progress ->
+                    put("sync_progress", JSONObject().apply {
+                        put("files_done",  progress.filesDone)
+                        put("files_total", progress.filesTotal)
+                        put("bytes_done",  progress.bytesDone)
+                        put("bytes_total", progress.bytesTotal)
+                        progress.currentFile?.let { put("current_file", it) }
+                        progress.manifestVersion?.let { put("manifest_version", it) }
+                    })
+                }
             }
             val res = PlayerApi.postJson(ctx, "/api/devices/$backendId/heartbeat", payload)
             Log.i(PlayerApp.TAG, "♥ Heartbeat OK · action=${res.optString("action")} screen=${res.optString("screen_id", "-")}")

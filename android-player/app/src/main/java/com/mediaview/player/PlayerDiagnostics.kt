@@ -24,6 +24,8 @@ object PlayerDiagnostics {
     fun identity(screenId: String?, paired: Boolean) = update {
         it.copy(screenId = screenId?.ifBlank { "-" } ?: "-", pairing = if (paired) "paired" else "pending")
     }
+    /** Nota libre para el overlay de diagnóstico (estados del player, recuperaciones). */
+    fun note(message: String) = android.util.Log.i(PlayerApp.TAG, "player: $message")
     fun http(url: String, status: Int) = update { it.copy(url = url, httpStatus = status.toString()) }
     fun webError(message: String?) = update { it.copy(webViewError = message?.take(240) ?: "none") }
     fun playerError(message: String?) = update { it.copy(playerError = message?.take(240) ?: "none") }

@@ -27,23 +27,47 @@ class PlayerRepository(private val context: Context) {
     }
 
     suspend fun sync(deviceId: String): SyncResult = withContext(Dispatchers.IO) {
+        PlayerStateMachine.transitionTo(PlayerState.SYNCING)
         val result = PlayerApi.getJsonResult(context, "/api/devices/$deviceId/playlist")
         if (result.body.optString("status") == "not_activated") throw DeviceUnpairedException()
         val snapshot = PlaylistJsonParser.parse(result.body, PlayerApi.baseUrl(context))
         val prepared = ArrayList<PlaylistItemModel>()
         var rejected = 0
+
+        // ── Sprint 1: progreso REAL (archivos y bytes de verdad) ──
+        val filesTotal = snapshot.items.size
+        val bytesTotal = snapshot.items.sumOf { maxOf(it.expectedBytes, 0L) }
+        var bytesDone = 0L
+        var filesDone = 0
+        PlayerStateMachine.reportProgress(
+            SyncProgress(0, filesTotal, 0L, bytesTotal, manifestVersion = snapshot.version.toString())
+        )
+
         snapshot.items.forEach { item ->
+            PlayerStateMachine.reportProgress(
+                SyncProgress(filesDone, filesTotal, bytesDone, bytesTotal,
+                    currentFile = item.filename, manifestVersion = snapshot.version.toString())
+            )
             try {
                 prepared += cache.materialize(item)
+                filesDone++
+                bytesDone += maxOf(item.expectedBytes, 0L)
             } catch (error: Exception) {
                 rejected++
                 Log.e(PlayerApp.TAG, "Rejected media ${item.mediaId}: ${error.message}")
                 PlayerDiagnostics.playerError("Cache ${item.filename}: ${error.message}")
             }
+            PlayerStateMachine.reportProgress(
+                SyncProgress(filesDone, filesTotal, bytesDone, bytesTotal,
+                    currentFile = item.filename, manifestVersion = snapshot.version.toString())
+            )
         }
+        PlayerStateMachine.transitionTo(PlayerState.VALIDATING)
 
         val previous = loadCached()
         if (snapshot.items.isNotEmpty() && prepared.isEmpty() && previous?.items?.isNotEmpty() == true) {
+            // El contenido nuevo falló: seguimos con el último bueno y lo reportamos.
+            PlayerStateMachine.transitionTo(PlayerState.DEGRADED)
             return@withContext SyncResult(previous, true, rejected)
         }
 
@@ -61,6 +85,7 @@ class PlayerRepository(private val context: Context) {
         )
         cache.cleanup(prepared.mapNotNull { it.localPath }.toSet())
         PlayerDiagnostics.synced(syncedAt)
+        PlayerStateMachine.transitionTo(if (prepared.isEmpty()) PlayerState.WAITING_FOR_ASSIGNMENT else PlayerState.READY)
         SyncResult(playable, false, rejected)
     }
 

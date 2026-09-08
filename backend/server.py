@@ -7,7 +7,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request, status
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
@@ -18,6 +18,7 @@ load_dotenv(ROOT_DIR / '.env')
 from startup_check import validate_environment
 
 validate_environment()
+import asyncio
 import base64
 import hashlib
 import html as html_lib
@@ -287,8 +288,19 @@ class DeviceRegister(BaseModel):
     client_uuid: Optional[str] = None
     device_id: Optional[str] = None  # alias for client_uuid (legacy client field)
 
+class DeviceSyncProgress(BaseModel):
+    files_done: Optional[int] = 0
+    files_total: Optional[int] = 0
+    bytes_done: Optional[int] = 0
+    bytes_total: Optional[int] = 0
+    manifest_version: Optional[str] = None
+    current_file: Optional[str] = None
+
+
 class DeviceHeartbeat(BaseModel):
     status: str = "online"
+    player_state: Optional[str] = None
+    sync_progress: Optional[DeviceSyncProgress] = None
     current_media_id: Optional[str] = None
     uptime_seconds: Optional[int] = None
     free_storage_mb: Optional[int] = None
@@ -495,8 +507,15 @@ async def _media_has_inline_bytes(media_id: str) -> bool:
 
 
 async def _build_owned_playlist_items(screen_id: str) -> list:
+    now = datetime.utcnow()
     playlists = await db.playlists.find(
-        {"screen_ids": screen_id, "status": "published"}, {"_id": 0}
+        {
+            "screen_ids": screen_id,
+            "status": "published",
+            # Instant promos carry an expiry; once it passes they stop playing.
+            "$or": [{"expires_at": None}, {"expires_at": {"$exists": False}}, {"expires_at": {"$gt": now}}],
+        },
+        {"_id": 0},
     ).to_list(200)
     winner = select_winning_playlist(playlists)
     if not winner:
@@ -898,8 +917,10 @@ async def login(request: Request, response: Response, req: LoginRequest):
     token = create_token(user["id"], user["role"], ver=user.get("session_epoch", 0))
     return {
         "access_token": token, "token_type": "bearer",
+        "must_change_password": bool(user.get("must_change_password")),
         "user": {"id": user["id"], "name": user["name"], "email": user["email"],
                  "role": user["role"], "rbac_role": user.get("rbac_role"),
+                 "must_change_password": bool(user.get("must_change_password")),
                  "organization_id": user.get("organization_id"),
                  "company_name": user.get("company_name"),
                  "language": user.get("language", "en")}
@@ -911,6 +932,7 @@ async def get_me(current_user: dict = Depends(get_current_user)):
         "id": current_user["id"], "name": current_user["name"],
         "email": current_user["email"], "role": current_user["role"],
         "rbac_role": current_user.get("rbac_role"),
+        "must_change_password": bool(current_user.get("must_change_password")),
         "organization_id": current_user.get("organization_id"),
         "company_name": current_user.get("company_name"),
         "phone": current_user.get("phone"),
@@ -1609,6 +1631,14 @@ async def upload_media(request: Request, response: Response, data: MediaUpload,
         })
 
     await db.media.insert_one(media_doc)
+    if current_user.get("organization_id"):
+        await _audit(
+            db, "media.uploaded",
+            user_id=current_user["id"], user_email=current_user.get("email"),
+            resource_type="media", resource_id=file_id,
+            details={"filename": data.filename, "size": size},
+            org_id=current_user["organization_id"],
+        )
     return {"id": file_id, "filename": data.filename, "size": size,
             "content_type": data.content_type, "type": kind,
             "width": media_doc.get("width"), "height": media_doc.get("height"),
@@ -3309,10 +3339,16 @@ async def register_device(data: DeviceRegister):
     if client_uuid:
         existing = await db.devices.find_one({"client_uuid": client_uuid})
         if existing:
-            # Refresh last_seen so the admin panel shows it as "online"
+            # Refresh last_seen and hand out a fresh device token (enrollment point)
+            rotated, rotated_hash = new_device_token()
+            existing["device_token"] = rotated
             await db.devices.update_one(
                 {"id": existing["id"]},
-                {"$set": {"last_heartbeat": datetime.utcnow()}}
+                {"$set": {
+                    "last_heartbeat": datetime.utcnow(),
+                    "device_token_hash": rotated_hash,
+                    "device_token_issued_at": datetime.utcnow(),
+                }}
             )
             logger.info(
                 f"Device re-register (idempotent): {existing['id']} "
@@ -3320,6 +3356,8 @@ async def register_device(data: DeviceRegister):
             )
             return {
                 "device_id": existing["id"],
+                "device_token": rotated,
+                "heartbeat_interval_seconds": HEARTBEAT_INTERVAL_SECONDS,
                 "activation_code": existing.get("activation_code"),
                 "status": existing.get("status", "pending"),
                 "screen_id": existing.get("screen_id"),
@@ -3350,11 +3388,16 @@ async def register_device(data: DeviceRegister):
         "errors": [],
         "created_at": datetime.utcnow()
     }
+    token, token_hash = new_device_token()
+    device["device_token_hash"] = token_hash
+    device["device_token_issued_at"] = datetime.utcnow()
     await db.devices.insert_one(device)
     logger.info(f"Device registered: {device['id']} code={code} client_uuid={client_uuid}")
     return {
         "device_id": device["id"],
+        "device_token": token,
         "activation_code": code,
+        "heartbeat_interval_seconds": HEARTBEAT_INTERVAL_SECONDS,
         "status": "pending",
         "message": "Device registered. Enter the activation code in the admin panel to link this device to a screen."
     }
@@ -3427,11 +3470,9 @@ async def check_device_activation(device_id: str):
     return result
 
 @api_router.post("/devices/{device_id}/heartbeat")
-async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
+async def device_heartbeat(device_id: str, data: DeviceHeartbeat, request: Request):
     """Called periodically by the Player App to report status and diagnostics."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = await authenticate_device(db, device_id, request)
 
     update = {
         "last_heartbeat": datetime.utcnow(),
@@ -3440,6 +3481,17 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
         "diagnostics.device_id": data.device_id or device_id,
         "diagnostics.screen_id": data.screen_id or device.get("screen_id"),
     }
+
+    # ── Sprint 1: estado real del player + progreso real de sincronización ──
+    reported_state = normalize_player_state(data.player_state)
+    if reported_state:
+        update["player_state"] = reported_state
+        update["player_state_at"] = datetime.utcnow()
+    progress = sync_progress_payload(data.sync_progress.dict() if data.sync_progress else None)
+    if progress:
+        update["sync_progress"] = progress
+    elif reported_state in ("PLAYING", "READY", "OFFLINE_PLAYING_CACHE"):
+        update["sync_progress"] = None
     diagnostic_fields = {
         "uptime_seconds": data.uptime_seconds,
         "free_storage_mb": data.free_storage_mb,
@@ -3486,6 +3538,7 @@ async def device_heartbeat(device_id: str, data: DeviceHeartbeat):
         "status": "ok",
         "server_time": datetime.utcnow().isoformat(),
         "poll_interval_seconds": 60,
+        "heartbeat_interval_seconds": HEARTBEAT_INTERVAL_SECONDS,
     }
     if device.get("screen_id"):
         response["action"] = "play"
@@ -3596,11 +3649,9 @@ async def get_player_release(current_user: dict = Depends(get_current_user)):
     return cfg or {}
 
 @api_router.post("/devices/{device_id}/log")
-async def device_log(device_id: str, data: DeviceLog):
+async def device_log(device_id: str, data: DeviceLog, request: Request):
     """Player App sends logs (errors, crashes, info) to server."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = await authenticate_device(db, device_id, request)
 
     log_entry = {
         "id": gen_id(),
@@ -3701,11 +3752,9 @@ async def device_power_control(device_id: str, data: dict, admin: dict = Depends
 
 
 @api_router.get("/devices/{device_id}/playlist")
-async def device_playlist(device_id: str):
+async def device_playlist(device_id: str, request: Request):
     """Get playlist for an activated device. Used by the Player App."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
+    device = await authenticate_device(db, device_id, request)
     if not device.get("screen_id"):
         return {"device_id": device_id, "status": "not_activated", "items": []}
 
@@ -4018,6 +4067,10 @@ def _safe_src(v: str, *, allow_data: bool = True) -> str:
     s = str(v or "").strip()
     lo = s.lower()
     if lo.startswith("https://") or lo.startswith("http://"):
+        return html_lib.escape(s, quote=True)
+    # Same-origin absolute paths (e.g. /api/player/media/<id>) are safe.
+    # "//host" is protocol-relative and therefore rejected.
+    if s.startswith("/") and not s.startswith("//"):
         return html_lib.escape(s, quote=True)
     if allow_data and (lo.startswith("data:image/") or lo.startswith("data:video/")):
         return html_lib.escape(s, quote=True)
@@ -6022,11 +6075,32 @@ async def render_menu(menu_id: str, request: Request):
             raise HTTPException(status_code=404, detail="Menu not found")
 
     template_id = menu.get("template_id", "classic")
-    restaurant = menu.get("restaurant_name", "Restaurant")
+    restaurant = menu.get("restaurant_name") or menu.get("name") or "Restaurant"
     subtitle = menu.get("subtitle", "")
     currency_sym = menu.get("currency_symbol", "$")
-    categories = menu.get("categories", [])
+    categories = menu.get("categories") or []
     promo_media = menu.get("promo_media", [])
+
+    # Workspace menus keep a FLAT item list plus category names as plain strings.
+    # Group them into the {name, items[]} shape this renderer expects.
+    flat_items = menu.get("items") or []
+    if flat_items and (not categories or not isinstance(categories[0], dict)):
+        grouped: dict[str, list] = {}
+        for flat in flat_items:
+            if not isinstance(flat, dict):
+                continue
+            if not flat.get("available", True):
+                continue  # producto agotado: desaparece del menú
+            group = str(flat.get("category") or "Menú")
+            grouped.setdefault(group, []).append({
+                "name": flat.get("name") or "",
+                "description": flat.get("description") or "",
+                "price": flat.get("price") or 0,
+                "image": flat.get("image_url") or "",
+                "available": flat.get("available", True),
+                "featured": bool(flat.get("featured")),
+            })
+        categories = [{"name": name, "items": rows} for name, rows in grouped.items()]
 
     # Food emoji placeholders by keyword
     food_emojis = {
@@ -6418,8 +6492,25 @@ app.include_router(create_advertising_routes(db, get_current_user, require_admin
 from plans_routes import create_plans_routes, seed_default_plans
 from workspace_routes import create_workspace_routes
 from signup_routes import create_signup_routes
+from device_security import (
+    HEARTBEAT_INTERVAL_SECONDS,
+    authenticate_device,
+    connectivity_from_heartbeat,
+    new_device_token,
+    normalize_player_state,
+    sync_progress_payload,
+)
+from workspace_team_routes import create_workspace_team_routes
+from menu_ai_routes import create_menu_ai_routes
+from promo_routes import create_promo_routes
+from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
-app.include_router(create_workspace_routes(db, get_current_user, require_admin))
+app.include_router(create_workspace_team_routes(db, get_current_user))
+app.include_router(create_menu_ai_routes(db, get_current_user))
+app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
+app.include_router(create_workspace_reports_routes(db, get_current_user))
+app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
+                                             build_screen_playlist_items))
 app.include_router(create_signup_routes(db, create_token))
 
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────
@@ -6727,7 +6818,18 @@ from finance_email import create_finance_extensions
 from finance_print import create_finance_print_routes
 from finance_scheduler import start_scheduler
 from realtime import manager as ws_manager
-from realtime import ws_router
+from realtime import set_screen_version_reader, ws_router
+
+
+async def _screen_playlist_version(screen_id: str):
+    """Reader used by the SSE screen channel (single source: realtime.py)."""
+    screen = await db.screens.find_one({"id": screen_id}, {"_id": 0, "playlist_version": 1})
+    if not screen:
+        return None
+    return int(screen.get("playlist_version") or 0)
+
+
+set_screen_version_reader(_screen_playlist_version)
 
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))

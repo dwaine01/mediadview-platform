@@ -46,6 +46,7 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 |---|---|---|---|
 | `android-player/**` | Maxx (E1) | `main`, `player-v3.4.0` | CERRADA |
 | `backend/web/customer.html` | Maxx (E1) | `production` | CERRADA |
+| `backend/realtime.py` + bloque SSE de `backend/server.py` | Maxx (E1) | `trunk` | CERRADA (ver iteración 38) |
 
 ## Plantilla de entrada
 
@@ -62,6 +63,45 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 ```
 
 ## Bitácora
+
+### 2026-09-08 — Maxx (E1) — SSE unificado en una sola implementación (iteración 38)
+- Rama: `trunk` (nada a `production`).
+- Archivos tocados: `backend/realtime.py`, `backend/server.py` (se borra la ruta duplicada),
+  `backend/tests/test_player_sprint1.py` (contrato actualizado),
+  `backend/tests/test_sse_single_channel_iter38.py` (nuevo).
+- Qué cambió y por qué esta implementación ganó:
+  - Había DOS handlers para `/api/events/screen/{id}`. El de `server.py` (Sprint 1) se registraba
+    antes (`api_router` en la línea 6702 vs `ws_router` en la 6875) y emitía `hello`/`version`,
+    **pero el player solo sincroniza con `playlist.updated` o `reload`**
+    (`RealtimeEventPolicy.shouldSync`) y resetea su backoff con `connected`. O sea: en `trunk` la
+    ruta de Sprint 1 dejaba al player SIN sincronización en tiempo real (bug latente, nunca
+    llegó a producción porque production no tiene esa ruta).
+  - Se queda la de `realtime.py` (`/api/events/{channel}/{rid}`): es la que el cliente espera, la
+    que ya corre en producción y la que además alimenta los canales `menu`, `device` y `dashboard`.
+  - Para no perder lo bueno de Sprint 1 (un bump hecho por otro proceso/instancia también debe
+    llegar), el canal `screen` ahora vigila `playlist_version` en Mongo mediante un reader que
+    `server.py` registra con `realtime.set_screen_version_reader(...)`, y emite
+    `playlist.updated`. Se añadió `retry: 5000` en el primer frame (sin romper el contrato de
+    iteración 9, que corta en la primera línea en blanco).
+- Validación:
+  - `tests/test_sse_single_channel_iter38.py` (3 passed): una sola ruta declarada en todo
+    `backend/*.py`, 200 + `connected` para una pantalla inexistente, y un bump directo en Mongo
+    llega como `playlist.updated`.
+  - `tests/test_player_sprint1.py` + `tests/test_playlist_iteration9_contracts.py` +
+    iter38: **11 passed**.
+  - Suite completa `backend/tests/` (57 archivos): **479 passed, 39 skipped, 15 failed, 7 errors**.
+    Ninguno de los fallos es del SSE: son *rate limit 60/min* por correr toda la suite de golpe,
+    datos de prueba agotados (pantalla "Miami Airport Terminal A" a capacidad, invitación ya
+    aceptada) y 2 fallos preexistentes verificados con `git stash` (idénticos sin mis cambios):
+    `test_device_playlist_returns_controlled_empty_state_when_unpaired` y
+    `test_playlist_display_mode_is_normalized_and_delivered_as_cover`.
+  - Login de workspace E2E en navegador: `testws@test.com` → redirige a `/workspace` y carga
+    plan, uso de pantallas y estado de dispositivos. API: `/api/workspace/context|screens|billing|team|menus`
+    todas 200.
+- Riesgo para el otro agente: **`backend/server.py` cambió** (se eliminó el bloque
+  `@api_router.get("/events/screen/{screen_id}")` y se añadió `_screen_playlist_version` junto al
+  `include_router(ws_router)`). Rebasa la fase 1 sobre `trunk` antes de mover rutas.
+- Estado: CERRADA.
 
 ### 2026-09-08 — Maxx (E1) — Preparación de la unificación de ramas (sin desplegar nada)
 - Ramas creadas: `trunk` (= rama de trabajo, fuente única de verdad) y

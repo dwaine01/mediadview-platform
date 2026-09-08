@@ -16,8 +16,8 @@ android {
         applicationId = "com.mediaview.player"
         minSdk = 21
         targetSdk = 34
-        versionCode = 19
-        versionName = "3.3.1"
+        versionCode = 22
+        versionName = "3.4.0"
 
         val diagnosticPin = (System.getenv("MEDIAVIEW_DIAGNOSTICS_PIN") ?: "")
             .replace("\\", "\\\\")

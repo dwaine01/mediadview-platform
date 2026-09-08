@@ -1,12 +1,15 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Alert, Modal, Switch, KeyboardAvoidingView, Platform
+  ActivityIndicator, Modal, Switch, KeyboardAvoidingView, Platform, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
+import AppDialog, { type DialogState } from '../../src/components/AppDialog';
+
+const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 type MenuItem = {
   id: string; name: string; price: number;
@@ -19,22 +22,62 @@ type Menu = {
 };
 
 function ItemCard({
-  item, onEdit, onDelete
-}: { item: MenuItem; onEdit: () => void; onDelete: () => void }) {
+  item, onEdit, onDelete, onAiPhoto, generating, onToggleAvailable, toggling,
+}: {
+  item: MenuItem; onEdit: () => void; onDelete: () => void;
+  onAiPhoto: () => void; generating: boolean;
+  onToggleAvailable: () => void; toggling: boolean;
+}) {
   return (
-    <View style={ed.itemCard}>
+    <View style={[ed.itemCard, !item.available && ed.itemCardOut]}>
       <View style={ed.itemLeft}>
+        {item.image_url ? (
+          <Image source={{ uri: `${API_URL}${item.image_url}` }} style={ed.itemPhoto} resizeMode="cover" />
+        ) : (
+          <TouchableOpacity style={ed.aiPhotoBtn} onPress={onAiPhoto} disabled={generating} activeOpacity={0.8}>
+            {generating
+              ? <ActivityIndicator size="small" color="#0891B2" />
+              : <><Ionicons name="sparkles" size={15} color="#0891B2" />
+                  <Text style={ed.aiPhotoText}>Foto IA</Text></>}
+          </TouchableOpacity>
+        )}
         <View style={ed.itemAvailDot}>
           <View style={[ed.availDot, { backgroundColor: item.available ? '#059669' : '#94A3B8' }]} />
         </View>
         <View style={ed.itemBody}>
-          <Text style={ed.itemName}>{item.name}</Text>
+          <Text style={[ed.itemName, !item.available && ed.itemNameOut]}>{item.name}</Text>
           {!!item.category && <Text style={ed.itemCat}>{item.category}</Text>}
           {!!item.description && <Text style={ed.itemDesc} numberOfLines={1}>{item.description}</Text>}
+          <TouchableOpacity
+            style={[ed.soldOutChip, !item.available && ed.soldOutChipOn]}
+            onPress={onToggleAvailable}
+            disabled={toggling}
+            activeOpacity={0.8}
+          >
+            {toggling
+              ? <ActivityIndicator size="small" color={item.available ? '#64748B' : '#B45309'} />
+              : <>
+                  <Ionicons
+                    name={item.available ? 'ellipse-outline' : 'close-circle'}
+                    size={13}
+                    color={item.available ? '#64748B' : '#B45309'}
+                  />
+                  <Text style={[ed.soldOutText, !item.available && ed.soldOutTextOn]}>
+                    {item.available ? 'Marcar agotado' : 'AGOTADO · toca para reponer'}
+                  </Text>
+                </>}
+          </TouchableOpacity>
         </View>
       </View>
       <View style={ed.itemRight}>
         <Text style={ed.itemPrice}>${Number(item.price).toFixed(2)}</Text>
+        {!!item.image_url && (
+          <TouchableOpacity onPress={onAiPhoto} style={ed.iconBtn} disabled={generating}>
+            {generating
+              ? <ActivityIndicator size="small" color="#0891B2" />
+              : <Ionicons name="sparkles-outline" size={16} color="#0891B2" />}
+          </TouchableOpacity>
+        )}
         <TouchableOpacity onPress={onEdit} style={ed.iconBtn}>
           <Ionicons name="pencil-outline" size={16} color="#0891B2" />
         </TouchableOpacity>
@@ -71,6 +114,12 @@ export default function MenuEditor() {
   // Edit menu name
   const [menuName, setMenuName] = useState('');
 
+  // AI photos
+  const [dialog, setDialog] = useState<DialogState>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [bulkProgress, setBulkProgress] = useState('');
+
   const load = useCallback(async () => {
     try {
       setLoading(true); setError('');
@@ -89,9 +138,56 @@ export default function MenuEditor() {
     try {
       await workspaceAPI.updateMenu(menuId, { name: menuName.trim() });
       setMenu(prev => prev ? { ...prev, name: menuName.trim() } : prev);
-    } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
+    } catch (e: any) { setDialog({ title: 'No se pudo guardar', message: e.response?.data?.detail || e.message }); }
     finally { setSaving(false); }
   };
+
+  const generatePhoto = useCallback(async (item: MenuItem) => {
+    setGeneratingId(item.id);
+    try {
+      const res = await workspaceAPI.aiPhotoForItem(menuId, item.id);
+      setMenu(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === item.id
+          ? { ...i, image_url: res.data.image_url, media_id: res.data.media_id }
+          : i),
+      } : prev);
+    } catch (e: any) {
+      setDialog({
+        title: 'No se pudo generar la foto',
+        message: e.response?.data?.detail || e.message || 'Intenta de nuevo en un momento.',
+      });
+    } finally { setGeneratingId(null); }
+  }, [menuId]);
+
+  const toggleAvailable = useCallback(async (item: MenuItem) => {
+    setTogglingId(item.id);
+    const next = !item.available;
+    try {
+      await workspaceAPI.updateMenuItem(menuId, item.id, { available: next });
+      setMenu(prev => prev ? {
+        ...prev,
+        items: prev.items.map(i => i.id === item.id ? { ...i, available: next } : i),
+      } : prev);
+    } catch (e: any) {
+      setDialog({ title: 'No se pudo actualizar', message: e.response?.data?.detail || e.message });
+    } finally { setTogglingId(null); }
+  }, [menuId]);
+
+  const generateMissingPhotos = useCallback(async () => {
+    const missing = (menu?.items || []).filter(i => !i.image_url);
+    if (missing.length === 0) return;
+    for (let i = 0; i < missing.length; i++) {
+      setBulkProgress(`Generando foto ${i + 1} de ${missing.length}…`);
+      await generatePhoto(missing[i]);
+    }
+    setBulkProgress('');
+    setDialog({
+      title: 'Fotos listas',
+      icon: 'sparkles',
+      message: `Generamos ${missing.length} foto(s). Revisa el menú y publica cuando estés conforme.`,
+    });
+  }, [menu, generatePhoto]);
 
   const openAddItem = () => {
     setEditingItem(null);
@@ -129,37 +225,49 @@ export default function MenuEditor() {
   };
 
   const deleteItem = (item: MenuItem) => {
-    Alert.alert('Remove Item', `Remove "${item.name}"?`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: async () => {
-        try { await workspaceAPI.deleteMenuItem(menuId, item.id); load(); }
-        catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
-      }},
-    ]);
+    setDialog({
+      title: `¿Quitar "${item.name}"?`,
+      icon: 'trash-outline',
+      options: [
+        { label: 'Quitar', destructive: true, onPress: async () => {
+          try { await workspaceAPI.deleteMenuItem(menuId, item.id); load(); }
+          catch (e: any) { setDialog({ title: 'No se pudo quitar', message: e.response?.data?.detail || e.message }); }
+        }},
+        { label: 'Cancelar' },
+      ],
+    });
   };
 
-  const publishMenu = async () => {
+  const publishMenu = () => {
     if (!menu?.items?.length) {
-      Alert.alert('Sin productos', 'Agrega al menos un producto antes de publicar.'); return;
+      setDialog({ title: 'Sin productos', message: 'Agrega al menos un producto antes de publicar.' });
+      return;
     }
-    Alert.alert(
-      'Publish Menu',
-      'This will make the menu visible on all your connected screens. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Publish', onPress: async () => {
+    setDialog({
+      title: 'Publicar menú',
+      message: 'Se mostrará en todas tus pantallas conectadas. ¿Continuamos?',
+      icon: 'cloud-upload-outline',
+      options: [
+        { label: 'Publicar', primary: true, onPress: async () => {
           setPublishing(true);
           try {
             await workspaceAPI.publishMenu(menuId);
-            Alert.alert('Published!', 'Your menu is now live on your screens.', [
-              { text: 'OK', onPress: () => router.back() },
-            ]);
-          } catch (e: any) { Alert.alert('Error', e.response?.data?.detail || e.message); }
+            setDialog({
+              title: '¡Publicado!',
+              icon: 'checkmark-circle-outline',
+              message: 'Tu menú ya está en vivo en tus pantallas.',
+              options: [{ label: 'Volver a Menús', primary: true, onPress: () => router.push('/workspace/menus') },
+                        { label: 'Seguir editando' }],
+            });
+          } catch (e: any) { setDialog({ title: 'No se pudo publicar', message: e.response?.data?.detail || e.message }); }
           finally { setPublishing(false); }
         }},
-      ]
-    );
+        { label: 'Cancelar' },
+      ],
+    });
   };
+
+  const missingPhotos = (menu?.items || []).filter(i => !i.image_url).length;
 
   // Group items by category
   const grouped = (menu?.items || []).reduce<Record<string, MenuItem[]>>((acc, item) => {
@@ -237,10 +345,39 @@ export default function MenuEditor() {
                   key={item.id} item={item}
                   onEdit={() => openEditItem(item)}
                   onDelete={() => deleteItem(item)}
+                  onAiPhoto={() => generatePhoto(item)}
+                  generating={generatingId === item.id}
+                  onToggleAvailable={() => toggleAvailable(item)}
+                  toggling={togglingId === item.id}
                 />
               ))}
             </View>
           ))
+        )}
+
+        {/* Fotos con IA */}
+        {missingPhotos > 0 && (
+          <TouchableOpacity
+            style={ed.aiBanner}
+            onPress={generateMissingPhotos}
+            disabled={!!bulkProgress || !!generatingId}
+            activeOpacity={0.85}
+          >
+            <View style={ed.aiBannerIcon}>
+              {bulkProgress
+                ? <ActivityIndicator size="small" color="#EA580C" />
+                : <Ionicons name="sparkles" size={18} color="#EA580C" />}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={ed.aiBannerTitle}>
+                {bulkProgress || `${missingPhotos} producto${missingPhotos !== 1 ? 's' : ''} sin foto`}
+              </Text>
+              <Text style={ed.aiBannerText}>
+                Genera fotos apetitosas con IA en segundos, sin sesión de fotografía.
+              </Text>
+            </View>
+            {!bulkProgress && <Ionicons name="chevron-forward" size={18} color="#EA580C" />}
+          </TouchableOpacity>
         )}
 
         {/* Add item button */}
@@ -334,6 +471,8 @@ export default function MenuEditor() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      <AppDialog state={dialog} onDismiss={() => setDialog(null)} />
     </View>
   );
 }
@@ -355,6 +494,30 @@ const ed = StyleSheet.create({
   catLabel: { fontSize: 11, fontWeight: '700', color: '#0891B2', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 },
   itemCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12, padding: 14, gap: 8 },
   itemLeft: { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  itemPhoto: { width: 54, height: 42, borderRadius: 8, backgroundColor: '#E2E8F0' },
+  itemCardOut: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
+  itemNameOut: { textDecorationLine: 'line-through', color: '#92400E' },
+  soldOutChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    marginTop: 6, paddingHorizontal: 9, paddingVertical: 6, borderRadius: 20,
+    backgroundColor: '#F1F5F9', minHeight: 30,
+  },
+  soldOutChipOn: { backgroundColor: '#FEF3C7' },
+  soldOutText: { fontSize: 10.5, fontWeight: '700', color: '#64748B' },
+  soldOutTextOn: { color: '#B45309' },
+  aiPhotoBtn: {
+    width: 54, height: 42, borderRadius: 8, backgroundColor: '#ECFEFF',
+    borderWidth: 1, borderColor: '#CFFAFE', borderStyle: 'dashed',
+    alignItems: 'center', justifyContent: 'center', gap: 1,
+  },
+  aiPhotoText: { fontSize: 8.5, fontWeight: '800', color: '#0891B2' },
+  aiBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FFF7ED',
+    borderWidth: 1, borderColor: '#FED7AA', borderRadius: 14, padding: 14, marginTop: 6,
+  },
+  aiBannerIcon: { width: 38, height: 38, borderRadius: 11, backgroundColor: '#FFEDD5', alignItems: 'center', justifyContent: 'center' },
+  aiBannerTitle: { fontSize: 13.5, fontWeight: '800', color: '#9A3412' },
+  aiBannerText: { fontSize: 11.5, color: '#B45309', marginTop: 2, lineHeight: 16 },
   itemAvailDot: { justifyContent: 'center', alignItems: 'center' },
   availDot: { width: 8, height: 8, borderRadius: 4 },
   itemBody: { flex: 1, gap: 2 },

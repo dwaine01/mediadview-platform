@@ -91,6 +91,7 @@ class PairingActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        PlayerStateMachine.transitionTo(PlayerState.UNPAIRED)
         supportActionBar?.hide()
         // Support both landscape and portrait — Android TV usually lands landscape,
         // but portrait signage (menu boards) needs this too.
@@ -385,6 +386,8 @@ class PairingActivity : AppCompatActivity() {
             val res = PlayerApi.postJson(this@PairingActivity, "/api/devices/register", payload)
             val code = res.optString("activation_code", "")
             val srvId = res.optString("device_id", "")
+            // Sprint 1: guardar la credencial propia del reproductor antes de cualquier otra llamada
+            DeviceIdentity.setDeviceToken(this@PairingActivity, res.optString("device_token", ""))
             if (srvId.isNotBlank()) {
                 serverDeviceId = srvId
             }
@@ -459,6 +462,7 @@ class PairingActivity : AppCompatActivity() {
                     if (serverUrl.isNotBlank()) {
                         PlayerApi.setBaseUrl(this@PairingActivity, serverUrl)
                     }
+                    PlayerStateMachine.transitionTo(PlayerState.PAIRED)
                     DeviceIdentity.markPaired(
                         this@PairingActivity,
                         pollId,
