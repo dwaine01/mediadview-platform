@@ -34,7 +34,6 @@ from typing import List, Optional
 import bcrypt
 import jwt
 from bson import ObjectId
-from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field
 from starlette.middleware.cors import CORSMiddleware
 from playlist_domain import (
@@ -56,8 +55,6 @@ from managed_portal_routes import create_audit_log as _audit
 
 # ============ CONFIGURATION ============
 
-MONGO_URL = os.environ['MONGO_URL']
-DB_NAME = os.environ.get('DB_NAME', 'mediaview_db')
 ENVIRONMENT = os.environ.get('ENVIRONMENT', 'development')
 IS_PROD = ENVIRONMENT == 'production'
 
@@ -87,8 +84,8 @@ LEGACY_PLAN_MAP: dict = {"standard": "starter"}
 
 # ============ DATABASE ============
 
-client = AsyncIOMotorClient(MONGO_URL)
-db = client[DB_NAME]
+# Owned by database.py (Fase 2A) — single Mongo client/handle for the whole app.
+from database import DB_NAME, MONGO_URL, client, db
 
 # ============ APP SETUP ============
 
@@ -350,16 +347,8 @@ def gen_activation_code():
     return ''.join(random.choices(chars, k=6))
 
 
-def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[str]:
-    """portrait | landscape | square — None when the size is unknown."""
-    if not width or not height:
-        return None
-    if width > height:
-        return "landscape"
-    if height > width:
-        return "portrait"
-    return "square"
-
+# Movido a media_utils.py (Fase 2A)
+from media_utils import media_orientation
 
 def screen_orientation(screen: Optional[dict]) -> str:
     """Single source of truth for a screen's orientation.
@@ -494,17 +483,8 @@ async def _media_is_available(media: dict) -> bool:
     return await _media_has_inline_bytes(media["id"])
 
 
-async def _media_has_inline_bytes(media_id: str) -> bool:
-    """True when the media document still carries the file as base64.
-
-    Legacy uploads live on the container filesystem, which Render wipes on every
-    deploy — but the same document usually keeps a base64 copy in Mongo, and
-    /api/player/media/{id} can serve it. Without this check the playlist dropped
-    perfectly playable items just because the disk copy was gone.
-    """
-    return await db.media.count_documents(
-        {"id": media_id, "data": {"$exists": True, "$nin": [None, ""]}}, limit=1) > 0
-
+# Movido a media_utils.py (Fase 2A)
+from media_utils import _media_has_inline_bytes
 
 async def _build_owned_playlist_items(screen_id: str) -> list:
     now = datetime.utcnow()
@@ -689,33 +669,8 @@ async def build_screen_playlist_items(screen_id: str, include_widgets: bool = Fa
     return items
 
 
-async def bump_playlist_version(screen_id: str, reason: str = ""):
-    """Increment the playlist_version counter for a screen. Any code path
-    that changes what a screen should play MUST call this so the player
-    can detect it via GET /api/player/{id}/version and resync."""
-    if not screen_id:
-        return
-    try:
-        r = await db.screens.update_one(
-            {"id": screen_id},
-            {"$inc": {"playlist_version": 1},
-             "$set": {"playlist_version_updated_at": datetime.utcnow(),
-                      "playlist_version_reason": reason}}
-        )
-        if r.matched_count:
-            logger.info(f"playlist_version bumped for screen={screen_id} reason={reason}")
-            try:
-                from realtime import manager as realtime_manager
-                await realtime_manager.broadcast_screen(
-                    screen_id,
-                    "playlist.updated",
-                    {"reason": reason},
-                )
-            except Exception as event_error:
-                logger.warning("playlist realtime event failed for %s: %s", screen_id, event_error)
-    except Exception as e:
-        logger.warning(f"bump_playlist_version failed for {screen_id}: {e}")
-
+# Movido a media_utils.py (Fase 2A)
+from media_utils import bump_playlist_version
 
 async def effective_playlist_schedule_key(screen_id: str) -> str:
     playlists = await db.playlists.find(
@@ -742,73 +697,8 @@ def create_token(user_id: str, role: str, ver: int = 0) -> str:
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
-    """Legacy decoder that ALSO accepts Auth v2 tokens (aud/iss/typ) for compat.
-    Tries v2 first (with audience/issuer verification), falls back to v1 (no aud/iss).
-    
-    SEC-002 fix: Legacy tokens now also validate session_epoch to honour revocation
-    (password change, logout, role change all bump epoch → old tokens rejected).
-    """
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise HTTPException(
-            status_code=401,
-            detail="Not authenticated",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    try:
-        token = credentials.credentials
-        is_v2_token = False
-        try:
-            # v2 tokens carry aud/iss and must be verified — do that first.
-            payload = jwt.decode(
-                token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
-                audience=os.environ.get("JWT_AUDIENCE", "mediadview-frontend"),
-                issuer=os.environ.get("JWT_ISSUER", "mediadview-api"),
-            )
-            is_v2_token = True
-        except jwt.InvalidTokenError:
-            # v1 legacy tokens: no aud/iss claims → decode without verification of those.
-            payload = jwt.decode(
-                token, JWT_SECRET, algorithms=[JWT_ALGORITHM],
-                options={"verify_aud": False, "verify_iss": False},
-            )
-        user_id = payload.get("sub")
-        user = await db.users.find_one({"id": user_id})
-        if not user:
-            raise HTTPException(status_code=401, detail="User not found", headers={"WWW-Authenticate": "Bearer"})
-        if not user.get("active", True):
-            raise HTTPException(status_code=401, detail="Account deactivated", headers={"WWW-Authenticate": "Bearer"})
-        # SEC-002: enforce session epoch on LEGACY tokens so that password-change /
-        # logout / role revocation invalidates all outstanding legacy access tokens.
-        # v2 tokens already carry 'ver' and are validated inside auth_v2 decoder.
-        if not is_v2_token:
-            token_ver = payload.get("ver", 0)
-            db_epoch  = user.get("session_epoch", 0)
-            if token_ver < db_epoch:
-                raise HTTPException(status_code=401,
-                                    detail="Session revoked — please login again",
-                                    headers={"WWW-Authenticate": "Bearer"})
-        return user
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired", headers={"WWW-Authenticate": "Bearer"})
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
-
-async def require_admin(current_user: dict = Depends(get_current_user)):
-    """RBAC-aware gate: accepts SUPER_ADMIN, MEDIAVIEW_ADMIN and SUPPORT roles.
-    Legacy role strings ('admin', 'superadmin') are automatically mapped via ROLE_MIGRATION_MAP."""
-    role = get_effective_role(current_user)
-    if role not in (Role.SUPER_ADMIN, Role.MEDIAVIEW_ADMIN, Role.SUPPORT):
-        raise HTTPException(status_code=403, detail="Admin access required")
-    return current_user
-
-async def require_superadmin(current_user: dict = Depends(get_current_user)):
-    """RBAC-aware gate: only SUPER_ADMIN passes.
-    Legacy role string 'superadmin' is mapped automatically."""
-    role = get_effective_role(current_user)
-    if role != Role.SUPER_ADMIN:
-        raise HTTPException(status_code=403, detail="Super Admin access required")
-    return current_user
+# Movidos a deps.py (Fase 2A)
+from deps import get_current_user, require_admin, require_superadmin
 
 # ============ PRICING CALCULATOR ============
 

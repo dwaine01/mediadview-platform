@@ -64,6 +64,39 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (código) + Maxx (verificación) — Fase 2A: red de seguridad y helpers compartidos
+- Rama: `refactor/fase2a-deps` → fusionada a `trunk`/`main`. `production` sin tocar.
+- Archivos nuevos: `backend/database.py` (dueño del cliente Mongo, evita el import circular),
+  `backend/deps.py` (`get_current_user`, `require_admin`, `require_superadmin`),
+  `backend/media_utils.py` (`media_orientation`, `_media_has_inline_bytes`,
+  `bump_playlist_version`), `backend/tests/test_route_inventory.py` +
+  `backend/tests/route_inventory_snapshot.json`.
+  `server.py`: **6923 → 6873 líneas**.
+- Verificación de que es relocalización pura, hecha con AST y no a ojo: los 6 helpers tienen el
+  **cuerpo idénticamente igual** al de `server.py` (`ast.dump` del body sin docstring) y los
+  docstrings son byte a byte iguales. Correcciones al texto que llegó por chat: el guion largo
+  de `"Session revoked — please login again"`, el `logging...warning` del fallback de
+  `JWT_SECRET` y el docstring completo de `_media_has_inline_bytes`.
+- ⚠️ **No regeneré el snapshot después del cambio** (Claude lo pedía en el paso final). El
+  snapshot se generó ANTES de tocar `server.py` y el test pasa DESPUÉS sin regenerarlo: eso es
+  lo que demuestra que no hubo deriva de rutas. Regenerarlo al final habría convertido la red
+  de seguridad en un sello de goma.
+- Hallazgo del inventario, antes de mover nada: **5 rutas están registradas dos veces**, así que
+  la segunda registración es código muerto (FastAPI resuelve la primera):
+  `GET /api/health` (la inline de `server.py` gana y por eso `/api/health` no devuelve el formato
+  de `health.py` con `env`/`version`), y las 4 de finanzas
+  (`contracts/{id}/pdf`, `contracts/{id}/sign`, `deposits/{id}/pdf`, `invoices/{id}/pdf`).
+  No las toco: no es relocalización, es limpieza con posible cambio de comportamiento.
+  **Queda para fase 3**, decidiendo primero cuál de las dos implementaciones de finanzas es la buena.
+- Resultados: `py_compile` limpio en los 5 archivos, `ruff` limpio, inventario de rutas
+  **492 rutas, 1 passed**, y suite completa **492 passed, 35 skipped, 7 failed, 7 errors** —
+  exactamente el mismo conjunto de fallos que la corrida de la fase 1, nombre por nombre
+  (4 preexistentes de player/playlist, 1 de contenido en `landing.html`, 1 de datos en
+  `test_rbac_fase1` y el resto veneno de 429). **Cero fallos nuevos.**
+- SSE revalidado tras mover `bump_playlist_version`: `test_sse_single_channel_iter38` +
+  `test_player_sprint1` + `test_fase4_backend` → 38 passed.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Maxx (E1) — R2 fusionado a trunk (aprobado por Claude)
 - `trunk`/`main` = `b8f4a8f`: merge `22afda0` de `feat/r2-storage` + tests conscientes del entorno.
   `production` sigue en `622da1a`.
