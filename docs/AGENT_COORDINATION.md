@@ -64,6 +64,38 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-1: /menus/* fuera de server.py
+- Rama: `refactor/fase2b1-menus` → fusionada a `trunk`/`main`. `production` sin tocar.
+- `backend/menus_routes.py` (nuevo, 1100 líneas) con los 15 handlers de `/menus/*` en
+  `create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_playlist,
+  _bump_playlist_screens, _esc)` + `_safe_src` y `_notify_menu_change`.
+  `server.py`: **6873 → 5853 líneas** (−1020).
+- Verificación de relocalización pura, con AST: las **17 funciones movidas son idénticas** a las
+  de `bafd87a` (`ast.get_source_segment` comparado tras desindentar los 4 espacios del factory;
+  `_safe_src` idéntico sin desindentar porque queda a nivel de módulo).
+- Orden de registro comprobado: el router de menús queda en la línea 5440, `api_router` en 5581 y
+  el catch-all del SPA en 5844. Además **ninguna ruta de `api_router` empieza por un parámetro**
+  (`@api_router.get("/{...")` → 0 resultados), así que nada puede sombrear `/menus/*`.
+  En vivo: `GET /api/menus` → 401 (auth intacta) y `GET /api/menus/{id}/render` → 200, 13 KB.
+- ⚠️ **Hueco encontrado en la red de seguridad**: el snapshot está ordenado por path, así que
+  **no detecta cambios de orden de registro** — justo el fallo que rompería `/media/serve` (si
+  `/media/{media_id}` se registrara antes) o `/apk` (si cayera detrás del catch-all del SPA).
+  Añadí `test_shadowing_sensitive_paths_resolve_to_the_right_handler`, que resuelve 9 rutas
+  reales contra `app.routes` y exige el handler concreto (`serve_r2_media`, `sse_endpoint`,
+  `render_menu`, `apk_short_url`, `_marketplace`, `expo_spa_catchall`, …).
+- Añadida a `menus_routes.py` la misma cabecera `# ruff: noqa: E701,E702,E741,E731,F811,W293,W605,I001`
+  que ya tenía `server.py`: sin ella el estilo original del código movido rompía el lint.
+- Resultados: `py_compile` limpio, `flake8 --select=F821` → **0**, `ruff` limpio,
+  inventario de rutas **2 passed**, suite completa **492 passed, 35 skipped, 7 failed, 7 errors**
+  — `diff` del conjunto de fallos contra la corrida de 2A: **idéntico, cero regresiones**.
+- Sobre la indentación del f-string de `render_menu` que avisó Claude: el HTML sale con 4 espacios
+  extra por línea dentro de los 3 bloques multilínea. Ningún test compara líneas exactas
+  (`test_menu_theme_colors_persist_and_render` falla por el 404 de borrador de la regla H3, el
+  mismo motivo preexistente que ya estaba en 2A). Para las próximas extracciones sugiero mover
+  los bloques HTML/JS grandes a constantes a nivel de módulo, así el cuerpo de la respuesta
+  queda byte-idéntico.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Claude (código) + Maxx (verificación) — Fase 2A: red de seguridad y helpers compartidos
 - Rama: `refactor/fase2a-deps` → fusionada a `trunk`/`main`. `production` sin tocar.
 - Archivos nuevos: `backend/database.py` (dueño del cliente Mongo, evita el import circular),

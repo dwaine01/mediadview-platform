@@ -112,3 +112,39 @@ if __name__ == "__main__":
         print(f"Wrote {len(inventory)} routes to {SNAPSHOT_PATH}")
     else:
         print(__doc__)
+
+
+# Rutas donde el ORDEN de registro decide quién responde. El snapshot está
+# ordenado por path, así que NO detecta cambios de orden: si una extracción
+# mueve un router y una ruta genérica empieza a comerse a una concreta, el
+# snapshot sigue pasando. Esto lo cubre resolviendo la ruta de verdad.
+SHADOWING_SENSITIVE = [
+    ("/api/media/serve", "GET", "serve_r2_media"),        # antes de /api/media/{media_id}
+    ("/api/media/abc123", "GET", "get_media"),
+    ("/api/events/screen/abc123", "GET", "sse_endpoint"), # única implementación de SSE
+    ("/api/menus/abc123/render", "GET", "render_menu"),
+    ("/api/menus", "GET", "get_menus"),
+    ("/apk", "GET", "apk_short_url"),                     # antes del catch-all del SPA
+    ("/mediaview.apk", "GET", "mediaview_apk"),
+    ("/marketplace", "GET", "_marketplace"),
+    ("/cualquier/cosa/inventada", "GET", "expo_spa_catchall"),
+]
+
+
+def test_shadowing_sensitive_paths_resolve_to_the_right_handler():
+    from server import app
+
+    for path, method, expected in SHADOWING_SENSITIVE:
+        winner = None
+        for route in app.routes:
+            match = getattr(route, "path_regex", None)
+            if match is None or method not in (getattr(route, "methods", None) or set()):
+                continue
+            if match.match(path):
+                winner = getattr(route, "name", None) or getattr(route, "endpoint", None)
+                break
+        assert winner == expected, (
+            f"{method} {path} lo resuelve '{winner}' y deberia resolverlo '{expected}': "
+            "alguna extraccion cambio el orden de registro y una ruta generica se esta "
+            "comiendo a una concreta."
+        )
