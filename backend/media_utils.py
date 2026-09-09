@@ -15,6 +15,8 @@ import logging
 from datetime import datetime
 from typing import Optional
 
+from pydantic import BaseModel
+
 from database import db
 
 logger = logging.getLogger(__name__)
@@ -69,3 +71,16 @@ async def bump_playlist_version(screen_id: str, reason: str = ""):
                 logger.warning("playlist realtime event failed for %s: %s", screen_id, event_error)
     except Exception as e:
         logger.warning(f"bump_playlist_version failed for {screen_id}: {e}")
+
+PLAYABLE_STATUSES = {"approved", "active"}
+MEDIA_METADATA_PROJECTION = {"data": 0, "thumbnail": 0}
+
+
+class MediaUpload(BaseModel):
+    filename: str
+    content_type: str
+    data: str
+    # Client-measured pixel size. Trusted only for video (the server re-measures
+    # images with PIL). Used to match the file against the screen orientation.
+    width: Optional[int] = None
+    height: Optional[int] = None

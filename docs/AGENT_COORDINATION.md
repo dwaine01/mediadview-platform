@@ -64,6 +64,27 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-2: /media/* fuera de server.py
+- Rama de trabajo local → fusionada a `trunk`/`main`. `production` sin tocar.
+- `backend/media_routes.py` (nuevo, 622 líneas) con los 13 handlers de `/media/*` en
+  `create_media_routes(MEDIA_DIR, gen_id, serialize_doc)`, que devuelve
+  `(router, upload_media)` porque `public_playlist_media` sigue llamando a `upload_media(...)`
+  como función Python directa. `MediaUpload`, `PLAYABLE_STATUSES` y
+  `MEDIA_METADATA_PROJECTION` pasaron a `media_utils.py` (87 líneas) para no crear import
+  circular. `server.py`: **5853 → 5363 líneas** (−490; acumulado desde el inicio: 7106 → 5363).
+- Verificación AST: **20/20 elementos movidos idénticos** al original de `7905252`
+  (rutas y helpers anidados comparados tras desindentar los 4 espacios del factory; modelos y
+  `_sha256_of_file` sin desindentar).
+- Orden de registro, que aquí sí es crítico: el test de sombreado de 2B-1 confirma que
+  `GET /api/media/serve` lo sigue resolviendo `serve_r2_media` y `GET /api/media/{id}`
+  lo resuelve `get_media` — no se invirtieron.
+- Probado con R2 **activado** (40 passed: chunks, miniaturas, wizard, iter29, fase4) y con R2
+  **desactivado** (40 passed: inventario, chunks, wizard, marketplace, fase4). Los dos caminos.
+- Añadí a `media_routes.py` la cabecera `# ruff: noqa` de `server.py`, igual que en 2B-1.
+- Suite completa: **493 passed, 35 skipped, 7 failed, 7 errors** y el `diff` del conjunto de
+  fallos contra 2B-1 es **vacío: cero regresiones**.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-1: /menus/* fuera de server.py
 - Rama: `refactor/fase2b1-menus` → fusionada a `trunk`/`main`. `production` sin tocar.
 - `backend/menus_routes.py` (nuevo, 1100 líneas) con los 15 handlers de `/menus/*` en
