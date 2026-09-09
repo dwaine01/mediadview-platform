@@ -64,6 +64,29 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-3: /screens/* fuera de server.py
+- Fusionada a `trunk`/`main`. `production` sin tocar.
+- `backend/screens_routes.py` (nuevo, 481 líneas): las 13 rutas (8 `/screens/*` + 5
+  `/admin/screens*`) y sus 7 modelos, en `create_screens_routes(...)` con 10 dependencias
+  threadeadas. `server.py`: **5363 → 5004 líneas** (acumulado 7106 → 5004, −30 %).
+- Alcance acordado antes de escribir el script: fuera `/admin/rbac/screens-by-type`,
+  `/public/screens*`, `/customer/screens*` y `/playlists/{id}/available-screens`.
+- `screen_orientation` **no** se threadeó: Claude verificó que ninguno de sus 7 usos cae en las
+  13 rutas movidas (son de campañas, marketplace y player). Tenía razón y mi sugerencia de
+  pasarla por defensa habría metido un parámetro muerto. Viajará con la fase que la use.
+- Claude encontró con `flake8 F821` **8 dependencias compartidas** que ni él ni yo habíamos
+  visto al acordar el alcance: `CampaignSchedule`, `calculate_campaign_price`,
+  `_get_unique_public_screen_code`, `get_unique_location_code`, `gen_pairing_code`,
+  `gen_pairing_secret`, `gen_activation_code` y `_is_platform_admin`.
+- Verificación AST: **20/20 elementos idénticos** al original de `73af1d8`.
+- Orden de registro resuelto contra `app.routes`: `/api/screens/cities` → `get_cities`,
+  `/api/screens/self-service/mine` → `customer_list_my_screens`, `/api/screens/abc123` →
+  `get_screen`. No se invirtieron con la paramétrica.
+- Cadena de orientación revalidada: `test_orientation_chain_iter34` +
+  `test_marketplace_orientation_iter33` + `test_p1_saas_customer` → **39 passed**.
+- Suite completa: **493 passed, 35 skipped, 7 failed, 7 errors**; `diff` contra 2B-2 **vacío**.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-2: /media/* fuera de server.py
 - Rama de trabajo local → fusionada a `trunk`/`main`. `production` sin tocar.
 - `backend/media_routes.py` (nuevo, 622 líneas) con los 13 handlers de `/media/*` en
