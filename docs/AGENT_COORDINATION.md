@@ -64,6 +64,47 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2C-1: `/public/*`
+- Rama: `trunk` (commit `c8e4766`), base `3408a6b`. `production` sin tocar.
+- Archivos: `backend/public_api_routes.py` (nuevo, 179 líneas), `backend/server.py`
+  (**2755 → 2659 líneas**; acumulado 7106 → 2659, **−62,6 %**), `backend/media_utils.py`
+  (141 líneas, recibe `_public_screen_view`).
+- Qué se movió: las **8 rutas** `/public/*` (3 del catálogo público de pantallas + las 5 del
+  share-link de playlist) + `_public_playlist`. `_public_screen_view` pasa a `media_utils.py`
+  porque `_customer_screen_view` sigue en `server.py` hasta la fase `/customer/*`.
+  `_bump_playlist_screens` se **threadea** (ya estaba threadeada en `menus` y `playlists`, se
+  pasa por referencia: por eso un grep con paréntesis no la encuentra). Se borró el import
+  muerto de `_public_token_hash`. Cierra el alcance que la 2B-4 había diferido.
+- **Decisión de nombre**: `public_api_routes.py`, separado de `public_pages_routes.py` (Fase 1).
+  No se fusionan: el primero son endpoints JSON + 1 shell HTML en `api_router` con prefijo
+  `/api`, y el QR de `public_playlist_qr` genera la URL `"/api/public/playlist"` hardcodeada; el
+  segundo sirve páginas HTML en el objeto `app` sin prefijo. Fusionarlos cambiaría URLs reales.
+- Verificación:
+  1. Rangos re-derivados por AST: los 10 segmentos coinciden exacto, y el contenido de la línea
+     del import muerto es el esperado.
+  2. **8/10 idénticas byte a byte** tal cual. Las 2 con cambio mecánico, con diff unificado:
+     `public_playlist_qr` = **1 sola línea en blanco** agregada entre `io` y `qrcode`;
+     `serve_public_playlist_editor` = **1 sola línea**, `WEB_DIR` → `web_dir`. Nada más.
+  3. `flake8`: 0 F821/E999; pyflakes completo sin avisos. **`ruff check backend`: All checks
+     passed.**
+  4. Walk de rutas antes/después: **51 = 51**, 0 faltantes, 0 nuevas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+  7. **Flujo completo en vivo**: catálogo público sin auth (lista, por id, 404 por código
+     inexistente), shell HTML en 200, y el share-link de punta a punta — se generó un token real
+     por `/playlists/{id}/share`, se leyó la playlist pública, el QR devolvió un **PNG de 969
+     bytes**, y el upload de invitado devolvió **200 encolando el ítem para aprobación**, lo que
+     ejercita el callable threadeado `upload_media`, `serialize_doc` y
+     `normalize_playlist_items`. Se limpiaron el token, el ítem pendiente y el media de sonda.
+- 📌 **Hallazgo anotado (comportamiento preexistente, NO de esta fase)**:
+  `POST /api/public/playlists/{token}/media` espera **JSON con base64** (`MediaUpload`), no
+  multipart. Si se le manda `multipart/form-data` devuelve **500** con
+  `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff` al intentar parsear el cuerpo como
+  JSON, en vez de un 415/422. Debería ser un 4xx limpio. Lo confirmé leyendo la firma del
+  handler (idéntica byte a byte al original). Fuera del alcance del refactor; candidato a fix
+  aparte si alguna vez un cliente sube desde un formulario HTML clásico.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-7: `/campaigns/*` de cliente
 - Rama: `trunk` (commit `0451b5f`), base `803ea6d`. `production` sin tocar.
 - Archivos: `backend/campaigns_routes.py` (nuevo, 289 líneas), `backend/server.py`
