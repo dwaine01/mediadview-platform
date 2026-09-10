@@ -64,6 +64,38 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6b: campañas, widgets, pagos y scheduler
+- Rama: `trunk` (commit `7f2c3de`), base `156d92c`. `production` sin tocar.
+- Archivos: `backend/admin_campaigns_routes.py` (nuevo, 360 líneas), `backend/server.py`
+  (**3526 → 3260 líneas**; acumulado 7106 → 3260, **−54,1 %**), `backend/media_utils.py`
+  (122 líneas, recibe `normalise_schedule`).
+- Qué se movió: las **12 rutas** del PR 2 de 3 (moderación de campañas, widgets CRUD, vista de
+  pagos, monitoreo del Campaign Scheduler) + `WIDGET_TYPES`, `WidgetCreate` y
+  `_media_is_available`. `normalise_schedule` va a `media_utils.py` porque la usan tanto
+  `admin_repair_campaigns` (se mueve) como `create_campaign`/`update_campaign` (quedan);
+  `server.py` conserva el re-import de una línea porque `test_playlist_pipeline` importa
+  `server.normalise_schedule`. Se borró el import muerto de `campaign_scheduler`.
+- Verificación:
+  1. Rangos re-derivados por AST: los 15 segmentos coinciden exacto.
+  2. **15/15 idénticas byte a byte** (14 en el archivo nuevo + `normalise_schedule` en
+     `media_utils.py`, más `WIDGET_TYPES` comparado línea a línea), y ninguna quedó definida de
+     más en `server.py`.
+  3. `flake8`: 0 F821/E999 en los tres archivos; pyflakes completo sin avisos en el nuevo. El
+     **conjunto de F401 preexistentes de `server.py` queda idéntico (21 = 21)**: la limpieza del
+     import de `campaign_scheduler` no dejó ni agregó imports muertos.
+  4. Walk de rutas antes/después: **83 = 83**, 0 faltantes, 0 nuevas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+  7. Sonda en vivo de las 12 rutas con token de superadmin: todas ejecutan su handler.
+     `/admin/campaigns/repair` devolvió 200 sobre **254 campañas** sin normalizar ni podar nada, y
+     el scheduler corrió con 0 transiciones. Las `/campaigns/*` de cliente siguen respondiendo.
+- Sobre el aviso de Claude de que los E303 subirían +5: **no ocurrió**. Los avisos
+  `flake8 --select=E3,W3` en `server.py` **bajan** de 134 a 126, y el archivo nuevo más
+  `media_utils.py` salen con 0. Nada que revisar.
+- Riesgo para el otro agente: `server.py` volvió a correrse ~266 líneas. Los rangos de la 2B-6c
+  ya están re-derivados contra `7f2c3de` en `docs/FASE2B6_MAPA_RUTAS_ADMIN.md`.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6a: `/admin/devices/*` y dashboards
 - Rama: `trunk` (commit `b899732`), base `5e9c149`. `production` sin tocar.
 - Archivos: `backend/admin_devices_routes.py` (nuevo, 412 líneas), `backend/server.py`

@@ -114,7 +114,7 @@ archivos estáticos. Decisión de duarte/Claude.
 
 Quedan **29 rutas** `/admin|/superadmin` en `server.py` (46 − 17 de la 2B-6a). Rangos por AST:
 
-**2B-6b — campañas + widgets + pagos (12 rutas)**
+**2B-6b — campañas + widgets + pagos (12 rutas)** — ✅ CERRADA, commit `7f2c3de`
 
 | Líneas | Método | Ruta | Handler |
 |---|---|---|---|
@@ -131,27 +131,31 @@ Quedan **29 rutas** `/admin|/superadmin` en `server.py` (46 − 17 de la 2B-6a).
 | 3124-3153 | GET | `/admin/campaign-scheduler/status` | `campaign_scheduler_status` |
 | 3155-3162 | POST | `/admin/campaign-scheduler/run-now` | `campaign_scheduler_run_now` |
 
-**2B-6c — superadmin + RBAC + órdenes + vistas (17 rutas)**
+**2B-6c — superadmin + RBAC + órdenes + vistas (17 rutas)** — rangos actualizados tras la 2B-6b,
+base `7f2c3de`:
 
 | Líneas | Método | Ruta | Handler |
 |---|---|---|---|
-| 919-928 | GET | `/admin/customer-orders` | `admin_customer_orders` |
-| 930-936 | GET | `/admin/customer-orders/{oid}` | `admin_customer_order_detail` |
-| 942-953 | PUT | `/admin/customer-orders/{oid}/status` | `admin_customer_order_status` |
-| 1293-1308 | POST | `/superadmin/create-admin` | `create_admin` |
-| 1310-1321 | GET | `/superadmin/admins` | `list_admins` |
-| 1323-1331 | PUT | `/superadmin/admins/{admin_id}/toggle` | `toggle_admin` |
-| 1333-1340 | DELETE | `/superadmin/admins/{admin_id}` | `delete_admin` |
-| 1342-1356 | GET | `/superadmin/overview` | `superadmin_overview` |
-| 1360-1363 | GET | `/admin/users` | `admin_list_users` |
-| 1365-1370 | PUT | `/admin/users/{user_id}` | `admin_update_user` |
-| 1528-1538 | GET | `/admin/rbac/info` | `rbac_info` |
-| 1540-1563 | POST | `/admin/migrate-operation-types` | `migrate_operation_types` |
-| 1565-1574 | GET | `/admin/rbac/screens-by-type` | `screens_by_operation_type` |
-| 1577-1735 | POST | `/admin/rbac/seed-test-users` | `seed_rbac_test_users` |
-| 3206-3210 | GET | `/admin/orders-view` | `serve_admin_orders_page` |
-| 3212-3216 | GET | `/admin/clients-view` | `serve_admin_clients_page` |
-| 3218-3221 | GET | `/admin/reports-view` | `serve_admin_reports_page` |
+| 895-904 | GET | `/admin/customer-orders` | `admin_customer_orders` |
+| 906-912 | GET | `/admin/customer-orders/{oid}` | `admin_customer_order_detail` |
+| 918-929 | PUT | `/admin/customer-orders/{oid}/status` | `admin_customer_order_status` |
+| 1269-1284 | POST | `/superadmin/create-admin` | `create_admin` |
+| 1286-1297 | GET | `/superadmin/admins` | `list_admins` |
+| 1299-1307 | PUT | `/superadmin/admins/{admin_id}/toggle` | `toggle_admin` |
+| 1309-1316 | DELETE | `/superadmin/admins/{admin_id}` | `delete_admin` |
+| 1318-1332 | GET | `/superadmin/overview` | `superadmin_overview` |
+| 1336-1339 | GET | `/admin/users` | `admin_list_users` |
+| 1341-1346 | PUT | `/admin/users/{user_id}` | `admin_update_user` |
+| 1421-1431 | GET | `/admin/rbac/info` | `rbac_info` |
+| 1433-1456 | POST | `/admin/migrate-operation-types` | `migrate_operation_types` |
+| 1458-1467 | GET | `/admin/rbac/screens-by-type` | `screens_by_operation_type` |
+| 1470-1628 | POST | `/admin/rbac/seed-test-users` | `seed_rbac_test_users` |
+| 2940-2944 | GET | `/admin/orders-view` | `serve_admin_orders_page` |
+| 2946-2950 | GET | `/admin/clients-view` | `serve_admin_clients_page` |
+| 2952-2955 | GET | `/admin/reports-view` | `serve_admin_reports_page` |
+
+`server.py` quedó en **3260 líneas**. La 2B-6a y la 2B-6b ya están cerradas y fusionadas
+(commits `b899732` y `7f2c3de`), así que **este es el último PR de la Fase 2B-6**.
 
 ### Protocolo
 
