@@ -64,6 +64,48 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-9: `/customer/*`
+- Rama: `trunk` (commit `f103359`), base `92127f7`. `production` sin tocar.
+- Archivos: `backend/customer_routes.py` (nuevo, 254 líneas), `backend/server.py`
+  (**2659 → 2501 líneas**; acumulado 7106 → 2501, **−64,8 %**).
+- Qué se movió: las **6 rutas** `/customer/*` + `PUBLIC_DISCOUNT_SCALE`,
+  `_customer_screen_view`, `_apply_discount` y los 4 modelos (`QuoteItem`/`QuoteRequest`,
+  `CartItem`/`CustomerOrderSubmit`). `gen_id` se threadea. Se borró el re-import de
+  `_public_screen_view` que la fase anterior había dejado en `server.py` sólo para
+  `_customer_screen_view`. **`server.py` queda sin lógica de `/customer/*`.**
+- 📌 **Corrección de numeración (decisión de Claude + duarte)**: la fase que aplicamos como
+  «2C-1» (`public_api_routes.py`) se **renombra 2B-8**. «Fase 2C» queda reservada
+  exclusivamente para la reorganización de carpetas `backend/domains/<dominio>/`.
+- Verificación:
+  1. Rangos re-derivados por AST: los 12 segmentos coinciden exacto, y el bloque del import
+     muerto tiene el contenido esperado antes de borrarlo.
+  2. **10/12 idénticas byte a byte.** Las 2 restantes con diff unificado: `customer_quote` = 2
+     líneas de continuación de docstring resangradas, `customer_order_from_cart` = 1. Nada más.
+     `PUBLIC_DISCOUNT_SCALE` comparada línea a línea.
+  3. `flake8`: 0 F821/E999; pyflakes completo sin avisos en el nuevo.
+     **`ruff check backend`: All checks passed.**
+  4. Walk de rutas antes/después: **43 = 43**, 0 faltantes, 0 nuevas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+  7. **Las 6 rutas probadas en vivo con datos reales**, no sólo 404s: catálogo (200), detalle
+     (200), 404 de dominio con id inexistente, escala de descuentos (1:0, 3:0.10, 6:0.20,
+     12:0.30), un quote de 2 anuncios × 3 meses que devolvió **300 → 270 con 10 %** (o sea
+     `_apply_discount` y `PUBLIC_DISCOUNT_SCALE` quedaron bien movidos), y la orden de punta a
+     punta: `POST orders/from-cart` creó la orden con su id por el `gen_id` threadeado y su
+     referencia `CUST-…`, y `GET orders/mine` la listó. La orden de sonda quedó borrada.
+     Sin token: 401.
+- ⚠️ **Un aviso nuevo que NO arreglé** (respetando el pedido de Claude de no improvisar):
+  `typing.List` queda sin uso en `server.py` después de esta fase — los F401 pasan de 26 a 27.
+  `ruff check backend` sigue en verde (F401 está en la lista de deuda de `ruff.toml`), así que
+  **no rompe CI**. Es un renglón de un `from typing import ...` compartido; lo deja para que
+  Claude decida si lo saca en la próxima fase.
+- 📌 **Defecto del helper `reindent()` confirmado**: efectivamente nunca resangra las líneas de
+  continuación de un docstring multilínea, y está visible sin corregir en
+  `public_api_routes.py` (líneas 89-90 y 99-100). Es cosmético (Python no exige sangría en las
+  líneas de continuación de un string). En esta fase se corrigió a mano; para el archivo ya
+  fusionado queda como posible arreglo cosmético suelto, no bloqueante.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2C-1: `/public/*`
 - Rama: `trunk` (commit `c8e4766`), base `3408a6b`. `production` sin tocar.
 - Archivos: `backend/public_api_routes.py` (nuevo, 179 líneas), `backend/server.py`
