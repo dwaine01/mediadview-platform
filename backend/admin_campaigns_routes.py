@@ -77,7 +77,6 @@ from media_utils import (
     normalise_schedule,
 )
 
-
 WIDGET_TYPES = ["weather", "clock", "ticker", "qrcode", "countdown", "slides", "youtube", "webpage", "menu", "calendar"]
 
 

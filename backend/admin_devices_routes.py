@@ -47,6 +47,7 @@ server.py, which used to introduce DeviceActivate/DeviceProvision, is left
 in place even though both models move here -- a comment-only artifact, not
 touched, to keep this script a pure relocation.
 """
+import logging
 from datetime import datetime, timedelta
 from typing import Optional
 
@@ -56,7 +57,6 @@ from pydantic import BaseModel
 from database import db
 from deps import get_current_user, require_admin
 
-import logging
 logger = logging.getLogger(__name__)
 
 

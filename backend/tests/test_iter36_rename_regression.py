@@ -11,8 +11,9 @@ because the handler executed. What we must NOT see is FastAPI's own routing 404
 """
 import os
 import uuid
-import requests
+
 import pytest
+import requests
 
 BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8001").rstrip("/")
 
