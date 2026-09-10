@@ -64,6 +64,35 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6a: `/admin/devices/*` y dashboards
+- Rama: `trunk` (commit `b899732`), base `5e9c149`. `production` sin tocar.
+- Archivos: `backend/admin_devices_routes.py` (nuevo, 412 líneas), `backend/server.py`
+  (**3844 → 3526 líneas**; acumulado 7106 → 3526, **−50,4 %**), `backend/verify_relocation.py`
+  (nuevo, herramienta de verificación).
+- Qué se movió: las **17 rutas** del PR 1 de 3 (devices CRUD/activación/provisioning/power/
+  comandos, `player-release` ×2, `playlogs`, `client-errors`, `analytics`) + los modelos
+  `DeviceActivate` y `DeviceProvision` (grep-verificado: sin otros usos).
+- Verificación:
+  1. Rangos re-derivados por AST sobre el `server.py` real: los 19 segmentos coinciden exacto.
+  2. Verificación AST independiente: **19/19 idénticas byte a byte**, y ninguna quedó definida de
+     más en `server.py`.
+  3. `flake8`: 0 F821/E999 en los dos archivos; pyflakes completo sin avisos en el nuevo.
+  4. Walk de rutas antes/después: **100 = 100**, 0 faltantes, 0 nuevas, 0 duplicadas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+     `test_iter36_rename_regression`: 26/26.
+  7. Sonda en vivo de las 17 rutas con token de superadmin: todas ejecutan su handler (404/422 de
+     dominio, ningún 404 de routing) y siguen exigiendo auth (401 sin token).
+- Cosmético: los avisos `flake8 --select=E3,W3` en `server.py` **bajan** de 148 a 134; el archivo
+  nuevo sale con 0.
+- ⚠️ Efecto colateral de la sonda, sólo en el entorno de preview: el `POST /admin/player-release`
+  de prueba **sobrescribió el documento de release** que estaba en 2.2.0 / `versionCode` 4 y ahora
+  dice 3.4.0 / 22, que es la versión real del APK. Es más correcto que antes y no afecta a
+  producción, pero queda anotado.
+- Riesgo para el otro agente: `server.py` volvió a correrse ~320 líneas. Los rangos de 2B-6b y
+  2B-6c hay que re-derivarlos contra `b899732`.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
 ### 2026-06 — Claude (reporte) + Maxx (fix) — Colisión de nombre: `create_player_routes` ×2
 - Rama: `trunk` (commit `1071a39`). Commit chico y aislado, **no** mezclado con la 2B-6.
 - Qué pasaba: `server.py` tenía **dos imports del mismo nombre** a nivel de módulo —

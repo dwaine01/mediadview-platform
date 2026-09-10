@@ -110,12 +110,55 @@ archivos estáticos. Decisión de duarte/Claude.
 
 ## Notas para el script
 
-1. `server.py` quedó en **3844 líneas**. Al terminar los 3 PRs deberían salir ~870 líneas de
-   handlers más sus modelos y helpers → `server.py` cerca de las ~2700-2800.
-2. El JSON con los 46 rangos exactos quedó en `/tmp/admin_routes_map.json` en el entorno del
-   agente; si hace falta se regenera con un walk del AST, no hay que confiar en esta tabla si el
-   commit base cambia.
-3. Mismo protocolo que en 2B-1…2B-5: relocalización pura, `reindent()` **consciente de
-   `tokenize`** (varias de estas rutas devuelven HTML), verificación AST byte a byte, `flake8
+### Rangos actualizados tras la 2B-6a (base `b899732`)
+
+Quedan **29 rutas** `/admin|/superadmin` en `server.py` (46 − 17 de la 2B-6a). Rangos por AST:
+
+**2B-6b — campañas + widgets + pagos (12 rutas)**
+
+| Líneas | Método | Ruta | Handler |
+|---|---|---|---|
+| 1372-1418 | GET | `/admin/campaigns` | `admin_list_campaigns` |
+| 1420-1440 | PUT | `/admin/campaigns/{campaign_id}/approve` | `admin_approve` |
+| 1442-1456 | PUT | `/admin/campaigns/{campaign_id}/reject` | `admin_reject` |
+| 1747-1761 | GET | `/admin/payments` | `admin_list_payments` |
+| 1765-1822 | POST | `/admin/campaigns/repair` | `admin_repair_campaigns` |
+| 1901-1911 | POST | `/admin/widgets` | `create_widget` |
+| 1913-1917 | GET | `/admin/widgets` | `list_widgets` |
+| 1919-1926 | DELETE | `/admin/widgets/{widget_id}` | `delete_widget` |
+| 1928-1937 | PUT | `/admin/widgets/{widget_id}/toggle` | `toggle_widget` |
+| 2156-2166 | DELETE | `/admin/campaigns/{campaign_id}/media/{media_id}` | `admin_remove_media_from_campaign` |
+| 3124-3153 | GET | `/admin/campaign-scheduler/status` | `campaign_scheduler_status` |
+| 3155-3162 | POST | `/admin/campaign-scheduler/run-now` | `campaign_scheduler_run_now` |
+
+**2B-6c — superadmin + RBAC + órdenes + vistas (17 rutas)**
+
+| Líneas | Método | Ruta | Handler |
+|---|---|---|---|
+| 919-928 | GET | `/admin/customer-orders` | `admin_customer_orders` |
+| 930-936 | GET | `/admin/customer-orders/{oid}` | `admin_customer_order_detail` |
+| 942-953 | PUT | `/admin/customer-orders/{oid}/status` | `admin_customer_order_status` |
+| 1293-1308 | POST | `/superadmin/create-admin` | `create_admin` |
+| 1310-1321 | GET | `/superadmin/admins` | `list_admins` |
+| 1323-1331 | PUT | `/superadmin/admins/{admin_id}/toggle` | `toggle_admin` |
+| 1333-1340 | DELETE | `/superadmin/admins/{admin_id}` | `delete_admin` |
+| 1342-1356 | GET | `/superadmin/overview` | `superadmin_overview` |
+| 1360-1363 | GET | `/admin/users` | `admin_list_users` |
+| 1365-1370 | PUT | `/admin/users/{user_id}` | `admin_update_user` |
+| 1528-1538 | GET | `/admin/rbac/info` | `rbac_info` |
+| 1540-1563 | POST | `/admin/migrate-operation-types` | `migrate_operation_types` |
+| 1565-1574 | GET | `/admin/rbac/screens-by-type` | `screens_by_operation_type` |
+| 1577-1735 | POST | `/admin/rbac/seed-test-users` | `seed_rbac_test_users` |
+| 3206-3210 | GET | `/admin/orders-view` | `serve_admin_orders_page` |
+| 3212-3216 | GET | `/admin/clients-view` | `serve_admin_clients_page` |
+| 3218-3221 | GET | `/admin/reports-view` | `serve_admin_reports_page` |
+
+### Protocolo
+
+1. Mismo protocolo que en 2B-1…2B-6a: relocalización pura, `reindent()` **consciente de
+   `tokenize`**, verificación AST byte a byte (usar `backend/verify_relocation.py`), `flake8
    F821`, `tests/test_route_inventory.py` **sin regenerar el snapshot**, y comparación del
-   conjunto de IDs de fallos contra la línea base.
+   conjunto de IDs de fallos contra la línea base de `docs/BASELINE_PYTEST_PRE_2B5.md`.
+2. El JSON con los rangos se regenera con un walk del AST; no confiar en estas tablas si el
+   commit base cambia.
+
