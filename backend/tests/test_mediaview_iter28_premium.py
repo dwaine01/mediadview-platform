@@ -16,7 +16,7 @@ from typing import Optional
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 
 SUPERADMIN_EMAIL = "superadmin@mediadview.com"

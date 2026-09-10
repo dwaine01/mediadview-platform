@@ -18,7 +18,7 @@ PROD_WWW = "https://www.mediadview.com"
 PROD_PANEL = "https://panel.mediadview.com"
 
 # Preview backend as fallback (Host header will simulate the target domain)
-PREVIEW = os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://menu-studio-3.preview.emergentagent.com"
+PREVIEW = os.environ.get("EXPO_PUBLIC_BACKEND_URL") or "https://sprint1-signage.preview.emergentagent.com"
 PREVIEW = PREVIEW.rstrip("/")
 
 CUSTOMER_TITLE = "MediAd View — Publicidad en Pantallas Digitales"

@@ -11,7 +11,7 @@ import requests
 TODAY = datetime.utcnow().strftime("%Y-%m-%d")
 FUTURE_DATE = (datetime.utcnow() + timedelta(days=3)).strftime("%Y-%m-%d")
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com")
 
 ADVERTISER_EMAIL = "advertiser@test.mediaview.com"
 ADVERTISER_PASS = "Advertiser#2026"

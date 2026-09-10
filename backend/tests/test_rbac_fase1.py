@@ -9,7 +9,7 @@ import os
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com").rstrip("/")
 
 # ── Credenciales ────────────────────────────────────────────────
 LOCATION = {"city": "Test City", "address": "123 Test St", "country": "US"}

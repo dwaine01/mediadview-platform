@@ -6,7 +6,7 @@ import uuid
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com")
 
 # ── Credentials ─────────────────────────────────────────────────────────────
 SUPER_ADMIN = {"email": "superadmin@mediadview.com", "password": "SuperAdmin#2026"}

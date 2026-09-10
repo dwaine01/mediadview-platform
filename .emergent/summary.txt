@@ -1,153 +1,241 @@
-<analysis>**original_problem_statement**: The user is building a full-stack SaaS web application for a digital signage platform named MediaView. The platform includes a backend (FastAPI/MongoDB) and a web frontend (Pure HTML/CSS/JS SPA), plus an Android TV player app designed for 24/7 operation. Recently, the focus shifted to compiling and installing the APK on a specific device (Colorlight A40), building a Digital Menu creation system for restaurants (with templates and visual editor), creating a professional Landing and About page, and embedding a free Canva-like editor (Polotno Studio). Finally, the user requested a complete visual redesign of the main SaaS dashboard to match the quality of industry leaders like OptiSigns or Yodeck.
+<analysis>**original_problem_statement**: Implement Phase 2C (P1): Build the connected SaaS Customer System E2E flow. Focus on professionalizing the Android Digital Signage Player ( APK, Sprint 1 capabilities) and testing it on physical hardware.
+**PRODUCT REQUIREMENTS ADDED DURING SESSION**: The user (acting as an AI agent named Claude, coordinating with you) requested a massive backend refactor to break down the monolithic  (7,100+ lines) into domain-specific modules WITHOUT changing any behavior. The plan is divided into phases (Fase 1, Fase 2A, 2B-1 through 2B-6, and Fase 3) tracked in  and .
 
-**User's preferred language**: Spanish (El usuario se comunica principalmente en español. INSTRUCT: El siguiente agente DEBE responder única y exclusivamente en español).
+**User's preferred language**: **Spanish** (You MUST automatically detect the user's primary language from their messages inside the <trajectory> tag and INSTRUCT next agent to respond in **Spanish** only. The user acts highly technical, detailed-oriented, and provides scripts for you to execute.)
 
 **what currently exists?** 
-A monolithic FastAPI backend connected to MongoDB, serving a pure HTML/CSS/JS frontend (no React/Vue). The frontend now includes a SaaS Dashboard, a public Screen Marketplace, a Digital Menu System (with 11 templates and a mobile-friendly editor), a Polotno Studio integration for graphic design, and newly built professional Landing and About pages. The Android Player App (Kotlin) has been successfully compiled via CLI and pushed to a Colorlight A40 device via its REST API.
+A monolithic FastAPI backend currently undergoing a massive, highly-controlled refactoring into domain routes. Phases 1, 2A, 2B-1, 2B-2, 2B-3, and 2B-4 are complete on the  and  branches.  has been successfully reduced from 7,106 to 4,762 lines without any loss of functionality or route regressions. Cloudflare R2 has been integrated for media storage with a fallback to local disk.  branch remains on an older stable commit () pending user authorization to deploy.
 
 **Last working item**: 
-    - Last item agent was working: Preparing to completely redesign the main SaaS Dashboard UI/UX to make it look professional, modern, and comparable to top competitors like OptiSigns or Yodeck. The user explicitly requested this visual overhaul as the current dashboard looks unprofessional.
-    - Status: NOT STARTED
-    - Agent Testing Done: N
-    - Which testing method agent to use? screenshot tool (para verificar los cambios visuales paso a paso con el usuario).
+    - Last item agent was working: Applying Phase 2B-4 of the refactor. The agent extracted 12 owner-authenticated  routes into . The agent ran the user-provided extraction script, verified AST equivalence, ran the pytest suite, and committed to .
+    - Status: BLOCKED (Waiting for the user to provide the Phase 2B-5 extraction script for  and  routes).
+    - Agent Testing Done: Y
+    - Which testing method agent to use?: backend testing via ============================= test session starts ==============================
+platform linux -- Python 3.11.16, pytest-9.0.2, pluggy-1.6.0
+rootdir: /app
+plugins: base-url-2.1.0, asyncio-1.4.0, anyio-4.12.1, playwright-0.8.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 564 items / 1 error
+
+==================================== ERRORS ====================================
+_____ ERROR collecting backend/tests/test_playlist_iteration9_contracts.py _____
+backend/tests/test_playlist_iteration9_contracts.py:11: in <module>
+    BASE_URL = os.environ["TEST_BASE_URL"].rstrip("/")
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+<frozen os>:679: in __getitem__
+    ???
+E   KeyError: 'TEST_BASE_URL'
+=============================== warnings summary ===============================
+../root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12
+  /root/.venv/lib/python3.11/site-packages/starlette/formparsers.py:12: PendingDeprecationWarning: Please use `import python_multipart` instead.
+    import multipart
+
+backend/server.py:4662
+  /app/backend/server.py:4662: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+../root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495
+../root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495
+  /root/.venv/lib/python3.11/site-packages/fastapi/applications.py:4495: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+backend/domain_saas/models.py:67
+  /app/backend/domain_saas/models.py:67: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("desired_plan", pre=True, always=False)
+
+backend/domain_saas/models.py:90
+  /app/backend/domain_saas/models.py:90: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("desired_plan", pre=True, always=False)
+
+backend/domain_saas/models.py:156
+  /app/backend/domain_saas/models.py:156: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("plan", pre=True, always=True)
+
+backend/domain_saas/models.py:236
+  /app/backend/domain_saas/models.py:236: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("plan_id", pre=True, always=True)
+
+backend/server.py:4736
+  /app/backend/server.py:4736: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("shutdown")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+ERROR backend/tests/test_playlist_iteration9_contracts.py - KeyError: 'TEST_B...
+!!!!!!!!!!!!!!!!!!!! Interrupted: 1 error during collection !!!!!!!!!!!!!!!!!!!!
+======================== 9 warnings, 1 error in 17.98s ========================= (specifically ensuring  passes without rewriting the snapshot).
     - User Testing Done: N
 
-**All Pending/In progress Issue list**:
-  Issue 1: (P0) Rediseño completo del Dashboard (OptiSigns/Yodeck style)
-  Issue 2: (P0) Colorlight A40 native app overlay issue
-  Issue 3: (P1) Create UI for Screen Power/Sleep Schedule in the dashboard
-  Issue 4: (P2) Add stock photos to the remaining 6 Menu Templates
-  Issue 5: (P2) Deploy website to HostGator ()
+**All Pending/In progress Issue list**: 
+  Issue 1: Apply CI Workflow Patch (Priority: P0)
+     - Attempted fixes: The agent created  containing the fix for rate-limiting 429s in CI, but couldn't push  due to missing  scope on the Personal Access Token.
+     - Next debug checklist: The user (duarte) MUST manually apply the patch from the web UI to make the backend tests pass in CI.
+     - Why fix this issue and what will be achieved with the fix?: Fixes false-positive  errors and seeds test accounts during CI pipeline execution.
+     - Status: BLOCKED ON USER
+     - Is recurring issue?: N
+     - Should Test frontend/backend/both after fix?: Backend CI
 
-  Issues Detail:
-  - Issue 1:
-     - Attempted fixes: None yet. User requested it right before the fork.
-     - Next debug checklist: Review , , and . Plan a modern layout (sidebar navigation, clean cards, modern typography, better spacing).
-     - Why fix this issue and what will be achieved with the fix? The current dashboard UI is perceived as unprofessional. A premium UI is critical for a SaaS product to build trust and acquire customers.
+  Issue 2: Add Cloudflare R2 Credentials to Render (Priority: P0)
+     - Attempted fixes: R2 code is merged but disabled in production.
+     - Next debug checklist: User needs to add , , , , ,  to the  environment group in Render.
+     - Why fix this issue and what will be achieved with the fix?: Enables Cloudflare R2 persistent storage for media.
+     - Status: BLOCKED ON USER
+     - Is recurring issue?: N
+     - Should Test frontend/backend/both after fix?: Both
+
+  Issue 3: User physical hardware test for Android Player Sprint 1 (Priority: P1)
+     - Attempted fixes: APK v3.4.0 was built and published to the  route.
+     - Next debug checklist: Await user feedback after installing it on physical TV Box.
+     - Why fix this issue and what will be achieved with the fix?: Validates Sprint 1 features (texture view, video playback completion).
+     - Status: USER VERIFICATION PENDING
+     - Is recurring issue?: N
+     - Should Test frontend/backend/both after fix?: NA
+
+  Issue 4: Duplicated backend routes found in inventory (Priority: P2)
+     - Attempted fixes: Identified during Phase 2A via . 
+     - Next debug checklist: Clean up  and 4  PDF/sign endpoints which are registered twice.
+     - Why fix this issue and what will be achieved with the fix?: Removes dead code (FastAPI only resolves the first registered instance).
+     - Status: NOT STARTED (Slated for Phase 3 of the refactor plan).
+     - Is recurring issue?: N
+     - Should Test frontend/backend/both after fix?: Backend
+
+**In progress Task List**: 
+  Task 1: Phase 2B-5 Refactor ()
+     - Where to resume: Await the extraction script from the user (Claude) for  and  routes.
+     - What will be achieved with this?: Further trims . This is highly sensitive as it defines the contract with the deployed Android APK.
      - Status: NOT STARTED
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Frontend (Screenshot tool).
-     - Blocked on other issue: None.
-  
-  - Issue 2:
-     - Attempted fixes: The APK was successfully installed and launched via Colorlight's API, but the user reports the Colorlight native system/program is overlapping or covering the MediaView APK.
-     - Next debug checklist: Investigate Colorlight A40 settings or API commands to disable the default player/launcher, or bring the MediaView APK permanently to the foreground ( or kiosk mode settings).
-     - Why fix this issue and what will be achieved with the fix? The digital signage screen won't show the user's ads if the manufacturer's default software covers it.
-     - Status: BLOCKED (Pending user testing or contacting Colorlight support).
-     - Is recurring issue? Y (Device-specific restrictions).
-     - Should Test frontend/backend/both after fix? User testing on physical device.
-     - Blocked on other issue: None.
-
-  - Issue 3:
-     - Attempted fixes: Backend endpoints for heartbeat and power scheduling (, ) were added to , but the Frontend UI is missing.
-     - Next debug checklist: Add a form/modal in the frontend Dashboard (Devices section) to let users set Power On and Power Off times.
-     - Why fix this issue and what will be achieved with the fix? Allows customers to save energy by automatically turning screens off at night.
-     - Status: NOT STARTED
-     - Is recurring issue? N
-     - Should Test frontend/backend/both after fix? Both.
-     - Blocked on other issue: Redesign Dashboard (Issue 1) should ideally be structured first or concurrently.
-
-**In progress Task List**:
-  None.
+     - Should Test frontend/backend/both after fix?: Backend (pytest + route inventory)
+     - Blocked on something: User providing the script.
 
 **Upcoming and Future Tasks**
     Upcoming Tasks:
-    - (P1) Implement background removal API for the Digital Menu Editor.
-    - (P2) Migration and Deployment to HostGator ().
+    - P1: Phase 2B-6 Refactor (Extract  routes to ).
+    - P1: Phase 2C Refactor (Move modules into  folders once  is lean).
+    - P1: Merge  to  (Requires explicit user authorization).
+    - P2: MediaView Player Sprint 2 (Command queue, timeline, panel actions).
+    - P2: MediaView Player Sprint 3 (Uptime history, alerts, Device Center).
     Future Tasks:
-    - (P2) Integrate real Stripe account for payments.
-    - (P3) Implement Screen Zones and Social Media widgets.
+    - P3: MediaView Player Sprint 4 (Watchdog, screenshot, diagnostics).
+    - P3: Stripe billing integration.
 
 **Completed work in this session**
-- Built Android APK via bash/CLI natively and deployed it to Colorlight A40 using device REST API (DONE)
-- Built Digital Menu System with 11 templates, mobile-first editor, and landscape render endpoint (DONE)
-- Built professional Landing Page with promo video, CEO photo, and modern layout (DONE)
-- Built professional About Us Page with Timeline, Values, and credibility badges (DONE)
-- Integrated Polotno Studio (Canva alternative) into a  endpoint (DONE)
-- Added Backend logic for Device Power Scheduling (DONE)
+- APK v3.4.0 deployed to GitHub releases and served via  redirect. (DONE)
+- Unified SSE implementation into , removing duplicate route from . (DONE)
+- Phase 1 Refactor: Extracted public routes to . (DONE)
+- Phase 2A Refactor: Extracted , ,  and implemented  safety net. (DONE)
+- Phase 2B-1 Refactor: Extracted  to . (DONE)
+- Phase 2B-2 Refactor: Extracted  to . (DONE)
+- Cloudflare R2 integration implemented with a fallback to legacy disk storage. (DONE)
+- Phase 2B-3 Refactor: Extracted  to . (DONE)
+- Phase 2B-4 Refactor: Extracted owner  routes to . (DONE)
+- Fixed a 500 error in  (CRM payload serialization). (DONE)
 
 **Earlier issues found/mentioned but not fixed**
-   Issue 1: Android TV APK does not auto-start on TCL Google TV after cold boot.
-   - Debug checklist: User was supposed to configure Safe Guard on the TCL TV. Focus shifted to the Colorlight A40 device instead.
-   - Why to solve this issue and what will be achieved with this? Reliability on TCL consumer TVs.
-   - Should Test frontend/backend/both after fix: User testing.
-   - Is recurring issue? Y
+   Issue 1: 
+   - Debug checklist: 5 duplicate routes identified ( and 4  endpoints) by . 
+   - Why to solve this issue and what will be achieved with this?: Clean up dead code that FastAPI ignores.
+   - Should Test frontend/backend/both after fix: Backend
+   - Is recurring issue?: N
 
 **Known issue recurrence from previous fork**
-  - Issue recurrence in previous fork: Android TV auto-start / overlay blocking by manufacturer OS (previously TCL, now Colorlight).
-  - Recurrence count: 4+
-  - Status: BLOCKED (Requires device-specific MDM or native settings adjustments).
+  - Issue recurrence in previous fork: Rate Limiter 429 Errors in CI pipeline.
+  - Recurrence count: 1
+  - Status: BLOCKED (Awaiting User to apply CI patch).
+  - Note: Prevented by dynamic testing headers, but CI still needs the environment variable patch  applied by the repository owner.
 
 **Code Architecture**
-
+- FastAPI backend undergoing modularization (moving from monolithic  to domain routers).
+- React Native Web via Expo file-based routing.
+- Kotlin Android native app for digital signage.
 
 **Key Technical Concepts**
-- Backend: FastAPI, MongoDB (Motor), JWT Authentication.
-- Frontend: Pure HTML5/CSS3/JavaScript (No frameworks). Single Page Application.
-- Third-Party embed: Polotno Studio (Client-side JS library for graphic design).
-- Devices: Android APK deployment via  and manufacturer REST API.
+- **AST Verification**: For the ongoing refactor, the agent verifies that extracted functions match the original abstract syntax tree exactly, ensuring pure relocation without logic changes.
+- **Route Inventory Snapshotting**:  ensures no routes are lost, renamed, or shadowed during extraction.
+- **Cloudflare R2**: Used for scalable media storage.
+- Server-Sent Events (SSE) for real-time player updates.
 
 **key DB schema**
-  - : {id, user_id, template_id, restaurant_name, currency_symbol, categories (list), promo_media (list)}
-  - : {id, activation_code, status, screen_id, last_heartbeat, power_schedule: {sleep_time, wake_time}}
+  - 
+  - 
+  -  (Includes  field: legacy or r2)
+  - 
+  - 
 
 **changes in tech stack**
-  - None, but added Polotno Studio library via CDN to the frontend stack.
+  - Cloudflare R2 added for Object Storage.
 
-**All files of reference**
-  - : Core routing and API logic. Contains the HTML render generation for Digital Menus.
-  - : Created in this session.
-  - : Created in this session.
-  - : Created in this session.
-  - : Created in this session.
-  - , , : Files requiring total redesign for Issue 1.
+**All files of reference** 
+  -  (Crucial log of all refactoring branches, base commits, and rules).
+  -  (Plan for Phase 2).
+  -  (Patch instructions for user).
+  - 
+  -  (and its )
+  - 
+  - 
+  - 
+  - 
+  - 
 
 **Areas that need refactoring**: 
-  -  is extremely large (>3000 lines). The monolithic nature mixes API endpoints with heavy HTML string construction (e.g., ). Consider splitting routes if context limits become an issue.
+  - The continuation of  refactoring (Phases 2B-5, 2B-6, 2C, and 3).
 
 **key api endpoints**
-  - : SaaS App
-  - , : Public Website
-  - , : Digital Menu System
-  - : Menu Editor UI
-  - : Polotno Studio
-  - : Device sync (now includes schedule)
+  - ,  (These are the immediate next targets for Phase 2B-5).
 
-**Critical Info for New Agent**
-  - **IMPORTANT:** The user wants a *premium, highly professional UI*. They strictly requested a complete redesign of the Dashboard to look like OptiSigns or Yodeck. Focus heavily on CSS, modern layouts, spacing, and visual hierarchy.
-  - Do not use React or external JS frameworks; stick to pure HTML/CSS/JS as currently structured in the  directory.
-  - When working with the Colorlight device, the local IP is  and credentials are  / .
-  - Do NOT modify proxy URLs in the  files.
+**Critical Info for New Agent** 
+- **LANGUAGE**: You MUST respond in **Spanish**.
+- **REFACTORING RULES**: 
+  1. The user acts as Claude and provides extraction scripts (e.g., ). Run them, verify AST parity, and test.
+  2. **NEVER** regenerate the route snapshot () unless a *genuine, approved* change to the routes was made. It is a safety net designed to fail if a refactor alters the route surface.
+  3. **NEVER** push to  until the user explicitly authorizes it. Commit all refactoring steps to  (which is synced with ).
+- **STRIPE / ENVIRONMENT**: Do NOT change Render's  to  yet, as it will crash due to the Stripe key currently being a test key. Keep it on  or .
 
 **documents and test reports created in this job** 
-  - None created.
+  - 
+  - 
+  - 
+  - 
+  - 
 
-**Last 10 User Messages and any pending HUMAN messages**
- 1. User: Asked to create a menu system for restaurants (templates, mobile editor, Canva integration).
- 2. User: Asked to integrate Polotno Studio (Canva alternative) for free design inside the app.
- 3. User: CAMBIA LA ESTRUCTURA DE LDASHBORAR PORQUE NO SE VE PROFECIONAL (Change the dashboard structure because it doesn't look professional).
- 4. User: Confirmed to redesign completely based on professional dashboards like OptiSigns, Yodeck, etc.
- 5. User: Confirmed to proceed and start the next session.
- *(No pending human actions, the immediate next step is the Dashboard Redesign)*
+**Last 10 User Messages and any pending HUMAN messages** 
+ - *Agent*: Applied Phase 2B-4 (playlists routes).  is down to 4762 lines. Explained that the agent's context is running low, suggested forking for Phase 2B-5 ().
+ - *User*: que debo hacer, fork? (What should I do, fork?)
+ - *Agent*: Used  tool. Responded with instructions on how to fork, ensuring the user that  and  are safely saved at commit , and that the state is recorded in the  markdown files.
 
 **Project Health Check:**
-  - Broken: Colorlight A40 native app overlaps the custom APK.
-  - Mocked: Stripe payments.
+- Broken: CI pipeline (Blocked on user applying GitHub Workflow patch).
+- Mocked: Stripe billing.
 
-**3rd Party Integrations**
-  - Polotno Studio (Graphic Design) — Client-side CDN, Free tier used. No keys required.
-  - OpenWeatherMap (Weather Widget) — Requires User API Key.
-  - Stripe (Payments) — Mocked, requires User API Key.
+**3rd Party Integrations** 
+  - Cloudflare R2 (Object Storage) — Requires User API Key (Implemented but awaiting User to add env vars in deployment).
+  - Stripe (Payments) — Requires User API Key (Currently mocked/Test mode).
+  - Emergent LLM Key — Uses Emergent LLM Key.
 
 **Testing status**
-  - Testing agent used after significant changes: NO
+  - Testing agent used after significant changes: NO (pytest suite and AST verifications used locally instead).
   - Troubleshoot agent used after agent stuck in loop: NO
-  - Test files created: None
-  - Known regressions: None
+  - Test files created: , 
+  - Known regressions: None (Suite is passing minus known CI infra limits).
 
 **Credentials to test flow:**
-  - Super Admin:  / 
-  - Colorlight A40: 
+  - Admin:  / 
+  - Workspace Customer:  / 
+  - Workspace Customer 2:  / 
 
 **What agent forgot to execute**
-  - Agent created the backend API for Device Power Scheduling (, ), but forgot to add the UI controls to the Dashboard so users can actually set these schedules. This must be included in the Dashboard Redesign.</analysis>
+  - Nothing was overlooked. The agent was waiting for the user to provide the Phase 2B-5 Python script to continue the refactor.</analysis>

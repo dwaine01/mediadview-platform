@@ -301,7 +301,7 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
     **idénticos** entre `production` y `trunk` → sin cambios de despliegue ni de dependencias.
   - `npx expo export --platform web` en `trunk`: exit 0.
   - Ojo detectado: el export commiteado en `backend/web/saas/` de `trunk` viene con
-    `baseURL:"https://menu-studio-3.preview.emergentagent.com/api"`. **No es un problema**
+    `baseURL:"https://sprint1-signage.preview.emergentagent.com/api"`. **No es un problema**
     porque el `Dockerfile` reconstruye el SPA en el build (`npx expo export` → copia a
     `backend/web/saas/`) y en Render no existe `frontend/.env` (no está trackeado, y ningún
     archivo fuente tiene la URL hardcodeada) → el bundle de producción sale con `baseURL:"/api"`.

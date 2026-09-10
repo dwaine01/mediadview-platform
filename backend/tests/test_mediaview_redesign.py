@@ -13,7 +13,7 @@ import re
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com").rstrip("/")
+BASE_URL = os.environ.get("EXPO_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com").rstrip("/")
 EMAIL = "testws@test.com"
 PASSWORD = "Test1234!"
 
