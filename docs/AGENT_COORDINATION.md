@@ -64,6 +64,136 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Maxx — Bug de producción: el panel del cliente crasheaba con pantallas creadas por admin
+- Rama: **`fix/workspace-screen-location`** (sale de `eaea594`, o sea de `trunk`; **no** mezclada
+  con la 2B-5 a pedido de Claude). Commits `142f27f` + `33bfa70`. Ya en GitHub, **sin mergear**.
+- Síntoma: asignar a una organización una pantalla creada por `POST /api/admin/screens` dejaba
+  el panel del cliente **completamente en blanco**, con
+  `Objects are not valid as a React child (found: object with keys {address, city, state, country, lat, lng})`.
+- Causa raíz: `screens.location` es un **string** cuando la pantalla se crea desde el panel del
+  cliente (`workspace_routes.py`) y un **objeto estructurado** cuando se crea desde el API de
+  admin. `app/workspace/index.tsx` y `app/workspace/screens.tsx` renderizaban `s.location`
+  directo dentro de un `<Text>`, y eso tumba todo el árbol de React.
+- Fix: `frontend/src/utils/screenLocation.ts` con `formatScreenLocation()` (acepta
+  string | objeto | null, devuelve siempre string) usado en los dos listados. Segundo commit:
+  el subtítulo se arma con `join(' · ')` porque sin `code` arrancaba con un punto suelto.
+- **Afecta a producción**, no solo al entorno de prueba: cualquier pantalla que soporte o un
+  admin asigne a una cuenta de cliente rompe el panel de ese cliente.
+- Verificado por el **testing agent** (informe `test_reports/iteration_35.json`): panel carga
+  completo, la ubicación sale como `Casa de duarte, Miami, US`, las 3 pantallas con `location`
+  string siguen igual, las 5 pestañas del panel sin errores de render.
+- Encontrado al armar la organización «Pizzería Don Luis» en plan Enterprise para la prueba
+  física de la 2B-5 (ver `docs/PRUEBA_FISICA_2B5.md`).
+- Estado: **LISTO PARA MERGEAR** a `trunk` cuando Claude/duarte lo autoricen (es independiente
+  de la 2B-5; el mismo cambio ya viaja dentro de la rama de la 2B-5 porque el entorno de preview
+  lo necesitaba para que duarte pudiera usar el panel durante la prueba).
+
+### 2026-06 — Auditoría de variables de entorno faltantes en producción (Render)
+- Pedido de duarte: «que todo funcione, todas las funciones» en producción.
+- Sondas **de solo lectura** contra `https://mediadview.com` (sin escribir nada):
+  - `POST /api/media/presign` con el superadmin devuelve
+    `503 "Direct uploads not available — use /media/upload"` → **`R2_ENABLED` es false en
+    producción**, o sea faltan las variables de R2. El storage sigue andando por el fallback
+    legacy de disco/base64 (las lecturas de media existente no se rompen).
+  - `EMERGENT_LLM_KEY` falta (confirmado por el 503 de «Importar Menú con IA» que reportó
+    duarte). `menu_ai_routes.py` lo chequea en las líneas 102 y 173.
+- Nombres exactos que lee `backend/storage.py` (¡ojo, no son los del resumen viejo!):
+  `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` (esas 4 activan
+  `R2_ENABLED`), más `R2_PUBLIC_BASE_URL` y `R2_REGION` (por defecto `auto`).
+  `startup_check.py` exige las 5 primeras cuando `STORAGE_DRIVER=r2`.
+- Barrido del resto del código buscando el mismo patrón: `EMERGENT_LLM_KEY` es el **único** hueco
+  de variable de entorno que rompe una función de cara al cliente. Stripe tiene fail-fast al
+  arrancar, `FERNET_KEY`/`REDIS_URL` tienen fallback seguro, y el SMTP se configura por base de
+  datos (Ajustes → Email), no por variable de entorno.
+- **No tengo visibilidad del panel de Render**: lo de arriba es inferido por sondas HTTP, no leído
+  de la configuración.
+
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-5: /player/* + /devices/* fuera de server.py
+- Rama: **`refactor/fase2-5-player`**. `trunk`, `main` y `production` **sin tocar**.
+- Commit base: `eaea594` (= `de45af4` + el commit automático del entorno; `backend/server.py`
+  idéntico a `de45af4`).
+- Archivos tocados: `backend/player_routes.py` (nuevo, 1066 líneas), `backend/server.py`
+  (**4761 → 3845 líneas**; acumulado 7106 → 3845, **−46 %**), `backend/media_utils.py`
+  (96 → 108, recibe `_norm_date`).
+- Qué se movió: las **16 rutas del plan** (9 `/player/*` + 7 `/devices/*`) + 5 modelos
+  (`DeviceRegister`, `DeviceSyncProgress`, `DeviceHeartbeat`, `DeviceLog`, `DevicePair`) +
+  `effective_playlist_schedule_key`. `_norm_date` pasa a `media_utils.py` porque
+  `normalise_schedule` sigue en `server.py` y `tests/test_playlist_pipeline.py` importa
+  `server._norm_date` (se dejó re-import de una línea).
+  **`/player-activate` NO se movió** (decisión de duarte): es `FileResponse` de un HTML estático
+  de `WEB_DIR`, pertenece al grupo SPA junto a `/public/playlist`, `/download`, `/screen`,
+  `/marketplace`. Las 4 `/admin/devices/*` y `/admin/player-release` quedan para la 2B-6.
+- Novedad técnica: el `reindent()` del script usa `tokenize` para **no** tocar las filas
+  interiores de un string multilínea. `web_player` es la primera ruta del refactor con un literal
+  multilínea real (~67 líneas de HTML/JS), y el reindent ingenuo de las fases 2B-1…2B-4 le habría
+  metido 4 espacios *dentro* del valor del string sin que ningún test de forma de ruta lo notara.
+- Imports muertos eliminados de `server.py`: el bloque completo `from device_security import (...)`
+  (sus 5 nombres se van con las rutas; `connectivity_from_heartbeat` ya tenía 0 usos antes de esta
+  fase) y el bloque completo `from storage import (...)` (10 de 11 nombres eran restos de la 2B-2;
+  solo `open_media_for_response` se re-importa, en `player_routes.py`).
+- Validación (toda ejecutada por Maxx, no solo por el script):
+  1. **Rangos de línea re-derivados por AST** sobre el `server.py` real: los 23 segmentos del
+     script coinciden exactamente; el único `@api_router` de `/player|/devices` fuera del alcance
+     es `serve_player_activate`, como estaba acordado.
+  2. **Verificación AST independiente**: **23/23 unidades idénticas byte a byte** al original
+     (script propio, no el del extractor; con dedent consciente de strings multilínea).
+  3. `flake8 F821/F811/E999`: **0 F821** en los 3 archivos. F811 baja de 9 a 7 (los 2 que
+     desaparecen estaban dentro de rutas movidas). `import server` limpio.
+  4. `tests/test_route_inventory.py` **en verde sin regenerar el snapshot** (492 rutas).
+  5. Suite completa: **465 passed / 22 failed / 35 skipped / 20 errors**, y el `diff` del conjunto
+     de IDs que fallan contra la línea base pre-2B-5 (`docs/BASELINE_PYTEST_PRE_2B5.md`) es
+     **vacío**: cero regresiones.
+  6. **A/B contra el servidor pre-refactor**: se levantó `de45af4` en un worktree en el puerto
+     8002 y se comparó respuesta contra respuesta:
+     - `/api/player/{id}/web` y `/api/player/{id}/test`: **HTML idéntico byte a byte**
+       (12 975 y 9 648 bytes) — la prueba directa de que el HTML/JS embebido no se corrompió.
+     - `playlist`, `version`, `schedule`, `status`, `export`, `diagnose`: JSON idéntico
+       (normalizando solo las marcas de tiempo).
+     - Ciclo de vida completo del dispositivo (`pair` → `register` → `check` → `heartbeat` →
+       `update-check` → `log` → `playlist` + `player/{id}/playlist` ya emparejado): **8/8
+       idénticas**; la única diferencia es el nombre/ID de la pantalla, porque cada lado usó su
+       propia pantalla de prueba.
+  7. `/apk` sigue devolviendo 302 y `/api/player-activate` 200.
+- ⚠️ **RIESGO ROJO — prueba física**: el plan pedía probar con una **TV box real** antes de
+  fusionar. **Decisión de duarte (2026-06)**: la prueba física **deja de ser gate por fase** y pasa
+  a ser la **validación final de punta a punta** de todo el refactor, cuando ya esté desplegado y
+  funcionando en producción. Motivo práctico: la caja tiene `https://mediadview.com` compilado en
+  el APK y el único lugar donde se puede cambiar el servidor es la pantalla de «Manual pairing»,
+  que con el control de una TV box común no es accesible durante la reproducción (sólo se escuchan
+  MENU/F1 y la tecla I; el mantener-OK-5-segundos existe únicamente en la pantalla de
+  emparejamiento). Repuntar la caja exige teclado USB o ADB, y no justificaba frenar el refactor.
+  El código de 6 dígitos **no sirve** para cruzar de entorno: ese código vive en la base de datos
+  del servidor que lo generó.
+- Verificación equivalente que sí se hizo, y que es la razón por la que el merge es seguro: el
+  **A/B respuesta contra respuesta contra el servidor pre-refactor** (punto 6) cubre las 16 rutas,
+  incluido el HTML del web player byte a byte y el ciclo completo del dispositivo.
+- Estado: **CERRADA** — fusionada a `trunk` y `main`.
+- Cosmético conocido y aceptado (mismo criterio que en 2B-4): quedan 3 comentarios de sección
+  huérfanos en `server.py` y algunos empalmes con más de 2 líneas en blanco. El total de avisos
+  `flake8 --select=E3,W3` en `server.py` **baja** de 166 a 148, y `player_routes.py` +
+  `media_utils.py` salen con 0. No se pasó ningún regex global sobre el archivo.
+- Riesgo para el otro agente: `backend/server.py` y `backend/media_utils.py` cambiaron en esta
+  rama. La 2B-6 (`/admin/*`) debe salir de aquí o rebasarse encima, y sus rangos de línea hay que
+  re-derivarlos: `server.py` se corrió casi 1000 líneas.
+- Estado: **CERRADA** — fusionada a `trunk` y `main` (2026-06). `production` sin tocar.
+- Commit final: ver el merge en `trunk`.
+
+### 2026-06 — Pendiente anotado (sin tocar código): `server_url` en la respuesta de `/check`
+- Idea: que `GET /api/devices/{device_id}/check` incluya un campo **`server_url`** para poder
+  mover una caja —o una flota entera— de servidor **desde el panel, sin tocar el hardware**.
+- Por qué es casi gratis: el APK **ya lo soporta**. `PairingActivity` (líneas 461-463) lee
+  `server_url` de la respuesta de `/check` y llama a `PlayerApi.setBaseUrl(...)`. Lo único que
+  falta es que el backend lo devuelva; hoy la respuesta de `check_device_activation`
+  (`player_routes.py`) sólo trae `device_id`, `activation_code`, `status`, `screen_id`,
+  `screen_name`, `activated_at` y `screen_resolution`.
+- Problema que resuelve: hoy la URL del servidor sólo se puede cambiar a mano en la pantalla de
+  «Manual pairing», que con el control de una TV box común no es accesible durante la
+  reproducción. Cualquier migración de servidor obliga a teclado USB o ADB por cada equipo.
+- Decisión de duarte (2026-06): **anotado como pendiente, no se toca código ahora** y sobre todo
+  **no se toca `production`** por esto. Se retoma más adelante.
+- Estado: PENDIENTE (no empezado).
+
+
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-4: /playlists/* fuera de server.py
 - Fusionada a `trunk`/`main`. `production` sin tocar.
 - `backend/playlists_routes.py` (nuevo, 318 líneas): 12 rutas owner/share/moderación + 4 modelos
