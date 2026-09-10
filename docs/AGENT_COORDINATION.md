@@ -64,6 +64,38 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-7: `/campaigns/*` de cliente
+- Rama: `trunk` (commit `0451b5f`), base `803ea6d`. `production` sin tocar.
+- Archivos: `backend/campaigns_routes.py` (nuevo, 289 líneas), `backend/server.py`
+  (**2956 → 2755 líneas**; acumulado 7106 → 2755, **−61,2 %**).
+- Qué se movió: las **6 rutas** `/campaigns/*` de cliente que quedaron pendientes a propósito en
+  la 2B-6b + `MAX_MEDIA_CHANGES`, `CampaignMediaReplace`, `CampaignCreate` y `CampaignUpdate`.
+  **`server.py` queda sin lógica de negocio de campañas.**
+- `CampaignSchedule`, `calculate_campaign_price` y `screen_orientation` se **threadean** porque
+  las sigue usando código que no se movió. Esta es la fase que `screens_routes.py` había anotado
+  en su propio docstring como «la que debería threadear `screen_orientation`».
+- **Novedad del patrón**: `CampaignCreate` y `CampaignUpdate` no pueden ser modelos de nivel de
+  módulo porque su campo `schedule` es del tipo threadeado `CampaignSchedule`, así que quedan
+  definidos **dentro del factory**, con la misma verificación round-trip byte a byte que se le
+  aplica al cuerpo de una ruta. Primera vez que el patrón se usa sobre una definición de clase.
+- Verificación:
+  1. Rangos re-derivados por AST: los 9 segmentos coinciden exacto.
+  2. **9/9 idénticas byte a byte**, incluidas las dos clases anidadas dentro del factory
+     (`verify_relocation.py` camina el AST completo, así que las encuentra igual).
+     `MAX_MEDIA_CHANGES` comparada línea a línea. Ninguna quedó definida de más en `server.py`.
+  3. `flake8`: 0 F821/E999; pyflakes completo sin avisos en el nuevo.
+     **`ruff check backend`: All checks passed.**
+  4. Walk de rutas antes/después: **57 = 57**, 0 faltantes, 0 nuevas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+  7. **CRUD completo en vivo** con la cuenta de cliente `pizzeria@demo.com`: se creó una campaña
+     real (ejercitando el modelo anidado, el `normalise_schedule` y el `pricing` calculado por
+     `calculate_campaign_price`), se leyó el detalle, se actualizó, se probó el reemplazo de media
+     (400 de dominio) y se borró. Además 422 correctos con `schedule` ausente o mal tipado — la
+     prueba de que el modelo anidado quedó bien cableado. La campaña de sonda quedó borrada.
+- Cosmético: los avisos `E3/W3` en `server.py` bajan de 114 a 110; el archivo nuevo sale con 0.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6c: superadmin, RBAC y customer-orders → **FASE 2B-6 CERRADA**
 - Rama: `trunk` (commit `af58bef`), base `325fdab`. `production` sin tocar.
 - Archivos: `backend/superadmin_routes.py` (nuevo, 422 líneas), `backend/server.py`
@@ -102,6 +134,27 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   las 46 rutas `/admin|/superadmin`; las 3 que quedan en `server.py` son las `*-view` estáticas,
   por decisión explícita.
 - Estado: **CERRADA** — en `trunk` y `main`.
+
+### 2026-06 — Estado de `server.py` tras la Fase 2B-7
+
+- **2755 líneas** (era 7106: **−61,2 %**). Le quedan **51 rutas**. Sin lógica de campañas,
+  dispositivos, player, pantallas, playlists, menús, media ni admin.
+- Lo que queda, agrupado y con mi recomendación de orden:
+  1. **8 `/public/*`** — el bloque más grande y autocontenido: `/public/screens*`,
+     `/public/playlists/{token}*` (con QR, media e ítems), `/public/playlist`. Candidato natural
+     al próximo PR; ojo que ya existe `public_pages_routes.py` de la Fase 1, así que hay que
+     elegir bien el nombre o fusionarlos.
+  2. **6 `/customer/*`** — `quote`, `discount-scale`, `orders/mine`, `orders/from-cart`,
+     `screens`, `screens/{id}`. Comparten el motor de cotización.
+  3. **4 `/auth/*`** — `login`, `register`, `me`, `profile`. ⚠️ Tocar auth exige pasar por el
+     `integration_expert` antes de escribir código; no es una relocalización más.
+  4. **3 `/payments*`** + 2 `/widgets/{id}/render|weather` + 2 `/certification/*` + 2 `/screen*`
+     — bloques chicos, se pueden juntar en un PR de «varios».
+  5. **~20 páginas estáticas/SPA de una ruta** (`/landing`, `/about`, `/download`,
+     `/marketplace`, `/menu-editor`, `/design-studio`, `/dashboard`, `/player-activate`, las 3
+     `*-view`, `/health`, el catch-all `/{full_path:path}`, etc.): **se quedan donde están**, ya
+     es decisión tomada tres veces.
+- Siguiente hito del plan: **Fase 2C** — mover los módulos a `backend/domains/<dominio>/`.
 
 ### 2026-06 — Estado de `server.py` al cerrar la Fase 2B-6
 - **2956 líneas** (era 7106 al empezar: **−58,4 %**). Le quedan **57 rutas**, repartidas así:
