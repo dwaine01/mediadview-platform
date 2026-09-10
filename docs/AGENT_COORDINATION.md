@@ -154,10 +154,20 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
        idénticas**; la única diferencia es el nombre/ID de la pantalla, porque cada lado usó su
        propia pantalla de prueba.
   7. `/apk` sigue devolviendo 302 y `/api/player-activate` 200.
-- ⚠️ **RIESGO ROJO — condición de cierre pendiente**: el plan exige probar con una **TV box real**
-  el flujo completo de emparejamiento/registro/heartbeat/playlist **antes de fusionar**. Los
-  puntos 1-7 son necesarios pero **no suficientes**. Esta rama **no se mergea a `trunk` hasta que
-  duarte lo confirme en hardware**.
+- ⚠️ **RIESGO ROJO — prueba física**: el plan pedía probar con una **TV box real** antes de
+  fusionar. **Decisión de duarte (2026-06)**: la prueba física **deja de ser gate por fase** y pasa
+  a ser la **validación final de punta a punta** de todo el refactor, cuando ya esté desplegado y
+  funcionando en producción. Motivo práctico: la caja tiene `https://mediadview.com` compilado en
+  el APK y el único lugar donde se puede cambiar el servidor es la pantalla de «Manual pairing»,
+  que con el control de una TV box común no es accesible durante la reproducción (sólo se escuchan
+  MENU/F1 y la tecla I; el mantener-OK-5-segundos existe únicamente en la pantalla de
+  emparejamiento). Repuntar la caja exige teclado USB o ADB, y no justificaba frenar el refactor.
+  El código de 6 dígitos **no sirve** para cruzar de entorno: ese código vive en la base de datos
+  del servidor que lo generó.
+- Verificación equivalente que sí se hizo, y que es la razón por la que el merge es seguro: el
+  **A/B respuesta contra respuesta contra el servidor pre-refactor** (punto 6) cubre las 16 rutas,
+  incluido el HTML del web player byte a byte y el ciclo completo del dispositivo.
+- Estado: **CERRADA** — fusionada a `trunk` y `main`.
 - Cosmético conocido y aceptado (mismo criterio que en 2B-4): quedan 3 comentarios de sección
   huérfanos en `server.py` y algunos empalmes con más de 2 líneas en blanco. El total de avisos
   `flake8 --select=E3,W3` en `server.py` **baja** de 166 a 148, y `player_routes.py` +
@@ -165,8 +175,24 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 - Riesgo para el otro agente: `backend/server.py` y `backend/media_utils.py` cambiaron en esta
   rama. La 2B-6 (`/admin/*`) debe salir de aquí o rebasarse encima, y sus rangos de línea hay que
   re-derivarlos: `server.py` se corrió casi 1000 líneas.
-- Estado: **EN CURSO** — código listo y verificado, esperando la prueba física de duarte.
-- Commit final: (ver rama `refactor/fase2-5-player`)
+- Estado: **CERRADA** — fusionada a `trunk` y `main` (2026-06). `production` sin tocar.
+- Commit final: ver el merge en `trunk`.
+
+### 2026-06 — Pendiente anotado (sin tocar código): `server_url` en la respuesta de `/check`
+- Idea: que `GET /api/devices/{device_id}/check` incluya un campo **`server_url`** para poder
+  mover una caja —o una flota entera— de servidor **desde el panel, sin tocar el hardware**.
+- Por qué es casi gratis: el APK **ya lo soporta**. `PairingActivity` (líneas 461-463) lee
+  `server_url` de la respuesta de `/check` y llama a `PlayerApi.setBaseUrl(...)`. Lo único que
+  falta es que el backend lo devuelva; hoy la respuesta de `check_device_activation`
+  (`player_routes.py`) sólo trae `device_id`, `activation_code`, `status`, `screen_id`,
+  `screen_name`, `activated_at` y `screen_resolution`.
+- Problema que resuelve: hoy la URL del servidor sólo se puede cambiar a mano en la pantalla de
+  «Manual pairing», que con el control de una TV box común no es accesible durante la
+  reproducción. Cualquier migración de servidor obliga a teclado USB o ADB por cada equipo.
+- Decisión de duarte (2026-06): **anotado como pendiente, no se toca código ahora** y sobre todo
+  **no se toca `production`** por esto. Se retoma más adelante.
+- Estado: PENDIENTE (no empezado).
+
 
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-4: /playlists/* fuera de server.py
 - Fusionada a `trunk`/`main`. `production` sin tocar.
