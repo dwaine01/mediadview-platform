@@ -163,8 +163,11 @@ export default function WorkspaceScreens() {
             <View style={ss.cardBody}>
               <Text style={ss.cardName}>{s.name}</Text>
               <Text style={ss.cardMeta}>
-                {s.code ? `Código: ${s.code}` : ''}{formatScreenLocation(s.location) ? ` · ${formatScreenLocation(s.location)}` : ''}
-                {s.active_menu_id ? ' · Menú publicado' : ''}
+                {[
+                  s.code ? `Código: ${s.code}` : '',
+                  formatScreenLocation(s.location),
+                  s.active_menu_id ? 'Menú publicado' : '',
+                ].filter(Boolean).join(' · ')}
               </Text>
               <TouchableOpacity
                 style={ss.orientChip}
