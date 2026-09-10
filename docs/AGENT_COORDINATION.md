@@ -64,6 +64,50 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Maxx — Bug de producción: el panel del cliente crasheaba con pantallas creadas por admin
+- Rama: **`fix/workspace-screen-location`** (sale de `eaea594`, o sea de `trunk`; **no** mezclada
+  con la 2B-5 a pedido de Claude). Commits `142f27f` + `33bfa70`. Ya en GitHub, **sin mergear**.
+- Síntoma: asignar a una organización una pantalla creada por `POST /api/admin/screens` dejaba
+  el panel del cliente **completamente en blanco**, con
+  `Objects are not valid as a React child (found: object with keys {address, city, state, country, lat, lng})`.
+- Causa raíz: `screens.location` es un **string** cuando la pantalla se crea desde el panel del
+  cliente (`workspace_routes.py`) y un **objeto estructurado** cuando se crea desde el API de
+  admin. `app/workspace/index.tsx` y `app/workspace/screens.tsx` renderizaban `s.location`
+  directo dentro de un `<Text>`, y eso tumba todo el árbol de React.
+- Fix: `frontend/src/utils/screenLocation.ts` con `formatScreenLocation()` (acepta
+  string | objeto | null, devuelve siempre string) usado en los dos listados. Segundo commit:
+  el subtítulo se arma con `join(' · ')` porque sin `code` arrancaba con un punto suelto.
+- **Afecta a producción**, no solo al entorno de prueba: cualquier pantalla que soporte o un
+  admin asigne a una cuenta de cliente rompe el panel de ese cliente.
+- Verificado por el **testing agent** (informe `test_reports/iteration_35.json`): panel carga
+  completo, la ubicación sale como `Casa de duarte, Miami, US`, las 3 pantallas con `location`
+  string siguen igual, las 5 pestañas del panel sin errores de render.
+- Encontrado al armar la organización «Pizzería Don Luis» en plan Enterprise para la prueba
+  física de la 2B-5 (ver `docs/PRUEBA_FISICA_2B5.md`).
+- Estado: **LISTO PARA MERGEAR** a `trunk` cuando Claude/duarte lo autoricen (es independiente
+  de la 2B-5; el mismo cambio ya viaja dentro de la rama de la 2B-5 porque el entorno de preview
+  lo necesitaba para que duarte pudiera usar el panel durante la prueba).
+
+### 2026-06 — Auditoría de variables de entorno faltantes en producción (Render)
+- Pedido de duarte: «que todo funcione, todas las funciones» en producción.
+- Sondas **de solo lectura** contra `https://mediadview.com` (sin escribir nada):
+  - `POST /api/media/presign` con el superadmin devuelve
+    `503 "Direct uploads not available — use /media/upload"` → **`R2_ENABLED` es false en
+    producción**, o sea faltan las variables de R2. El storage sigue andando por el fallback
+    legacy de disco/base64 (las lecturas de media existente no se rompen).
+  - `EMERGENT_LLM_KEY` falta (confirmado por el 503 de «Importar Menú con IA» que reportó
+    duarte). `menu_ai_routes.py` lo chequea en las líneas 102 y 173.
+- Nombres exactos que lee `backend/storage.py` (¡ojo, no son los del resumen viejo!):
+  `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME` (esas 4 activan
+  `R2_ENABLED`), más `R2_PUBLIC_BASE_URL` y `R2_REGION` (por defecto `auto`).
+  `startup_check.py` exige las 5 primeras cuando `STORAGE_DRIVER=r2`.
+- Barrido del resto del código buscando el mismo patrón: `EMERGENT_LLM_KEY` es el **único** hueco
+  de variable de entorno que rompe una función de cara al cliente. Stripe tiene fail-fast al
+  arrancar, `FERNET_KEY`/`REDIS_URL` tienen fallback seguro, y el SMTP se configura por base de
+  datos (Ajustes → Email), no por variable de entorno.
+- **No tengo visibilidad del panel de Render**: lo de arriba es inferido por sondas HTTP, no leído
+  de la configuración.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-5: /player/* + /devices/* fuera de server.py
 - Rama: **`refactor/fase2-5-player`**. `trunk`, `main` y `production` **sin tocar**.
 - Commit base: `eaea594` (= `de45af4` + el commit automático del entorno; `backend/server.py`
