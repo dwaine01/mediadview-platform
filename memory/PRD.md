@@ -541,3 +541,20 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   SSE con connected, /apk 302, panel admin con 29 pantallas y 200 dispositivos sin spinners,
   marketplace OK y heartbeats de players reales entrando (modo gracia del device token).
 - Pendiente menor: la variable ENVIRONMENT del servicio en Render devuelve "staging".
+
+## Refactor Fase 2B-10 (2026-06) — `/payments*`, `/widgets/*`, `/certification/*`
+- 7 rutas fuera de `server.py` en 3 archivos por dominio: `payments_routes.py` (3 rutas +
+  `PaymentCreate`), `widgets_routes.py` (2 rutas + `_safe_iframe/_safe_css_color/_safe_js_str/`
+  `_safe_yt_id` + cache de clima) y `certification_routes.py` (2 rutas + `CertificationResult`).
+- `server.py`: 2501 → 2243 líneas (acumulado 7106 → 2243, −68,4 %). Rutas de `api_router` 34 → 27.
+- Decisión de alcance: `/screen` y `/screen/legacy` (FileResponse de una línea) se quedan en
+  `server.py` para siempre, junto al resto de páginas estáticas/SPA.
+- Limpieza empaquetada: `typing.List` e `import json` muertos en `server.py`; 4 líneas de
+  docstring resangradas en `public_api_routes.py`.
+- Verificación: 12/13 unidades idénticas byte a byte (`verify_relocation.py`); la única distinta
+  (`widget_weather_proxy`) sólo con los 2 fixes cosméticos documentados. `ruff check backend`
+  limpio, `flake8` sin F821, `test_route_inventory.py` en verde sin regenerar el snapshot
+  (md5 `698364b3…`), suite con los mismos 42 fallos de la línea base (491 passed).
+- Commit `b5c6238` en `trunk` y `main`. `production` sin tocar.
+- Falta para cerrar la Fase 2B: las 4 rutas `/auth/*` (requieren consultar al integration expert
+  antes de tocarlas).
