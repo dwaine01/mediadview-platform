@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { workspaceAPI } from '../../src/services/api';
+import { formatScreenLocation, type ScreenLocation } from '../../src/utils/screenLocation';
 import LiveScreens from '../../src/components/LiveScreens';
 import type { WorkspaceContext } from '../../src/types';
 
@@ -35,7 +36,7 @@ const QUICK_ACTIONS = [
   { label: 'Programar', desc: 'Horarios de emisión', icon: 'calendar' as const, color: C.green, route: '/workspace/schedules' },
 ];
 
-type Screen = { id: string; name?: string; location?: string; status?: string };
+type Screen = { id: string; name?: string; location?: ScreenLocation; status?: string };
 
 export default function WorkspaceDashboard() {
   const router = useRouter();
@@ -262,7 +263,7 @@ export default function WorkspaceDashboard() {
               <View style={sd.screenIcon}><Ionicons name="tv" size={17} color={C.brand} /></View>
               <View style={{ flex: 1 }}>
                 <Text style={sd.screenName} numberOfLines={1}>{s.name || 'Pantalla'}</Text>
-                <Text style={sd.screenLoc} numberOfLines={1}>{s.location || 'Sin ubicación'}</Text>
+                <Text style={sd.screenLoc} numberOfLines={1}>{formatScreenLocation(s.location) || 'Sin ubicación'}</Text>
               </View>
               <View style={[sd.pill, s.status === 'active' ? { backgroundColor: C.greenBg } : { backgroundColor: '#F1F5F9' }]}>
                 <Text style={[sd.pillText, { color: s.status === 'active' ? C.green : C.muted }]}>
