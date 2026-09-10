@@ -64,6 +64,22 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-4: /playlists/* fuera de server.py
+- Fusionada a `trunk`/`main`. `production` sin tocar.
+- `backend/playlists_routes.py` (nuevo, 318 líneas): 12 rutas owner/share/moderación + 4 modelos
+  + 4 helpers anidados + 1 de módulo. `_public_token_hash` pasó a `media_utils.py` (96 líneas)
+  porque `_public_playlist` sigue en `server.py` y también la usa.
+  `server.py`: **5004 → 4762 líneas** (acumulado 7106 → 4762, −33 %).
+- ⚠️ **Quité del script el `re.sub(r"\n{4,}", "\n\n\n", server_out)`** que Claude añadió como
+  limpieza cosmética: ese regex actúa sobre TODO el archivo, incluidos los literales multilínea
+  de HTML/JS embebido, así que podía cambiar bytes de respuestas HTTP de forma invisible. Las
+  líneas en blanco de más son inocuas; los bytes de una respuesta no.
+- Verificación AST: **21/21 elementos idénticos** al original de `25f061b`.
+  `import server` sin excepciones (este cambio tocaba 3 archivos a la vez).
+- Suite completa: **493 passed, 35 skipped, 7 failed, 7 errors** — mismo conjunto de fallos que
+  2B-3, nombre por nombre. Cero regresiones.
+- Estado: CERRADA.
+
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-3: /screens/* fuera de server.py
 - Fusionada a `trunk`/`main`. `production` sin tocar.
 - `backend/screens_routes.py` (nuevo, 481 líneas): las 13 rutas (8 `/screens/*` + 5

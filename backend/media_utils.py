@@ -11,6 +11,7 @@ _build_playlist_items closure inside workspace_routes.py serves a
 different, org-scoped workspace API and stays where it is; it is not a
 server.py helper and is out of scope for this move.
 """
+import hashlib
 import logging
 from datetime import datetime
 from typing import Optional
@@ -20,6 +21,14 @@ from pydantic import BaseModel
 from database import db
 
 logger = logging.getLogger(__name__)
+
+
+def _public_token_hash(token: str) -> str:
+    """Shared by server.py's _public_playlist (token-authenticated share
+    links) and playlists_routes.py's share_owned_playlist (creates them).
+    Moved here in Fase 2B-4 instead of threaded -- pure, dependency-free.
+    """
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
 def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[str]:
