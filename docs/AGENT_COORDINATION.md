@@ -64,6 +64,33 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (diagnóstico) + Maxx (fix) — CI: el job de lint fallaba por un desajuste de config de ruff
+- Rama: `trunk` (commit `3442566`). `production` sin tocar.
+- Causa raíz (diagnóstico de Claude, confirmado): en ruff un `--ignore` por línea de comando
+  **reemplaza** el `ignore` del archivo de config en vez de sumarse. Los flags de
+  `.github/workflows/ci.yml` (`--select E,F,W,I --ignore E501,E402,F401,F403,F841`) anulaban la
+  lista de deuda técnica de `backend/ruff.toml` (`E701`, `E702`, `E741`, `E731`, `F811`, `W293`,
+  `W605`), así que CI reportaba código que ya estaba en `production` (`622da1ad`) desde antes de
+  la primera fase del refactor. **No lo introdujo el refactor**: cualquier push a `main` que
+  tocara `backend/` iba a fallar igual.
+- Lo que sí era nuestro: 3 avisos `I001` (bloque de imports sin ordenar) en
+  `admin_devices_routes.py`, `admin_campaigns_routes.py` y
+  `tests/test_iter36_rename_regression.py`. Corregidos con `ruff check --select I --fix`: sólo se
+  movieron líneas de import, mismo set de imports, ningún cuerpo de ruta tocado.
+- Nota: el diff real de ruff fue **más chico** que el que Claude anticipó. Como `ruff.toml` no
+  declara `known-first-party`, ruff detecta `database`/`deps` como primera parte y deja `fastapi`
+  y `pydantic` en el bloque de terceros; no los reordenó como en el diff esperado. El resultado
+  igual es 0 `I001`.
+- Verificación: `ruff check backend` → **All checks passed** (0 avisos; con el comando viejo daban
+  7). 0 F821, `import server` limpio, `test_route_inventory` + `test_iter36_rename_regression`
+  en verde (28/28).
+- ⚠️ **Pendiente de duarte**: la otra mitad del arreglo es **una línea en
+  `.github/workflows/ci.yml`** y **no se puede pushear desde acá** (el token no tiene scope
+  `workflow`, GitHub rechaza el push). Instrucciones paso a paso en
+  `docs/CI_PATCH_RUFF_CONFIG.md`. Hasta que se aplique, el mail de «Lint (ruff) failed» va a
+  seguir llegando aunque el código esté limpio.
+- Estado: código CERRADO en `trunk`/`main`; **el workflow queda BLOQUEADO ESPERANDO A DUARTE**.
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6b: campañas, widgets, pagos y scheduler
 - Rama: `trunk` (commit `7f2c3de`), base `156d92c`. `production` sin tocar.
 - Archivos: `backend/admin_campaigns_routes.py` (nuevo, 360 líneas), `backend/server.py`
