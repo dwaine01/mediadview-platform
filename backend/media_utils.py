@@ -31,6 +31,18 @@ def _public_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+def _norm_date(v):
+    """Normalise date-ish values. '' / 'null' / None -> None."""
+    if v is None:
+        return None
+    if isinstance(v, str):
+        s = v.strip()
+        if not s or s.lower() == "null":
+            return None
+        return s
+    return v
+
+
 def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[str]:
     """portrait | landscape | square — None when the size is unknown."""
     if not width or not height:

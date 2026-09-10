@@ -64,6 +64,66 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-5: /player/* + /devices/* fuera de server.py
+- Rama: **`refactor/fase2-5-player`**. `trunk`, `main` y `production` **sin tocar**.
+- Commit base: `eaea594` (= `de45af4` + el commit automático del entorno; `backend/server.py`
+  idéntico a `de45af4`).
+- Archivos tocados: `backend/player_routes.py` (nuevo, 1066 líneas), `backend/server.py`
+  (**4761 → 3845 líneas**; acumulado 7106 → 3845, **−46 %**), `backend/media_utils.py`
+  (96 → 108, recibe `_norm_date`).
+- Qué se movió: las **16 rutas del plan** (9 `/player/*` + 7 `/devices/*`) + 5 modelos
+  (`DeviceRegister`, `DeviceSyncProgress`, `DeviceHeartbeat`, `DeviceLog`, `DevicePair`) +
+  `effective_playlist_schedule_key`. `_norm_date` pasa a `media_utils.py` porque
+  `normalise_schedule` sigue en `server.py` y `tests/test_playlist_pipeline.py` importa
+  `server._norm_date` (se dejó re-import de una línea).
+  **`/player-activate` NO se movió** (decisión de duarte): es `FileResponse` de un HTML estático
+  de `WEB_DIR`, pertenece al grupo SPA junto a `/public/playlist`, `/download`, `/screen`,
+  `/marketplace`. Las 4 `/admin/devices/*` y `/admin/player-release` quedan para la 2B-6.
+- Novedad técnica: el `reindent()` del script usa `tokenize` para **no** tocar las filas
+  interiores de un string multilínea. `web_player` es la primera ruta del refactor con un literal
+  multilínea real (~67 líneas de HTML/JS), y el reindent ingenuo de las fases 2B-1…2B-4 le habría
+  metido 4 espacios *dentro* del valor del string sin que ningún test de forma de ruta lo notara.
+- Imports muertos eliminados de `server.py`: el bloque completo `from device_security import (...)`
+  (sus 5 nombres se van con las rutas; `connectivity_from_heartbeat` ya tenía 0 usos antes de esta
+  fase) y el bloque completo `from storage import (...)` (10 de 11 nombres eran restos de la 2B-2;
+  solo `open_media_for_response` se re-importa, en `player_routes.py`).
+- Validación (toda ejecutada por Maxx, no solo por el script):
+  1. **Rangos de línea re-derivados por AST** sobre el `server.py` real: los 23 segmentos del
+     script coinciden exactamente; el único `@api_router` de `/player|/devices` fuera del alcance
+     es `serve_player_activate`, como estaba acordado.
+  2. **Verificación AST independiente**: **23/23 unidades idénticas byte a byte** al original
+     (script propio, no el del extractor; con dedent consciente de strings multilínea).
+  3. `flake8 F821/F811/E999`: **0 F821** en los 3 archivos. F811 baja de 9 a 7 (los 2 que
+     desaparecen estaban dentro de rutas movidas). `import server` limpio.
+  4. `tests/test_route_inventory.py` **en verde sin regenerar el snapshot** (492 rutas).
+  5. Suite completa: **465 passed / 22 failed / 35 skipped / 20 errors**, y el `diff` del conjunto
+     de IDs que fallan contra la línea base pre-2B-5 (`docs/BASELINE_PYTEST_PRE_2B5.md`) es
+     **vacío**: cero regresiones.
+  6. **A/B contra el servidor pre-refactor**: se levantó `de45af4` en un worktree en el puerto
+     8002 y se comparó respuesta contra respuesta:
+     - `/api/player/{id}/web` y `/api/player/{id}/test`: **HTML idéntico byte a byte**
+       (12 975 y 9 648 bytes) — la prueba directa de que el HTML/JS embebido no se corrompió.
+     - `playlist`, `version`, `schedule`, `status`, `export`, `diagnose`: JSON idéntico
+       (normalizando solo las marcas de tiempo).
+     - Ciclo de vida completo del dispositivo (`pair` → `register` → `check` → `heartbeat` →
+       `update-check` → `log` → `playlist` + `player/{id}/playlist` ya emparejado): **8/8
+       idénticas**; la única diferencia es el nombre/ID de la pantalla, porque cada lado usó su
+       propia pantalla de prueba.
+  7. `/apk` sigue devolviendo 302 y `/api/player-activate` 200.
+- ⚠️ **RIESGO ROJO — condición de cierre pendiente**: el plan exige probar con una **TV box real**
+  el flujo completo de emparejamiento/registro/heartbeat/playlist **antes de fusionar**. Los
+  puntos 1-7 son necesarios pero **no suficientes**. Esta rama **no se mergea a `trunk` hasta que
+  duarte lo confirme en hardware**.
+- Cosmético conocido y aceptado (mismo criterio que en 2B-4): quedan 3 comentarios de sección
+  huérfanos en `server.py` y algunos empalmes con más de 2 líneas en blanco. El total de avisos
+  `flake8 --select=E3,W3` en `server.py` **baja** de 166 a 148, y `player_routes.py` +
+  `media_utils.py` salen con 0. No se pasó ningún regex global sobre el archivo.
+- Riesgo para el otro agente: `backend/server.py` y `backend/media_utils.py` cambiaron en esta
+  rama. La 2B-6 (`/admin/*`) debe salir de aquí o rebasarse encima, y sus rangos de línea hay que
+  re-derivarlos: `server.py` se corrió casi 1000 líneas.
+- Estado: **EN CURSO** — código listo y verificado, esperando la prueba física de duarte.
+- Commit final: (ver rama `refactor/fase2-5-player`)
+
 ### 2026-09-08 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-4: /playlists/* fuera de server.py
 - Fusionada a `trunk`/`main`. `production` sin tocar.
 - `backend/playlists_routes.py` (nuevo, 318 líneas): 12 rutas owner/share/moderación + 4 modelos
