@@ -64,6 +64,43 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (reporte) + Maxx (fix) — Colisión de nombre: `create_player_routes` ×2
+- Rama: `trunk` (commit `1071a39`). Commit chico y aislado, **no** mezclado con la 2B-6.
+- Qué pasaba: `server.py` tenía **dos imports del mismo nombre** a nivel de módulo —
+  `from player_routes import create_player_routes` (línea 3401, nueva de la 2B-5) y
+  `from colorlight_player import create_player_routes` (línea 3584, vieja, modo Direct
+  Player/A40). No rompía por el orden de ejecución (la primera se usa en la 3429, antes de que el
+  segundo import la pise), pero era una redefinición real y una trampa para quien tocara el bloque.
+- Fix: la factory de `player_routes.py` pasa a llamarse **`create_player_domain_routes`**;
+  `colorlight_player.create_player_routes` queda intacta por ser la más vieja y de mayor
+  superficie. Se dejó un comentario en el punto de montaje explicando por qué el nombre difiere.
+  **Sólo rename**: ninguna ruta, handler ni lógica cambia.
+- Validación (testing agent, informe `test_reports/iteration_36.json`): ambas factories siguen
+  registradas —las 16 rutas de player/devices y las `/cls/*` + `/wp-json/*` de Direct Player—,
+  ciclo completo del dispositivo en 200, `test_route_inventory.py` en verde con el snapshot
+  **sin modificar** (md5 idéntico) y la suite completa con el **mismo conjunto exacto de 42
+  fallos** de la línea base: 0 regresiones. Se añadió
+  `backend/tests/test_iter36_rename_regression.py` (26 tests) para re-verificarlo en el futuro.
+- Estado: CERRADA — commit `1071a39`.
+
+### 2026-06 — Corte acordado de la Fase 2B-6 (46 rutas `/admin/*` + `/superadmin/*`)
+- Mapa por AST sobre `258bbae`: `docs/FASE2B6_MAPA_RUTAS_ADMIN.md`. Conteo real **46** rutas
+  (41 `/admin/*` + 5 `/superadmin/*`), 868 líneas de handlers — el plan decía 51.
+- **No hay bloque de finanzas que extraer** de `server.py`: esas rutas ya viven en
+  `admin_invoices_routes.py`, `admin_orders_routes.py`, `admin_refunds_routes.py`, `finance.py`
+  y `reports_routes.py`. El tercer PR pasa a ser superadmin + RBAC + órdenes + vistas.
+- Corte confirmado por Claude y duarte, en este orden:
+  1. **2B-6a** `admin_devices_routes.py` — 17 rutas (devices, player-release, playlogs,
+     client-errors, analytics). `DeviceProvision` se muda entero con
+     `admin_provision_device` (grep-verificado: no lo usa nadie más), sin threadear.
+  2. **2B-6b** `admin_campaigns_routes.py` — 12 rutas (campañas, widgets, pagos,
+     campaign-scheduler). Los helpers compartidos con las `/campaigns/*` de cliente **se
+     threadean**; esas 6 rutas de cliente quedan para un PR aparte, para no agrandar este.
+  3. **2B-6c** `superadmin_routes.py` — 17 rutas (superadmin, usuarios, RBAC, customer-orders y
+     las 3 `*-view`). Las `*-view` **sí se mueven** aunque sean `FileResponse` puro: están bajo
+     el prefijo `/admin/*` que estamos vaciando (a diferencia de `/player-activate`, que no).
+- Estado: EN CURSO — Claude está armando el script de la 2B-6a.
+
 ### 2026-06 — Maxx — Bug de producción: el panel del cliente crasheaba con pantallas creadas por admin
 - Rama: **`fix/workspace-screen-location`** (sale de `eaea594`, o sea de `trunk`; **no** mezclada
   con la 2B-5 a pedido de Claude). Commits `142f27f` + `33bfa70`. Ya en GitHub, **sin mergear**.
