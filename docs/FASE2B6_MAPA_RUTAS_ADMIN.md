@@ -1,5 +1,13 @@
 # Fase 2B-6 — mapa real de las rutas `/admin/*` y `/superadmin/*`
 
+> **✅ FASE CERRADA (2026-06).** Los 3 PRs están fusionados en `trunk`/`main`:
+> **2B-6a** `b899732` (17 rutas → `admin_devices_routes.py`), **2B-6b** `7f2c3de` (12 rutas →
+> `admin_campaigns_routes.py`) y **2B-6c** `af58bef` (14 rutas → `superadmin_routes.py`).
+> 43 de las 46 rutas movidas; las 3 `*-view` se quedan en `server.py` por decisión explícita
+> (son `FileResponse(WEB_DIR)` sin lógica, viven en el bloque de páginas estáticas).
+> `server.py`: **7106 → 2956 líneas (−58,4 %)**. Las tablas de abajo quedan como registro
+> histórico; los rangos de línea ya no aplican al `server.py` actual.
+
 Generado por AST sobre `backend/server.py` en **`258bbae`** (`trunk` = `main`, ya con la 2B-5
 fusionada). **Los números de línea de cualquier mapa anterior a este commit ya no sirven:**
 `server.py` se corrió ~1000 líneas al salir `/player/*` y `/devices/*`.
@@ -32,7 +40,7 @@ tercer PR previsto se convierte en «superadmin + usuarios/RBAC + vistas HTML».
 Criterio: cada PR agrupa un dominio cerrado y **ningún PR mezcla rutas que compartan helpers con
 otro PR**, para que el script de extracción no tenga que threadear lo mismo dos veces.
 
-### PR 2B-6a — `admin_devices_routes.py` (17 rutas, ~340 líneas)
+### PR 2B-6a — `admin_devices_routes.py` (17 rutas) — ✅ CERRADA, commit `b899732`
 El bloque más contiguo (`1887`→`2208`) y el que ya conocemos bien tras la 2B-5: comparte
 `gen_activation_code` con `player_routes.py` y `screens_routes.py` (ya threadeado en ambos).
 
@@ -131,8 +139,8 @@ Quedan **29 rutas** `/admin|/superadmin` en `server.py` (46 − 17 de la 2B-6a).
 | 3124-3153 | GET | `/admin/campaign-scheduler/status` | `campaign_scheduler_status` |
 | 3155-3162 | POST | `/admin/campaign-scheduler/run-now` | `campaign_scheduler_run_now` |
 
-**2B-6c — superadmin + RBAC + órdenes + vistas (17 rutas)** — rangos actualizados tras la 2B-6b,
-base `7f2c3de`:
+**2B-6c — superadmin + RBAC + órdenes + vistas** — ✅ CERRADA, commit `af58bef` (14 rutas movidas,
+las 3 `*-view` se quedaron). Rangos que se usaron, base `7f2c3de`:
 
 | Líneas | Método | Ruta | Handler |
 |---|---|---|---|

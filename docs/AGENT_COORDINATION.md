@@ -64,6 +64,57 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-6c: superadmin, RBAC y customer-orders → **FASE 2B-6 CERRADA**
+- Rama: `trunk` (commit `af58bef`), base `325fdab`. `production` sin tocar.
+- Archivos: `backend/superadmin_routes.py` (nuevo, 422 líneas), `backend/server.py`
+  (**3260 → 2956 líneas**; acumulado 7106 → 2956, **−58,4 %**).
+- Qué se movió: las **14 rutas** del PR 3 de 3 (superadmin admins CRUD + overview, RBAC
+  info/migrate/screens-by-type/seed-test-users, customer-orders vista/detalle/estado) + los
+  modelos `CustomerOrderStatusUpdate` y `CreateAdminRequest`.
+- **Decisión tomada sobre las 3 `*-view`**: se quedan en `server.py`. Son `FileResponse(WEB_DIR)`
+  sin lógica y ya viven en el mismo bloque que el resto de las páginas estáticas, que no se tocó
+  en ninguna fase (mismo precedente que `/player-activate`). Moverlas sólo obligaría a threadear
+  `WEB_DIR` en otro módulo. Cierra el punto que el doc dejaba abierto.
+- `hash_password` sigue definido en `server.py` (lo usan signup y los datos demo). Las dos rutas
+  que lo necesitan hacen un `from server import hash_password` **dentro de la función**, el mismo
+  patrón que ya usa `finance.py` con ese nombre. `IS_PROD` se recalcula localmente para no
+  arriesgar un import circular, igual que `auth_v2.py`.
+- Verificación:
+  1. Rangos re-derivados por AST: los 16 segmentos coinciden exacto.
+  2. **14/16 idénticas byte a byte** automático; `create_admin` y `seed_rbac_test_users`
+     comparadas con diff unificado: **3 líneas agregadas y 0 borradas** en cada una, y son
+     exactamente las 3 declaradas (comentario + import local + línea en blanco). Ninguna quedó
+     definida de más en `server.py`.
+  3. `flake8`: 0 F821/E999; pyflakes completo sin avisos en el nuevo.
+     **`ruff check backend` con la config del proyecto: All checks passed.**
+  4. Walk de rutas antes/después: **71 = 71**, 0 faltantes, 0 nuevas.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **mismo conjunto exacto de 42 fallos** que la línea base, 0 regresiones.
+  7. Sonda en vivo de las 14 rutas: todas ejecutan su handler. **El import diferido de
+     `hash_password` se probó de punta a punta**: se creó un admin real por
+     `/superadmin/create-admin`, se hizo login con él (rol `admin`, token válido) y después se lo
+     desactivó con `toggle` y se lo borró con `DELETE` — o sea 3 rutas más validadas en positivo,
+     no sólo con 404 de dominio. La cuenta de sonda quedó borrada de la base. Las 3 `*-view`
+     siguen devolviendo 200.
+- Cosmético: los avisos `flake8 --select=E3,W3` en `server.py` **bajan** de 126 a 114. Otra vez
+  el delta de E303 que Claude anticipó (+3) no se materializó.
+- **Estado de la Fase 2B-6: CERRADA.** Los 3 PRs (`b899732`, `7f2c3de`, `af58bef`) movieron 43 de
+  las 46 rutas `/admin|/superadmin`; las 3 que quedan en `server.py` son las `*-view` estáticas,
+  por decisión explícita.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
+### 2026-06 — Estado de `server.py` al cerrar la Fase 2B-6
+- **2956 líneas** (era 7106 al empezar: **−58,4 %**). Le quedan **57 rutas**, repartidas así:
+  8 `/public/*`, 6 `/customer/*`, 6 `/campaigns/*` (cliente), 4 `/auth/*`, 3 `/payments/*`,
+  3 `/admin/*-view` (estáticas, por decisión), 2 `/widgets/*`, 2 `/certification/*`,
+  2 `/screen*`, y ~20 páginas estáticas/SPA de una sola ruta (`/landing`, `/about`,
+  `/download`, `/marketplace`, `/menu-editor`, `/design-studio`, `/dashboard`,
+  `/player-activate`, el catch-all `/{full_path:path}`, etc.).
+- Candidatos naturales para lo que viene, en orden de tamaño: las 6 `/campaigns/*` de cliente
+  (quedaron pendientes a propósito en la 2B-6b), las 8 `/public/*`, las 6 `/customer/*`,
+  `/auth/*` + `/payments/*`. El bloque de páginas estáticas conviene dejarlo entero donde está.
+- Siguiente hito del plan: **Fase 2C** — mover los módulos a `backend/domains/<dominio>/`.
+
 ### 2026-06 — Claude (diagnóstico) + Maxx (fix) — CI: el job de lint fallaba por un desajuste de config de ruff
 - Rama: `trunk` (commit `3442566`). `production` sin tocar.
 - Causa raíz (diagnóstico de Claude, confirmado): en ruff un `--ignore` por línea de comando
