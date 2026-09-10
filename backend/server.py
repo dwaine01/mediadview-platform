@@ -49,8 +49,6 @@ from rbac import (
     assert_can_manage_screen, effective_operation_type,
 )
 
-# Fase 4: Audit log helper (imported early, used in screen/device/playlist handlers)
-from managed_portal_routes import create_audit_log as _audit
 
 # ============ CONFIGURATION ============
 
@@ -92,10 +90,6 @@ app = FastAPI(title="MediaView Digital Signage API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 security = HTTPBearer(auto_error=False)
 
-# Rate limiter (imported early because @_rl.limit decorators are evaluated
-# at module load time). LIMITS provides central rate-limit strings.
-from rate_limit import LIMITS as _LIMITS
-from rate_limit import limiter as _rl  # noqa: E402
 
 # ============ HELPERS ============
 
@@ -130,21 +124,10 @@ def gen_invoice():
 
 # ============ PYDANTIC MODELS ============
 
-class RegisterRequest(BaseModel):
-    name: str
-    email: str
-    password: str
-    company_name: Optional[str] = None
+# RegisterRequest, LoginRequest, ProfileUpdate moved to
+# auth_routes.py (Fase 2B-11).
 
-class LoginRequest(BaseModel):
-    email: str
-    password: str
 
-class ProfileUpdate(BaseModel):
-    name: Optional[str] = None
-    company_name: Optional[str] = None
-    phone: Optional[str] = None
-    language: Optional[str] = None
 
 
 
@@ -489,8 +472,7 @@ from media_utils import bump_playlist_version
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+# verify_password moved to auth_routes.py (Fase 2B-11).
 
 def create_token(user_id: str, role: str, ver: int = 0) -> str:
     """Legacy v1 token. Includes 'ver' so SEC-002 session_epoch check works for existing users."""
@@ -547,100 +529,11 @@ async def health():
 
 # ============ ROUTES: AUTH ============
 
-@api_router.post("/auth/register")
-@_rl.limit(_LIMITS.register)
-async def register(request: Request, response: Response, req: RegisterRequest):
-    """Legacy v1. New clients should use /api/auth/register (v2)."""
-    # Never reveal existence: return generic success either way.
-    existing = await db.users.find_one({"email": req.email.lower()})
-    if existing:
-        from auth_v2 import audit
-        try: await audit(db, user_id=None, action="register_duplicate_legacy", request=request, metadata={"email": req.email.lower()})
-        except Exception: pass
-        raise HTTPException(status_code=400, detail="Registration failed")
-    user = {
-        "id": gen_id(), "name": req.name, "email": req.email.lower(),
-        "password_hash": hash_password(req.password), "role": "customer",
-        # ── FASE 1: new RBAC role field ────────────────────────────────────
-        "rbac_role": Role.SELF_SERVICE_OWNER,
-        "company_name": req.company_name, "phone": None,
-        "language": "en", "active": True, "session_epoch": 0,
-        "created_at": datetime.utcnow()
-    }
-    await db.users.insert_one(user)
-    # ── Fase 4: Audit log ─────────────────────────────────────────────────────
-    await _audit(
-        db, action="user.created",
-        user_id=user["id"], user_email=user["email"],
-        resource_type="user", resource_id=user["id"],
-        details={"name": user["name"], "role": user.get("rbac_role", user["role"])},
-    )
-    token = create_token(user["id"], user["role"])
-    return {
-        "access_token": token, "token_type": "bearer",
-        "user": {"id": user["id"], "name": user["name"], "email": user["email"],
-                 "role": user["role"], "company_name": user["company_name"],
-                 "language": user["language"]}
-    }
+# register, login, get_me, update_profile moved to
+# auth_routes.py (Fase 2B-11).
 
-@api_router.post("/auth/login")
-@_rl.limit(_LIMITS.login)
-async def login(request: Request, response: Response, req: LoginRequest):
-    """Legacy v1 login with brute-force protection + audit log added."""
-    from auth_v2 import _ip, audit, is_locked_out, record_attempt
-    email = req.email.lower().strip()
-    ip = _ip(request)
 
-    # Brute-force lockout
-    if await is_locked_out(db, email, ip):
-        try: await audit(db, user_id=None, action="login_blocked_bruteforce_legacy", request=request, metadata={"email": email})
-        except Exception: pass
-        raise HTTPException(status_code=429, detail="Too many attempts. Try again in 15 minutes.")
 
-    user = await db.users.find_one({"email": email})
-    ok = bool(user) and verify_password(req.password, user.get("password_hash", "")) and user.get("active", True)
-    if not ok:
-        await record_attempt(db, email, ip, success=False)
-        try: await audit(db, user_id=(user or {}).get("id"), action="login_failed_legacy", request=request, metadata={"email": email})
-        except Exception: pass
-        # Generic error — do NOT reveal whether the account exists or is deactivated
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-
-    await record_attempt(db, email, ip, success=True)
-    try: await audit(db, user_id=user["id"], action="login_success_legacy", request=request)
-    except Exception: pass
-    token = create_token(user["id"], user["role"], ver=user.get("session_epoch", 0))
-    return {
-        "access_token": token, "token_type": "bearer",
-        "must_change_password": bool(user.get("must_change_password")),
-        "user": {"id": user["id"], "name": user["name"], "email": user["email"],
-                 "role": user["role"], "rbac_role": user.get("rbac_role"),
-                 "must_change_password": bool(user.get("must_change_password")),
-                 "organization_id": user.get("organization_id"),
-                 "company_name": user.get("company_name"),
-                 "language": user.get("language", "en")}
-    }
-
-@api_router.get("/auth/me")
-async def get_me(current_user: dict = Depends(get_current_user)):
-    return {
-        "id": current_user["id"], "name": current_user["name"],
-        "email": current_user["email"], "role": current_user["role"],
-        "rbac_role": current_user.get("rbac_role"),
-        "must_change_password": bool(current_user.get("must_change_password")),
-        "organization_id": current_user.get("organization_id"),
-        "company_name": current_user.get("company_name"),
-        "phone": current_user.get("phone"),
-        "language": current_user.get("language", "en"),
-        "created_at": serialize_doc(current_user.get("created_at"))
-    }
-
-@api_router.put("/auth/profile")
-async def update_profile(data: ProfileUpdate, current_user: dict = Depends(get_current_user)):
-    update = {k: v for k, v in data.dict().items() if v is not None}
-    if update:
-        await db.users.update_one({"id": current_user["id"]}, {"$set": update})
-    return {"message": "Profile updated"}
 
 # ============ ROUTES: SCREENS (PUBLIC) ============
 
@@ -1803,6 +1696,7 @@ from customer_routes import create_customer_routes
 from payments_routes import create_payments_routes
 from widgets_routes import create_widgets_routes
 from certification_routes import create_certification_routes
+from auth_routes import create_auth_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -1871,6 +1765,9 @@ app.include_router(create_customer_routes(gen_id))
 app.include_router(create_payments_routes(gen_id, gen_invoice, serialize_doc))
 app.include_router(create_widgets_routes(_esc))
 app.include_router(create_certification_routes(gen_id, serialize_doc))
+# -- Fase 2B-11: legacy v1 /auth/* (see docs/REFACTOR_FASE2_PLAN.md) --
+# closes out Fase 2B: no business-logic route left in server.py --
+app.include_router(create_auth_routes(gen_id, hash_password, create_token, serialize_doc))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,

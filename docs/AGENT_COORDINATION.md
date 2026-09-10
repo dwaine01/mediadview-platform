@@ -64,6 +64,59 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-11: `/auth/*` legacy v1 → **FASE 2B CERRADA**
+- Rama: `trunk`, base `b5c6238` (`production` sin tocar).
+- Archivos: `backend/auth_routes.py` (nuevo, 180 líneas), `backend/server.py`
+  (**2243 → 2140 líneas**; acumulado 7106 → 2140, **−69,9 %**).
+- Qué se movió: las **4 rutas** legacy v1 (`register`, `login`, `get_me`, `update_profile`) +
+  `verify_password` + los 3 modelos (`RegisterRequest`, `LoginRequest`, `ProfileUpdate`).
+  `/api/auth/*` **v2 (`auth_v2.py`) no se toca**.
+- 🔐 **Paso previo obligatorio cumplido**: antes de tocar `/auth/*` se consultó al
+  `integration_expert` (regla propia). Los riesgos que señaló y cómo quedaron cubiertos:
+  - *Identidad del limiter*: verificado en runtime que `auth_routes._rl is rate_limit.limiter`
+    y `auth_routes._LIMITS is rate_limit.LIMITS` → **el mismo objeto**, no una segunda
+    instancia con contadores propios.
+  - *Orden de decoradores*: `@router.post(...)` sigue **encima** de `@_rl.limit(...)`
+    (verificado por inspección del código generado).
+  - *`Request`/`Response` explícitos*: se conservan tal cual en las firmas.
+  - *`hash_password`*: **se queda en `server.py`** por el `from server import hash_password`
+    local de `finance.py` y `superadmin_routes.py` — comprobado que ambos módulos siguen
+    importándolo sin error tras la extracción.
+  - *Doble registro / prefijo duplicado*: la tabla de rutas de la app es **idéntica** (ver
+    abajo), 0 rutas nuevas y 0 duplicadas.
+  - *Imports locales de `auth_v2`* (`audit`, `_ip`, `is_locked_out`, `record_attempt`): sin
+    tocar, siguen dentro de `register()`/`login()`.
+  - *bcrypt / secreto JWT*: sin cambios de dependencia ni de `.env`.
+- Limpieza cosmética empaquetada: el import muerto de `_rl`/`_LIMITS` y el de `_audit` en
+  `server.py` (ambos quedaron sin un solo uso tras mover `register`/`login`, comprobado con
+  regex de palabra completa antes de borrarlos). `_install_rl` (instalación del limiter) no se
+  toca.
+- Verificación:
+  1. Los asserts del script pasaron a la primera; round-trip byte a byte de las 4 rutas OK.
+  2. `verify_relocation.py` con snapshot del `server.py` previo: **8/8 idénticas byte a byte**
+     (no apareció el defecto de docstring multilínea porque aquí todos son de una línea).
+  3. `py_compile` OK. `flake8 --select=F,E9` en `auth_routes.py`: **0 avisos, archivo 100 %
+     limpio**. `server.py`: 0 F821/E999. `ruff check backend`: **All checks passed**.
+  4. **Tabla de rutas de la app idéntica**: 489 entradas antes y después, `diff` vacío.
+     `api_router` en `server.py` **27 → 23 (−4)**, +4 en `auth_routes.py`.
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  6. Suite completa: **los mismos 42 fallos de la línea base** (491 passed, 35 skipped).
+  7. **Superficie de auth probada en vivo end-to-end** (más a fondo de lo habitual, por ser
+     auth): registro 200 con token válido y `rbac_role: SELF_SERVICE_OWNER` (o sea el import de
+     `Role` quedó bien) → registro duplicado 400 genérico sin filtrar existencia → login 200 →
+     `/auth/me` 200 con el usuario correcto → `/auth/me` sin token 401 → `PUT /auth/profile`
+     200 y `/auth/me` reflejando nombre/teléfono/idioma nuevos → 5 claves malas = 401 y a la
+     **6.ª el lockout de `auth_v2` responde 429** «Too many attempts. Try again in 15 minutes»
+     (incluso con la clave correcta, tal como antes) → **rate limit de slowapi verificado
+     aparte**: 20 registros duplicados dan 400 y del 20.º en adelante **429**, o sea el
+     contador compartido funciona. El usuario de prueba y los `login_attempts` quedaron
+     borrados.
+- 🏁 **Fase 2B CERRADA**: no queda ninguna ruta de lógica de negocio en `server.py`. Sólo las
+  ~20+2 páginas estáticas/SPA que se decidió dejar ahí para siempre.
+- Riesgo para el otro agente: ninguno en `android-player/**` ni en `backend/web/**`.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-10: `/payments*`, `/widgets/*`, `/certification/*`
 - Rama: `trunk`, base `b964413` (`production` sin tocar).
 - Archivos: `backend/payments_routes.py` (nuevo, 102 líneas), `backend/widgets_routes.py`

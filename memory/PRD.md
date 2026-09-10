@@ -558,3 +558,19 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Commit `b5c6238` en `trunk` y `main`. `production` sin tocar.
 - Falta para cerrar la Fase 2B: las 4 rutas `/auth/*` (requieren consultar al integration expert
   antes de tocarlas).
+
+## Refactor Fase 2B-11 (2026-06) — `/auth/*` legacy v1 → FASE 2B CERRADA
+- 4 rutas legacy v1 (`register`, `login`, `/auth/me`, `PUT /auth/profile`) + `verify_password`
+  + 3 modelos fuera de `server.py` → `auth_routes.py`. `/api/auth/*` v2 (`auth_v2.py`) intacto.
+- `server.py`: 2243 → 2140 líneas (acumulado 7106 → 2140, −69,9 %). Rutas `api_router` 27 → 23.
+- `hash_password` y `create_token` se quedan en `server.py` (los importa `finance.py` y
+  `superadmin_routes.py` con `from server import hash_password` en tiempo de llamada).
+- Paso previo obligatorio: consultado el integration expert antes de tocar auth. Verificado que
+  el limiter es el MISMO objeto (`auth_routes._rl is rate_limit.limiter`), orden de decoradores
+  intacto y tabla de rutas idéntica (489 entradas, diff vacío).
+- Verificación: 8/8 unidades idénticas byte a byte, ruff limpio, flake8 sin avisos en el nuevo,
+  route inventory sin regenerar snapshot, suite con los mismos 42 fallos base.
+- Pruebas en vivo: registro/login/me/profile OK, duplicado 400, sin token 401, lockout de
+  auth_v2 a la 6.ª clave mala (429) y rate limit de slowapi a los 20 registros (429).
+- FASE 2B CERRADA: en `server.py` sólo quedan las ~20+2 páginas estáticas/SPA, por decisión.
+- Siguiente: Fase 2C (mover módulos a `backend/domains/<dominio>/`).
