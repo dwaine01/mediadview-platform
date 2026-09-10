@@ -210,7 +210,7 @@ async def effective_playlist_schedule_key(screen_id: str) -> str:
     return scheduled_playlist_key(playlists)
 
 
-def create_player_routes(gen_id, serialize_doc, MEDIA_DIR, gen_activation_code,
+def create_player_domain_routes(gen_id, serialize_doc, MEDIA_DIR, gen_activation_code,
                           build_screen_playlist_items, screen_orientation):
     router = APIRouter(prefix="/api", tags=["Player"])
 

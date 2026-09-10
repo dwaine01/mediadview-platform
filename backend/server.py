@@ -3398,7 +3398,7 @@ from menus_routes import create_menus_routes
 from media_routes import create_media_routes
 from screens_routes import create_screens_routes
 from playlists_routes import create_playlists_routes
-from player_routes import create_player_routes
+from player_routes import create_player_domain_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -3424,9 +3424,10 @@ app.include_router(create_playlists_routes(
     _bump_playlist_screens,
 ))
 # -- Fase 2B-5: /player/* + /devices/* (see docs/REFACTOR_FASE2_PLAN.md) --
-# RIESGO ROJO: no mergear a trunk sin probar con un dispositivo real (TV
-# box) el flujo completo de pairing/registro/heartbeat/playlist.
-app.include_router(create_player_routes(
+# La factory se llama create_player_domain_routes, NO create_player_routes: ese
+# nombre ya lo ocupa colorlight_player.py (modo Direct Player / A40), que se
+# importa mas abajo en este mismo archivo.
+app.include_router(create_player_domain_routes(
     gen_id, serialize_doc, MEDIA_DIR, gen_activation_code,
     build_screen_playlist_items, screen_orientation,
 ))
