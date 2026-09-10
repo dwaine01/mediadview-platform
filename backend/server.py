@@ -239,19 +239,7 @@ NON_PLAYABLE_STATUSES = {"draft", "pending", "paused", "expired", "archived", "r
 from media_utils import _norm_date
 
 
-def normalise_schedule(sched: dict) -> dict:
-    """Force start_date/end_date to be None instead of empty string, so we
-    never end up with '' > today comparisons again. Also defaults times."""
-    out = dict(sched or {})
-    out["start_date"] = _norm_date(out.get("start_date"))
-    out["end_date"] = _norm_date(out.get("end_date"))
-    out["start_time"] = out.get("start_time") or "00:00"
-    out["end_time"] = out.get("end_time") or "23:59"
-    if "slot_duration" not in out:
-        out["slot_duration"] = 15
-    if "frequency" not in out:
-        out["frequency"] = 5
-    return out
+from media_utils import normalise_schedule
 
 
 def is_campaign_playable(campaign: dict, now: Optional[datetime] = None) -> tuple:
@@ -317,18 +305,6 @@ def _legacy_media_sha256(media: dict) -> Optional[str]:
     return digest.hexdigest()
 
 
-async def _media_is_available(media: dict) -> bool:
-    """True when the bytes can still be served to a player or the panel.
-
-    Object storage keeps a public URL; legacy media needs either the disk copy
-    (which Render wipes on every deploy) or the base64 mirror in Mongo.
-    """
-    if media.get("public_url") or media.get("storage") in ("r2", "s3"):
-        return True
-    stored = media.get("stored_filename")
-    if stored and os.path.isfile(os.path.join(MEDIA_DIR, stored)):
-        return True
-    return await _media_has_inline_bytes(media["id"])
 
 
 # Movido a media_utils.py (Fase 2A)
@@ -1369,91 +1345,8 @@ async def admin_update_user(user_id: str, active: bool, admin: dict = Depends(re
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User updated"}
 
-@api_router.get("/admin/campaigns")
-async def admin_list_campaigns(status: Optional[str] = None, admin: dict = Depends(require_admin)):
-    query = {}
-    if status:
-        query["status"] = status
-    campaigns = await db.campaigns.find(query).sort("created_at", -1).to_list(500)
-    if not campaigns:
-        return []
-    # P0 PERF FIX: batch-fetch related screens and users in 2 queries
-    # instead of the previous 2×N sequential queries (N=number of campaigns).
-    # Before: 15 campaigns → 30 sequential DB round-trips → 15-30 s on Atlas
-    # After:  15 campaigns → 3 total queries             → < 500 ms
-    screen_ids = list({c.get("screen_id") for c in campaigns if c.get("screen_id")})
-    user_ids   = list({c.get("user_id")   for c in campaigns if c.get("user_id")})
-    screens_map = {s["id"]: s for s in await db.screens.find({"id": {"$in": screen_ids}},
-        # PERF: the embedded screen is only used for name/location/pricing.
-        # Dropping `advertising` removes a ~100 KB base64 photo per campaign
-        # (11 campaigns previously produced a 5.4 MB response).
-        {"advertising": 0}).to_list(500)}
-    users_map   = {u["id"]: u for u in await db.users.find(
-        {"id": {"$in": user_ids}}, {"password_hash": 0}).to_list(500)}
-    media_ids = list({m for c in campaigns for m in (c.get("media_ids") or [])})
-    media_map = {m["id"]: m for m in await db.media.find(
-        {"id": {"$in": media_ids}}, MEDIA_METADATA_PROJECTION).to_list(1000)}
-    for c in campaigns:
-        c["screen"] = serialize_doc(screens_map.get(c.get("screen_id")))
-        c["user"]   = serialize_doc(users_map.get(c.get("user_id")))
-        # The panel needs to know the kind (a video cannot render in an <img>)
-        # and whether the file is still there, so it can ask the customer to
-        # re-upload instead of showing an empty box.
-        info = []
-        for mid in (c.get("media_ids") or []):
-            media = media_map.get(mid)
-            if not media:
-                info.append({"id": mid, "type": None, "available": False})
-                continue
-            info.append({
-                "id": mid,
-                "filename": media.get("filename"),
-                "type": media.get("type"),
-                "content_type": media.get("content_type"),
-                "orientation": media.get("orientation"),
-                "available": await _media_is_available(media),
-            })
-        c["media_info"] = info
-        c["media_available"] = all(i["available"] for i in info) if info else False
-    return serialize_doc(campaigns)
 
-@api_router.put("/admin/campaigns/{campaign_id}/approve")
-async def admin_approve(campaign_id: str, admin: dict = Depends(require_admin)):
-    campaign = await db.campaigns.find_one({"id": campaign_id})
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    if campaign["status"] != "pending":
-        raise HTTPException(status_code=400, detail="Only pending campaigns can be approved")
-    new_status = "approved"
-    try:
-        start = datetime.strptime(campaign.get("schedule", {}).get("start_date", ""), "%Y-%m-%d")
-        if start.date() <= datetime.utcnow().date():
-            new_status = "active"
-    except Exception:
-        pass
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {"$set": {"status": new_status, "admin_notes": f"Approved by {admin['name']}",
-                  "updated_at": datetime.utcnow()}}
-    )
-    await bump_playlist_version(campaign.get("screen_id"), reason=f"campaign {new_status}")
-    return {"message": f"Campaign {new_status}"}
 
-@api_router.put("/admin/campaigns/{campaign_id}/reject")
-async def admin_reject(campaign_id: str, notes: Optional[str] = None, admin: dict = Depends(require_admin)):
-    campaign = await db.campaigns.find_one({"id": campaign_id})
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    was_playable = campaign.get("status") in PLAYABLE_STATUSES
-    await db.campaigns.update_one(
-        {"id": campaign_id},
-        {"$set": {"status": "rejected",
-                  "admin_notes": notes or f"Rejected by {admin['name']}",
-                  "updated_at": datetime.utcnow()}}
-    )
-    if was_playable:
-        await bump_playlist_version(campaign.get("screen_id"), reason="campaign rejected")
-    return {"message": "Campaign rejected"}
 
 def gen_location_code():
     """Generate permanent location code: MV-XXXX (letters + numbers)"""
@@ -1744,82 +1637,9 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
 
 # ── FASE 1: Self-Service customer can list their own org's screens ────────────
 
-@api_router.get("/admin/payments")
-async def admin_list_payments(admin: dict = Depends(require_admin)):
-    """List ALL payments (admin view)."""
-    payments = await db.payments.find({}).sort("created_at", -1).to_list(500)
-    enriched = []
-    for p in payments:
-        campaign = await db.campaigns.find_one({"id": p.get("campaign_id")})
-        user = await db.users.find_one({"id": p.get("user_id")}, {"password_hash": 0})
-        if campaign:
-            screen = await db.screens.find_one({"id": campaign.get("screen_id")})
-            p["campaign_name"] = campaign.get("name", "")
-            p["screen_name"] = screen.get("name", "") if screen else ""
-        p["user_name"] = user.get("name", "") if user else ""
-        enriched.append(p)
-    return serialize_doc(enriched)
 
 # ============ ROUTES: PLAYER API ============
 
-@api_router.post("/admin/campaigns/repair")
-async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
-    """MAINTENANCE: normalise every campaign's schedule (empty '' -> None)
-    and prune media_ids that reference deleted media. Campaigns that end
-    up without any media are FLAGGED with needs_attention=True instead of
-    being silently emptied — the admin dashboard should surface them.
-    """
-    report = {"total": 0, "date_normalised": 0, "media_pruned": 0,
-              "flagged_needs_attention": 0, "details": []}
-    campaigns = await db.campaigns.find({}).to_list(2000)
-    report["total"] = len(campaigns)
-
-    for c in campaigns:
-        cid = c.get("id")
-        sched_before = c.get("schedule", {}) or {}
-        sched = normalise_schedule(sched_before)
-        updates = {}
-        changes = []
-
-        if sched != sched_before:
-            updates["schedule"] = sched
-            report["date_normalised"] += 1
-            if sched.get("start_date") != sched_before.get("start_date"):
-                changes.append(f"start_date {sched_before.get('start_date')!r} -> {sched.get('start_date')!r}")
-            if sched.get("end_date") != sched_before.get("end_date"):
-                changes.append(f"end_date {sched_before.get('end_date')!r} -> {sched.get('end_date')!r}")
-
-        mids = c.get("media_ids", []) or []
-        clean_mids = []
-        removed = []
-        for mid in mids:
-            if await db.media.find_one({"id": mid}, {"_id": 1}):
-                clean_mids.append(mid)
-            else:
-                removed.append(mid)
-        if removed:
-            updates["media_ids"] = clean_mids
-            report["media_pruned"] += len(removed)
-            changes.append(f"removed {len(removed)} missing media id(s)")
-
-        # Flag campaigns that end up with no valid media so an admin can act.
-        needs_flag = (not clean_mids) and c.get("status") in PLAYABLE_STATUSES
-        if needs_flag and not c.get("needs_attention"):
-            updates["needs_attention"] = True
-            report["flagged_needs_attention"] += 1
-            changes.append("flagged needs_attention=true (no valid media)")
-
-        if updates:
-            updates["updated_at"] = datetime.utcnow()
-            await db.campaigns.update_one({"id": cid}, {"$set": updates})
-            await bump_playlist_version(c.get("screen_id"), reason="repair")
-            report["details"].append({
-                "campaign_id": cid,
-                "name": c.get("name"),
-                "changes": changes,
-            })
-
-    return report
 
 
 
@@ -1888,53 +1708,11 @@ APP_VERSION = "1.1.0"
 
 # ============ WIDGETS / INTEGRATIONS ============
 
-WIDGET_TYPES = ["weather", "clock", "ticker", "qrcode", "countdown", "slides", "youtube", "webpage", "menu", "calendar"]
 
-class WidgetCreate(BaseModel):
-    screen_id: str
-    widget_type: str
-    name: str
-    config: dict = {}
-    duration: int = 30
-    enabled: bool = True
 
-@api_router.post("/admin/widgets")
-async def create_widget(data: WidgetCreate, admin: dict = Depends(require_admin)):
-    if data.widget_type not in WIDGET_TYPES:
-        raise HTTPException(status_code=400, detail=f"Type must be: {', '.join(WIDGET_TYPES)}")
-    widget = {
-        "id": gen_id(), "screen_id": data.screen_id, "widget_type": data.widget_type,
-        "name": data.name, "config": data.config, "duration": data.duration,
-        "enabled": data.enabled, "created_at": datetime.utcnow()
-    }
-    await db.widgets.insert_one(widget)
-    return serialize_doc(widget)
 
-@api_router.get("/admin/widgets")
-async def list_widgets(screen_id: Optional[str] = None, admin: dict = Depends(require_admin)):
-    query = {"screen_id": screen_id} if screen_id else {}
-    widgets = await db.widgets.find(query).sort("created_at", -1).to_list(100)
-    return serialize_doc(widgets)
 
-@api_router.delete("/admin/widgets/{widget_id}")
-async def delete_widget(widget_id: str, admin: dict = Depends(require_admin)):
-    w = await db.widgets.find_one({"id": widget_id})
-    await db.widgets.delete_one({"id": widget_id})
-    # Force reload on devices showing this widget
-    if w and w.get("screen_id"):
-        await db.devices.update_many({"screen_id": w["screen_id"], "status": "active"}, {"$set": {"pending_command": "reload"}})
-    return {"message": "Widget deleted"}
 
-@api_router.put("/admin/widgets/{widget_id}/toggle")
-async def toggle_widget(widget_id: str, admin: dict = Depends(require_admin)):
-    w = await db.widgets.find_one({"id": widget_id})
-    if not w: raise HTTPException(status_code=404, detail="Widget not found")
-    new_state = not w.get("enabled", True)
-    await db.widgets.update_one({"id": widget_id}, {"$set": {"enabled": new_state}})
-    # Force reload on devices
-    if w.get("screen_id"):
-        await db.devices.update_many({"screen_id": w["screen_id"], "status": "active"}, {"$set": {"pending_command": "reload"}})
-    return {"message": f"Widget {'enabled' if new_state else 'disabled'}"}
 
 # ══════════════════════════════════════════════════════════════════════════════
 # SEC-001 / SEC-003 — HTML / URL / CSS / JS rendering safety helpers
@@ -2153,17 +1931,6 @@ async def get_app_version():
         "release_notes": "Nightly reboot, content pre-caching, proof of play, remote commands"
     }
 
-@api_router.delete("/admin/campaigns/{campaign_id}/media/{media_id}")
-async def admin_remove_media_from_campaign(campaign_id: str, media_id: str, admin: dict = Depends(require_admin)):
-    """Remove a specific media from a campaign's playlist."""
-    campaign = await db.campaigns.find_one({"id": campaign_id})
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    media_ids = campaign.get("media_ids", [])
-    if media_id in media_ids:
-        media_ids.remove(media_id)
-        await db.campaigns.update_one({"id": campaign_id}, {"$set": {"media_ids": media_ids}})
-    return {"message": "Media removed from campaign"}
 
 
 # ============ ROUTES: USER ANALYTICS ============
@@ -3075,6 +2842,7 @@ from screens_routes import create_screens_routes
 from playlists_routes import create_playlists_routes
 from player_routes import create_player_domain_routes
 from admin_devices_routes import create_admin_devices_routes
+from admin_campaigns_routes import create_admin_campaigns_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -3112,6 +2880,11 @@ app.include_router(create_player_domain_routes(
 app.include_router(create_admin_devices_routes(
     gen_id, serialize_doc, gen_activation_code,
 ))
+# -- Fase 2B-6b: /admin/campaigns/*, /admin/widgets/*, /admin/payments,
+# /admin/campaign-scheduler/* (see docs/FASE2B6_MAPA_RUTAS_ADMIN.md) --
+app.include_router(create_admin_campaigns_routes(
+    gen_id, serialize_doc, MEDIA_DIR,
+))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
@@ -3119,47 +2892,8 @@ app.include_router(create_workspace_routes(db, get_current_user, require_admin, 
 app.include_router(create_signup_routes(db, create_token))
 
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────
-from campaign_scheduler import run_campaign_scheduler, get_campaign_scheduler
 
-@api_router.get("/admin/campaign-scheduler/status")
-async def campaign_scheduler_status(admin: dict = Depends(require_admin)):
-    """Estado y estadísticas del Campaign Scheduler."""
-    sched = get_campaign_scheduler()
-    pending = await db.ad_campaigns.count_documents({"status": "PENDING_REVIEW"})
-    approved = await db.ad_campaigns.count_documents({"status": "APPROVED"})
-    scheduled = await db.ad_campaigns.count_documents({"status": "SCHEDULED"})
-    active = await db.ad_campaigns.count_documents({"status": "ACTIVE"})
-    completed = await db.ad_campaigns.count_documents({"status": "COMPLETED"})
-    last_transitions = await db.campaign_transitions.find().sort("transition_time", -1).to_list(10)
-    return {
-        "scheduler_running": sched.running if sched else False,
-        "counts": {
-            "PENDING_REVIEW": pending,
-            "APPROVED": approved,
-            "SCHEDULED": scheduled,
-            "ACTIVE": active,
-            "COMPLETED": completed,
-        },
-        "last_transitions": [
-            {
-                "campaign_id": t.get("campaign_id"),
-                "old_status": t.get("old_status"),
-                "new_status": t.get("new_status"),
-                "transition_time": t.get("transition_time").isoformat() if isinstance(t.get("transition_time"), datetime) else str(t.get("transition_time")),
-                "reason": t.get("reason"),
-            }
-            for t in last_transitions
-        ],
-    }
 
-@api_router.post("/admin/campaign-scheduler/run-now")
-async def campaign_scheduler_run_now(admin: dict = Depends(require_admin)):
-    """Fuerza una ejecución inmediata del scheduler (útil para testing)."""
-    result = await run_campaign_scheduler(db)
-    return {
-        "message": f"Scheduler executed: {result['total']} transition(s)",
-        "result": result,
-    }
 
 @api_router.get("/public/playlist")
 async def serve_public_playlist_editor():

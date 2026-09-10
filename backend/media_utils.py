@@ -43,6 +43,21 @@ def _norm_date(v):
     return v
 
 
+def normalise_schedule(sched: dict) -> dict:
+    """Force start_date/end_date to be None instead of empty string, so we
+    never end up with '' > today comparisons again. Also defaults times."""
+    out = dict(sched or {})
+    out["start_date"] = _norm_date(out.get("start_date"))
+    out["end_date"] = _norm_date(out.get("end_date"))
+    out["start_time"] = out.get("start_time") or "00:00"
+    out["end_time"] = out.get("end_time") or "23:59"
+    if "slot_duration" not in out:
+        out["slot_duration"] = 15
+    if "frequency" not in out:
+        out["frequency"] = 5
+    return out
+
+
 def media_orientation(width: Optional[int], height: Optional[int]) -> Optional[str]:
     """portrait | landscape | square — None when the size is unknown."""
     if not width or not height:
