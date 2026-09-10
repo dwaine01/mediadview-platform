@@ -120,3 +120,22 @@ class MediaUpload(BaseModel):
     # images with PIL). Used to match the file against the screen orientation.
     width: Optional[int] = None
     height: Optional[int] = None
+
+
+# _public_screen_view: moved from server.py (Fase 2C-1, see
+# public_api_routes.py) -- shared with server.py's _customer_screen_view,
+# which stays there until the /customer/* phase.
+def _public_screen_view(screen: dict) -> dict:
+    """Strip sensitive fields — safe for unauthenticated visitors.
+    Includes photo (so the catalog is visual) but hides price and internals."""
+    adv = screen.get("advertising") or {}
+    return {
+        "id": screen.get("id"),
+        "name": screen.get("name"),
+        "description": screen.get("description"),
+        "location": screen.get("location"),
+        "pairing_code": screen.get("pairing_code"),
+        "photo_base64": adv.get("photo_base64"),
+        "is_public": adv.get("is_public", True),
+        "status": screen.get("status", "active"),
+    }

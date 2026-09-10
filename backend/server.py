@@ -657,20 +657,9 @@ async def update_profile(data: ProfileUpdate, current_user: dict = Depends(get_c
 # Applied on top of (num_ads × months × price_per_ad_per_month).
 PUBLIC_DISCOUNT_SCALE = {1: 0.00, 3: 0.10, 6: 0.20, 12: 0.30}
 
-def _public_screen_view(screen: dict) -> dict:
-    """Strip sensitive fields — safe for unauthenticated visitors.
-    Includes photo (so the catalog is visual) but hides price and internals."""
-    adv = screen.get("advertising") or {}
-    return {
-        "id": screen.get("id"),
-        "name": screen.get("name"),
-        "description": screen.get("description"),
-        "location": screen.get("location"),
-        "pairing_code": screen.get("pairing_code"),
-        "photo_base64": adv.get("photo_base64"),
-        "is_public": adv.get("is_public", True),
-        "status": screen.get("status", "active"),
-    }
+# _public_screen_view moved to media_utils.py (Fase 2C-1: /public/*
+# client API) -- _customer_screen_view below still needs it.
+from media_utils import _public_screen_view
 
 def _customer_screen_view(screen: dict) -> dict:
     """Same as public but includes price_per_ad_per_month for authenticated customers."""
@@ -689,36 +678,8 @@ def _apply_discount(months: int) -> float:
             disc = PUBLIC_DISCOUNT_SCALE[t]
     return disc
 
-@api_router.get("/public/screens")
-async def public_screens(city: Optional[str] = None):
-    """Public screen catalog for the transient QR-scanning customer.
-    No auth, no prices, only marketing-safe fields."""
-    query: dict = {"status": "active", "advertising.is_public": {"$ne": False}}
-    if city:
-        query["location.city"] = {"$regex": city, "$options": "i"}
-    screens = await db.screens.find(query).to_list(200)
-    return [_public_screen_view(s) for s in screens]
 
-@api_router.get("/public/screens/by-code/{code}")
-async def public_screen_by_code(code: str):
-    """Look up a screen by its short pairing code (printed under the QR).
-    Case-insensitive so 'mv-kd6k-twtu' == 'MV-KD6K-TWTU'."""
-    screen = await db.screens.find_one({"pairing_code": {"$regex": f"^{code}$", "$options": "i"}})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen code not found")
-    if (screen.get("advertising") or {}).get("is_public") is False:
-        raise HTTPException(status_code=404, detail="Screen not available for public advertising")
-    return _public_screen_view(screen)
 
-@api_router.get("/public/screens/{screen_id}")
-async def public_screen_detail(screen_id: str):
-    """Single-screen public detail (used by the QR landing to resolve a scan by ID)."""
-    screen = await db.screens.find_one({"id": screen_id})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    if (screen.get("advertising") or {}).get("is_public") is False:
-        raise HTTPException(status_code=404, detail="Screen not available for public advertising")
-    return _public_screen_view(screen)
 
 @api_router.get("/customer/screens")
 async def customer_screens(city: Optional[str] = None, current_user: dict = Depends(get_current_user)):
@@ -2152,17 +2113,6 @@ async def _bump_playlist_screens(screen_ids: list[str], reason: str) -> None:
 # were the menu routes that moved there too.
 
 
-from media_utils import _public_token_hash
-
-
-async def _public_playlist(token: str) -> dict:
-    playlist = await db.playlists.find_one({"public_access.token_hash": _public_token_hash(token)}, {"_id": 0})
-    if not playlist or not playlist.get("public_access", {}).get("enabled"):
-        raise HTTPException(404, "Public playlist link not found")
-    expires_at = playlist.get("public_access", {}).get("expires_at")
-    if expires_at and expires_at < datetime.utcnow():
-        raise HTTPException(410, "Public playlist link expired")
-    return playlist
 
 
 
@@ -2187,64 +2137,14 @@ async def _public_playlist(token: str) -> dict:
 
 
 
-@api_router.get("/public/playlists/{token}")
-async def get_public_playlist(token: str):
-    playlist = await _public_playlist(token)
-    return {"id": playlist["id"], "name": playlist["name"], "description": playlist.get("description"),
-            "items": playlist.get("items", []), "pending_count": len(playlist.get("pending_items", [])),
-            "access": {key: value for key, value in playlist.get("public_access", {}).items()
-                       if key not in ("token_hash", "created_by_user_id")}}
 
 
-@api_router.get("/public/playlists/{token}/qr")
-async def public_playlist_qr(token: str, request: Request):
-    await _public_playlist(token)
-    import io
-    import qrcode
-    url = f"{str(request.base_url).rstrip('/')}/api/public/playlist?token={token}"
-    image = qrcode.make(url)
-    buffer = io.BytesIO(); image.save(buffer, format="PNG")
-    return Response(buffer.getvalue(), media_type="image/png", headers={"Cache-Control": "no-store"})
 
 
-@api_router.post("/public/playlists/{token}/media")
-@_rl.limit(_LIMITS.media_upload)
-async def public_playlist_media(token: str, request: Request, response: Response, data: MediaUpload):
-    playlist = await _public_playlist(token)
-    access = playlist.get("public_access", {})
-    if not access.get("allow_upload"):
-        raise HTTPException(403, "Uploads are disabled for this link")
-    owner = await db.users.find_one({"id": playlist.get("client_user_id") or playlist.get("owner_user_id")}, {"_id": 0})
-    if not owner:
-        raise HTTPException(409, "Playlist owner account is unavailable")
-    uploaded = await upload_media(request=request, response=response, data=data, current_user=owner)
-    item = normalize_playlist_items([{
-        "type": "media", "ref_id": uploaded["id"], "title": uploaded["filename"], "duration": 15,
-    }])[0]
-    if access.get("require_approval", True):
-        item.update({"submitted_at": datetime.utcnow(), "submission_status": "pending"})
-        await db.playlists.update_one({"id": playlist["id"]}, {"$push": {"pending_items": item}})
-        return {"message": "Content submitted for approval", "status": "pending", "item": serialize_doc(item)}
-    item["order"] = len(playlist.get("items") or [])
-    await db.playlists.update_one({"id": playlist["id"]}, {
-        "$push": {"items": item}, "$inc": {"version": 1}, "$set": {"updated_at": datetime.utcnow()},
-    })
-    await _bump_playlist_screens(playlist.get("screen_ids", []), "public playlist upload")
-    return {"message": "Content published", "status": "published", "item": item}
 
 
-@api_router.delete("/public/playlists/{token}/items/{item_id}")
-async def public_remove_playlist_item(token: str, item_id: str):
-    playlist = await _public_playlist(token)
-    if playlist.get("public_access", {}).get("permission") != "editor":
-        raise HTTPException(403, "This link can upload but cannot remove content")
-    if not any(item.get("id") == item_id for item in playlist.get("items", [])):
-        raise HTTPException(404, "Playlist item not found")
-    await db.playlists.update_one({"id": playlist["id"]}, {
-        "$pull": {"items": {"id": item_id}}, "$inc": {"version": 1}, "$set": {"updated_at": datetime.utcnow()},
-    })
-    await _bump_playlist_screens(playlist.get("screen_ids", []), "public playlist item removed")
-    return {"message": "Content removed"}
+
+
 
 
 
@@ -2326,6 +2226,7 @@ from admin_devices_routes import create_admin_devices_routes
 from admin_campaigns_routes import create_admin_campaigns_routes
 from superadmin_routes import create_superadmin_routes
 from campaigns_routes import create_campaigns_routes
+from public_api_routes import create_public_api_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -2380,6 +2281,12 @@ app.include_router(create_superadmin_routes(
 app.include_router(create_campaigns_routes(
     gen_id, serialize_doc, CampaignSchedule, calculate_campaign_price, screen_orientation,
 ))
+# -- Fase 2C-1: /public/* client API -- the 8 unauthenticated routes
+# (see docs/REFACTOR_FASE2_PLAN.md and docs/AGENT_COORDINATION.md) left
+# pending since Fase 2B-4 --
+app.include_router(create_public_api_routes(
+    upload_media, serialize_doc, WEB_DIR, _bump_playlist_screens,
+))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
@@ -2390,9 +2297,6 @@ app.include_router(create_signup_routes(db, create_token))
 
 
 
-@api_router.get("/public/playlist")
-async def serve_public_playlist_editor():
-    return FileResponse(os.path.join(WEB_DIR, 'public-playlist.html'), media_type='text/html')
 
 @api_router.get("/download")
 async def serve_download():
