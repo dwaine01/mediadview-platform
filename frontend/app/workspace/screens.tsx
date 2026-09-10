@@ -6,10 +6,11 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { workspaceAPI } from '../../src/services/api';
+import { formatScreenLocation, type ScreenLocation } from '../../src/utils/screenLocation';
 
 type Screen = {
   id: string; name: string; status: string; code?: string;
-  location?: string; active_menu_id?: string; created_at?: string;
+  location?: ScreenLocation; active_menu_id?: string; created_at?: string;
   specs?: { orientation?: string };
 };
 
@@ -162,7 +163,7 @@ export default function WorkspaceScreens() {
             <View style={ss.cardBody}>
               <Text style={ss.cardName}>{s.name}</Text>
               <Text style={ss.cardMeta}>
-                {s.code ? `Código: ${s.code}` : ''}{s.location ? ` · ${s.location}` : ''}
+                {s.code ? `Código: ${s.code}` : ''}{formatScreenLocation(s.location) ? ` · ${formatScreenLocation(s.location)}` : ''}
                 {s.active_menu_id ? ' · Menú publicado' : ''}
               </Text>
               <TouchableOpacity

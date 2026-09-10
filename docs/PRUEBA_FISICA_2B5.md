@@ -18,6 +18,23 @@ que antes con el APK real v3.4.0. Sin esta prueba **no se fusiona a `trunk`**.
 | **Secret Key** | `grrOutxlstOdN-eThS5yycuQ` |
 | Contenido asignado | Playlist «Menú del día» → 2 ítems: el widget **Menú Principal** (20 s) y la imagen **Margherita-ia.jpg** (10 s) |
 
+### Panel del comercio (para armar el menú de verdad)
+
+| Campo | Valor |
+|---|---|
+| Panel | `https://sprint1-signage.preview.emergentagent.com/account/login` → entra a `/workspace` |
+| Usuario | `pizzeria@demo.com` / `Pizza1234!` |
+| Organización | **Pizzería Don Luis** |
+| Plan | **Enterprise · suscripción `active`** (50 pantallas incluidas, `screens_limit` = ilimitado, todas las funciones premium) |
+| Pantallas de la org | Mostrador, Sala, Vitrina y **PRUEBA 2B-5 TV Box** (la de la caja) |
+| Menú | «Menú Principal», 8 productos, publicado en las 4 pantallas |
+
+La pantalla de la caja pertenece a esa organización, así que todo lo que duarte haga en
+**Menús → Menú Principal** (precios, fotos, agotados, categorías) y en **Promo** cae sobre la
+misma pantalla que está reproduciendo la TV box. El player hace un `syncNow` cada **15 s** y
+además escucha SSE, y el widget del menú se sirve con `Cache-Control: no-store`, así que un
+cambio de precio se ve en la caja en la vuelta siguiente del loop sin tocar nada más.
+
 Ese entorno ya corre el código de la 2B-5. Verificado por mí antes de mandarte esto: las 7 rutas
 `/devices/*` responden 200 sobre esa URL, la playlist entrega los 2 ítems, la imagen baja completa
 (731 094 bytes), el render del menú devuelve 10 758 bytes y el SSE de la pantalla conecta.
@@ -72,6 +89,21 @@ Apretá **I** (o MENU × 5 → PIN) para abrir el panel de diagnóstico y confir
 - [ ] `screen_id` = `eb38ab1b-b4d0-4cce-b472-99fbaedb14fd`.
 - [ ] Heartbeat en verde, contador subiendo (cada ~30 s).
 - [ ] Sin errores rojos de red ni `HTTP 4xx/5xx`.
+
+## 3 bis. Armar un menú de verdad desde el panel (lo que pidió duarte)
+
+Con la caja ya reproduciendo, entrá al panel con `pizzeria@demo.com` / `Pizza1234!`:
+
+- [ ] **Menús → Menú Principal**: cambiá un precio (ej. Margherita) y guardá. En ≤ 15 s la caja
+      tiene que mostrar el precio nuevo.
+- [ ] Marcá un producto como **agotado** y confirmá que desaparece/aparece tachado en la caja.
+- [ ] **Crear Menú** desde cero, agregale 2-3 productos y **publicalo en PRUEBA 2B-5 TV Box**;
+      la caja tiene que empezar a mostrarlo.
+- [ ] **Promo**: lanzá una promo instantánea y verificá que entra en la caja.
+- [ ] **Contenido**: subí una imagen o video propio y sumalo a la playlist de esa pantalla.
+- [ ] **Pantallas**: cambiá la orientación de PRUEBA 2B-5 TV Box a vertical y confirmá que la
+      caja rota (esto bumpea `playlist_version`, así que también valida
+      `GET /api/player/{id}/version`).
 
 ## 4. Segunda vuelta: el flujo de código de activación
 
