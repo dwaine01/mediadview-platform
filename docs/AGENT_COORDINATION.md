@@ -64,6 +64,50 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-10: `/payments*`, `/widgets/*`, `/certification/*`
+- Rama: `trunk`, base `b964413` (`production` sin tocar).
+- Archivos: `backend/payments_routes.py` (nuevo, 102 líneas), `backend/widgets_routes.py`
+  (nuevo, 251), `backend/certification_routes.py` (nuevo, 78), `backend/server.py`
+  (**2501 → 2243 líneas**; acumulado 7106 → 2243, **−68,4 %**),
+  `backend/public_api_routes.py` (4 líneas de docstring resangradas, cosmético).
+- Qué se movió: las **7 rutas** del paquete «varios» — 3 `/payments*`
+  (`create_payment`/`list_payments`/`get_payment` + modelo `PaymentCreate`), 2
+  `/widgets/{id}/render|weather` (+ `_safe_iframe`, `_safe_css_color`, `_safe_js_str`,
+  `_safe_yt_id`, `_weather_cache`, `_WEATHER_CACHE_TTL_S`) y 2 `/certification/*`
+  (+ modelo `CertificationResult`). Un factory por dominio, **tres archivos separados**, no un
+  cajón de sastre. Se threadean `gen_id`, `gen_invoice`, `serialize_doc` y `_esc` (siguen en
+  `server.py` porque los comparte código que no se mueve). `widgets_routes.py` usa su propio
+  `logging.getLogger(__name__)` en lugar de recibir el `logger` de `server.py`.
+- 📌 **Cambio de alcance (decisión de Claude)**: las 2 `/screen*` (`serve_screen_public`,
+  `serve_screen_public_legacy`) **NO se extraen**: son `FileResponse(WEB_DIR/....html)` de una
+  línea, estructuralmente idénticas a las ~20 páginas estáticas/SPA que ya se decidió (tres
+  veces) dejar en `server.py` para siempre. Reclasificadas a ese bucket.
+- Limpieza cosmética empaquetada en el mismo script (riesgo cero, no toca CI):
+  `typing.List` muerto en `server.py` desde 2B-9 → fuera; `import json` muerto con esta fase
+  (su único llamador, `_safe_js_str`, se mudó) → fuera; y las 4 líneas de docstring mal
+  resangradas de `public_api_routes.py` (defecto de `reindent()`, líneas 89-90 y 99-100).
+- Verificación:
+  1. Los 13 asserts de sanidad del script pasaron; round-trip byte a byte de las 7 rutas OK.
+  2. `verify_relocation.py` con snapshot del `server.py` previo: **12/13 idénticas byte a
+     byte**. La única distinta, `widget_weather_proxy`, con diff unificado que muestra
+     exactamente los 2 fixes documentados (3 líneas de docstring resangradas + 1 línea en
+     blanco entre `import time` e `import httpx`) y nada más.
+  3. `py_compile` OK en los 5 archivos. `flake8 --select=F`: **0 F821/E999** en los 3 nuevos;
+     en `server.py` sólo los F401/F811/F841 preexistentes. `ruff check backend`:
+     **All checks passed**.
+  4. Conteo de rutas por AST: `api_router` en `server.py` **34 → 27 (−7)**, +7 en los 3
+     archivos nuevos (3+2+2).
+  5. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`,
+     idéntico al de 2B-9).
+  6. Suite completa: **22 failed + 20 errors = los mismos 42 fallos de la línea base**, 0
+     regresiones (491 passed, 35 skipped).
+  7. Prueba en vivo tras reiniciar el backend: `/api/widgets/{id}/render` y
+     `/api/widgets/{id}/weather` → 404 de dominio con id inexistente,
+     `/api/certification/results` → 200, `/api/payments` sin token → 401, `/api/health` → 200.
+- Riesgo para el otro agente: ninguno en `android-player/**` ni en `backend/web/**`.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-9: `/customer/*`
 - Rama: `trunk` (commit `f103359`), base `92127f7`. `production` sin tocar.
 - Archivos: `backend/customer_routes.py` (nuevo, 254 líneas), `backend/server.py`

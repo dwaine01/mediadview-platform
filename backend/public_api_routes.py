@@ -87,7 +87,7 @@ def create_public_api_routes(upload_media, serialize_doc, web_dir, _bump_playlis
     @router.get("/public/screens")
     async def public_screens(city: Optional[str] = None):
         """Public screen catalog for the transient QR-scanning customer.
-    No auth, no prices, only marketing-safe fields."""
+        No auth, no prices, only marketing-safe fields."""
         query: dict = {"status": "active", "advertising.is_public": {"$ne": False}}
         if city:
             query["location.city"] = {"$regex": city, "$options": "i"}
@@ -97,7 +97,7 @@ def create_public_api_routes(upload_media, serialize_doc, web_dir, _bump_playlis
     @router.get("/public/screens/by-code/{code}")
     async def public_screen_by_code(code: str):
         """Look up a screen by its short pairing code (printed under the QR).
-    Case-insensitive so 'mv-kd6k-twtu' == 'MV-KD6K-TWTU'."""
+        Case-insensitive so 'mv-kd6k-twtu' == 'MV-KD6K-TWTU'."""
         screen = await db.screens.find_one({"pairing_code": {"$regex": f"^{code}$", "$options": "i"}})
         if not screen:
             raise HTTPException(status_code=404, detail="Screen code not found")

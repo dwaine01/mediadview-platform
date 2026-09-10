@@ -22,14 +22,13 @@ import asyncio
 import base64
 import hashlib
 import html as html_lib
-import json
 import logging
 import os
 import re
 import secrets
 import uuid
 from datetime import datetime, timedelta
-from typing import List, Optional
+from typing import Optional
 
 import bcrypt
 import jwt
@@ -174,10 +173,7 @@ from media_utils import MediaUpload
 
 
 
-class PaymentCreate(BaseModel):
-    campaign_id: str
-    method: str = "card"
-    card_last4: Optional[str] = None
+# PaymentCreate moved to payments_routes.py (Fase 2B-10a).
 
 # Device / Player Models
 
@@ -767,56 +763,10 @@ async def report_client_error(data: ClientErrorReport, request: Request):
 
 # ============ ROUTES: PAYMENTS (MOCKED - Stripe-ready) ============
 
-@api_router.post("/payments")
-@_rl.limit(_LIMITS.payment_create)
-async def create_payment(request: Request, response: Response, data: PaymentCreate, current_user: dict = Depends(get_current_user)):
-    campaign = await db.campaigns.find_one({"id": data.campaign_id, "user_id": current_user["id"]})
-    if not campaign:
-        raise HTTPException(status_code=404, detail="Campaign not found")
-    existing = await db.payments.find_one({"campaign_id": data.campaign_id, "status": "completed"})
-    if existing:
-        raise HTTPException(status_code=400, detail="Payment already exists")
-    pricing = campaign.get("pricing", {})
-    payment = {
-        "id": gen_id(), "user_id": current_user["id"],
-        "campaign_id": data.campaign_id,
-        "amount": pricing.get("total", 0),
-        "subtotal": pricing.get("subtotal", 0),
-        "tax": pricing.get("tax", 0),
-        "currency": pricing.get("currency", "USD"),
-        "status": "completed",
-        "method": data.method,
-        "card_last4": data.card_last4 or "4242",
-        "stripe_payment_id": f"mock_pi_{uuid.uuid4().hex[:16]}",
-        "invoice_number": gen_invoice(),
-        "created_at": datetime.utcnow()
-    }
-    await db.payments.insert_one(payment)
-    await db.campaigns.update_one(
-        {"id": data.campaign_id},
-        {"$set": {"payment_id": payment["id"], "status": "pending", "updated_at": datetime.utcnow()}}
-    )
-    return serialize_doc(payment)
+# create_payment, list_payments, get_payment moved to
+# payments_routes.py (Fase 2B-10a).
 
-@api_router.get("/payments")
-async def list_payments(current_user: dict = Depends(get_current_user)):
-    payments = await db.payments.find({"user_id": current_user["id"]}).sort("created_at", -1).to_list(100)
-    enriched = []
-    for p in payments:
-        campaign = await db.campaigns.find_one({"id": p.get("campaign_id")})
-        if campaign:
-            screen = await db.screens.find_one({"id": campaign.get("screen_id")})
-            p["campaign_name"] = campaign.get("name", "")
-            p["screen_name"] = screen.get("name", "") if screen else ""
-        enriched.append(p)
-    return serialize_doc(enriched)
 
-@api_router.get("/payments/{payment_id}")
-async def get_payment(payment_id: str, current_user: dict = Depends(get_current_user)):
-    payment = await db.payments.find_one({"id": payment_id, "user_id": current_user["id"]})
-    if not payment:
-        raise HTTPException(status_code=404, detail="Payment not found")
-    return serialize_doc(payment)
 
 # ============ ROUTES: SUPER ADMIN ============
 
@@ -1010,199 +960,18 @@ def _esc(v) -> str:
 # working for tests/test_workspace_iter31_extra.py.
 from menus_routes import _safe_src
 
-def _safe_iframe(v: str) -> str:
-    """Only https:// or http:// allowed for iframe src — never javascript:, data:."""
-    s = str(v or "").strip()
-    if s.lower().startswith("https://") or s.lower().startswith("http://"):
-        return html_lib.escape(s, quote=True)
-    return "about:blank"
-
-def _safe_css_color(v: str, default: str = "#000000") -> str:
-    """Accept only CSS hex colours (#RGB, #RRGGBB, #RRGGBBAA). Rejects anything else."""
-    s = str(v or "").strip()
-    if re.fullmatch(r"#[0-9a-fA-F]{3}(?:[0-9a-fA-F]{3}(?:[0-9a-fA-F]{2})?)?", s):
-        return s
-    return default
-
-def _safe_js_str(v) -> str:
-    """Return a JSON-encoded string literal safe for JS string context (includes quotes).
-    Use when the value goes directly into a <script> block as a quoted string."""
-    return json.dumps(str(v or ""))
-
-def _safe_yt_id(v: str) -> str:
-    """Validate a YouTube video ID (alphanumeric, underscore, hyphen; 1-20 chars)."""
-    s = str(v or "")
-    return s if re.fullmatch(r"[a-zA-Z0-9_\-]{1,20}", s) else ""
-
-# ── In-memory weather cache (SEC-003: API key never exposed to clients) ───────
-_weather_cache: dict = {}   # widget_id -> {"data": {...}, "ts": float}
-_WEATHER_CACHE_TTL_S = 600  # 10 minutes
+# _safe_iframe, _safe_css_color, _safe_js_str, _safe_yt_id,
+# _weather_cache, _WEATHER_CACHE_TTL_S, render_widget and
+# widget_weather_proxy moved to widgets_routes.py (Fase 2B-10b).
+# _esc stays here (threaded into create_menus_routes too).
 
 
-@api_router.get("/widgets/{widget_id}/render", response_class=HTMLResponse)
-async def render_widget(widget_id: str):
-    """Render widget as full HTML page for player display."""
-    w = await db.widgets.find_one({"id": widget_id})
-    if not w: raise HTTPException(status_code=404, detail="Widget not found")
-    cfg = w.get("config", {})
-    wt = w.get("widget_type")
-
-    base_style = "body{margin:0;font-family:'Inter',Arial,sans-serif;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;overflow:hidden}"
-
-    if wt == "weather":
-        # SEC-003 FIX: city is HTML-escaped; API key NEVER emitted to client.
-        # The widget fetches weather from our server-side proxy endpoint.
-        city_raw = cfg.get("city", "New York")
-        city_escaped = _esc(city_raw)
-        proxy_url = f"/api/widgets/{html_lib.escape(widget_id, quote=True)}/weather"
-        html = f"""<html><head><style>{base_style}.w{{text-align:center}}.temp{{font-size:120px;font-weight:900}}.city{{font-size:28px;color:#94a3b8}}.desc{{font-size:22px;color:#22d3ee;margin-top:8px}}</style></head><body><div class="w"><div class="city">{city_escaped}</div><div class="temp" id="temp">--°</div><div class="desc" id="desc">Loading...</div></div><script>
-        fetch({_safe_js_str(proxy_url)})
-        .then(function(r){{return r.json()}})
-        .then(function(d){{if(d.temp!==undefined){{document.getElementById('temp').textContent=Math.round(d.temp)+'°F';document.getElementById('desc').textContent=d.desc||''}}else{{document.getElementById('desc').textContent='Unavailable'}}}})
-        .catch(function(){{document.getElementById('desc').textContent={_safe_js_str(city_raw)}}});
-        </script></body></html>"""
-
-    elif wt == "clock":
-        # SEC-003 FIX: fmt allowed only "12h"/"24h"; bg validated as CSS colour.
-        fmt_raw = cfg.get("format", "12h")
-        fmt = "12h" if fmt_raw not in ("12h", "24h") else fmt_raw
-        bg = _safe_css_color(cfg.get("bg_color", "#000000"), default="#000000")
-        html = f"""<html><head><style>{base_style}body{{background:{bg}}}.c{{text-align:center}}.time{{font-size:140px;font-weight:900;letter-spacing:-4px}}.date{{font-size:32px;color:#64748b;margin-top:8px}}</style></head><body><div class="c"><div class="time" id="t"></div><div class="date" id="d"></div></div><script>
-        function u(){{var n=new Date(),h=n.getHours(),m=String(n.getMinutes()).padStart(2,'0'),ap='';
-        if({_safe_js_str(fmt)}==='12h'){{ap=h>=12?' PM':' AM';h=h%12||12}}
-        document.getElementById('t').textContent=h+':'+m+ap;
-        document.getElementById('d').textContent=n.toLocaleDateString('en-US',{{weekday:'long',month:'long',day:'numeric',year:'numeric'}})}}
-        u();setInterval(u,1000);
-        </script></body></html>"""
-
-    elif wt == "ticker":
-        # SEC-003 FIX: text HTML-escaped; speed coerced to int; bg validated.
-        text = _esc(cfg.get("text", "Welcome to MediAd View Digital Signage Platform"))
-        try:
-            speed = max(10, min(300, int(cfg.get("speed", 80))))
-        except (ValueError, TypeError):
-            speed = 80
-        bg = _safe_css_color(cfg.get("bg_color", "#111827"), default="#111827")
-        html = f"""<html><head><style>body{{margin:0;background:{bg};display:flex;align-items:center;height:100vh;overflow:hidden}}.t{{white-space:nowrap;font-size:48px;font-weight:700;color:#22d3ee;font-family:Arial,sans-serif;animation:scroll {speed}s linear infinite}}@keyframes scroll{{0%{{transform:translateX(100vw)}}100%{{transform:translateX(-100%)}}}}</style></head><body><div class="t">{text}</div></body></html>"""
-
-    elif wt == "qrcode":
-        # SEC-003 FIX: label HTML-escaped; url JSON-encoded for JS string context.
-        url_raw = cfg.get("url", "https://mediadview.com")
-        # Only allow https/http for QR code target
-        url_safe_js = _safe_js_str(url_raw if url_raw.lower().startswith(("https://", "http://")) else "https://mediadview.com")
-        label = _esc(cfg.get("label", "Scan Me"))
-        html = f"""<html><head><script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js"></script><style>{base_style}.q{{text-align:center}}.label{{font-size:28px;color:#22d3ee;margin-top:20px}}</style></head><body><div class="q"><div id="qr"></div><div class="label">{label}</div></div><script>
-        var q=qrcode(0,'M');q.addData({url_safe_js});q.make();
-        document.getElementById('qr').innerHTML=q.createSvgTag(8,0);
-        document.querySelector('svg').style.width='300px';document.querySelector('svg').style.height='300px';
-        </script></body></html>"""
-
-    elif wt == "countdown":
-        # SEC-003 FIX: title HTML-escaped; target date validated + JSON-encoded for JS.
-        title = _esc(cfg.get("title", "Coming Soon"))
-        target_raw = cfg.get("target_date", "2026-12-31T00:00:00")
-        # Validate ISO date format (YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD)
-        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}:\d{2})?", str(target_raw)):
-            target_raw = "2099-12-31T00:00:00"
-        target_js = _safe_js_str(target_raw)
-        html = f"""<html><head><style>{base_style}.c{{text-align:center}}.title{{font-size:36px;color:#22d3ee;margin-bottom:30px}}.nums{{display:flex;gap:20px;justify-content:center}}.n{{background:#111827;padding:20px 30px;border-radius:16px;border:1px solid #1e293b}}.n .v{{font-size:72px;font-weight:900}}.n .l{{font-size:14px;color:#64748b}}</style></head><body><div class="c"><div class="title">{title}</div><div class="nums"><div class="n"><div class="v" id="d">0</div><div class="l">Days</div></div><div class="n"><div class="v" id="h">0</div><div class="l">Hours</div></div><div class="n"><div class="v" id="m">0</div><div class="l">Minutes</div></div><div class="n"><div class="v" id="s">0</div><div class="l">Seconds</div></div></div></div><script>
-        function u(){{var t=new Date({target_js})-new Date();if(t<0)t=0;var d=Math.floor(t/86400000),h=Math.floor(t%86400000/3600000),m=Math.floor(t%3600000/60000),s=Math.floor(t%60000/1000);
-        document.getElementById('d').textContent=d;document.getElementById('h').textContent=h;document.getElementById('m').textContent=m;document.getElementById('s').textContent=s}}u();setInterval(u,1000);
-        </script></body></html>"""
-
-    elif wt == "slides":
-        # SEC-003 FIX: iframe src validated (https/http only).
-        url = _safe_iframe(cfg.get("url", ""))
-        html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}" allowfullscreen></iframe></body></html>"""
-
-    elif wt == "youtube":
-        # SEC-003 FIX: video_id strictly validated (alphanumeric + _ -).
-        video_id = _safe_yt_id(cfg.get("video_id", ""))
-        if video_id:
-            embed_url = f"https://www.youtube.com/embed/{video_id}?autoplay=1&mute=1&loop=1&playlist={video_id}&controls=0"
-            html = f"""<html><head><style>body{{margin:0;background:#000}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{embed_url}" allowfullscreen allow="autoplay"></iframe></body></html>"""
-        else:
-            html = "<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Invalid video ID</body></html>"
-
-    elif wt == "webpage":
-        # SEC-003 FIX: iframe src validated (https/http only).
-        url = _safe_iframe(cfg.get("url", "https://google.com"))
-        html = f"""<html><head><style>body{{margin:0}}iframe{{width:100vw;height:100vh;border:none}}</style></head><body><iframe src="{url}"></iframe></body></html>"""
-
-    elif wt == "menu":
-        # SEC-003 FIX: title and item fields HTML-escaped.
-        title = _esc(cfg.get("title", "Today's Menu"))
-        items = cfg.get("items", [{"name": "Burger", "price": "$12"}, {"name": "Pizza", "price": "$15"}, {"name": "Salad", "price": "$10"}])
-        items_html = "".join([
-            f'<div class="item"><span>{_esc(i.get("name",""))}</span><span class="dots"></span><span class="p">{_esc(str(i.get("price","")))}</span></div>'
-            for i in items
-        ])
-        html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.m{{width:80%;max-width:600px}}.title{{font-size:48px;font-weight:900;color:#22d3ee;text-align:center;margin-bottom:40px}}.item{{display:flex;align-items:baseline;font-size:28px;padding:16px 0;border-bottom:1px solid #1e293b}}.dots{{flex:1;border-bottom:2px dotted #334155;margin:0 12px}}.p{{color:#22d3ee;font-weight:700}}</style></head><body><div class="m"><div class="title">{title}</div>{items_html}</div></body></html>"""
-
-    elif wt == "calendar":
-        html = f"""<html><head><style>{base_style}body{{background:#0a0f1a}}.cal{{text-align:center;width:90%}}.month{{font-size:36px;font-weight:700;color:#22d3ee;margin-bottom:20px}}.grid{{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}}.hd{{font-size:14px;color:#64748b;padding:8px}}.day{{font-size:20px;padding:12px;border-radius:8px}}.day.today{{background:#6366f1;color:#fff;font-weight:700}}</style></head><body><div class="cal"><div class="month" id="mon"></div><div class="grid" id="gr"></div></div><script>
-        var n=new Date(),y=n.getFullYear(),m=n.getMonth();
-        document.getElementById('mon').textContent=n.toLocaleDateString('en-US',{{month:'long',year:'numeric'}});
-        var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-        var h=days.map(d=>'<div class="hd">'+d+'</div>').join('');
-        var first=new Date(y,m,1).getDay(),last=new Date(y,m+1,0).getDate();
-        var cells='';for(var i=0;i<first;i++)cells+='<div class="day"></div>';
-        for(var d=1;d<=last;d++)cells+='<div class="day'+(d===n.getDate()?' today':'')+'">'+d+'</div>';
-        document.getElementById('gr').innerHTML=h+cells;
-        </script></body></html>"""
-
-    else:
-        # SEC-003 FIX: widget type HTML-escaped in fallback message.
-        wt_safe = _esc(wt or "unknown")
-        html = f"<html><body style='background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh'>Unknown widget type: {wt_safe}</body></html>"
-
-    return HTMLResponse(content=html)
 
 
-@api_router.get("/widgets/{widget_id}/weather")
-async def widget_weather_proxy(widget_id: str):
-    """SEC-003 — Server-side weather proxy.
-    The OpenWeatherMap API key is read from the DB config and NEVER sent to clients.
-    Results are cached in-memory for 10 minutes to reduce upstream calls.
-    """
-    import time
-    import httpx as _httpx
-    w = await db.widgets.find_one({"id": widget_id, "widget_type": "weather"})
-    if not w:
-        raise HTTPException(status_code=404, detail="Weather widget not found")
 
-    cfg = w.get("config", {})
-    api_key = cfg.get("api_key", "")
-    city = str(cfg.get("city", "New York"))
 
-    if not api_key:
-        return {"temp": None, "desc": "No API key configured", "city": city}
 
-    # Check cache
-    cached = _weather_cache.get(widget_id)
-    now_ts = time.time()
-    if cached and (now_ts - cached["ts"]) < _WEATHER_CACHE_TTL_S:
-        return cached["data"]
 
-    try:
-        async with _httpx.AsyncClient(timeout=8.0) as client:
-            resp = await client.get(
-                "https://api.openweathermap.org/data/2.5/weather",
-                params={"q": city, "appid": api_key, "units": "imperial"},
-            )
-            resp.raise_for_status()
-            ow = resp.json()
-        result = {
-            "city": city,
-            "temp": round(ow.get("main", {}).get("temp", 0)),
-            "desc": (ow.get("weather") or [{}])[0].get("description", ""),
-        }
-    except Exception as exc:
-        logger.warning("Weather proxy failed for widget %s: %s", widget_id, exc)
-        result = {"city": city, "temp": None, "desc": "Unavailable"}
-
-    _weather_cache[widget_id] = {"data": result, "ts": now_ts}
-    return result
 async def get_app_version():
     """Check latest app version for auto-update."""
     return {
@@ -1771,47 +1540,11 @@ CERTIFIED_DEVICES = [
 
 # ============ CERTIFICATION TEST SUITE ============
 
-class CertificationResult(BaseModel):
-    device_brand: str
-    device_model: str
-    os_version: str
-    screen_resolution: str
-    user_agent: str
-    tests_passed: int
-    tests_failed: int
-    tests_total: int
-    test_details: list
-    stability_minutes: Optional[int] = None
-    manual_checks: Optional[dict] = None
+# CertificationResult moved to certification_routes.py (Fase 2B-10c).
 
-@api_router.post("/certification/submit")
-async def submit_certification(data: CertificationResult):
-    """TV submits certification test results to server."""
-    result = {
-        "id": gen_id(),
-        "device_brand": data.device_brand,
-        "device_model": data.device_model,
-        "os_version": data.os_version,
-        "screen_resolution": data.screen_resolution,
-        "user_agent": data.user_agent,
-        "tests_passed": data.tests_passed,
-        "tests_failed": data.tests_failed,
-        "tests_total": data.tests_total,
-        "pass_rate": round(data.tests_passed / max(data.tests_total, 1) * 100, 1),
-        "test_details": data.test_details,
-        "stability_minutes": data.stability_minutes,
-        "manual_checks": data.manual_checks,
-        "certified": data.tests_failed == 0,
-        "created_at": datetime.utcnow()
-    }
-    await db.certification_results.insert_one(result)
-    return serialize_doc(result)
+# submit_certification, get_certification_results moved to
+# certification_routes.py (Fase 2B-10c).
 
-@api_router.get("/certification/results")
-async def get_certification_results():
-    """Get all certification test results."""
-    results = await db.certification_results.find({}).sort("created_at", -1).to_list(100)
-    return serialize_doc(results)
 
 
 @api_router.get("/certified-devices")
@@ -2067,6 +1800,9 @@ from superadmin_routes import create_superadmin_routes
 from campaigns_routes import create_campaigns_routes
 from public_api_routes import create_public_api_routes
 from customer_routes import create_customer_routes
+from payments_routes import create_payments_routes
+from widgets_routes import create_widgets_routes
+from certification_routes import create_certification_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -2130,6 +1866,11 @@ app.include_router(create_public_api_routes(
 # -- Fase 2B-9: authenticated /customer/* transient-buyer flow (see
 # docs/REFACTOR_FASE2_PLAN.md) --
 app.include_router(create_customer_routes(gen_id))
+# -- Fase 2B-10: /payments*, /widgets/*/render|weather, /certification/*
+# (see docs/REFACTOR_FASE2_PLAN.md) --
+app.include_router(create_payments_routes(gen_id, gen_invoice, serialize_doc))
+app.include_router(create_widgets_routes(_esc))
+app.include_router(create_certification_routes(gen_id, serialize_doc))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
