@@ -655,95 +655,21 @@ async def update_profile(data: ProfileUpdate, current_user: dict = Depends(get_c
 # ============ PUBLIC / TRANSIENT CUSTOMER FLOW ============
 # Discount scale for month-based advertising commitments (public buyers).
 # Applied on top of (num_ads × months × price_per_ad_per_month).
-PUBLIC_DISCOUNT_SCALE = {1: 0.00, 3: 0.10, 6: 0.20, 12: 0.30}
-
-# _public_screen_view moved to media_utils.py (Fase 2C-1: /public/*
-# client API) -- _customer_screen_view below still needs it.
-from media_utils import _public_screen_view
-
-def _customer_screen_view(screen: dict) -> dict:
-    """Same as public but includes price_per_ad_per_month for authenticated customers."""
-    view = _public_screen_view(screen)
-    adv = screen.get("advertising") or {}
-    view["price_per_ad_per_month"] = adv.get("price_per_ad_per_month")
-    return view
-
-def _apply_discount(months: int) -> float:
-    """Return discount FRACTION (0.10 = 10% off) for a given commitment length.
-    Non-listed lengths are interpolated to the nearest lower tier."""
-    tiers = sorted(PUBLIC_DISCOUNT_SCALE.keys())
-    disc = 0.0
-    for t in tiers:
-        if months >= t:
-            disc = PUBLIC_DISCOUNT_SCALE[t]
-    return disc
+# PUBLIC_DISCOUNT_SCALE, _customer_screen_view, _apply_discount,
+# QuoteItem/QuoteRequest, CartItem/CustomerOrderSubmit and all 6
+# /customer/* routes moved to customer_routes.py (Fase 2B-9).
 
 
 
 
-@api_router.get("/customer/screens")
-async def customer_screens(city: Optional[str] = None, current_user: dict = Depends(get_current_user)):
-    """Screen catalog visible AFTER signup — includes pricing."""
-    query: dict = {"status": "active", "advertising.is_public": {"$ne": False}}
-    if city:
-        query["location.city"] = {"$regex": city, "$options": "i"}
-    screens = await db.screens.find(query).to_list(200)
-    return [_customer_screen_view(s) for s in screens]
 
-@api_router.get("/customer/screens/{screen_id}")
-async def customer_screen_detail(screen_id: str, current_user: dict = Depends(get_current_user)):
-    screen = await db.screens.find_one({"id": screen_id})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-    return _customer_screen_view(screen)
 
-@api_router.get("/customer/discount-scale")
-async def customer_discount_scale(current_user: dict = Depends(get_current_user)):
-    """Publishes the discount tiers so the frontend cart can render them."""
-    return {"scale": PUBLIC_DISCOUNT_SCALE, "unit_days": 30}
 
-class QuoteItem(BaseModel):
-    screen_id: str
-    num_ads: int = 1     # how many ad slots on this screen
-    months: int = 1      # commitment length in 30-day units
 
-class QuoteRequest(BaseModel):
-    items: List[QuoteItem]
 
-@api_router.post("/customer/quote")
-async def customer_quote(payload: QuoteRequest, current_user: dict = Depends(get_current_user)):
-    """Calculate total for a cart of (screen × num_ads × months).
-    Returns per-line detail + grand total after applying the month-based
-    scale discount separately to each line (each line can have its own term)."""
-    if not payload.items:
-        raise HTTPException(status_code=400, detail="Cart is empty")
-    lines = []
-    grand_total = 0.0
-    for it in payload.items:
-        if it.num_ads < 1 or it.months < 1:
-            raise HTTPException(status_code=400, detail="num_ads and months must be >= 1")
-        screen = await db.screens.find_one({"id": it.screen_id})
-        if not screen:
-            raise HTTPException(status_code=404, detail=f"Screen {it.screen_id} not found")
-        adv = screen.get("advertising") or {}
-        price = adv.get("price_per_ad_per_month")
-        if not price or price <= 0:
-            raise HTTPException(status_code=400, detail=f"Screen {screen.get('name')} has no advertising price set")
-        subtotal = it.num_ads * it.months * float(price)
-        discount_pct = _apply_discount(it.months)
-        line_total = round(subtotal * (1 - discount_pct), 2)
-        grand_total += line_total
-        lines.append({
-            "screen_id": it.screen_id,
-            "screen_name": screen.get("name"),
-            "num_ads": it.num_ads,
-            "months": it.months,
-            "price_per_ad_per_month": price,
-            "subtotal": round(subtotal, 2),
-            "discount_pct": round(discount_pct * 100),
-            "line_total": line_total,
-        })
-    return {"lines": lines, "grand_total": round(grand_total, 2), "currency": "USD"}
+
+
+
 
 
 
@@ -753,96 +679,9 @@ async def customer_quote(payload: QuoteRequest, current_user: dict = Depends(get
 # (currently ENVIRONMENT=staging), payment is coordinated manually by the
 # admin who is notified through the new customer-orders panel.
 
-class CartItem(BaseModel):
-    screen_id: str
-    num_ads: int = 1
-    months: int = 1
 
-class CustomerOrderSubmit(BaseModel):
-    items: List[CartItem]
-    media_data_url: Optional[str] = None   # data:image/... or data:video/...
-    media_kind: Optional[str] = None       # 'image' | 'video'
-    notes: Optional[str] = None
 
-@api_router.post("/customer/orders/from-cart")
-async def customer_order_from_cart(payload: CustomerOrderSubmit,
-                                   current_user: dict = Depends(get_current_user)):
-    """Customer submits their cart + creative. We revalidate the quote server-side
-    (never trust client totals), persist the order, and return a reference."""
-    if not payload.items:
-        raise HTTPException(status_code=400, detail="Cart is empty")
 
-    # Recompute the quote from scratch — same rules as /customer/quote
-    lines = []
-    grand_total = 0.0
-    for it in payload.items:
-        if it.num_ads < 1 or it.months < 1:
-            raise HTTPException(status_code=400, detail="num_ads and months must be >= 1")
-        screen = await db.screens.find_one({"id": it.screen_id})
-        if not screen:
-            raise HTTPException(status_code=404, detail=f"Screen {it.screen_id} not found")
-        adv = screen.get("advertising") or {}
-        price = adv.get("price_per_ad_per_month")
-        if not price or price <= 0:
-            raise HTTPException(status_code=400, detail=f"Screen {screen.get('name')} has no advertising price set")
-        subtotal = it.num_ads * it.months * float(price)
-        discount = _apply_discount(it.months)
-        line_total = round(subtotal * (1 - discount), 2)
-        grand_total += line_total
-        lines.append({
-            "screen_id": it.screen_id,
-            "screen_name": screen.get("name"),
-            "screen_location": screen.get("location"),
-            "num_ads": it.num_ads,
-            "months": it.months,
-            "price_per_ad_per_month": price,
-            "subtotal": round(subtotal, 2),
-            "discount_pct": round(discount * 100),
-            "line_total": line_total,
-        })
-
-    # Human-readable ref like CUST-YYMMDD-HHMMSS-XXXX
-    now = datetime.utcnow()
-    short = uuid.uuid4().hex[:4].upper()
-    order_ref = f"CUST-{now.strftime('%y%m%d-%H%M%S')}-{short}"
-
-    doc = {
-        "id": gen_id(),
-        "ref": order_ref,
-        "customer_id": current_user.get("id"),
-        "customer_email": current_user.get("email"),
-        "customer_name": current_user.get("name"),
-        "customer_phone": current_user.get("phone"),
-        "lines": lines,
-        "grand_total": round(grand_total, 2),
-        "currency": "USD",
-        "status": "pending_payment",   # pending_payment -> paid -> approved -> live
-        "media_data_url": payload.media_data_url,
-        "media_kind": payload.media_kind,
-        "notes": (payload.notes or "").strip() or None,
-        "created_at": now,
-        "updated_at": now,
-    }
-    await db.customer_orders.insert_one(doc)
-    return {
-        "id": doc["id"],
-        "ref": order_ref,
-        "grand_total": doc["grand_total"],
-        "currency": doc["currency"],
-        "status": doc["status"],
-        "message": "Order received. Our team will contact you shortly to arrange payment and activation.",
-    }
-
-@api_router.get("/customer/orders/mine")
-async def customer_my_orders(current_user: dict = Depends(get_current_user)):
-    cur = db.customer_orders.find({"customer_id": current_user.get("id")}).sort("created_at", -1)
-    docs = await cur.to_list(100)
-    out = []
-    for d in docs:
-        d.pop("_id", None)
-        d.pop("media_data_url", None)  # drop the heavy field from list view
-        out.append(d)
-    return out
 
 
 
@@ -2227,6 +2066,7 @@ from admin_campaigns_routes import create_admin_campaigns_routes
 from superadmin_routes import create_superadmin_routes
 from campaigns_routes import create_campaigns_routes
 from public_api_routes import create_public_api_routes
+from customer_routes import create_customer_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -2287,6 +2127,9 @@ app.include_router(create_campaigns_routes(
 app.include_router(create_public_api_routes(
     upload_media, serialize_doc, WEB_DIR, _bump_playlist_screens,
 ))
+# -- Fase 2B-9: authenticated /customer/* transient-buyer flow (see
+# docs/REFACTOR_FASE2_PLAN.md) --
+app.include_router(create_customer_routes(gen_id))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
