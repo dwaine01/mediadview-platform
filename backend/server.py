@@ -193,21 +193,8 @@ class PaymentCreate(BaseModel):
 
 
 
-class DeviceActivate(BaseModel):
-    activation_code: str
-    screen_id: str
-    device_name: Optional[str] = None
-    tier: Optional[str] = None  # "tv_direct" or "player_dedicated"
 
 
-class DeviceProvision(BaseModel):
-    """Pre-provision a device before shipping (MediaView Player Dedicated)"""
-    device_name: str
-    screen_id: str
-    server_url: str
-    tier: str = "player_dedicated"
-    reboot_time: str = "03:00"  # Nightly reboot time (HH:MM)
-    notes: Optional[str] = None
 
 import random
 import string
@@ -1217,10 +1204,6 @@ async def report_client_error(data: ClientErrorReport, request: Request):
     return {"logged": True}
 
 
-@api_router.get("/admin/client-errors")
-async def list_client_errors(limit: int = 50, admin: dict = Depends(require_admin)):
-    errors = await db.client_errors.find({}).sort("created_at", -1).to_list(min(limit, 200))
-    return serialize_doc(errors)
 
 
 
@@ -1751,31 +1734,6 @@ async def seed_rbac_test_users(sa: dict = Depends(require_superadmin)):
         },
     }
 
-@api_router.get("/admin/analytics")
-async def admin_analytics(admin: dict = Depends(require_admin)):
-    total_users = await db.users.count_documents({"role": "customer"})
-    total_screens = await db.screens.count_documents({})
-    active_screens = await db.screens.count_documents({"status": "active"})
-    total_campaigns = await db.campaigns.count_documents({})
-    active_campaigns = await db.campaigns.count_documents({"status": "active"})
-    pending_campaigns = await db.campaigns.count_documents({"status": "pending"})
-    payments = await db.payments.find({"status": "completed"}).to_list(10000)
-    total_revenue = sum(p.get("amount", 0) for p in payments)
-    monthly = {}
-    for p in payments:
-        mk = p.get("created_at", datetime.utcnow()).strftime("%Y-%m")
-        monthly[mk] = monthly.get(mk, 0) + p.get("amount", 0)
-    recent = await db.campaigns.find({}).sort("created_at", -1).to_list(10)
-    for c in recent:
-        user = await db.users.find_one({"id": c.get("user_id")}, {"password_hash": 0})
-        c["user_name"] = user.get("name", "Unknown") if user else "Unknown"
-    return {
-        "total_users": total_users, "total_screens": total_screens,
-        "active_screens": active_screens, "total_campaigns": total_campaigns,
-        "active_campaigns": active_campaigns, "pending_campaigns": pending_campaigns,
-        "total_revenue": round(total_revenue, 2), "monthly_revenue": monthly,
-        "recent_campaigns": serialize_doc(recent)
-    }
 
 # ── FASE 1: Self-Service customer can create their own screens ─────────────
 
@@ -1884,264 +1842,25 @@ async def admin_repair_campaigns(admin: dict = Depends(require_admin)):
 
 
 
-@api_router.post("/admin/player-release")
-async def set_player_release(payload: dict, current_user: dict = Depends(get_current_user)):
-    """Admin: publish a new player APK release. All devices with a different version
-    will be instructed to auto-update on their next heartbeat."""
-    if current_user.get("role") not in ("superadmin", "admin"):
-        raise HTTPException(403, "Admin required")
-    required = ["version_name", "version_code", "apk_url"]
-    for k in required:
-        if not payload.get(k):
-            raise HTTPException(400, f"Missing field: {k}")
-    doc = {
-        "_id": "player_release",
-        "version_name": str(payload["version_name"]),
-        "version_code": int(payload["version_code"]),
-        "apk_url": payload["apk_url"],
-        "sha256": payload.get("sha256"),
-        "mandatory": bool(payload.get("mandatory", False)),
-        "notes": payload.get("notes", ""),
-        "published_at": datetime.utcnow().isoformat(),
-        "published_by": current_user.get("email"),
-    }
-    await db.app_config.update_one({"_id": "player_release"}, {"$set": doc}, upsert=True)
-    return {"ok": True, "release": doc}
-
-@api_router.get("/admin/player-release")
-async def get_player_release(current_user: dict = Depends(get_current_user)):
-    if current_user.get("role") not in ("superadmin", "admin"):
-        raise HTTPException(403, "Admin required")
-    cfg = await db.app_config.find_one({"_id": "player_release"})
-    if cfg:
-        cfg.pop("_id", None)
-    return cfg or {}
 
 
-@api_router.get("/admin/devices/{device_id}/logs")
-async def admin_device_logs(device_id: str, limit: int = 50, admin: dict = Depends(require_admin)):
-    """Get recent logs for a device."""
-    logs = await db.device_logs.find({"device_id": device_id}).sort("created_at", -1).to_list(limit)
-    return serialize_doc(logs)
 
-@api_router.get("/admin/devices/{device_id}/diagnostics")
-async def admin_device_diagnostics(device_id: str, admin: dict = Depends(require_admin)):
-    """Get full diagnostics for a device."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
 
-    screen = None
-    if device.get("screen_id"):
-        screen = await db.screens.find_one({"id": device["screen_id"]})
-
-    recent_logs = await db.device_logs.find({"device_id": device_id}).sort("created_at", -1).to_list(10)
-    error_count = await db.device_logs.count_documents({"device_id": device_id, "level": {"$in": ["error", "crash"]}})
-
-    return {
-        "device": serialize_doc(device),
-        "screen": serialize_doc(screen),
-        "diagnostics": device.get("diagnostics", {}),
-        "recent_logs": serialize_doc(recent_logs),
-        "error_count": error_count,
-        "is_online": device.get("last_heartbeat") and
-            (datetime.utcnow() - device["last_heartbeat"]).total_seconds() < 120,
-    }
 
 # --- Screen Power Schedule ---
 
-@api_router.put("/admin/devices/{device_id}/power-schedule")
-async def set_power_schedule(device_id: str, data: dict, admin: dict = Depends(require_admin)):
-    """Set power on/off schedule for a device."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
 
-    schedule = {
-        "enabled": data.get("enabled", True),
-        "power_on": data.get("power_on", "08:00"),
-        "power_off": data.get("power_off", "22:00"),
-        "days": data.get("days", ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]),
-        "timezone": data.get("timezone", "America/New_York")
-    }
 
-    await db.devices.update_one({"id": device_id}, {"$set": {"power_schedule": schedule}})
-    return {"message": "Power schedule updated", "schedule": schedule}
-
-@api_router.get("/admin/devices/{device_id}/power-schedule")
-async def get_power_schedule(device_id: str, admin: dict = Depends(require_admin)):
-    """Get power schedule for a device."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    return device.get("power_schedule", {"enabled": False, "power_on": "08:00", "power_off": "22:00", "days": ["mon","tue","wed","thu","fri","sat","sun"]})
-
-@api_router.post("/admin/devices/{device_id}/power")
-async def device_power_control(device_id: str, data: dict, admin: dict = Depends(require_admin)):
-    """Remote power control: sleep, wake, restart."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-
-    action = data.get("action", "")
-    if action == "sleep":
-        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "sleep", "power_state": "sleeping"}})
-    elif action == "wake":
-        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "wake", "power_state": "awake"}})
-    elif action == "restart":
-        await db.devices.update_one({"id": device_id}, {"$set": {"pending_command": "restart"}})
-    else:
-        raise HTTPException(status_code=400, detail="Invalid action. Use: sleep, wake, restart")
-
-    return {"message": f"Command '{action}' sent to device"}
 
 
 
 
 # Admin: Device Management
-@api_router.get("/admin/devices")
-async def admin_list_devices(status: Optional[str] = None, limit: int = 200,
-                             admin: dict = Depends(require_admin)):
-    """List registered devices, newest first.
 
-    PERF: the collection accumulates one `pending` document per un-activated
-    player registration, so an unbounded list grew to 500 docs / ~300 KB and
-    the panel spun for seconds. Default page size is 200; pass ?limit= to widen
-    or ?status=active to filter.
-    """
-    query = {"status": status} if status else {}
-    limit = max(1, min(limit, 500))
-    devices = await db.devices.find(query).sort("created_at", -1).to_list(limit)
-    if not devices:
-        return []
-    # P0 PERF FIX: batch-fetch related screens in 1 query instead of N sequential queries.
-    # Before: N devices → N sequential DB round-trips
-    # After:  N devices → 2 total queries (1 devices + 1 screens batch)
-    screen_ids = list({d["screen_id"] for d in devices if d.get("screen_id")})
-    screens_map = {s["id"]: s for s in await db.screens.find(
-        {"id": {"$in": screen_ids}}, {"_id": 0, "id": 1, "name": 1}).to_list(500)}
-    for d in devices:
-        sid = d.get("screen_id")
-        d["screen_name"] = screens_map[sid].get("name", "Unknown") if (sid and sid in screens_map) else None
-    return serialize_doc(devices)
 
-@api_router.post("/admin/devices/activate")
-async def admin_activate_device(data: DeviceActivate, admin: dict = Depends(require_admin)):
-    """Admin enters activation code to link device to a screen."""
-    device = await db.devices.find_one({
-        "activation_code": data.activation_code.upper(),
-        "status": "pending"
-    })
-    if not device:
-        raise HTTPException(status_code=404, detail="Invalid or already used activation code")
 
-    screen = await db.screens.find_one({"id": data.screen_id})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
 
-    # Check if screen already has a device
-    existing = await db.devices.find_one({"screen_id": data.screen_id, "status": "active"})
-    if existing:
-        # Deactivate old device
-        await db.devices.update_one(
-            {"id": existing["id"]},
-            {"$set": {"status": "disabled", "screen_id": None}}
-        )
 
-    await db.devices.update_one(
-        {"id": device["id"]},
-        {"$set": {
-            "screen_id": data.screen_id,
-            "status": "active",
-            "device_name": data.device_name or device.get("device_name"),
-            "tier": data.tier or "tv_direct",
-            "reboot_time": "03:00",
-            "activated_at": datetime.utcnow()
-        }}
-    )
-
-    logger.info(f"Device {device['id']} activated for screen {screen.get('name')} (tier: {data.tier or 'tv_direct'})")
-    return {
-        "message": "Device activated successfully",
-        "device_id": device["id"],
-        "screen_id": data.screen_id,
-        "screen_name": screen.get("name"),
-        "tier": data.tier or "tv_direct"
-    }
-
-@api_router.post("/admin/devices/provision")
-async def admin_provision_device(data: DeviceProvision, admin: dict = Depends(require_admin)):
-    """Pre-provision a device for the MediaView Player Dedicated line.
-    Creates a device record with pre-assigned screen, ready for first boot."""
-    screen = await db.screens.find_one({"id": data.screen_id})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-
-    code = gen_activation_code()
-    device = {
-        "id": gen_id(),
-        "activation_code": code,
-        "device_name": data.device_name,
-        "device_info": {"provisioned": True, "server_url": data.server_url},
-        "screen_id": data.screen_id,
-        "status": "provisioned",
-        "tier": data.tier,
-        "reboot_time": data.reboot_time,
-        "notes": data.notes,
-        "last_heartbeat": None,
-        "last_sync": None,
-        "activated_at": datetime.utcnow(),
-        "created_at": datetime.utcnow()
-    }
-    await db.devices.insert_one(device)
-
-    logger.info(f"Device pre-provisioned: {device['id']} for screen {screen.get('name')}")
-    return {
-        "message": "Device pre-provisioned",
-        "device_id": device["id"],
-        "activation_code": code,
-        "screen_id": data.screen_id,
-        "screen_name": screen.get("name"),
-        "tier": data.tier,
-        "setup_url": f"{data.server_url}/api/player/{data.screen_id}/web",
-        "adb_command": f'adb shell am start -n com.mediaview.player/.MainActivity --es server_url "{data.server_url}" --es screen_id "{data.screen_id}"',
-    }
-
-@api_router.delete("/admin/devices/{device_id}")
-async def admin_remove_device(device_id: str, admin: dict = Depends(require_admin)):
-    """Remove/deactivate a device."""
-    result = await db.devices.delete_one({"id": device_id})
-    if result.deleted_count == 0:
-        raise HTTPException(status_code=404, detail="Device not found")
-    return {"message": "Device removed"}
-
-@api_router.put("/admin/devices/{device_id}/reassign")
-async def admin_reassign_device(device_id: str, screen_id: str, admin: dict = Depends(require_admin)):
-    """Reassign a device to a different screen."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    screen = await db.screens.find_one({"id": screen_id})
-    if not screen:
-        raise HTTPException(status_code=404, detail="Screen not found")
-
-    await db.devices.update_one(
-        {"id": device_id},
-        {"$set": {"screen_id": screen_id, "status": "active"}}
-    )
-    return {"message": f"Device reassigned to {screen.get('name')}"}
-
-@api_router.put("/admin/devices/{device_id}/unlink")
-async def admin_unlink_device(device_id: str, admin: dict = Depends(require_admin)):
-    """Unlink a device from its screen (keep device registered)."""
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    await db.devices.update_one(
-        {"id": device_id},
-        {"$set": {"screen_id": None, "status": "pending"}}
-    )
-    return {"message": "Device unlinked from screen"}
 
 # ============ PROOF OF PLAY ============
 
@@ -2159,53 +1878,9 @@ async def log_play(media_id: str, device_id: str, screen_id: str, duration: int 
     await db.play_logs.insert_one(log)
     return {"status": "logged"}
 
-@api_router.get("/admin/playlogs")
-async def get_play_logs(screen_id: Optional[str] = None, days: int = 7, admin: dict = Depends(require_admin)):
-    """Get proof of play report."""
-    since = datetime.utcnow() - timedelta(days=days)
-    query = {"played_at": {"$gte": since}}
-    if screen_id:
-        query["screen_id"] = screen_id
-    logs = await db.play_logs.find(query).sort("played_at", -1).to_list(1000)
-    # Enrich with media and screen names
-    for log in logs:
-        media = await db.media.find_one({"id": log.get("media_id")}, {"data": 0})
-        screen = await db.screens.find_one({"id": log.get("screen_id")})
-        log["media_name"] = media.get("filename", "Unknown") if media else "Deleted"
-        log["screen_name"] = screen.get("name", "Unknown") if screen else "Unknown"
-
-    # Stats
-    total_plays = len(logs)
-    unique_media = len(set(l.get("media_id") for l in logs))
-    unique_screens = len(set(l.get("screen_id") for l in logs))
-    total_seconds = sum(l.get("duration", 0) for l in logs)
-
-    return {
-        "stats": {
-            "total_plays": total_plays,
-            "unique_media": unique_media,
-            "unique_screens": unique_screens,
-            "total_play_time_minutes": round(total_seconds / 60, 1),
-        },
-        "logs": serialize_doc(logs[:200])
-    }
 
 # ============ REMOTE COMMANDS ============
 
-@api_router.put("/admin/devices/{device_id}/command")
-async def send_device_command(device_id: str, command: str, admin: dict = Depends(require_admin)):
-    """Send an authenticated command to a paired player."""
-    allowed = ["restart", "reload", "update", "clear_cache", "show_diagnostics", "hide_diagnostics"]
-    if command not in allowed:
-        raise HTTPException(status_code=400, detail=f"Invalid command. Use: {', '.join(allowed)}")
-    device = await db.devices.find_one({"id": device_id})
-    if not device:
-        raise HTTPException(status_code=404, detail="Device not found")
-    await db.devices.update_one(
-        {"id": device_id},
-        {"$set": {"pending_command": command, "command_sent_at": datetime.utcnow()}}
-    )
-    return {"message": f"Command '{command}' sent to device"}
 
 # ============ APP VERSION / AUTO-UPDATE ============
 
@@ -3399,6 +3074,7 @@ from media_routes import create_media_routes
 from screens_routes import create_screens_routes
 from playlists_routes import create_playlists_routes
 from player_routes import create_player_domain_routes
+from admin_devices_routes import create_admin_devices_routes
 from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
@@ -3430,6 +3106,11 @@ app.include_router(create_playlists_routes(
 app.include_router(create_player_domain_routes(
     gen_id, serialize_doc, MEDIA_DIR, gen_activation_code,
     build_screen_playlist_items, screen_orientation,
+))
+# -- Fase 2B-6a: /admin/devices/*, /admin/player-release, /admin/playlogs,
+# /admin/client-errors, /admin/analytics (see docs/FASE2B6_MAPA_RUTAS_ADMIN.md) --
+app.include_router(create_admin_devices_routes(
+    gen_id, serialize_doc, gen_activation_code,
 ))
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
