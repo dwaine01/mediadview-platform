@@ -159,7 +159,17 @@ envVarGroups:
         # Read & Write) está emitido específicamente para este bucket.
         value: mediaview-media
       - key: R2_PUBLIC_BASE_URL
-        value: https://media.mediadview.com
+        # DELIBERADAMENTE VACÍO. Verificado en Cloudflare (Settings del bucket
+        # mediaview-media → Custom Domains): "There is no custom domain assigned
+        # to this bucket", y la Public Development URL también está deshabilitada.
+        # Con un valor puesto, storage.public_url_for_key() persiste en la BD un
+        # public_url apuntando a ese dominio: la subida funciona, no hay ningún
+        # error en los logs, y TODAS las imágenes salen rotas en paneles y
+        # pantallas. Vacío, cae en el fallback /api/media/serve?key=..., que sirve
+        # nuestro propio backend leyendo de R2 y funciona siempre.
+        # Cuando el dominio personalizado esté conectado de verdad, poner aquí
+        # "https://media.mediadview.com" y redeployar.
+        value: ""
       - key: R2_REGION
         value: auto
 
