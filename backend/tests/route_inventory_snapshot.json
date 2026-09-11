@@ -716,20 +716,6 @@
     "methods": [
       "GET"
     ],
-    "path": "/api/admin/player-server"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
-      "POST"
-    ],
-    "path": "/api/admin/player-server"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
-      "GET"
-    ],
     "path": "/api/admin/playlogs"
   },
   {

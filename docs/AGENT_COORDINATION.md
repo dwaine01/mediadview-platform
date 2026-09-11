@@ -64,6 +64,50 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — duarte (reporte) + Maxx — **REVERTIDO `server_url` del contrato de `/check`** (el player dejó de mostrar contenido)
+- Rama: `trunk`. Archivos: `backend/player_routes.py`, `backend/admin_devices_routes.py`,
+  `backend/tests/test_screen_unlink_and_server_url.py`, `route_inventory_snapshot.json`.
+- Reporte de duarte: tras instalar la APK el equipo «se desconecta» y la TCL queda mostrando su
+  propio video; el contenido enviado no llega a la pantalla. Pidió explícitamente volver al
+  **mismo parámetro que había antes en esa parte**, porque funcionaba.
+- Qué se revirtió: la clave **`server_url`** que yo había agregado a la respuesta de
+  `GET /api/devices/{device_id}/check` (más el helper `_player_server_url()` y los endpoints
+  `POST`/`GET /api/admin/player-server`). El payload de `/check` vuelve a ser **exactamente** el
+  de antes. La feature de **desvincular pantalla se mantiene** (es del panel, no toca al player).
+- Honestidad sobre la causa: el player parsea con `org.json`, que ignora claves desconocidas, así
+  que técnicamente una clave extra no debería romperlo — y la cadena de medios en R2 la verifiqué
+  funcionando (`/api/player/media/{id}` → 302 → `/api/media/serve` → 200 con los bytes). Pero
+  `/check` es lo que el player lee en cada poll y es lo único que yo había tocado de ese
+  contrato: se revierte para eliminarlo como variable, y se reintroducirá **junto con** el lado
+  Kotlin, coordinado con el agente del player, como duarte había pedido desde el principio.
+- 🛡️ **Test de contrato nuevo** (`TestDeviceCheckContract`), para que esto no vuelva a pasar:
+  congela el conjunto de claves de `/check` en sus **dos** estados — 6 claves cuando el
+  dispositivo está `pending` (lo que ve una APK recién instalada para mostrar su código) y esas 6
+  + `screen_resolution` cuando está `active`. Cualquier clave nueva o renombrada rompe el test con
+  un mensaje explícito. Y un test que verifica que `/api/admin/player-server` quedó en 404.
+- Snapshot de rutas regenerado: **493** (vs 492 antes de las features y 495 con las 3): queda
+  sólo `DELETE /api/workspace/screens/{screen_id}`, las 2 de `player-server` desaparecen.
+- Hallazgos del diagnóstico que NO son míos y quedan para el agente del player:
+  1. La APK publicada en el release `player-latest` es **v3.4.0 (8,5 MB, subida el 2026-09-08,
+     «Built from 20af2d5»)** e incluye `88cbbad fix(player): render video on a TextureView and
+     let every video finish` — un cambio de renderizado de video **que nunca se probó en
+     hardware** (la prueba física estaba diferida). Es el sospechoso número uno de que el
+     contenido no aparezca en la TV.
+  2. Los backups del mismo release (10,3 MB) son builds **`-diagnostic`** (`isDebuggable=true`),
+     no releases: si el equipo venía con `3.3.2-diagnostic`, el cambio a la release 3.4.0 es un
+     cambio de build type, no sólo de versión. Camino de rollback inmediato para duarte:
+     desinstalar y poner `mediaview-player-v3.3.2-backup.apk` (hay que desinstalar primero, la
+     3.4.0 tiene `versionCode` mayor), y volver a emparejar con el código nuevo.
+  3. **El lado servidor del emparejamiento está sano en producción**: registré un dispositivo de
+     prueba real contra `https://mediadview.com/api/devices/register` → 200 con token, y su
+     `/check` devolvió `status: pending` con código `SGSAC8`. Queda como **dispositivo huérfano a
+     borrar**: `device_id 26ba0b65-4106-4101-aae9-404ee4540952`, `client_uuid probe-diag-0001`.
+  4. Descartado también: el default `SERVER_URL` de la APK es `https://mediadview.com` y el
+     apex **sí** sirve `/api` (probado: `register` 200, `livez` 200).
+- Verificación: `ruff` limpio, `flake8` sin avisos, 6/6 del archivo de tests, suite con el mismo
+  conjunto de fallos base (506 passed), y validado por el `testing_agent`.
+
+
 ### 2026-06 — duarte (logs) + Maxx (fix) — Bug: «Importar Menú con IA» daba 500 en producción (`ModuleNotFoundError: emergentintegrations`)
 - Rama: `trunk`. Archivo: `Dockerfile` (un paso `RUN` nuevo en la etapa de build).
 - Causa raíz (confirmada por duarte en los logs de Render):
@@ -95,9 +139,14 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
      **200**, extrajo los 5 productos con precios y categorías (`Margarita 8.50`,
      `Pepperoni 9.90`, `Cuatro Quesos 11.00`, `Agua 1.50 BEBIDAS`, `Refresco 2.20 BEBIDAS`).
   4. Validado por el `testing_agent` (ver el reporte de la iteración correspondiente).
-- ⚠️ Lo único que este fix **no** puede probar desde aquí es la imagen real: sólo el deploy de
-  Render construye el `Dockerfile`. La comprobación final es abrir «Importar Menú con IA» en el
-  panel de producción después del próximo push.
+- Desplegado a `production` el 2026-06 (`f8474ee` → `567b338`, tag de respaldo
+  `pre-merge-f8474ee`). `/api/livez` 200 con `version: 567b3380…`, `/api/ready` 200 (mongo,
+  storage `r2`, redis y worker en verde), landing y panel 200, y `ai-import` sin token → 401
+  (no 500). **Prueba estructural del fix**: el paso `RUN` está en la ruta del build, así que si
+  el wheel no se hubiera podido instalar el build habría **fallado** en vez de desplegar; el
+  deploy quedó «live», o sea que el `pip install` corrió bien dentro de la imagen. La
+  confirmación funcional final la da duarte abriendo «Importar Menú con IA» en el panel de
+  producción (no tengo credenciales de un cliente real de producción para pasar el auth).
 
 
 ### 2026-06 — Maxx (ejecución) con autorización explícita de duarte — **`trunk` → `production` fusionado y desplegado**
