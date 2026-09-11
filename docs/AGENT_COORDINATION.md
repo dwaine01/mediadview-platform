@@ -64,6 +64,57 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Maxx — Feature: «Desvincular pantalla» en el panel del cliente + `server_url` para repuntar TV boxes
+- Rama: `trunk` (`production` sin tocar, sigue en `622da1a`).
+- Archivos: `backend/workspace_routes.py`, `backend/player_routes.py`,
+  `backend/admin_devices_routes.py`, `backend/server.py` (una línea de wiring),
+  `frontend/app/workspace/screens.tsx`, `frontend/src/services/api.ts`,
+  `backend/tests/test_screen_unlink_and_server_url.py` (nuevo),
+  `backend/tests/route_inventory_snapshot.json` (regenerado, ver abajo).
+- **1) `DELETE /api/workspace/screens/{screen_id}`** — el inverso exacto de
+  `POST /screens/connect`. Borra la pantalla de la org y **libera cada dispositivo
+  vinculado**: lo deja en `pending` con un **código de activación nuevo**, que es
+  precisamente el estado al que llega un player recién instalado. El registro del
+  dispositivo NO se borra. Además quita el `screen_id` de los `screen_ids` de playlists y
+  menús, para no dejar referencias colgando. Gate de rol `_SCREEN_ADMIN_ROLES` (owner y
+  manager), scoping por `organization_id`, y entrada de auditoría `screen.unlinked`.
+- **2) `server_url` en `GET /api/devices/{device_id}/check`** — nuevo helper
+  `_player_server_url()`: lee `db.app_config {_id: "player_server"}.server_url`, si no
+  está cae en la env var `PLAYER_SERVER_URL`, y si tampoco devuelve `null` («el player se
+  queda con la URL que ya tiene»). Para que sea usable sin entrar a la base, se añadieron
+  `POST` y `GET /api/admin/player-server` (solo admin/superadmin, valida que la URL
+  empiece con `http://` o `https://`, normaliza la barra final, y string vacío la limpia).
+  Falta la contraparte en Kotlin: el player todavía no lee el campo.
+- Frontend: chip rojo **«Desvincular»** en cada tarjeta de pantalla, con modal de
+  confirmación (nombre de la pantalla, aviso de que el televisor mostrará un código nuevo,
+  Cancelar / Sí, desvincular) y estado de éxito con el mensaje del backend. Objetivos de
+  toque ≥44 px. No hace falta commitear el bundle: el `Dockerfile` corre
+  `npx expo export --platform web` en el build.
+- 📌 **Snapshot de rutas regenerado a propósito** (492 → 495): es el caso que el propio
+  `test_route_inventory.py` documenta como válido («a real new endpoint»), no un silenciamiento.
+  Verificado con un diff de conjuntos: **3 agregadas, 0 eliminadas, 0 renombradas** —
+  `DELETE /api/workspace/screens/{screen_id}`, `POST` y `GET /api/admin/player-server`.
+- Verificación:
+  1. `py_compile` OK, `flake8 --select=F,E9` sin avisos en lo nuevo, `ruff check backend`
+     **All checks passed**, ESLint sobre `screens.tsx` sin problemas.
+  2. Test nuevo `test_screen_unlink_and_server_url.py`: **5/5 en verde**, incluyendo el ciclo
+     completo (registrar dispositivo → el cliente lo conecta → desvincular → el dispositivo
+     queda `pending` con código **distinto** → el mismo equipo se vuelve a emparejar).
+  3. Probado en vivo con curl: desvincular → 200 con `devices_freed: 1` y el código nuevo;
+     `/check` pasa de `active`+`screen_id` a `pending`+código nuevo; pantalla inexistente
+     404; sin token 401; `server_url` null → seteado por admin → null otra vez; `ftp://` 400;
+     cliente pidiendo el endpoint admin 403.
+  4. Probado en vivo en el panel (390×844, cuenta `pizzeria@demo.com`): el chip aparece en
+     cada tarjeta, el modal confirma, y al aceptar el contador pasa de **19 a 18 pantallas**
+     con el mensaje de éxito del backend.
+  5. Suite completa: **496 passed** (los 5 nuevos) y el mismo conjunto de fallos de la línea
+     base salvo `test_playlist_diskless_iter34`, que cayó por el rate limit de
+     `media_upload` (`20/minute; 200/hour`) agotado por mis propias pruebas de subida —
+     corrido aparte vuelve a `skipped`. No es regresión.
+- Riesgo para el otro agente: `android-player/**` sin tocar (queda pendiente leer
+  `server_url` del lado Kotlin).
+
+
 ### 2026-06 — Claude + duarte (hallazgo) + Maxx (fix y verificación) — `R2_BUCKET_NAME` apuntaba a un bucket inexistente
 - Rama: `trunk` (el fix se commitea en `trunk`, **no** directo sobre `production`, para no volver a
   crear contenido que `trunk` no tenga — fue justamente lo que enredó el grafo la vez pasada).

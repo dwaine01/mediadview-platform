@@ -716,6 +716,20 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/admin/player-server"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/admin/player-server"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/admin/playlogs"
   },
   {
@@ -3193,6 +3207,13 @@
       "POST"
     ],
     "path": "/api/workspace/screens/connect"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspace/screens/{screen_id}"
   },
   {
     "kind": "APIRoute",
