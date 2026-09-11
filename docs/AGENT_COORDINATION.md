@@ -95,9 +95,14 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
      **200**, extrajo los 5 productos con precios y categorías (`Margarita 8.50`,
      `Pepperoni 9.90`, `Cuatro Quesos 11.00`, `Agua 1.50 BEBIDAS`, `Refresco 2.20 BEBIDAS`).
   4. Validado por el `testing_agent` (ver el reporte de la iteración correspondiente).
-- ⚠️ Lo único que este fix **no** puede probar desde aquí es la imagen real: sólo el deploy de
-  Render construye el `Dockerfile`. La comprobación final es abrir «Importar Menú con IA» en el
-  panel de producción después del próximo push.
+- Desplegado a `production` el 2026-06 (`f8474ee` → `567b338`, tag de respaldo
+  `pre-merge-f8474ee`). `/api/livez` 200 con `version: 567b3380…`, `/api/ready` 200 (mongo,
+  storage `r2`, redis y worker en verde), landing y panel 200, y `ai-import` sin token → 401
+  (no 500). **Prueba estructural del fix**: el paso `RUN` está en la ruta del build, así que si
+  el wheel no se hubiera podido instalar el build habría **fallado** en vez de desplegar; el
+  deploy quedó «live», o sea que el `pip install` corrió bien dentro de la imagen. La
+  confirmación funcional final la da duarte abriendo «Importar Menú con IA» en el panel de
+  producción (no tengo credenciales de un cliente real de producción para pasar el auth).
 
 
 ### 2026-06 — Maxx (ejecución) con autorización explícita de duarte — **`trunk` → `production` fusionado y desplegado**

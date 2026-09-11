@@ -624,3 +624,6 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Verificado: paso del build simulado en un directorio aislado (importa OK, stripe y openai
   intactos) y el endpoint devolviendo 200 con los 5 productos extraídos de una foto de menú.
 - La comprobación final es en producción, tras el próximo deploy (sólo Render construye la imagen).
+- Desplegado a production (`f8474ee` → `567b338`): livez 200 con esa versión, ready 200 (mongo,
+  storage r2, redis, worker), `ai-import` sin token 401. Falta sólo la confirmación funcional de
+  duarte desde el panel de producción.
