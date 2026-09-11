@@ -1007,14 +1007,33 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if not menu:
             raise HTTPException(status_code=404, detail="Menu not found")
         screen_ids = data.get("screen_ids") or []
-        # Default: publish to all org screens
+        # Default: publish to all org screens (kept for backwards compatibility
+        # with any caller that doesn't pick screens). The panel now always sends
+        # an explicit selection.
         if not screen_ids:
             org_screens = await db.screens.find({"organization_id": org_id}, {"id": 1}).to_list(100)
             screen_ids = [s["id"] for s in org_screens]
+        else:
+            # Only the caller's own screens, and no duplicates.
+            owned = await db.screens.find(
+                {"id": {"$in": screen_ids}, "organization_id": org_id}, {"id": 1}
+            ).to_list(100)
+            owned_ids = {s["id"] for s in owned}
+            unknown = [s for s in screen_ids if s not in owned_ids]
+            if unknown:
+                raise HTTPException(404, f"Screen not found: {unknown[0]}")
+            screen_ids = list(dict.fromkeys(screen_ids))
         now = datetime.utcnow()
         await db.menus.update_one(
             {"id": menu_id},
             {"$set": {"status": "published", "screen_ids": screen_ids, "published_at": now, "updated_at": now}},
+        )
+        # Screens that used to show this menu but are no longer selected must stop
+        # showing it — otherwise «publish to one screen» silently left the menu up
+        # on every screen it had ever been published to.
+        removed = await db.screens.update_many(
+            {"organization_id": org_id, "active_menu_id": menu_id, "id": {"$nin": screen_ids}},
+            {"$set": {"active_menu_id": None, "updated_at": now}},
         )
         if screen_ids:
             await db.screens.update_many(
@@ -1022,11 +1041,13 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 {"$set": {"active_menu_id": menu_id, "updated_at": now}},
             )
         await _log(current_user, "menu.published", "menu", menu_id,
-                   {"name": menu.get("name"), "screens": len(screen_ids)})
+                   {"name": menu.get("name"), "screens": len(screen_ids),
+                    "removed_from": removed.modified_count})
         return {
             "message": f"Menu '{menu['name']}' published to {len(screen_ids)} screen(s)",
             "menu_id": menu_id,
             "screen_ids": screen_ids,
+            "removed_from": removed.modified_count,
         }
 
     # ══════════════════════════════════════════════════════════════════════

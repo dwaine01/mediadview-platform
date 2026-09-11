@@ -100,6 +100,14 @@ export default function MenuEditor() {
   const [publishing, setPublishing] = useState(false);
   const [error, setError] = useState('');
 
+  // Screen picker at publish time — a menu goes to the screens you choose,
+  // not to every screen you own.
+  const [showScreenPicker, setShowScreenPicker] = useState(false);
+  const [screens, setScreens] = useState<{ id: string; name: string; status?: string }[]>([]);
+  const [pickedScreens, setPickedScreens] = useState<string[]>([]);
+  const [loadingScreens, setLoadingScreens] = useState(false);
+  const [screensError, setScreensError] = useState('');
+
   // Add/edit item modal
   const [showItemModal, setShowItemModal] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
@@ -243,28 +251,41 @@ export default function MenuEditor() {
       setDialog({ title: 'Sin productos', message: 'Agrega al menos un producto antes de publicar.' });
       return;
     }
-    setDialog({
-      title: 'Publicar menú',
-      message: 'Se mostrará en todas tus pantallas conectadas. ¿Continuamos?',
-      icon: 'cloud-upload-outline',
-      options: [
-        { label: 'Publicar', primary: true, onPress: async () => {
-          setPublishing(true);
-          try {
-            await workspaceAPI.publishMenu(menuId);
-            setDialog({
-              title: '¡Publicado!',
-              icon: 'checkmark-circle-outline',
-              message: 'Tu menú ya está en vivo en tus pantallas.',
-              options: [{ label: 'Volver a Menús', primary: true, onPress: () => router.push('/workspace/menus') },
-                        { label: 'Seguir editando' }],
-            });
-          } catch (e: any) { setDialog({ title: 'No se pudo publicar', message: e.response?.data?.detail || e.message }); }
-          finally { setPublishing(false); }
-        }},
-        { label: 'Cancelar' },
-      ],
-    });
+    // Preselect where this menu is already live; first publish preselects nothing
+    // so the user has to choose consciously in which screen it goes.
+    setPickedScreens(menu?.screen_ids?.length ? [...menu.screen_ids] : []);
+    setScreensError('');
+    setShowScreenPicker(true);
+    setLoadingScreens(true);
+    workspaceAPI.screens()
+      .then(r => setScreens(r.data || []))
+      .catch(e => setScreensError(e.response?.data?.detail || 'No pudimos cargar tus pantallas'))
+      .finally(() => setLoadingScreens(false));
+  };
+
+  const toggleScreen = (id: string) =>
+    setPickedScreens(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+
+  const confirmPublish = async () => {
+    if (!pickedScreens.length) { setScreensError('Elegí al menos una pantalla.'); return; }
+    setPublishing(true); setScreensError('');
+    try {
+      const res = await workspaceAPI.publishMenu(menuId, { screen_ids: pickedScreens });
+      setShowScreenPicker(false);
+      const n = pickedScreens.length;
+      const removed = res.data?.removed_from || 0;
+      setDialog({
+        title: '¡Publicado!',
+        icon: 'checkmark-circle-outline',
+        message: `Tu menú ya está en vivo en ${n} pantalla${n === 1 ? '' : 's'}.`
+          + (removed ? ` Se quitó de ${removed} pantalla${removed === 1 ? '' : 's'} donde estaba antes.` : ''),
+        options: [{ label: 'Volver a Menús', primary: true, onPress: () => router.push('/workspace/menus') },
+                  { label: 'Seguir editando' }],
+      });
+      load();
+    } catch (e: any) {
+      setScreensError(e.response?.data?.detail || e.message || 'No se pudo publicar');
+    } finally { setPublishing(false); }
   };
 
   const missingPhotos = (menu?.items || []).filter(i => !i.image_url).length;
@@ -472,12 +493,108 @@ export default function MenuEditor() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* ¿En qué pantallas? — selección al publicar */}
+      <Modal visible={showScreenPicker} transparent animationType="slide"
+             onRequestClose={() => setShowScreenPicker(false)}>
+        <View style={ed.pickerOverlay}>
+          <View style={[ed.pickerCard, { paddingBottom: insets.bottom + 16 }]}>
+            <View style={ed.pickerHeader}>
+              <Text style={ed.pickerTitle}>¿En qué pantallas?</Text>
+              <TouchableOpacity onPress={() => setShowScreenPicker(false)}
+                                hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={ed.pickerHint}>
+              Elegí dónde querés mostrar «{menu?.name}». Las pantallas que no marques siguen con
+              lo que tienen ahora.
+            </Text>
+
+            {screens.length > 1 && (
+              <TouchableOpacity
+                style={ed.pickAll}
+                onPress={() => setPickedScreens(
+                  pickedScreens.length === screens.length ? [] : screens.map(s => s.id))}
+                testID="pick-all-screens"
+              >
+                <Ionicons
+                  name={pickedScreens.length === screens.length ? 'checkbox' : 'square-outline'}
+                  size={20}
+                  color={pickedScreens.length === screens.length ? '#0891B2' : '#94A3B8'}
+                />
+                <Text style={ed.pickAllText}>
+                  {pickedScreens.length === screens.length ? 'Quitar todas' : 'Seleccionar todas'}
+                </Text>
+                <Text style={ed.pickCount}>{pickedScreens.length}/{screens.length}</Text>
+              </TouchableOpacity>
+            )}
+
+            {loadingScreens ? (
+              <ActivityIndicator color="#0891B2" style={{ marginVertical: 28 }} />
+            ) : (
+              <ScrollView style={ed.pickerList} nestedScrollEnabled>
+                {screens.map(s => {
+                  const on = pickedScreens.includes(s.id);
+                  return (
+                    <TouchableOpacity key={s.id} style={[ed.pickItem, on && ed.pickItemOn]}
+                                      onPress={() => toggleScreen(s.id)} testID={`pick-${s.id}`}>
+                      <Ionicons name={on ? 'checkbox' : 'square-outline'} size={20}
+                                color={on ? '#0891B2' : '#94A3B8'} />
+                      <Text style={ed.pickItemText} numberOfLines={1}>{s.name}</Text>
+                      {menu?.screen_ids?.includes(s.id) && (
+                        <Text style={ed.pickLive}>en vivo</Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+                {!screens.length && (
+                  <Text style={ed.pickerHint}>Todavía no tenés pantallas conectadas.</Text>
+                )}
+              </ScrollView>
+            )}
+
+            {!!screensError && <Text style={ed.pickerErr}>{screensError}</Text>}
+
+            <TouchableOpacity
+              style={[ed.pickerBtn, (publishing || !pickedScreens.length) && ed.pickerBtnOff]}
+              onPress={confirmPublish}
+              disabled={publishing || !pickedScreens.length}
+              testID="confirm-publish-menu"
+            >
+              {publishing
+                ? <ActivityIndicator color="#fff" size={16} />
+                : <Text style={ed.pickerBtnText}>
+                    Publicar en {pickedScreens.length || 0} pantalla{pickedScreens.length === 1 ? '' : 's'}
+                  </Text>}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <AppDialog state={dialog} onDismiss={() => setDialog(null)} />
     </View>
   );
 }
 
 const ed = StyleSheet.create({
+  pickerOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.45)' },
+  pickerCard: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 20, paddingTop: 18 },
+  pickerHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  pickerTitle: { fontSize: 18, fontWeight: '800', color: '#0F172A' },
+  pickerHint: { fontSize: 13, color: '#64748B', lineHeight: 19, marginBottom: 14 },
+  pickAll: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 44, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#F8FAFC', marginBottom: 10 },
+  pickAllText: { flex: 1, fontSize: 13, fontWeight: '700', color: '#334155' },
+  pickCount: { fontSize: 12, fontWeight: '700', color: '#0891B2' },
+  pickerList: { maxHeight: 260, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12 },
+  pickItem: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 52, paddingHorizontal: 12 },
+  pickItemOn: { backgroundColor: '#ECFEFF' },
+  pickItemText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#0F172A' },
+  pickLive: { fontSize: 10, fontWeight: '800', color: '#059669' },
+  pickerErr: { fontSize: 13, color: '#DC2626', marginTop: 12, fontWeight: '600' },
+  pickerBtn: { minHeight: 52, borderRadius: 14, backgroundColor: '#0891B2', alignItems: 'center', justifyContent: 'center', marginTop: 16 },
+  pickerBtnOff: { opacity: 0.5 },
+  pickerBtnText: { color: '#fff', fontSize: 15, fontWeight: '800' },
+
   root: { flex: 1, backgroundColor: '#F8FAFC' },
   content: { padding: 20, gap: 16 },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },

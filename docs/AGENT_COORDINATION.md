@@ -64,6 +64,30 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — duarte (pedido) + Maxx — Publicar un menú ahora pregunta **en qué pantallas**
+- Rama: `trunk`. Archivos: `backend/workspace_routes.py`, `frontend/app/workspace/menu-edit.tsx`,
+  `backend/tests/test_menu_publish_per_screen.py` (nuevo).
+- Pedido de duarte: «después que creo un menú y lo guardo y quiero publicarlo en una pantalla
+  debería preguntarme en qué pantalla y ahí la selecciono, pero no en todas actualizar».
+- Antes: el panel llamaba a `publishMenu(menuId)` **sin pantallas** y el diálogo decía «Se mostrará
+  en todas tus pantallas conectadas». El backend ya aceptaba `screen_ids`, pero nadie los mandaba.
+- Ahora: al tocar «Publicar en Pantallas» / «Update Live» se abre un selector con **todas las
+  pantallas del cliente**, casillas múltiples, «Seleccionar todas» con contador (`1/18`), las que
+  ya tienen el menú marcadas y etiquetadas **«en vivo»**, y el botón dice «Publicar en N
+  pantalla(s)». La primera publicación no preselecciona nada, para que la elección sea consciente.
+- Fix de fondo en el backend (esto era un bug real): al publicar en un subconjunto, las pantallas
+  que **antes** mostraban ese menú y ya no están elegidas ahora se limpian
+  (`active_menu_id = None`). Antes se quedaban mostrándolo, así que «publicar en una sola
+  pantalla» no quitaba el menú de las demás. La respuesta incluye `removed_from` y el panel lo
+  dice: «Se quitó de N pantallas donde estaba antes». Además se valida que cada `screen_id` sea de
+  la organización (404 si no) y se deduplica. Sin `screen_ids` el comportamiento viejo (todas) se
+  mantiene por compatibilidad.
+- Verificación: probado por API (publicar en 2 → `removed_from: 3`; republicar sólo en la 3.ª →
+  `removed_from: 2` y las 2 anteriores con `active_menu_id: None`; pantalla inexistente 404),
+  4 tests nuevos en verde, `ruff`/`flake8`/ESLint limpios, y captura del selector en el panel
+  (390×844) mostrando «Seleccionar todas 1/18», la pantalla «en vivo» y el botón «Publicar en 1
+  pantalla». Sin rutas nuevas → snapshot intacto.
+
 ### 2026-06 — duarte (reporte) + Maxx — **Causa raíz del «no llega contenido a la pantalla»: reconectar un equipo creaba una pantalla nueva**
 - Rama: `trunk`. Archivos: `backend/workspace_routes.py`, `frontend/app/workspace/screens.tsx`,
   `frontend/src/services/api.ts`, `backend/tests/test_screen_reconnect.py` (nuevo).

@@ -655,3 +655,15 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   pantallas del cliente). Botón «Reconectar Equipo».
 - Verificado en local reproduciendo el caso: la playlist del equipo nuevo pasó de 0 a 2 ítems
   reales al reconectarlo a «Mostrador». 4 tests nuevos + suite 518 passed, sin rutas nuevas.
+
+## Feature (2026-06) — Publicar un menú eligiendo las pantallas
+- Pedido de duarte: al publicar un menú el panel debe preguntar en qué pantalla, no actualizar
+  todas. Ahora «Publicar en Pantallas» abre un selector múltiple con las pantallas del cliente,
+  «Seleccionar todas» con contador, las actuales marcadas como «en vivo», y el botón indica en
+  cuántas se va a publicar.
+- Bug de fondo arreglado en el backend: al publicar en un subconjunto, las pantallas que antes
+  mostraban ese menú y ya no están elegidas se limpian (`active_menu_id = None`); antes seguían
+  mostrándolo. La respuesta trae `removed_from` y el panel lo informa. Se valida que cada
+  `screen_id` sea de la organización (404) y se deduplica; sin `screen_ids` sigue publicando en
+  todas (compatibilidad).
+- 4 tests nuevos (`backend/tests/test_menu_publish_per_screen.py`), verificado por API y en el panel.
