@@ -627,3 +627,17 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Desplegado a production (`f8474ee` → `567b338`): livez 200 con esa versión, ready 200 (mongo,
   storage r2, redis, worker), `ai-import` sin token 401. Falta sólo la confirmación funcional de
   duarte desde el panel de producción.
+
+## Revert (2026-06) — `server_url` fuera del contrato de `/api/devices/{id}/check`
+- duarte reportó que tras instalar la APK el equipo «se desconecta» (la TCL vuelve a su propio
+  video) y el contenido no llega a la pantalla, y pidió volver al mismo payload de antes.
+- Revertido: la clave `server_url` de `/check`, el helper `_player_server_url()` y los endpoints
+  `POST`/`GET /api/admin/player-server`. La feature de desvincular pantalla se mantiene.
+- Añadido test de contrato (`TestDeviceCheckContract`) que congela las claves de `/check` en sus
+  dos estados (6 en `pending`, +`screen_resolution` en `active`), para que ningún cambio futuro
+  del payload rompa al player sin avisar.
+- Sospechoso principal restante, del lado del player (otro agente): la APK v3.4.0 publicada el
+  2026-09-08 incluye el cambio de renderizado de video a TextureView, nunca probado en hardware.
+  Rollback inmediato disponible: `mediaview-player-v3.3.2-backup.apk` del mismo release.
+- Dispositivo huérfano creado durante el diagnóstico, a borrar:
+  `26ba0b65-4106-4101-aae9-404ee4540952` (`client_uuid: probe-diag-0001`).

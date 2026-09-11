@@ -144,36 +144,6 @@ def create_admin_devices_routes(gen_id, serialize_doc, gen_activation_code):
             cfg.pop("_id", None)
         return cfg or {}
 
-    @router.post("/admin/player-server")
-    async def set_player_server(payload: dict, current_user: dict = Depends(get_current_user)):
-        """Admin: set the base URL every player must switch to.
-
-    Returned as `server_url` by GET /api/devices/{id}/check, so a TV box that
-    was flashed against an old or staging host can be repointed remotely
-    instead of physically. Send an empty string to clear it (players then keep
-    whatever URL they already have)."""
-        if current_user.get("role") not in ("superadmin", "admin"):
-            raise HTTPException(403, "Admin required")
-        url = str(payload.get("server_url") or "").strip().rstrip("/")
-        if url and not url.startswith(("http://", "https://")):
-            raise HTTPException(400, "server_url must start with http:// or https://")
-        doc = {
-            "_id": "player_server",
-            "server_url": url,
-            "updated_at": datetime.utcnow().isoformat(),
-            "updated_by": current_user.get("email"),
-        }
-        await db.app_config.update_one({"_id": "player_server"}, {"$set": doc}, upsert=True)
-        return {"ok": True, "server_url": url or None}
-
-    @router.get("/admin/player-server")
-    async def get_player_server(current_user: dict = Depends(get_current_user)):
-        if current_user.get("role") not in ("superadmin", "admin"):
-            raise HTTPException(403, "Admin required")
-        cfg = await db.app_config.find_one({"_id": "player_server"}) or {}
-        cfg.pop("_id", None)
-        return {"server_url": cfg.get("server_url") or None, **{k: v for k, v in cfg.items() if k != "server_url"}}
-
     @router.get("/admin/devices/{device_id}/logs")
     async def admin_device_logs(device_id: str, limit: int = 50, admin: dict = Depends(require_admin)):
         """Get recent logs for a device."""

@@ -3,9 +3,8 @@
   1. DELETE /api/workspace/screens/{screen_id} — «desvincular pantalla» from the
      customer panel: deletes the screen and frees every device linked to it back
      to `pending` with a fresh activation code, so the TV can be paired again.
-  2. `server_url` in GET /api/devices/{device_id}/check — lets a TV box be
-     repointed to another backend remotely (settable by an admin via
-     POST /api/admin/player-server), instead of touching the box physically.
+  2. The frozen key contract of GET /api/devices/{device_id}/check, which the
+     Android player reads on every poll (see TestDeviceCheckContract).
 
 The whole lifecycle is exercised against the live server: register a device →
 customer connects it with the code → unlink → device is pending with a NEW code
@@ -111,29 +110,45 @@ class TestScreenUnlink:
                                timeout=20).status_code == 401
 
 
-class TestPlayerServerUrl:
-    def test_check_exposes_server_url_and_admin_can_set_it(self, base_url, admin_headers, paired_screen):
-        device_id = paired_screen["device_id"]
+class TestDeviceCheckContract:
+    """Regression guard for the Android player.
 
-        # Empty config → null, i.e. "player keeps the URL it already has".
-        requests.post(f"{base_url}/api/admin/player-server", headers=admin_headers,
-                      json={"server_url": ""}, timeout=20)
-        assert requests.get(f"{base_url}/api/devices/{device_id}/check", timeout=20).json()["server_url"] is None
+    The player reads /check on every poll; a fresh install depends on it to show
+    the activation code. An extra/renamed key in this payload is exactly the kind
+    of change that can break a TV box in the field, so the contract is frozen
+    here: these 6 keys, no more, no less. (A `server_url` field for remote
+    repointing was added and then reverted for this reason — reintroduce it only
+    together with the Kotlin side.)
+    """
 
-        target = "https://panel.mediadview.com"
-        set_r = requests.post(f"{base_url}/api/admin/player-server", headers=admin_headers,
-                              json={"server_url": target + "/"}, timeout=20)
-        assert set_r.status_code == 200, set_r.text
-        assert set_r.json()["server_url"] == target  # trailing slash normalized away
-        assert requests.get(f"{base_url}/api/devices/{device_id}/check", timeout=20).json()["server_url"] == target
+    BASE_KEYS = {
+        "device_id", "activation_code", "status",
+        "screen_id", "screen_name", "activated_at",
+    }
+    # Only when the device is already paired the handler adds this one.
+    ACTIVE_KEYS = BASE_KEYS | {"screen_resolution"}
 
-        # Clean up so the rest of the suite sees the default (null).
-        requests.post(f"{base_url}/api/admin/player-server", headers=admin_headers,
-                      json={"server_url": ""}, timeout=20)
+    def _assert_contract(self, payload, expected):
+        assert set(payload) == expected, (
+            "El contrato de /check cambió: el player Android puede romperse. "
+            f"Extra: {set(payload) - expected} | Faltan: {expected - set(payload)}"
+        )
 
-    def test_rejects_non_http_scheme_and_non_admin(self, base_url, admin_headers, owner_headers):
-        bad = requests.post(f"{base_url}/api/admin/player-server", headers=admin_headers,
-                            json={"server_url": "ftp://nope"}, timeout=20)
-        assert bad.status_code == 400
+    def test_check_payload_keys_are_frozen_when_paired(self, base_url, paired_screen):
+        r = requests.get(f"{base_url}/api/devices/{paired_screen['device_id']}/check", timeout=20)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "active"
+        self._assert_contract(r.json(), self.ACTIVE_KEYS)
+
+    def test_check_payload_keys_are_frozen_when_pending(self, base_url, owner_headers, paired_screen):
+        """A freshly installed APK hits exactly this shape to show its code."""
+        requests.delete(f"{base_url}/api/workspace/screens/{paired_screen['screen_id']}",
+                        headers=owner_headers, timeout=20)
+        r = requests.get(f"{base_url}/api/devices/{paired_screen['device_id']}/check", timeout=20)
+        assert r.status_code == 200, r.text
+        assert r.json()["status"] == "pending"
+        self._assert_contract(r.json(), self.BASE_KEYS)
+
+    def test_admin_player_server_endpoint_stays_removed(self, base_url, admin_headers):
         assert requests.get(f"{base_url}/api/admin/player-server",
-                            headers=owner_headers, timeout=20).status_code == 403
+                            headers=admin_headers, timeout=20).status_code == 404
