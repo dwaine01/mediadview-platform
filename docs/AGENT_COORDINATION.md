@@ -64,6 +64,45 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — duarte (reporte) + Maxx — **Causa raíz del «no llega contenido a la pantalla»: reconectar un equipo creaba una pantalla nueva**
+- Rama: `trunk`. Archivos: `backend/workspace_routes.py`, `frontend/app/workspace/screens.tsx`,
+  `frontend/src/services/api.ts`, `backend/tests/test_screen_reconnect.py` (nuevo).
+- **Causa raíz** (con los datos que dio duarte: «muestra el código, lo enlazo, desaparece, la
+  pantalla queda azul oscuro, dice offline; antes se veía activo en vivo»):
+  `POST /workspace/screens/connect` **siempre creaba una pantalla nueva** (`db.screens.insert_one`,
+  sin forma de reutilizar una existente). Al reinstalar la APK, el player pierde su
+  almacenamiento local → se registra como **dispositivo nuevo** con un **código nuevo** → al
+  enlazarlo desde el panel nacía una **pantalla vacía**, mientras playlists, menús y promos
+  seguían colgados de la pantalla vieja, que quedaba **sin dispositivo → «offline»**. El TV
+  mostraba su pantalla de «esperando contenido» (el azul oscuro) porque su playlist tenía
+  `total_items: 0`. **Ningún bug de servidor: un hueco de producto.**
+- Fix: `connect` acepta ahora un `screen_id` opcional. Si viene, **reutiliza esa pantalla** en vez
+  de crear otra: libera el dispositivo anterior de esa pantalla (queda `pending`), engancha el
+  nuevo como `active`, actualiza el `code` de la pantalla y registra `screen.reconnected`. Sin
+  `screen_id` el comportamiento es idéntico al de siempre (crear por nombre), y el límite de
+  pantallas del plan no se toca porque reconectar no suma pantallas.
+- Panel: el modal «Conectar Pantalla» tiene dos pestañas — **Pantalla nueva** (lo de antes) y
+  **Reconectar una existente**, con un selector de las pantallas del cliente y el texto «Usá esto
+  si reinstalaste la app en el televisor: el equipo vuelve a la pantalla que ya tenés, con todo su
+  contenido, sin crear una nueva». El botón cambia a «Reconectar Equipo».
+- Verificación:
+  1. **Reproducido y arreglado de punta a punta en local**: registré un equipo nuevo (simulando la
+     reinstalación) y lo reconecté a la pantalla existente «Mostrador» → su playlist pasó de 0 a
+     **2 ítems reales** (`menu:5b547cbd…` 20 s y `efffde86…` 10 s, ambos con `download_url`), y el
+     dispositivo anterior quedó liberado en `pending`.
+  2. 4 tests nuevos en `test_screen_reconnect.py`, todos en verde: no se crea pantalla nueva,
+     el equipo viejo se libera, `screen_id` inexistente 404, la ruta clásica por nombre intacta,
+     y el código sigue validándose (corto 400, inexistente 404).
+  3. Probado en el panel (390×844): las dos pestañas, el selector con las pantallas del cliente y
+     el botón «Reconectar Equipo».
+  4. `ruff` limpio, `flake8` sin avisos, ESLint limpio, suite **518 passed** con el mismo conjunto
+     de fallos de la línea base. Sin rutas nuevas → snapshot intacto (493).
+  5. Validado por el `testing_agent`.
+- 📌 Recomendación para duarte, además del fix: la APK v3.4.0 del release trae el cambio de
+  renderizado de video a TextureView **nunca probado en hardware**; si el TV sigue raro después de
+  reconectar, el rollback es `mediaview-player-v3.3.2-backup.apk` (desinstalar primero).
+
+
 ### 2026-06 — duarte (reporte) + Maxx — **REVERTIDO `server_url` del contrato de `/check`** (el player dejó de mostrar contenido)
 - Rama: `trunk`. Archivos: `backend/player_routes.py`, `backend/admin_devices_routes.py`,
   `backend/tests/test_screen_unlink_and_server_url.py`, `route_inventory_snapshot.json`.

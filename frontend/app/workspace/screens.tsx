@@ -71,6 +71,8 @@ export default function WorkspaceScreens() {
   const [showConnect, setShowConnect] = useState(false);
   const [code, setCode] = useState('');
   const [screenName, setScreenName] = useState('');
+  const [connectMode, setConnectMode] = useState<'new' | 'existing'>('new');
+  const [reuseScreenId, setReuseScreenId] = useState('');
   const [connecting, setConnecting] = useState(false);
   const [connectError, setConnectError] = useState('');
   const [connectSuccess, setConnectSuccess] = useState('');
@@ -128,17 +130,18 @@ export default function WorkspaceScreens() {
 
   const handleConnect = async () => {
     if (code.trim().length < 6) { setConnectError('Please enter the 6-character code from your screen.'); return; }
-    if (!screenName.trim()) { setConnectError('Please enter a name for this screen.'); return; }
+    if (connectMode === 'new' && !screenName.trim()) { setConnectError('Please enter a name for this screen.'); return; }
+    if (connectMode === 'existing' && !reuseScreenId) { setConnectError('Elegí a qué pantalla querés reconectar el equipo.'); return; }
     setConnecting(true); setConnectError('');
     try {
-      const res = await workspaceAPI.connectScreen({
-        activation_code: code.trim().toUpperCase(),
-        screen_name: screenName.trim(),
-        orientation,
-      });
+      const res = await workspaceAPI.connectScreen(
+        connectMode === 'existing'
+          ? { activation_code: code.trim().toUpperCase(), screen_id: reuseScreenId }
+          : { activation_code: code.trim().toUpperCase(), screen_name: screenName.trim(), orientation },
+      );
       setConnectSuccess(res.data?.message || 'Screen connected!');
       load();
-      setTimeout(() => { setShowConnect(false); setConnectSuccess(''); }, 2000);
+      setTimeout(() => { setShowConnect(false); setConnectSuccess(''); setReuseScreenId(''); }, 2600);
     } catch (e: any) {
       setConnectError(e.response?.data?.detail || e.message || 'Connection failed');
     } finally { setConnecting(false); }
@@ -270,22 +273,73 @@ export default function WorkspaceScreens() {
                   <Text style={ss.codeHint}>6 characters shown on your TV screen</Text>
                 </View>
 
-                <View style={ss.fieldWrap}>
-                  <Text style={ss.inputLabel}>Nombre de la Pantalla</Text>
-                  <TextInput
-                    style={ss.fieldInput}
-                    value={screenName}
-                    onChangeText={setScreenName}
-                    placeholder="ej. Entrada Principal, Vidriera"
-                    placeholderTextColor="#CBD5E1"
-                    returnKeyType="done"
-                    onSubmitEditing={handleConnect}
-                  />
+                <View style={ss.modeRow}>
+                  <TouchableOpacity
+                    style={[ss.modeTab, connectMode === 'new' && ss.modeTabOn]}
+                    onPress={() => { setConnectMode('new'); setConnectError(''); }}
+                    testID="mode-new"
+                  >
+                    <Text style={[ss.modeTabText, connectMode === 'new' && ss.modeTabTextOn]}>
+                      Pantalla nueva
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[ss.modeTab, connectMode === 'existing' && ss.modeTabOn]}
+                    onPress={() => { setConnectMode('existing'); setConnectError(''); }}
+                    testID="mode-existing"
+                  >
+                    <Text style={[ss.modeTabText, connectMode === 'existing' && ss.modeTabTextOn]}>
+                      Reconectar una existente
+                    </Text>
+                  </TouchableOpacity>
                 </View>
+
+                {connectMode === 'existing' ? (
+                  <View style={ss.fieldWrap}>
+                    <Text style={ss.inputLabel}>¿A qué pantalla?</Text>
+                    <Text style={ss.reuseHint}>
+                      Usá esto si reinstalaste la app en el televisor: el equipo vuelve a la
+                      pantalla que ya tenés, con todo su contenido, sin crear una nueva.
+                    </Text>
+                    <ScrollView style={ss.reuseList} nestedScrollEnabled>
+                      {screens.map(s => (
+                        <TouchableOpacity
+                          key={s.id}
+                          style={[ss.reuseItem, reuseScreenId === s.id && ss.reuseItemOn]}
+                          onPress={() => { setReuseScreenId(s.id); setConnectError(''); }}
+                          testID={`reuse-${s.id}`}
+                        >
+                          <Ionicons
+                            name={reuseScreenId === s.id ? 'radio-button-on' : 'radio-button-off'}
+                            size={18}
+                            color={reuseScreenId === s.id ? '#0891B2' : '#94A3B8'}
+                          />
+                          <Text style={ss.reuseItemText} numberOfLines={1}>{s.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                      {screens.length === 0 && (
+                        <Text style={ss.reuseHint}>Todavía no tenés pantallas creadas.</Text>
+                      )}
+                    </ScrollView>
+                  </View>
+                ) : (
+                  <View style={ss.fieldWrap}>
+                    <Text style={ss.inputLabel}>Nombre de la Pantalla</Text>
+                    <TextInput
+                      style={ss.fieldInput}
+                      value={screenName}
+                      onChangeText={setScreenName}
+                      placeholder="ej. Entrada Principal, Vidriera"
+                      placeholderTextColor="#CBD5E1"
+                      returnKeyType="done"
+                      onSubmitEditing={handleConnect}
+                    />
+                  </View>
+                )}
 
                 {!!connectError && <Text style={ss.connectErr}>{connectError}</Text>}
 
-                <OrientationPicker value={orientation} onChange={setOrientation} />
+                {connectMode === 'new' && <OrientationPicker value={orientation} onChange={setOrientation} />}
 
                 <TouchableOpacity
                   style={[ss.connectBtn, connecting && ss.connectBtnDisabled]}
@@ -294,7 +348,9 @@ export default function WorkspaceScreens() {
                 >
                   {connecting
                     ? <ActivityIndicator color="#fff" size={16} />
-                    : <Text style={ss.connectBtnText}>Conectar Pantalla</Text>
+                    : <Text style={ss.connectBtnText}>
+                        {connectMode === 'existing' ? 'Reconectar Equipo' : 'Conectar Pantalla'}
+                      </Text>
                   }
                 </TouchableOpacity>
               </>
@@ -365,6 +421,16 @@ const ss = StyleSheet.create({
   cardMeta: { fontSize: 12, color: '#64748B' },
   orientChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 6, minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#CFFAFE' },
   orientChipText: { fontSize: 11, fontWeight: '700', color: '#0891B2' },
+  modeRow: { flexDirection: 'row', gap: 8, marginBottom: 16 },
+  modeTab: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
+  modeTabOn: { borderColor: '#0891B2', backgroundColor: '#ECFEFF' },
+  modeTabText: { fontSize: 12, fontWeight: '700', color: '#64748B', textAlign: 'center' },
+  modeTabTextOn: { color: '#0891B2' },
+  reuseHint: { fontSize: 12, color: '#64748B', lineHeight: 18, marginBottom: 10 },
+  reuseList: { maxHeight: 180, borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10 },
+  reuseItem: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 48, paddingHorizontal: 12 },
+  reuseItemOn: { backgroundColor: '#ECFEFF' },
+  reuseItemText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#0F172A' },
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
   unlinkChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
   unlinkChipText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },

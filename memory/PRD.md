@@ -641,3 +641,17 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   Rollback inmediato disponible: `mediaview-player-v3.3.2-backup.apk` del mismo release.
 - Dispositivo huérfano creado durante el diagnóstico, a borrar:
   `26ba0b65-4106-4101-aae9-404ee4540952` (`client_uuid: probe-diag-0001`).
+
+## Fix de producto (2026-06) — Reconectar un equipo a una pantalla existente
+- CAUSA RAÍZ del «no llega contenido a la pantalla» que reportó duarte: `POST
+  /workspace/screens/connect` siempre creaba una pantalla NUEVA. Al reinstalar la APK el player
+  pierde su almacenamiento, se registra como dispositivo nuevo con código nuevo, y al enlazarlo
+  nacía una pantalla vacía mientras el contenido quedaba en la vieja (que pasaba a «offline»).
+  El TV mostraba su pantalla de «esperando contenido» porque su playlist tenía 0 ítems.
+- Fix: `connect` acepta un `screen_id` opcional y entonces reutiliza esa pantalla (libera el
+  dispositivo anterior, engancha el nuevo, `screen.reconnected` en auditoría). Sin `screen_id`,
+  comportamiento idéntico al anterior.
+- Panel: modal con dos pestañas, «Pantalla nueva» y «Reconectar una existente» (selector de
+  pantallas del cliente). Botón «Reconectar Equipo».
+- Verificado en local reproduciendo el caso: la playlist del equipo nuevo pasó de 0 a 2 ítems
+  reales al reconectarlo a «Mostrador». 4 tests nuevos + suite 518 passed, sin rutas nuevas.

@@ -716,10 +716,16 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
 
         activation_code = (data.get("activation_code") or "").strip().upper()
         screen_name = (data.get("screen_name") or "").strip()
+        # Optional: re-link this device to a screen that ALREADY exists instead of
+        # creating a new one. Without this, reinstalling the player app (which wipes
+        # its local storage and forces a fresh pairing code) created a brand-new,
+        # empty screen while all the content stayed on the old one — the TV showed
+        # the «waiting for content» screen and the old screen showed up as offline.
+        existing_screen_id = (data.get("screen_id") or "").strip()
 
         if len(activation_code) < 6:
             raise HTTPException(status_code=400, detail="Activation code must be 6 characters")
-        if not screen_name:
+        if not screen_name and not existing_screen_id:
             raise HTTPException(status_code=400, detail="Screen name is required")
 
         device = await db.devices.find_one({"activation_code": activation_code, "status": "pending"})
@@ -728,6 +734,46 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 status_code=404,
                 detail="Code not found or already used. Make sure the code on screen is correct and the device hasn't been connected yet.",
             )
+
+        if existing_screen_id:
+            screen = await db.screens.find_one(
+                {"id": existing_screen_id, "organization_id": org_id}
+            )
+            if not screen:
+                raise HTTPException(404, "Screen not found")
+            # Free whatever device was attached to this screen before (the old box,
+            # or the same box under a previous install) so there's exactly one.
+            await db.devices.update_many(
+                {"screen_id": existing_screen_id, "id": {"$ne": device["id"]}},
+                {"$set": {"screen_id": None, "status": "pending", "activated_at": None,
+                          "updated_at": now}},
+            )
+            await db.devices.update_one(
+                {"id": device["id"]},
+                {"$set": {
+                    "screen_id": existing_screen_id,
+                    "status": "active",
+                    "device_name": screen.get("name"),
+                    "activated_at": now,
+                    "updated_at": now,
+                }},
+            )
+            await db.screens.update_one(
+                {"id": existing_screen_id},
+                {"$set": {"status": "active", "code": activation_code, "updated_at": now}},
+            )
+            await _log(current_user, "screen.reconnected", "screen", existing_screen_id,
+                       {"name": screen.get("name"), "device_id": device["id"]})
+            fresh = await db.screens.find_one({"id": existing_screen_id})
+            return {
+                "screen": _ser(fresh),
+                "device_id": device["id"],
+                "reconnected": True,
+                "message": (
+                    f"Equipo reconectado a «{screen.get('name')}». "
+                    "Su contenido vuelve a aparecer en unos segundos."
+                ),
+            }
 
         # Check plan screen limit
         sub = await db.subscriptions.find_one(
