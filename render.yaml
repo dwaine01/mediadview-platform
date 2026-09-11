@@ -150,7 +150,14 @@ envVarGroups:
       - key: R2_SECRET_ACCESS_KEY
         sync: false
       - key: R2_BUCKET_NAME
-        value: mediadview-prod
+        # Nombre REAL del bucket en la cuenta de Cloudflare: "mediaview-media"
+        # (sin la "d"). El valor anterior, "mediadview-prod", nunca existió --
+        # era un nombre mal escrito que jamás se corrigió. Con las 3 credenciales
+        # cargadas y este nombre inexistente, R2_ENABLED se activaba igual y cada
+        # operación fallaba con "bucket not found", que es peor que el fallback
+        # silencioso a disco local. El token de API "mediaview-backend" (Object
+        # Read & Write) está emitido específicamente para este bucket.
+        value: mediaview-media
       - key: R2_PUBLIC_BASE_URL
         value: https://media.mediadview.com
       - key: R2_REGION
