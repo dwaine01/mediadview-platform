@@ -43,6 +43,17 @@ RUN python -m venv /opt/venv \
  && /opt/venv/bin/pip install --upgrade pip wheel \
  && /opt/venv/bin/pip install -r requirements.txt
 
+# emergentintegrations no está en PyPI público: se instala desde el índice de
+# Emergent. Lo usan las funciones de IA (importar menú con IA y generar foto de
+# producto) en backend/menu_ai_routes.py. Sin este paso el endpoint
+# /api/workspace/menus/ai-import muere con ModuleNotFoundError -> HTTP 500.
+# --no-deps ES A PROPÓSITO: su metadata exige stripe<15 y degradaría el
+# stripe==15.3.0 de requirements.txt, rompiendo la facturación. Todo lo que
+# emergentintegrations.llm.chat necesita de verdad (litellm 1.80.0, openai,
+# requests, aiohttp, pillow, google-genai) ya está pineado en requirements.txt.
+RUN /opt/venv/bin/pip install --no-deps emergentintegrations==0.2.0 \
+      --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/
+
 
 # ── Stage 2: runtime ─────────────────────────────────────────────────
 FROM python:3.11-slim-bookworm AS runtime

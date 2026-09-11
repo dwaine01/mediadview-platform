@@ -612,3 +612,15 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Producción verificada: `/api/livez` 200 con `version f8474ee`, `/api/ready` 200 con mongo,
   storage (driver `r2`), redis y worker en verde; landing y panel 200; rutas nuevas respondiendo
   401/422 sin auth; el bundle del panel reconstruido incluye la feature de desvincular.
+
+## Bug fix (2026-06) — «Importar Menú con IA» daba 500 en producción
+- Causa: `ModuleNotFoundError: No module named 'emergentintegrations'`. El paquete no está en
+  PyPI público ni en `requirements.txt`, así que la imagen de Docker de producción nunca lo tuvo
+  (en el pod de desarrollo viene preinstalado). `EMERGENT_LLM_KEY` ya estaba cargada.
+- Fix: paso `RUN` nuevo en el `Dockerfile`:
+  `pip install --no-deps emergentintegrations==0.2.0 --extra-index-url <índice de Emergent>`.
+  El `--no-deps` es obligatorio: la metadata exige `stripe<15` y degradaría el `stripe==15.3.0`
+  de requirements.txt, rompiendo la facturación. Las 6 dependencias reales ya están pineadas.
+- Verificado: paso del build simulado en un directorio aislado (importa OK, stripe y openai
+  intactos) y el endpoint devolviendo 200 con los 5 productos extraídos de una foto de menú.
+- La comprobación final es en producción, tras el próximo deploy (sólo Render construye la imagen).
