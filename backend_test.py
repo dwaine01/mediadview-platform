@@ -10,7 +10,7 @@ import sys
 import base64
 
 # Configuration from frontend .env
-BASE_URL = "https://menu-studio-3.preview.emergentagent.com"
+BASE_URL = "https://sprint1-signage.preview.emergentagent.com"
 API_URL = f"{BASE_URL}/api"
 
 # Test data

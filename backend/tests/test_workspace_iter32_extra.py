@@ -1,8 +1,8 @@
 """Iter32 extra coverage — expiración de promo, cambios de precio en el
 reporte semanal, weeks_ago=2, acceso de empleado, bump de versión al marcar
 un producto como agotado, y promo tipo imagen."""
-import os
 import asyncio
+import os
 from datetime import datetime, timedelta
 
 import pytest

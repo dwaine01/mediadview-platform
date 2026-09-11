@@ -15,7 +15,6 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-
 # ── Default seed values (admin can override any field except plan_id) ──────────
 DEFAULT_PLANS = [
     {

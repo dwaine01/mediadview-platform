@@ -179,6 +179,30 @@ async def r2_upload_fileobj(key: str, file_obj, content_type: str) -> Dict[str, 
     return {"etag": None}
 
 
+async def r2_get_stream(key: str):
+    """Yield an object's bytes in chunks. Used by /api/media/serve while the
+    bucket has no public Cloudflare domain, so a video is never loaded whole
+    into memory."""
+    session = aioboto3.Session()
+
+    async def chunks():
+        async with session.client(
+            "s3", endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_ACCESS_KEY_ID,
+            aws_secret_access_key=R2_SECRET_KEY,
+            region_name=R2_REGION,
+            config=BotoConfig(signature_version="s3v4", retries={"max_attempts": 3}),
+        ) as s3:
+            obj = await s3.get_object(Bucket=R2_BUCKET, Key=key)
+            async for chunk in obj["Body"].iter_chunks(1024 * 1024):
+                yield chunk
+
+    head = await r2_head(key)
+    if head is None:
+        raise HTTPException(404, "Media unavailable")
+    return chunks(), head.get("ContentType"), head.get("ContentLength")
+
+
 async def r2_head(key: str) -> Optional[Dict[str, Any]]:
     s3 = await _get_client()
     try:

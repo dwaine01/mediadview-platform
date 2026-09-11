@@ -16,7 +16,7 @@ from typing import Optional
 import pytest
 import requests
 
-BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com").rstrip("/")
+BASE = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com").rstrip("/")
 API = f"{BASE}/api"
 
 SUPERADMIN_EMAIL = "superadmin@mediadview.com"
@@ -180,7 +180,7 @@ class TestClientLogos:
         TestClientLogos._created_ids.append(body["id"])
         # public GET returns it
         pub = s.get(f"{API}/client-logos")
-        assert any(l["id"] == body["id"] for l in pub.json())
+        assert any(row["id"] == body["id"] for row in pub.json())
         # file is fetchable (no auth)
         file_r = requests.get(f"{BASE}{body['logo_url']}")
         assert file_r.status_code == 200
@@ -199,9 +199,9 @@ class TestClientLogos:
         assert p.status_code == 200
         assert p.json()["is_active"] is False
         pub = s.get(f"{API}/client-logos")
-        assert not any(l["id"] == lid for l in pub.json())
+        assert not any(row["id"] == lid for row in pub.json())
         admin_list = s.get(f"{API}/admin/client-logos", headers=headers)
-        assert any(l["id"] == lid for l in admin_list.json())
+        assert any(row["id"] == lid for row in admin_list.json())
 
     def test_validation_rejects_bad_extension(self, s, admin_token):
         headers = {"Authorization": f"Bearer {admin_token}"}
@@ -239,7 +239,7 @@ class TestClientLogos:
         TestClientLogos._created_ids.clear()
         # final: public list should be empty (or at least not contain our test names)
         pub = s.get(f"{API}/client-logos")
-        assert not any(l.get("name", "").startswith("TEST_") for l in pub.json())
+        assert not any(row.get("name", "").startswith("TEST_") for row in pub.json())
 
 
 # ─── Admin panel HTML route ──────────────────────────────────────────────────

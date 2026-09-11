@@ -34,8 +34,6 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
-
 from domain_saas.models import (
     CustomerCreate,
     CustomerUpdate,
@@ -49,7 +47,7 @@ from domain_saas.models import (
     SubscriptionStatusUpdate,
     normalize_plan_id,
 )
-
+from rbac import Role, get_effective_role  # 2C-1A.1 RB-1 fix
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -676,7 +674,7 @@ def create_saas_crm_routes(db, get_current_user, require_admin, require_superadm
                 "subscription": sub_data,
                 "current_pricing_agreement": pricing,
                 "plan_config": _ser(plan_cfg),
-                "users": _ser(org_users),
+                "users": [_ser(u) for u in org_users],
             })
 
         return {

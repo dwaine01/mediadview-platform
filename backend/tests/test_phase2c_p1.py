@@ -1,10 +1,11 @@
 """
 Phase 2C P1 — Backend tests: Landing, Plans API, Workspace Context, Workspace sub-routes
 """
-import pytest
-import requests
 import os
 import time
+
+import pytest
+import requests
 
 BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', '').rstrip('/')
 

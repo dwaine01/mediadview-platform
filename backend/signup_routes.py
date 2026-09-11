@@ -18,7 +18,6 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from org_branding_routes import save_org_logo
-
 from rbac import Role
 
 

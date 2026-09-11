@@ -533,3 +533,57 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Tests: `backend/tests/test_sse_single_channel_iter38.py` (3 passed) + Sprint 1 e iteración 9 (11 passed).
   Suite completa: 479 passed / 15 failed (rate limit y datos de prueba; 2 fallos preexistentes verificados con git stash).
 - Login de workspace verificado E2E en navegador (testws@test.com → /workspace).
+
+## Unificación de ramas (2026-09-08)
+- `production` = `main` = `trunk` = una sola línea de historia. Producción corre `622da1a`
+  (merge con árbol de trunk): Sprint 1 + workspace SaaS + SSE unificado ya están en vivo.
+- Verificado post-deploy: /api/livez con el sha del merge, /api/workspace/team 401 (antes 404),
+  SSE con connected, /apk 302, panel admin con 29 pantallas y 200 dispositivos sin spinners,
+  marketplace OK y heartbeats de players reales entrando (modo gracia del device token).
+- Pendiente menor: la variable ENVIRONMENT del servicio en Render devuelve "staging".
+
+## Refactor Fase 2B-10 (2026-06) — `/payments*`, `/widgets/*`, `/certification/*`
+- 7 rutas fuera de `server.py` en 3 archivos por dominio: `payments_routes.py` (3 rutas +
+  `PaymentCreate`), `widgets_routes.py` (2 rutas + `_safe_iframe/_safe_css_color/_safe_js_str/`
+  `_safe_yt_id` + cache de clima) y `certification_routes.py` (2 rutas + `CertificationResult`).
+- `server.py`: 2501 → 2243 líneas (acumulado 7106 → 2243, −68,4 %). Rutas de `api_router` 34 → 27.
+- Decisión de alcance: `/screen` y `/screen/legacy` (FileResponse de una línea) se quedan en
+  `server.py` para siempre, junto al resto de páginas estáticas/SPA.
+- Limpieza empaquetada: `typing.List` e `import json` muertos en `server.py`; 4 líneas de
+  docstring resangradas en `public_api_routes.py`.
+- Verificación: 12/13 unidades idénticas byte a byte (`verify_relocation.py`); la única distinta
+  (`widget_weather_proxy`) sólo con los 2 fixes cosméticos documentados. `ruff check backend`
+  limpio, `flake8` sin F821, `test_route_inventory.py` en verde sin regenerar el snapshot
+  (md5 `698364b3…`), suite con los mismos 42 fallos de la línea base (491 passed).
+- Commit `b5c6238` en `trunk` y `main`. `production` sin tocar.
+- Falta para cerrar la Fase 2B: las 4 rutas `/auth/*` (requieren consultar al integration expert
+  antes de tocarlas).
+
+## Refactor Fase 2B-11 (2026-06) — `/auth/*` legacy v1 → FASE 2B CERRADA
+- 4 rutas legacy v1 (`register`, `login`, `/auth/me`, `PUT /auth/profile`) + `verify_password`
+  + 3 modelos fuera de `server.py` → `auth_routes.py`. `/api/auth/*` v2 (`auth_v2.py`) intacto.
+- `server.py`: 2243 → 2140 líneas (acumulado 7106 → 2140, −69,9 %). Rutas `api_router` 27 → 23.
+- `hash_password` y `create_token` se quedan en `server.py` (los importa `finance.py` y
+  `superadmin_routes.py` con `from server import hash_password` en tiempo de llamada).
+- Paso previo obligatorio: consultado el integration expert antes de tocar auth. Verificado que
+  el limiter es el MISMO objeto (`auth_routes._rl is rate_limit.limiter`), orden de decoradores
+  intacto y tabla de rutas idéntica (489 entradas, diff vacío).
+- Verificación: 8/8 unidades idénticas byte a byte, ruff limpio, flake8 sin avisos en el nuevo,
+  route inventory sin regenerar snapshot, suite con los mismos 42 fallos base.
+- Pruebas en vivo: registro/login/me/profile OK, duplicado 400, sin token 401, lockout de
+  auth_v2 a la 6.ª clave mala (429) y rate limit de slowapi a los 20 registros (429).
+- FASE 2B CERRADA: en `server.py` sólo quedan las ~20+2 páginas estáticas/SPA, por decisión.
+- Siguiente: Fase 2C (mover módulos a `backend/domains/<dominio>/`).
+
+## Fix (2026-06) — Subida pública por token acepta multipart real
+- `POST /api/public/playlists/{token}/media` ya no revienta con 500 (`UnicodeDecodeError`) al
+  recibir `multipart/form-data`: nuevo helper `_parse_media_upload()` en `public_api_routes.py`
+  que acepta el JSON+base64 de siempre Y multipart real (campo `file` + `width`/`height`
+  opcionales). Otro content-type → 415 limpio. Cierra el hallazgo abierto desde la Fase 2B-8.
+- Alcance: sólo el endpoint público/invitado. `/media/upload` autenticado y
+  `backend/web/public-playlist.html` sin tocar (este último sigue mandando JSON).
+- Cambio de comportamiento declarado: el chequeo de `allow_upload` corre antes de leer el body,
+  así que un link deshabilitado responde 403 siempre (antes podía dar 422 con body inválido).
+  `/docs` pierde el schema autogenerado de esta ruta.
+- Verificado en vivo (9 casos) + integridad del archivo (sha256 y tamaño idénticos al original,
+  64×48 medido por PIL), ruff limpio, route inventory sin regenerar, suite con los 42 fallos base.

@@ -23,11 +23,11 @@ CONSTRAINTS enforced:
 """
 import os
 import uuid
+from pathlib import Path
 
 import pytest
 import requests
 from dotenv import load_dotenv
-from pathlib import Path
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
@@ -94,11 +94,12 @@ def support_token():
 
     No server.py changes.  No auth architecture changes.  No RBAC design changes.
     """
-    import bcrypt
     import uuid
     from datetime import datetime
-    from pymongo import MongoClient
+
+    import bcrypt
     from dotenv import load_dotenv
+    from pymongo import MongoClient
 
     load_dotenv(BACKEND_DIR / ".env")
     SUPPORT_EMAIL    = "support.crm.test@mediadview.local"

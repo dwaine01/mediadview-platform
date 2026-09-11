@@ -64,8 +64,8 @@ def test_device_token_is_issued_and_enforced():
 
 def test_legacy_player_without_token_is_adopted_not_locked_out():
     """Compatibilidad: un player ya instalado (sin token) sigue funcionando."""
-    from pymongo import MongoClient
     from dotenv import dotenv_values
+    from pymongo import MongoClient
     env = dotenv_values("/app/backend/.env")
     db = MongoClient(env["MONGO_URL"])[env.get("DB_NAME", "mediaview")]
 
@@ -86,8 +86,8 @@ def test_legacy_player_without_token_is_adopted_not_locked_out():
 
 
 def test_player_state_and_real_sync_progress_reach_the_panel():
-    from pymongo import MongoClient
     from dotenv import dotenv_values
+    from pymongo import MongoClient
     env = dotenv_values("/app/backend/.env")
     db = MongoClient(env["MONGO_URL"])[env.get("DB_NAME", "mediaview")]
 
@@ -166,8 +166,9 @@ def test_sse_event_channel_exists_and_announces_connection():
 
 
 def test_connectivity_thresholds_are_real():
-    from device_security import connectivity_from_heartbeat
     from datetime import datetime, timedelta
+
+    from device_security import connectivity_from_heartbeat
     now = datetime.utcnow()
     assert connectivity_from_heartbeat(None) == "NEVER"
     assert connectivity_from_heartbeat(now - timedelta(seconds=10), now) == "ONLINE"

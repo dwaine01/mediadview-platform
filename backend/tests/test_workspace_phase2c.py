@@ -2,11 +2,12 @@
 Phase 2C P1 - Workspace API tests
 Tests: /api/workspace/context, screens, menus, billing, connect
 """
-import pytest
-import requests
 import os
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com")
+import pytest
+import requests
+
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com")
 EMAIL = "testws@test.com"
 PASSWORD = "Test1234!"
 

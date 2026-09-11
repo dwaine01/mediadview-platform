@@ -1,11 +1,12 @@
 # Fase 2 Self-Service Portal — Backend tests
 # Tests: Organizations, Locations, Subscriptions, Team/Invites, Admin, Tenant Isolation, RBAC
 import os
+import uuid
 
 import pytest
 import requests
 
-BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://menu-studio-3.preview.emergentagent.com")
+BASE_URL = os.environ.get("EXPO_PUBLIC_BACKEND_URL", "https://sprint1-signage.preview.emergentagent.com")
 
 # ── Credentials ─────────────────────────────────────────────────────────────
 SUPER_ADMIN = {"email": "superadmin@mediadview.com", "password": "SuperAdmin#2026"}
@@ -368,6 +369,9 @@ class TestTeamInvites:
 
     created_invite_token = None
     created_invite_id = None
+    # Correo único por ejecución: con uno fijo, la segunda corrida fallaba con
+    # "You already have an account. Please log in to accept this invite".
+    invite_email = f"TEST_invite_fase2_{uuid.uuid4().hex[:8]}@example.com"
 
     def test_create_invite(self, session, token_sso_orga):
         """POST /api/organizations/{org_id}/invites → crear invite link"""
@@ -379,8 +383,7 @@ class TestTeamInvites:
             pytest.skip("No org found")
         org_id = org["id"]
 
-        # Invite a new TEST_ email
-        invite_email = "TEST_invite_fase2@example.com"
+        invite_email = TestTeamInvites.invite_email
         ri = session.post(f"{BASE_URL}/api/organizations/{org_id}/invites",
                           json={"email": invite_email, "role": "SELF_SERVICE_MANAGER"},
                           headers=auth_headers(token_sso_orga))
@@ -400,7 +403,7 @@ class TestTeamInvites:
         r = session.get(f"{BASE_URL}/api/invites/{TestTeamInvites.created_invite_token}")
         assert r.status_code == 200, f"Get invite info failed: {r.text}"
         data = r.json()
-        assert data.get("email") == "TEST_invite_fase2@example.com"
+        assert data.get("email") == TestTeamInvites.invite_email
         assert data.get("role") == "SELF_SERVICE_MANAGER"
         assert "org_name" in data
         assert "has_account" in data

@@ -2,10 +2,11 @@
 Phase 2C P1 - SaaS Customer System Backend Tests
 Tests: plans API, customer signup, workspace APIs
 """
-import pytest
-import requests
 import os
 import time
+
+import pytest
+import requests
 
 BASE_URL = os.environ.get('EXPO_PUBLIC_BACKEND_URL', '').rstrip('/')
 
