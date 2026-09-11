@@ -716,10 +716,16 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
 
         activation_code = (data.get("activation_code") or "").strip().upper()
         screen_name = (data.get("screen_name") or "").strip()
+        # Optional: re-link this device to a screen that ALREADY exists instead of
+        # creating a new one. Without this, reinstalling the player app (which wipes
+        # its local storage and forces a fresh pairing code) created a brand-new,
+        # empty screen while all the content stayed on the old one — the TV showed
+        # the «waiting for content» screen and the old screen showed up as offline.
+        existing_screen_id = (data.get("screen_id") or "").strip()
 
         if len(activation_code) < 6:
             raise HTTPException(status_code=400, detail="Activation code must be 6 characters")
-        if not screen_name:
+        if not screen_name and not existing_screen_id:
             raise HTTPException(status_code=400, detail="Screen name is required")
 
         device = await db.devices.find_one({"activation_code": activation_code, "status": "pending"})
@@ -728,6 +734,46 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 status_code=404,
                 detail="Code not found or already used. Make sure the code on screen is correct and the device hasn't been connected yet.",
             )
+
+        if existing_screen_id:
+            screen = await db.screens.find_one(
+                {"id": existing_screen_id, "organization_id": org_id}
+            )
+            if not screen:
+                raise HTTPException(404, "Screen not found")
+            # Free whatever device was attached to this screen before (the old box,
+            # or the same box under a previous install) so there's exactly one.
+            await db.devices.update_many(
+                {"screen_id": existing_screen_id, "id": {"$ne": device["id"]}},
+                {"$set": {"screen_id": None, "status": "pending", "activated_at": None,
+                          "updated_at": now}},
+            )
+            await db.devices.update_one(
+                {"id": device["id"]},
+                {"$set": {
+                    "screen_id": existing_screen_id,
+                    "status": "active",
+                    "device_name": screen.get("name"),
+                    "activated_at": now,
+                    "updated_at": now,
+                }},
+            )
+            await db.screens.update_one(
+                {"id": existing_screen_id},
+                {"$set": {"status": "active", "code": activation_code, "updated_at": now}},
+            )
+            await _log(current_user, "screen.reconnected", "screen", existing_screen_id,
+                       {"name": screen.get("name"), "device_id": device["id"]})
+            fresh = await db.screens.find_one({"id": existing_screen_id})
+            return {
+                "screen": _ser(fresh),
+                "device_id": device["id"],
+                "reconnected": True,
+                "message": (
+                    f"Equipo reconectado a «{screen.get('name')}». "
+                    "Su contenido vuelve a aparecer en unos segundos."
+                ),
+            }
 
         # Check plan screen limit
         sub = await db.subscriptions.find_one(
@@ -961,14 +1007,33 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if not menu:
             raise HTTPException(status_code=404, detail="Menu not found")
         screen_ids = data.get("screen_ids") or []
-        # Default: publish to all org screens
+        # Default: publish to all org screens (kept for backwards compatibility
+        # with any caller that doesn't pick screens). The panel now always sends
+        # an explicit selection.
         if not screen_ids:
             org_screens = await db.screens.find({"organization_id": org_id}, {"id": 1}).to_list(100)
             screen_ids = [s["id"] for s in org_screens]
+        else:
+            # Only the caller's own screens, and no duplicates.
+            owned = await db.screens.find(
+                {"id": {"$in": screen_ids}, "organization_id": org_id}, {"id": 1}
+            ).to_list(100)
+            owned_ids = {s["id"] for s in owned}
+            unknown = [s for s in screen_ids if s not in owned_ids]
+            if unknown:
+                raise HTTPException(404, f"Screen not found: {unknown[0]}")
+            screen_ids = list(dict.fromkeys(screen_ids))
         now = datetime.utcnow()
         await db.menus.update_one(
             {"id": menu_id},
             {"$set": {"status": "published", "screen_ids": screen_ids, "published_at": now, "updated_at": now}},
+        )
+        # Screens that used to show this menu but are no longer selected must stop
+        # showing it — otherwise «publish to one screen» silently left the menu up
+        # on every screen it had ever been published to.
+        removed = await db.screens.update_many(
+            {"organization_id": org_id, "active_menu_id": menu_id, "id": {"$nin": screen_ids}},
+            {"$set": {"active_menu_id": None, "updated_at": now}},
         )
         if screen_ids:
             await db.screens.update_many(
@@ -976,11 +1041,13 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 {"$set": {"active_menu_id": menu_id, "updated_at": now}},
             )
         await _log(current_user, "menu.published", "menu", menu_id,
-                   {"name": menu.get("name"), "screens": len(screen_ids)})
+                   {"name": menu.get("name"), "screens": len(screen_ids),
+                    "removed_from": removed.modified_count})
         return {
             "message": f"Menu '{menu['name']}' published to {len(screen_ids)} screen(s)",
             "menu_id": menu_id,
             "screen_ids": screen_ids,
+            "removed_from": removed.modified_count,
         }
 
     # ══════════════════════════════════════════════════════════════════════

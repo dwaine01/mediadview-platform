@@ -64,6 +64,69 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — duarte (pedido) + Maxx — Publicar un menú ahora pregunta **en qué pantallas**
+- Rama: `trunk`. Archivos: `backend/workspace_routes.py`, `frontend/app/workspace/menu-edit.tsx`,
+  `backend/tests/test_menu_publish_per_screen.py` (nuevo).
+- Pedido de duarte: «después que creo un menú y lo guardo y quiero publicarlo en una pantalla
+  debería preguntarme en qué pantalla y ahí la selecciono, pero no en todas actualizar».
+- Antes: el panel llamaba a `publishMenu(menuId)` **sin pantallas** y el diálogo decía «Se mostrará
+  en todas tus pantallas conectadas». El backend ya aceptaba `screen_ids`, pero nadie los mandaba.
+- Ahora: al tocar «Publicar en Pantallas» / «Update Live» se abre un selector con **todas las
+  pantallas del cliente**, casillas múltiples, «Seleccionar todas» con contador (`1/18`), las que
+  ya tienen el menú marcadas y etiquetadas **«en vivo»**, y el botón dice «Publicar en N
+  pantalla(s)». La primera publicación no preselecciona nada, para que la elección sea consciente.
+- Fix de fondo en el backend (esto era un bug real): al publicar en un subconjunto, las pantallas
+  que **antes** mostraban ese menú y ya no están elegidas ahora se limpian
+  (`active_menu_id = None`). Antes se quedaban mostrándolo, así que «publicar en una sola
+  pantalla» no quitaba el menú de las demás. La respuesta incluye `removed_from` y el panel lo
+  dice: «Se quitó de N pantallas donde estaba antes». Además se valida que cada `screen_id` sea de
+  la organización (404 si no) y se deduplica. Sin `screen_ids` el comportamiento viejo (todas) se
+  mantiene por compatibilidad.
+- Verificación: probado por API (publicar en 2 → `removed_from: 3`; republicar sólo en la 3.ª →
+  `removed_from: 2` y las 2 anteriores con `active_menu_id: None`; pantalla inexistente 404),
+  4 tests nuevos en verde, `ruff`/`flake8`/ESLint limpios, y captura del selector en el panel
+  (390×844) mostrando «Seleccionar todas 1/18», la pantalla «en vivo» y el botón «Publicar en 1
+  pantalla». Sin rutas nuevas → snapshot intacto.
+
+### 2026-06 — duarte (reporte) + Maxx — **Causa raíz del «no llega contenido a la pantalla»: reconectar un equipo creaba una pantalla nueva**
+- Rama: `trunk`. Archivos: `backend/workspace_routes.py`, `frontend/app/workspace/screens.tsx`,
+  `frontend/src/services/api.ts`, `backend/tests/test_screen_reconnect.py` (nuevo).
+- **Causa raíz** (con los datos que dio duarte: «muestra el código, lo enlazo, desaparece, la
+  pantalla queda azul oscuro, dice offline; antes se veía activo en vivo»):
+  `POST /workspace/screens/connect` **siempre creaba una pantalla nueva** (`db.screens.insert_one`,
+  sin forma de reutilizar una existente). Al reinstalar la APK, el player pierde su
+  almacenamiento local → se registra como **dispositivo nuevo** con un **código nuevo** → al
+  enlazarlo desde el panel nacía una **pantalla vacía**, mientras playlists, menús y promos
+  seguían colgados de la pantalla vieja, que quedaba **sin dispositivo → «offline»**. El TV
+  mostraba su pantalla de «esperando contenido» (el azul oscuro) porque su playlist tenía
+  `total_items: 0`. **Ningún bug de servidor: un hueco de producto.**
+- Fix: `connect` acepta ahora un `screen_id` opcional. Si viene, **reutiliza esa pantalla** en vez
+  de crear otra: libera el dispositivo anterior de esa pantalla (queda `pending`), engancha el
+  nuevo como `active`, actualiza el `code` de la pantalla y registra `screen.reconnected`. Sin
+  `screen_id` el comportamiento es idéntico al de siempre (crear por nombre), y el límite de
+  pantallas del plan no se toca porque reconectar no suma pantallas.
+- Panel: el modal «Conectar Pantalla» tiene dos pestañas — **Pantalla nueva** (lo de antes) y
+  **Reconectar una existente**, con un selector de las pantallas del cliente y el texto «Usá esto
+  si reinstalaste la app en el televisor: el equipo vuelve a la pantalla que ya tenés, con todo su
+  contenido, sin crear una nueva». El botón cambia a «Reconectar Equipo».
+- Verificación:
+  1. **Reproducido y arreglado de punta a punta en local**: registré un equipo nuevo (simulando la
+     reinstalación) y lo reconecté a la pantalla existente «Mostrador» → su playlist pasó de 0 a
+     **2 ítems reales** (`menu:5b547cbd…` 20 s y `efffde86…` 10 s, ambos con `download_url`), y el
+     dispositivo anterior quedó liberado en `pending`.
+  2. 4 tests nuevos en `test_screen_reconnect.py`, todos en verde: no se crea pantalla nueva,
+     el equipo viejo se libera, `screen_id` inexistente 404, la ruta clásica por nombre intacta,
+     y el código sigue validándose (corto 400, inexistente 404).
+  3. Probado en el panel (390×844): las dos pestañas, el selector con las pantallas del cliente y
+     el botón «Reconectar Equipo».
+  4. `ruff` limpio, `flake8` sin avisos, ESLint limpio, suite **518 passed** con el mismo conjunto
+     de fallos de la línea base. Sin rutas nuevas → snapshot intacto (493).
+  5. Validado por el `testing_agent`.
+- 📌 Recomendación para duarte, además del fix: la APK v3.4.0 del release trae el cambio de
+  renderizado de video a TextureView **nunca probado en hardware**; si el TV sigue raro después de
+  reconectar, el rollback es `mediaview-player-v3.3.2-backup.apk` (desinstalar primero).
+
+
 ### 2026-06 — duarte (reporte) + Maxx — **REVERTIDO `server_url` del contrato de `/check`** (el player dejó de mostrar contenido)
 - Rama: `trunk`. Archivos: `backend/player_routes.py`, `backend/admin_devices_routes.py`,
   `backend/tests/test_screen_unlink_and_server_url.py`, `route_inventory_snapshot.json`.

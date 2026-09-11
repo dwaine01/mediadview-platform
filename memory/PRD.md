@@ -641,3 +641,29 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   Rollback inmediato disponible: `mediaview-player-v3.3.2-backup.apk` del mismo release.
 - Dispositivo huérfano creado durante el diagnóstico, a borrar:
   `26ba0b65-4106-4101-aae9-404ee4540952` (`client_uuid: probe-diag-0001`).
+
+## Fix de producto (2026-06) — Reconectar un equipo a una pantalla existente
+- CAUSA RAÍZ del «no llega contenido a la pantalla» que reportó duarte: `POST
+  /workspace/screens/connect` siempre creaba una pantalla NUEVA. Al reinstalar la APK el player
+  pierde su almacenamiento, se registra como dispositivo nuevo con código nuevo, y al enlazarlo
+  nacía una pantalla vacía mientras el contenido quedaba en la vieja (que pasaba a «offline»).
+  El TV mostraba su pantalla de «esperando contenido» porque su playlist tenía 0 ítems.
+- Fix: `connect` acepta un `screen_id` opcional y entonces reutiliza esa pantalla (libera el
+  dispositivo anterior, engancha el nuevo, `screen.reconnected` en auditoría). Sin `screen_id`,
+  comportamiento idéntico al anterior.
+- Panel: modal con dos pestañas, «Pantalla nueva» y «Reconectar una existente» (selector de
+  pantallas del cliente). Botón «Reconectar Equipo».
+- Verificado en local reproduciendo el caso: la playlist del equipo nuevo pasó de 0 a 2 ítems
+  reales al reconectarlo a «Mostrador». 4 tests nuevos + suite 518 passed, sin rutas nuevas.
+
+## Feature (2026-06) — Publicar un menú eligiendo las pantallas
+- Pedido de duarte: al publicar un menú el panel debe preguntar en qué pantalla, no actualizar
+  todas. Ahora «Publicar en Pantallas» abre un selector múltiple con las pantallas del cliente,
+  «Seleccionar todas» con contador, las actuales marcadas como «en vivo», y el botón indica en
+  cuántas se va a publicar.
+- Bug de fondo arreglado en el backend: al publicar en un subconjunto, las pantallas que antes
+  mostraban ese menú y ya no están elegidas se limpian (`active_menu_id = None`); antes seguían
+  mostrándolo. La respuesta trae `removed_from` y el panel lo informa. Se valida que cada
+  `screen_id` sea de la organización (404) y se deduplica; sin `screen_ids` sigue publicando en
+  todas (compatibilidad).
+- 4 tests nuevos (`backend/tests/test_menu_publish_per_screen.py`), verificado por API y en el panel.

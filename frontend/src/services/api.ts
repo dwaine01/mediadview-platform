@@ -148,7 +148,7 @@ export const workspaceAPI = {
   // Screens
   screens: () => api.get('/workspace/screens'),
   createScreen: (data: { name: string; location?: string; orientation?: string }) => api.post('/workspace/screens', data),
-  connectScreen: (data: { activation_code: string; screen_name: string; orientation?: string }) =>
+  connectScreen: (data: { activation_code: string; screen_name?: string; orientation?: string; screen_id?: string }) =>
     api.post('/workspace/screens/connect', data),
   updateScreen: (id: string, data: { name?: string; orientation?: string }) =>
     api.patch(`/workspace/screens/${id}`, data),
