@@ -64,6 +64,72 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — duarte (logs) + Maxx (fix) — Bug: «Importar Menú con IA» daba 500 en producción (`ModuleNotFoundError: emergentintegrations`)
+- Rama: `trunk`. Archivo: `Dockerfile` (un paso `RUN` nuevo en la etapa de build).
+- Causa raíz (confirmada por duarte en los logs de Render):
+  `ModuleNotFoundError: No module named 'emergentintegrations'` en
+  `menu_ai_routes.py`, dentro de `ai_import_menu`. `EMERGENT_LLM_KEY` ya estaba cargada
+  (de ahí que el 503 se convirtiera en 500). El paquete **no está en PyPI público** y no
+  figuraba en `requirements.txt`, así que la imagen de producción nunca lo tuvo. En el pod de
+  desarrollo viene preinstalado, y por eso en local siempre funcionó: el clásico «en mi
+  máquina sí».
+- Por qué el síntoma es un 500 y no un 502: en `menu_ai_routes.py` el `import` y el
+  `LlmChat(...)` están **fuera** del `try`; el `except` que devuelve 502 sólo envuelve el
+  `send_message`. Un fallo de import no lo captura nadie → 500.
+- Fix: paso `RUN` aparte en el `Dockerfile` con el índice de Emergent:
+  `pip install --no-deps emergentintegrations==0.2.0 --extra-index-url https://d33sy5i8bnduwe.cloudfront.net/simple/`
+- ⚠️ **El `--no-deps` no es pereza, es obligatorio**: la metadata del paquete exige
+  `stripe<15` y `openai==1.99.9`, así que un install normal **degradaría el `stripe==15.3.0`
+  de `requirements.txt` y rompería la facturación** (justo después del lío de las claves live
+  de Stripe). Inspeccioné los imports reales de `emergentintegrations/llm/*.py`: sólo necesita
+  `litellm`, `openai`, `requests`, `aiohttp`, `PIL` y `google-genai`, y **los seis ya están
+  pineados** en `requirements.txt`. Tampoco se añade a `requirements.txt` porque ese archivo lo
+  consume `pip install -r` sin índice extra (y CI no ejercita la llamada al LLM).
+- Verificación (sin Docker en el pod, así que simulé el paso exacto del build):
+  1. `pip download` del paquete desde el índice de Emergent: OK, wheel de 29 kB.
+  2. Instalado con `--no-deps` en un directorio aislado y importado con las dependencias del
+     sistema (las mismas versiones que `requirements.txt`): `emergentintegrations.llm.chat`
+     importa, `LlmChat(...).with_model("openai","gpt-5.4")` se construye, y **`stripe` sigue
+     en 15.3.0 y `openai` en 1.99.9** — el paso no toca ningún pin.
+  3. El endpoint probado de punta a punta contra el backend local con una foto de menú real:
+     **200**, extrajo los 5 productos con precios y categorías (`Margarita 8.50`,
+     `Pepperoni 9.90`, `Cuatro Quesos 11.00`, `Agua 1.50 BEBIDAS`, `Refresco 2.20 BEBIDAS`).
+  4. Validado por el `testing_agent` (ver el reporte de la iteración correspondiente).
+- ⚠️ Lo único que este fix **no** puede probar desde aquí es la imagen real: sólo el deploy de
+  Render construye el `Dockerfile`. La comprobación final es abrir «Importar Menú con IA» en el
+  panel de producción después del próximo push.
+
+
+### 2026-06 — Maxx (ejecución) con autorización explícita de duarte — **`trunk` → `production` fusionado y desplegado**
+- `origin/production`: **`622da1a` → `f8474ee`** (tag de respaldo `pre-merge-622da1a` empujado
+  antes del push; rollback = un `push --force-with-lease` a ese tag).
+- Brecha cerrada: 72 archivos, +12.897/−5.447. Contenido: toda la Fase 2A/2B, el fix de subida
+  multipart, los 2 fixes de R2 en `render.yaml` y las 2 features nuevas (desvincular pantalla +
+  `server_url`). El árbol desplegado es **byte a byte idéntico a `trunk`**.
+- Redeploy automático de Render (autoDeploy, branch `production`): ~2,5 min de 502 durante el
+  swap y luego arriba.
+- Verificación en producción:
+  - `/api/livez` → **200**, `version: f8474eeb…`, `env: production`.
+  - `/api/ready` → **200**: mongo 1,4 ms · **storage driver `r2`** 126,3 ms · redis 0,6 ms
+    (`fallback:false`) · worker heartbeat 10 s.
+  - `mediadview.com` 200 · `panel.mediadview.com` 200 · `/api/health` 200 ·
+    `/api/public/screens` 200 · `/api/certified-devices` 200.
+  - Rutas nuevas vivas y con el código correcto sin auth (no 404/500):
+    `DELETE /api/workspace/screens/{id}` → 401 · `GET /api/admin/player-server` → 401 ·
+    `GET /api/media/serve` sin key → 422.
+  - Fix de multipart activo: `POST /api/public/playlists/<token falso>/media` con
+    `multipart/form-data` → **404** (antes de este deploy, con un token válido y multipart, era un
+    500 `UnicodeDecodeError`); con `text/plain` → 404 por el mismo chequeo de existencia previo.
+  - Auth v1 extraída en la Fase 2B-11, funcionando en producción: `/api/auth/me` sin token 401 ·
+    login con credenciales falsas 401 «Invalid credentials» · body vacío 422.
+  - **El bundle del panel se reconstruyó en el deploy**: el JS servido por
+    `panel.mediadview.com/_expo/...` contiene `deleteScreen`, `testID:"confirm-unlink"` y
+    `"S\xed, desvincular"` → la feature de desvincular está de verdad en producción. (El
+    `Dockerfile` corre `npx expo export`, así que no hace falta commitear el bundle.)
+- Nota: no se hicieron pruebas de **escritura** en producción (no se crearon usuarios, pantallas
+  ni medios reales). Todo el smoke fue de lectura o de rechazo esperado.
+
+
 ### 2026-06 — Maxx — Feature: «Desvincular pantalla» en el panel del cliente + `server_url` para repuntar TV boxes
 - Rama: `trunk` (`production` sin tocar, sigue en `622da1a`).
 - Archivos: `backend/workspace_routes.py`, `backend/player_routes.py`,
