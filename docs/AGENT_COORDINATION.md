@@ -64,6 +64,49 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude + duarte (hallazgo) + Maxx (fix y verificación) — `R2_BUCKET_NAME` apuntaba a un bucket inexistente
+- Rama: `trunk` (el fix se commitea en `trunk`, **no** directo sobre `production`, para no volver a
+  crear contenido que `trunk` no tenga — fue justamente lo que enredó el grafo la vez pasada).
+- Archivo: `render.yaml`, una línea de valor + comentario explicativo.
+- Hallazgo (duarte, revisando la cuenta real de Cloudflare): `render.yaml` tenía hardcodeado
+  `R2_BUCKET_NAME: mediadview-prod`, y **ese bucket no existe**. El bucket real es
+  **`mediaview-media`** (sin la «d»), y el token de API `mediaview-backend` (Object Read & Write)
+  está emitido específicamente para él. Corroborado en esta misma bitácora, entrada del
+  2026-06 sobre credenciales R2: «verificadas contra el bucket `mediaview-media`».
+- Por qué importaba antes del deploy: con las 3 credenciales cargadas y un nombre de bucket
+  inexistente, `R2_ENABLED` se activa igual (las 4 variables están no vacías) y **cada operación
+  contra R2 falla con «bucket not found»** — peor que el fallback silencioso a disco local.
+- Alcance real del fix: las variables `R2_*` viven en el `envVarGroup` **`mediadview-secrets`**, que
+  consumen **los dos** servicios (`mediadview-api` y `mediadview-worker`) vía `fromGroup`, así que
+  una sola línea corrige ambos. Además, al ser una clave con `value:` gestionada por el blueprint,
+  cambiarla a mano en el dashboard no habría servido: el siguiente sync la sobrescribe.
+- Verificación: YAML parseado con `yaml.safe_load` (válido); los 3 secretos siguen en `sync: false`
+  (sólo dashboard); backend del árbol fusionado arrancado de nuevo y `/api/ready` en 200.
+- ⚠️ **Pendiente de confirmación de duarte, del mismo bloque**: `R2_PUBLIC_BASE_URL` está
+  hardcodeado en `https://media.mediadview.com`. Si ese dominio personalizado **no** está
+  conectado al bucket `mediaview-media` en Cloudflare, cada medio nuevo se guarda bien pero su
+  `public_url` apunta a un dominio que no sirve nada → imágenes rotas, y sin ningún error en los
+  logs (las escrituras funcionan). `storage.public_url_for_key()` cae en
+  `/api/media/serve?key=...` **sólo si `R2_PUBLIC_BASE_URL` está vacío**. No lo toqué: decisión
+  de duarte.
+
+### 2026-06 — Maxx — Deuda técnica: el snapshot de rutas es sensible al entorno
+- `backend/tests/test_route_inventory.py` falla en cualquier checkout limpio (y por lo tanto
+  también en CI), no por una regresión: el snapshot congelado incluye el mount `/assets`, que
+  `server.py` registra de forma **condicional** (`os.path.isdir(SAAS_DIR/'assets')`), y
+  `backend/web/saas/assets/` (4,1 MB del build de Expo) **no está versionado** — sólo existe en
+  las copias locales de trabajo. En un clon nuevo el directorio no existe, el mount no se registra
+  y el snapshot no coincide.
+- Mismo origen, otros 2 fallos de la misma familia: los tests de «legacy media» dan 404 porque los
+  archivos viven en el disco local y no en git. Y `test_startup_check_exits_2_on_broken_env` es
+  sensible al `cwd`.
+- Demostrado que no es del código: esos 5 tests, corridos desde el working copy de siempre pero
+  **apuntando al servidor del árbol fusionado**, pasan los 6/6.
+- **No se regeneró el snapshot** (regla: nunca sin aprobación explícita). Opciones para después del
+  deploy: que el snapshot ignore los mounts condicionados a directorios no versionados, o versionar
+  esos assets.
+
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fix: subida pública por token con soporte real de multipart
 - Rama: `trunk`, base `9f0ddd4` (`production` sin tocar, sigue en `622da1a`).
 - Archivos: `backend/public_api_routes.py` (+62/−1, un solo archivo).
