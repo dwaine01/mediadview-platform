@@ -152,6 +152,7 @@ export const workspaceAPI = {
     api.post('/workspace/screens/connect', data),
   updateScreen: (id: string, data: { name?: string; orientation?: string }) =>
     api.patch(`/workspace/screens/${id}`, data),
+  deleteScreen: (id: string) => api.delete(`/workspace/screens/${id}`),
   // Devices
   devices: () => api.get('/workspace/devices'),
   // Media

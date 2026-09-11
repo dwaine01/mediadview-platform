@@ -135,6 +135,20 @@ from storage import open_media_for_response
 logger = __import__("logging").getLogger(__name__)
 
 
+async def _player_server_url() -> Optional[str]:
+    """Base URL the player should talk to, for remote repointing of TV boxes.
+
+    Resolution order:
+      1. db.app_config {_id: "player_server"}.server_url  — set by an admin,
+         wins so a box can be moved without a redeploy.
+      2. PLAYER_SERVER_URL env var.
+      3. None → the player keeps whatever URL it already has.
+    """
+    cfg = await db.app_config.find_one({"_id": "player_server"}) or {}
+    url = (cfg.get("server_url") or os.getenv("PLAYER_SERVER_URL") or "").strip()
+    return url.rstrip("/") or None
+
+
 class DeviceRegister(BaseModel):
     device_name: Optional[str] = None
     device_model: Optional[str] = None
@@ -786,6 +800,11 @@ fp();setInterval(fv,PI);setInterval(hb,HI);
             "screen_id": device.get("screen_id"),
             "screen_name": None,
             "activated_at": serialize_doc(device.get("activated_at")),
+            # Remote repointing: when set, the player must persist this base URL
+            # and use it for every subsequent call. Lets a TV box that was
+            # flashed against an old/staging host be moved without touching it
+            # physically. Null means "keep the URL you already have".
+            "server_url": await _player_server_url(),
         }
 
         if device.get("screen_id"):

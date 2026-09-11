@@ -51,7 +51,7 @@ def _ser(doc):
 
 
 def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version=None,
-                            build_screen_items=None):
+                            build_screen_items=None, gen_activation_code=None):
     router = APIRouter(prefix="/api/workspace", tags=["Workspace — Phase 2C"])
 
     async def require_workspace_user(current_user: dict = Depends(get_current_user)):
@@ -639,6 +639,65 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
 
         fresh = await db.screens.find_one({"id": screen_id})
         return _ser(fresh)
+
+    @router.delete("/screens/{screen_id}", summary="Unlink a screen and free its device")
+    async def workspace_delete_screen(screen_id: str,
+                                      current_user: dict = Depends(require_workspace_user)):
+        """
+        Customer-side «desvincular pantalla»: deletes the screen from the org and
+        frees every device linked to it, so the TV goes back to showing a fresh
+        activation code and can be paired again (to this org or another one).
+
+        Counterpart of POST /screens/connect. The device row is NOT deleted —
+        it's reset to `pending` with a new activation code, which is exactly the
+        state a freshly installed player reaches after registering.
+        """
+        if get_effective_role(current_user) not in _SCREEN_ADMIN_ROLES:
+            raise HTTPException(403, "Tu rol no puede desvincular pantallas. Pide ayuda al dueño.")
+        org_id = current_user["organization_id"]
+        screen = await db.screens.find_one({"id": screen_id, "organization_id": org_id})
+        if not screen:
+            raise HTTPException(404, "Screen not found")
+
+        now = datetime.utcnow()
+        devices = await db.devices.find({"screen_id": screen_id}, {"_id": 0, "id": 1}).to_list(50)
+        new_codes: list[str] = []
+        for device in devices:
+            reset = {
+                "screen_id": None,
+                "status": "pending",
+                "activated_at": None,
+                "updated_at": now,
+            }
+            if gen_activation_code:
+                code = gen_activation_code()
+                while await db.devices.find_one({"activation_code": code, "status": "pending"}):
+                    code = gen_activation_code()
+                reset["activation_code"] = code
+                new_codes.append(code)
+            await db.devices.update_one({"id": device["id"]}, {"$set": reset})
+
+        # Drop the screen from anything that still points at it, so published
+        # playlists/menus don't keep a dangling screen_id forever.
+        await db.playlists.update_many({"screen_ids": screen_id},
+                                       {"$pull": {"screen_ids": screen_id}})
+        await db.menus.update_many({"screen_ids": screen_id},
+                                   {"$pull": {"screen_ids": screen_id}})
+        await db.screens.delete_one({"id": screen_id})
+        await _log(current_user, "screen.unlinked", "screen", screen_id,
+                   {"name": screen.get("name"), "devices_freed": len(devices)})
+
+        return {
+            "ok": True,
+            "screen_id": screen_id,
+            "devices_freed": len(devices),
+            "new_activation_codes": new_codes,
+            "message": (
+                f"Pantalla «{screen.get('name') or 'sin nombre'}» desvinculada. "
+                + (f"El televisor mostrará un código nuevo: {', '.join(new_codes)}."
+                   if new_codes else "No había ningún dispositivo vinculado.")
+            ),
+        }
 
     def _assert_owner(user: dict, detail: str) -> None:
         if get_effective_role(user) != Role.SELF_SERVICE_OWNER:

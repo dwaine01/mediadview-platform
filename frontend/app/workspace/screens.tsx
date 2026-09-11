@@ -76,6 +76,10 @@ export default function WorkspaceScreens() {
   const [connectSuccess, setConnectSuccess] = useState('');
   const [orientation, setOrientation] = useState('landscape');
   const [savingOrient, setSavingOrient] = useState<string | null>(null);
+  const [unlinkTarget, setUnlinkTarget] = useState<Screen | null>(null);
+  const [unlinking, setUnlinking] = useState(false);
+  const [unlinkError, setUnlinkError] = useState('');
+  const [unlinkDone, setUnlinkDone] = useState('');
 
   const load = useCallback(async () => {
     try {
@@ -103,6 +107,23 @@ export default function WorkspaceScreens() {
     } catch (e: any) {
       setError(e.response?.data?.detail || e.message || 'No se pudo cambiar la orientación');
     } finally { setSavingOrient(null); }
+  };
+
+  const openUnlink = (s: Screen) => {
+    setUnlinkTarget(s); setUnlinkError(''); setUnlinkDone('');
+  };
+
+  const confirmUnlink = async () => {
+    if (!unlinkTarget) return;
+    setUnlinking(true); setUnlinkError('');
+    try {
+      const res = await workspaceAPI.deleteScreen(unlinkTarget.id);
+      setUnlinkDone(res.data?.message || 'Pantalla desvinculada.');
+      setScreens(prev => prev.filter(x => x.id !== unlinkTarget.id));
+      setTimeout(() => { setUnlinkTarget(null); setUnlinkDone(''); }, 2600);
+    } catch (e: any) {
+      setUnlinkError(e.response?.data?.detail || e.message || 'No se pudo desvincular');
+    } finally { setUnlinking(false); }
   };
 
   const handleConnect = async () => {
@@ -169,27 +190,38 @@ export default function WorkspaceScreens() {
                   s.active_menu_id ? 'Menú publicado' : '',
                 ].filter(Boolean).join(' · ')}
               </Text>
-              <TouchableOpacity
-                style={ss.orientChip}
-                onPress={() => toggleOrientation(s)}
-                disabled={savingOrient === s.id}
-                activeOpacity={0.7}
-              >
-                {savingOrient === s.id
-                  ? <ActivityIndicator size="small" color="#0891B2" />
-                  : (
-                    <>
-                      <Ionicons
-                        name={orientationOf(s) === 'portrait' ? 'phone-portrait-outline' : 'tv-outline'}
-                        size={13}
-                        color="#0891B2"
-                      />
-                      <Text style={ss.orientChipText}>
-                        {orientationOf(s) === 'portrait' ? 'Vertical' : 'Horizontal'} · cambiar
-                      </Text>
-                    </>
-                  )}
-              </TouchableOpacity>
+              <View style={ss.cardActions}>
+                <TouchableOpacity
+                  style={ss.orientChip}
+                  onPress={() => toggleOrientation(s)}
+                  disabled={savingOrient === s.id}
+                  activeOpacity={0.7}
+                >
+                  {savingOrient === s.id
+                    ? <ActivityIndicator size="small" color="#0891B2" />
+                    : (
+                      <>
+                        <Ionicons
+                          name={orientationOf(s) === 'portrait' ? 'phone-portrait-outline' : 'tv-outline'}
+                          size={13}
+                          color="#0891B2"
+                        />
+                        <Text style={ss.orientChipText}>
+                          {orientationOf(s) === 'portrait' ? 'Vertical' : 'Horizontal'} · cambiar
+                        </Text>
+                      </>
+                    )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={ss.unlinkChip}
+                  onPress={() => openUnlink(s)}
+                  activeOpacity={0.7}
+                  testID={`unlink-${s.id}`}
+                >
+                  <Ionicons name="unlink-outline" size={13} color="#DC2626" />
+                  <Text style={ss.unlinkChipText}>Desvincular</Text>
+                </TouchableOpacity>
+              </View>
             </View>
             <StatusBadge status={s.status} />
           </View>
@@ -270,6 +302,49 @@ export default function WorkspaceScreens() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Desvincular Pantalla — confirmación */}
+      <Modal visible={!!unlinkTarget} transparent animationType="fade" onRequestClose={() => setUnlinkTarget(null)}>
+        <View style={ss.modalOverlayCenter}>
+          <View style={[ss.modalCard, { width: Math.min(width - 32, 420) }]}>
+            {unlinkDone ? (
+              <View style={ss.successBox}>
+                <Ionicons name="checkmark-circle" size={40} color="#059669" />
+                <Text style={ss.successText}>{unlinkDone}</Text>
+              </View>
+            ) : (
+              <>
+                <View style={ss.modalHeader}>
+                  <Text style={ss.modalTitle}>Desvincular pantalla</Text>
+                  <TouchableOpacity onPress={() => setUnlinkTarget(null)} hitSlop={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+                    <Ionicons name="close" size={22} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={ss.unlinkBody}>
+                  Vas a desvincular <Text style={ss.unlinkStrong}>{unlinkTarget?.name}</Text>. El televisor
+                  volverá a mostrar un código nuevo y podrás conectarlo otra vez cuando quieras.
+                </Text>
+                {!!unlinkError && <Text style={ss.connectErr}>{unlinkError}</Text>}
+                <View style={ss.unlinkBtnRow}>
+                  <TouchableOpacity style={ss.cancelBtn} onPress={() => setUnlinkTarget(null)} disabled={unlinking}>
+                    <Text style={ss.cancelBtnText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[ss.dangerBtn, unlinking && ss.connectBtnDisabled]}
+                    onPress={confirmUnlink}
+                    disabled={unlinking}
+                    testID="confirm-unlink"
+                  >
+                    {unlinking
+                      ? <ActivityIndicator color="#fff" size={16} />
+                      : <Text style={ss.dangerBtnText}>Sí, desvincular</Text>}
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -290,6 +365,18 @@ const ss = StyleSheet.create({
   cardMeta: { fontSize: 12, color: '#64748B' },
   orientChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 6, minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#CFFAFE' },
   orientChipText: { fontSize: 11, fontWeight: '700', color: '#0891B2' },
+  cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  unlinkChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
+  unlinkChipText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
+  modalOverlayCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', padding: 16 },
+  modalCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 24 },
+  unlinkBody: { fontSize: 14, color: '#334155', lineHeight: 21, marginBottom: 18 },
+  unlinkStrong: { fontWeight: '800', color: '#0F172A' },
+  unlinkBtnRow: { flexDirection: 'row', gap: 10 },
+  cancelBtn: { flex: 1, minHeight: 48, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', alignItems: 'center', justifyContent: 'center' },
+  cancelBtnText: { fontSize: 14, fontWeight: '700', color: '#64748B' },
+  dangerBtn: { flex: 1, minHeight: 48, borderRadius: 12, backgroundColor: '#DC2626', alignItems: 'center', justifyContent: 'center' },
+  dangerBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   orientRow: { flexDirection: 'row', gap: 10 },
   orientOpt: { flex: 1, minHeight: 88, alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: 12, borderWidth: 2, borderColor: '#E2E8F0', backgroundColor: '#FFFFFF' },
   orientOptOn: { borderColor: '#0891B2', backgroundColor: '#ECFEFF' },

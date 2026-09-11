@@ -1771,7 +1771,7 @@ app.include_router(create_auth_routes(gen_id, hash_password, create_token, seria
 app.include_router(create_promo_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_workspace_reports_routes(db, get_current_user))
 app.include_router(create_workspace_routes(db, get_current_user, require_admin, bump_playlist_version,
-                                             build_screen_playlist_items))
+                                             build_screen_playlist_items, gen_activation_code))
 app.include_router(create_signup_routes(db, create_token))
 
 # ── Fase 3: Campaign Scheduler monitoring endpoints ───────────────────────────

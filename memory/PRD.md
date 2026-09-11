@@ -587,3 +587,18 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   `/docs` pierde el schema autogenerado de esta ruta.
 - Verificado en vivo (9 casos) + integridad del archivo (sha256 y tamaño idénticos al original,
   64×48 medido por PIL), ruff limpio, route inventory sin regenerar, suite con los 42 fallos base.
+
+## Feature (2026-06) — Desvincular pantalla + `server_url` para repuntar TV boxes
+- `DELETE /api/workspace/screens/{screen_id}`: inverso de `/screens/connect`. Borra la pantalla
+  de la org y libera los dispositivos vinculados (los deja `pending` con código de activación
+  nuevo, sin borrar el registro), y limpia el `screen_id` de playlists y menús. Roles owner y
+  manager, scoping por `organization_id`, auditoría `screen.unlinked`.
+- Panel del cliente (`frontend/app/workspace/screens.tsx`): chip rojo «Desvincular» por tarjeta
+  + modal de confirmación + estado de éxito. Verificado en vivo: 19 → 18 pantallas.
+- `GET /api/devices/{device_id}/check` ahora devuelve `server_url` (config
+  `app_config.player_server.server_url` → env `PLAYER_SERVER_URL` → `null`), para repuntar una
+  TV box a otro backend sin tocarla físicamente. Se gestiona con `POST`/`GET
+  /api/admin/player-server` (solo admin, valida el esquema http/https).
+  Pendiente: que el player Kotlin lea ese campo.
+- Snapshot de rutas regenerado a propósito (492 → 495): 3 rutas nuevas, 0 eliminadas.
+- Test nuevo `backend/tests/test_screen_unlink_and_server_url.py` (5 casos, todos en verde).
