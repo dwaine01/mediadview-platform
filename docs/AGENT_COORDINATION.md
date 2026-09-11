@@ -64,6 +64,48 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fix: subida pública por token con soporte real de multipart
+- Rama: `trunk`, base `9f0ddd4` (`production` sin tocar, sigue en `622da1a`).
+- Archivos: `backend/public_api_routes.py` (+62/−1, un solo archivo).
+- Qué cambió: `POST /api/public/playlists/{token}/media` declaraba el body como
+  `data: MediaUpload`, lo que obliga a FastAPI a parsear **siempre** el cuerpo como JSON. Un POST
+  `multipart/form-data` (un `<form>` clásico o una integración que no puede base64-encodear en
+  cliente) reventaba con un **500 `UnicodeDecodeError: 'utf-8' codec can't decode byte 0xff`**.
+  Ahora un helper nuevo, `_parse_media_upload(request)`, acepta **los dos** contratos: el JSON
+  con base64 de siempre (intacto, es lo que manda `backend/web/public-playlist.html`) y
+  multipart real (campo `file` + `width`/`height` opcionales), normalizando ambos al mismo
+  `MediaUpload` que espera el resto del pipeline. Cualquier otro content-type → **415 limpio**.
+  Cierra el «Hallazgo anotado» de la Fase 2B-8 (ex 2C-1).
+- Alcance: **sólo** el endpoint público/invitado. NO se toca `/media/upload` autenticado
+  (`media_routes.py`, que ya tiene su propio chunked-upload) ni `public-playlist.html`.
+- ⚠️ Dos cambios de comportamiento declarados por Claude y verificados por mí:
+  1. El chequeo de permiso corre ahora **antes** de leer el body: un link con
+     `allow_upload=false` responde **403 siempre**, incluso con un body inválido (antes podía
+     devolver 422 porque FastAPI validaba primero). Probado en vivo con multipart, con JSON roto
+     y con un content-type raro: **403 en los tres casos**.
+  2. `/docs` pierde el schema autogenerado de este endpoint (el body ya no es un parámetro
+     pydantic). No afecta a ningún cliente real.
+- Verificación:
+  1. Los 4 anchors del patch matchearon `count()==1`. `py_compile` OK.
+     `flake8 --select=F,E9`: 0 findings. `ruff check backend`: **All checks passed**.
+  2. `test_route_inventory.py` en verde con el snapshot **sin regenerar** (md5 `698364b3…`).
+  3. Suite completa: **los mismos 42 fallos de la línea base** (491 passed, 35 skipped).
+  4. **9 casos probados en vivo** contra una playlist pública de prueba (`allow_upload=true`,
+     `require_approval=false`):
+     - multipart con un JPEG real (bytes `\xff\xd8\xff`, el caso exacto que antes daba 500) →
+       **200 «Content published»**;
+     - multipart con `width`/`height` → 200;
+     - multipart sin campo `file` → 400; `width=abc` → 400;
+     - JSON+base64 (contrato viejo) → 200, sin cambios;
+     - JSON roto → 400; JSON sin `data` → 422; `text/plain` → 415; token inexistente → 404.
+  5. **Integridad del archivo verificada**: el medio subido por multipart quedó con `size` 677 =
+     677 del original y **sha256 idéntico** (`88555ba8…`), y PIL midió 64×48 correcto → el
+     base64 intermedio no corrompe nada. Se subió a R2 igual que cualquier otro medio.
+  6. La playlist y los 3 medios de prueba quedaron borrados.
+- Riesgo para el otro agente: ninguno; `backend/web/public-playlist.html` sin tocar.
+- Estado: **CERRADA** — en `trunk` y `main`.
+
+
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-11: `/auth/*` legacy v1 → **FASE 2B CERRADA**
 - Rama: `trunk`, base `b5c6238` (`production` sin tocar).
 - Archivos: `backend/auth_routes.py` (nuevo, 180 líneas), `backend/server.py`
@@ -242,6 +284,8 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   JSON, en vez de un 415/422. Debería ser un 4xx limpio. Lo confirmé leyendo la firma del
   handler (idéntica byte a byte al original). Fuera del alcance del refactor; candidato a fix
   aparte si alguna vez un cliente sube desde un formulario HTML clásico.
+  ✅ **RESUELTO** en el fix del 2026-06 (ver la entrada «Subida pública por token: soporte real
+  de multipart» al principio de esta bitácora): el endpoint ahora acepta multipart de verdad.
 - Estado: **CERRADA** — en `trunk` y `main`.
 
 ### 2026-06 — Claude (script) + Maxx (ejecución y verificación) — Fase 2B-7: `/campaigns/*` de cliente

@@ -574,3 +574,16 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   auth_v2 a la 6.ª clave mala (429) y rate limit de slowapi a los 20 registros (429).
 - FASE 2B CERRADA: en `server.py` sólo quedan las ~20+2 páginas estáticas/SPA, por decisión.
 - Siguiente: Fase 2C (mover módulos a `backend/domains/<dominio>/`).
+
+## Fix (2026-06) — Subida pública por token acepta multipart real
+- `POST /api/public/playlists/{token}/media` ya no revienta con 500 (`UnicodeDecodeError`) al
+  recibir `multipart/form-data`: nuevo helper `_parse_media_upload()` en `public_api_routes.py`
+  que acepta el JSON+base64 de siempre Y multipart real (campo `file` + `width`/`height`
+  opcionales). Otro content-type → 415 limpio. Cierra el hallazgo abierto desde la Fase 2B-8.
+- Alcance: sólo el endpoint público/invitado. `/media/upload` autenticado y
+  `backend/web/public-playlist.html` sin tocar (este último sigue mandando JSON).
+- Cambio de comportamiento declarado: el chequeo de `allow_upload` corre antes de leer el body,
+  así que un link deshabilitado responde 403 siempre (antes podía dar 422 con body inválido).
+  `/docs` pierde el schema autogenerado de esta ruta.
+- Verificado en vivo (9 casos) + integridad del archivo (sha256 y tamaño idénticos al original,
+  64×48 medido por PIL), ruff limpio, route inventory sin regenerar, suite con los 42 fallos base.

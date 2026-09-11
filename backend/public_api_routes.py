@@ -56,13 +56,23 @@ Dependency notes:
     module-level function (same treatment as public_pages_routes.py's own
     helper functions) -- no threaded dependency, since db and
     _public_token_hash are both plain imports here too.
+
+2026-09: public_playlist_media now accepts multipart/form-data uploads
+(a "file" field, plus optional "width"/"height") in addition to the
+original JSON+base64 body, via the new _parse_media_upload() helper below.
+Fixes a preexisting bug (flagged since Fase 2C-1, see
+AGENT_COORDINATION.md): a multipart POST used to crash this endpoint with
+an unhandled 500 UnicodeDecodeError instead of either working or failing
+cleanly. public-playlist.html is unchanged and keeps sending JSON.
 """
+import base64
 import os
 from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 
 from database import db
 from media_utils import MediaUpload, _public_screen_view, _public_token_hash
@@ -79,6 +89,56 @@ async def _public_playlist(token: str) -> dict:
     if expires_at and expires_at < datetime.utcnow():
         raise HTTPException(410, "Public playlist link expired")
     return playlist
+
+
+# ── Guest-upload multipart fix (queued since Fase 2C-1, see
+# AGENT_COORDINATION.md's "Hallazgo anotado" under that phase's entry): the
+# original handler declared `data: MediaUpload`, which makes FastAPI parse
+# the ENTIRE body as JSON no matter what a client actually sends. A
+# multipart/form-data POST (a classic HTML <form>, or a third-party
+# integration that can't base64-encode client-side) crashed with an
+# unhandled 500 UnicodeDecodeError instead of a clean 4xx -- and could never
+# actually complete an upload either way, since nothing decoded the file
+# part. This helper accepts BOTH: the original JSON+base64 contract
+# (unchanged -- still exactly what public-playlist.html sends today) and a
+# real multipart/form-data upload (a "file" field, plus optional "width"/
+# "height" fields), normalizing either into the same MediaUpload the rest of
+# the pipeline (upload_media) already expects. Anything else is a clean 415,
+# never a crash. Scoped to this one public/guest endpoint -- the
+# authenticated /media/upload (media_routes.py) already has its own
+# chunked-upload path for large files and isn't touched by this fix.
+async def _parse_media_upload(request: Request) -> MediaUpload:
+    content_type = (request.headers.get("content-type") or "").split(";")[0].strip().lower()
+    if content_type == "application/json":
+        try:
+            payload = await request.json()
+        except Exception:
+            raise HTTPException(400, "Invalid JSON body")
+        try:
+            return MediaUpload(**payload)
+        except ValidationError as e:
+            raise HTTPException(422, str(e))
+    if content_type == "multipart/form-data":
+        form = await request.form()
+        upload = form.get("file")
+        if upload is None or not hasattr(upload, "read"):
+            raise HTTPException(400, "No file provided — expected a 'file' form field")
+        file_bytes = await upload.read()
+        if not file_bytes:
+            raise HTTPException(400, "Uploaded file is empty")
+        width = form.get("width")
+        height = form.get("height")
+        try:
+            return MediaUpload(
+                filename=upload.filename or "upload.bin",
+                content_type=upload.content_type or "application/octet-stream",
+                data=base64.b64encode(file_bytes).decode("ascii"),
+                width=int(width) if width else None,
+                height=int(height) if height else None,
+            )
+        except (TypeError, ValueError):
+            raise HTTPException(400, "Invalid width/height in form data")
+    raise HTTPException(415, "Unsupported content type — send application/json (base64) or multipart/form-data")
 
 
 def create_public_api_routes(upload_media, serialize_doc, web_dir, _bump_playlist_screens):
@@ -136,11 +196,12 @@ def create_public_api_routes(upload_media, serialize_doc, web_dir, _bump_playlis
 
     @router.post("/public/playlists/{token}/media")
     @_rl.limit(_LIMITS.media_upload)
-    async def public_playlist_media(token: str, request: Request, response: Response, data: MediaUpload):
+    async def public_playlist_media(token: str, request: Request, response: Response):
         playlist = await _public_playlist(token)
         access = playlist.get("public_access", {})
         if not access.get("allow_upload"):
             raise HTTPException(403, "Uploads are disabled for this link")
+        data = await _parse_media_upload(request)
         owner = await db.users.find_one({"id": playlist.get("client_user_id") or playlist.get("owner_user_id")}, {"_id": 0})
         if not owner:
             raise HTTPException(409, "Playlist owner account is unavailable")
