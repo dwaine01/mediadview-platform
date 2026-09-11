@@ -602,3 +602,13 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   Pendiente: que el player Kotlin lea ese campo.
 - Snapshot de rutas regenerado a propósito (492 → 495): 3 rutas nuevas, 0 eliminadas.
 - Test nuevo `backend/tests/test_screen_unlink_and_server_url.py` (5 casos, todos en verde).
+
+## Deploy (2026-06) — `trunk` → `production` (`622da1a` → `f8474ee`)
+- Autorizado explícitamente por duarte. Tag de respaldo `pre-merge-622da1a` en el remoto para
+  rollback. Merge limpio, árbol idéntico a `trunk`.
+- Incluye: Fase 2A/2B completa (server.py 7106 → 2140 líneas), fix de subida multipart, los 2
+  fixes de R2 en render.yaml (bucket `mediaview-media`, `R2_PUBLIC_BASE_URL` vacío) y las 2
+  features nuevas (desvincular pantalla, `server_url` en el check del dispositivo).
+- Producción verificada: `/api/livez` 200 con `version f8474ee`, `/api/ready` 200 con mongo,
+  storage (driver `r2`), redis y worker en verde; landing y panel 200; rutas nuevas respondiendo
+  401/422 sin auth; el bundle del panel reconstruido incluye la feature de desvincular.

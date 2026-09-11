@@ -64,6 +64,36 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
 
 ## Bitácora
 
+### 2026-06 — Maxx (ejecución) con autorización explícita de duarte — **`trunk` → `production` fusionado y desplegado**
+- `origin/production`: **`622da1a` → `f8474ee`** (tag de respaldo `pre-merge-622da1a` empujado
+  antes del push; rollback = un `push --force-with-lease` a ese tag).
+- Brecha cerrada: 72 archivos, +12.897/−5.447. Contenido: toda la Fase 2A/2B, el fix de subida
+  multipart, los 2 fixes de R2 en `render.yaml` y las 2 features nuevas (desvincular pantalla +
+  `server_url`). El árbol desplegado es **byte a byte idéntico a `trunk`**.
+- Redeploy automático de Render (autoDeploy, branch `production`): ~2,5 min de 502 durante el
+  swap y luego arriba.
+- Verificación en producción:
+  - `/api/livez` → **200**, `version: f8474eeb…`, `env: production`.
+  - `/api/ready` → **200**: mongo 1,4 ms · **storage driver `r2`** 126,3 ms · redis 0,6 ms
+    (`fallback:false`) · worker heartbeat 10 s.
+  - `mediadview.com` 200 · `panel.mediadview.com` 200 · `/api/health` 200 ·
+    `/api/public/screens` 200 · `/api/certified-devices` 200.
+  - Rutas nuevas vivas y con el código correcto sin auth (no 404/500):
+    `DELETE /api/workspace/screens/{id}` → 401 · `GET /api/admin/player-server` → 401 ·
+    `GET /api/media/serve` sin key → 422.
+  - Fix de multipart activo: `POST /api/public/playlists/<token falso>/media` con
+    `multipart/form-data` → **404** (antes de este deploy, con un token válido y multipart, era un
+    500 `UnicodeDecodeError`); con `text/plain` → 404 por el mismo chequeo de existencia previo.
+  - Auth v1 extraída en la Fase 2B-11, funcionando en producción: `/api/auth/me` sin token 401 ·
+    login con credenciales falsas 401 «Invalid credentials» · body vacío 422.
+  - **El bundle del panel se reconstruyó en el deploy**: el JS servido por
+    `panel.mediadview.com/_expo/...` contiene `deleteScreen`, `testID:"confirm-unlink"` y
+    `"S\xed, desvincular"` → la feature de desvincular está de verdad en producción. (El
+    `Dockerfile` corre `npx expo export`, así que no hace falta commitear el bundle.)
+- Nota: no se hicieron pruebas de **escritura** en producción (no se crearon usuarios, pantallas
+  ni medios reales). Todo el smoke fue de lectura o de rechazo esperado.
+
+
 ### 2026-06 — Maxx — Feature: «Desvincular pantalla» en el panel del cliente + `server_url` para repuntar TV boxes
 - Rama: `trunk` (`production` sin tocar, sigue en `622da1a`).
 - Archivos: `backend/workspace_routes.py`, `backend/player_routes.py`,
