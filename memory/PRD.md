@@ -667,3 +667,47 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   `screen_id` sea de la organización (404) y se deduplica; sin `screen_ids` sigue publicando en
   todas (compatibilidad).
 - 4 tests nuevos (`backend/tests/test_menu_publish_per_screen.py`), verificado por API y en el panel.
+
+## Fix P0 (2026-06) — El menú publicado no llegaba al TV
+- CAUSA RAÍZ: `POST /workspace/menus/{id}/publish` sólo estampaba `screens.active_menu_id`, un
+  campo que NINGÚN endpoint del player lee. El TV arma su contenido desde los `playlists`
+  publicados que lo apuntan (`_build_owned_playlist_items`), así que publicar un menú no cambiaba
+  nada en la pantalla. duarte lo reportó como «elijo la pantalla, mando y no hace el cambio».
+- Fix: al publicar, el backend sincroniza un playlist propio del menú (`source_menu_id`) y lo
+  publica exactamente en las `screen_ids` elegidas, con `published_at` fresco para ganar el
+  desempate de `select_winning_playlist`, y hace `bump_playlist_version` en las pantallas viejas
+  y nuevas para que el TV re-baje en su siguiente poll (~15 s).
+- `backend/tests/test_iter42_menu_reaches_tv.py` (10 tests) asegura el contrato del player, no el
+  interno: `/api/player/{screen}/playlist` tiene que traer `media_id: "menu:<id>"`.
+
+## Feature (2026-06) — Vista previa «como se ve en el TV»
+- Botón «Vista previa» en el editor de menú. Abre la misma página que renderiza el TV.
+- `/api/menus/{id}/render` sigue gateado a menús publicados (H3); para los borradores el panel
+  pide `GET /workspace/menus/{id}/preview`, que firma un token HMAC de 1 hora
+  (`sign_menu_preview_token`, mismo patrón que los quotes de checkout). Nunca se mete un bearer
+  en la URL.
+
+## Feature (2026-06) — «Mi propio diseño»: el menú del cliente, editable
+- Pedido textual de duarte: su menú ya está diseñado en JPG/PNG/PDF y quiere que la IA lo vuelva
+  editable «dejando los mismos colores y tipo de letra», cambiando sólo nombres, precios y fotos;
+  y que al reemplazar una foto ésta se adapte al tamaño y al contorno que ya existe.
+- Flujo: `POST /workspace/menus/{id}/canvas/import` normaliza el archivo a PNG (del PDF toma la
+  primera página con pymupdf a 2x), lo guarda como media y le pide el layout a
+  `gemini-3.1-pro-preview`, que devuelve `box_2d` en 0-1000 por cada texto y cada foto.
+- Tres decisiones que hacen que se vea como el original y no como una copia:
+  1. El color que tapa el texto impreso NO se le pregunta a la IA: se muestrea con Pillow del
+     anillo de pixeles alrededor de la caja (`_sample_background`). Tiene que ser exacto.
+  2. El cuerpo de letra se recupera midiendo el texto ORIGINAL dentro de su caja con las fuentes
+     Liberation (métricamente compatibles con Arial y Times New Roman, que es lo que pide el CSS).
+     Se guarda en el campo, así retipear un precio no lo reescala.
+  3. El render sólo pinta un campo si su texto cambió (`text != original_text`). Un menú sin
+     editar sale pixel-idéntico al archivo que subió el cliente.
+- Las fotos se recortan al centro con el aspecto del recuadro y se limitan a 2x su tamaño, así
+  nada se estira y el `border-radius` detectado se respeta.
+- El escenario se posiciona en pixeles del diseño original y se escala con un único
+  `transform: scale()`, por lo que el resultado es idéntico en 1080p, 4K y en el celular.
+- Panel: `frontend/app/workspace/menu-canvas.tsx` — lienzo con los recuadros encima, arrastrables
+  y estirables (PanResponder), zoom 1x/2x/3x con scroll en ambos ejes, y un bottom sheet por
+  recuadro para cambiar el texto o reemplazar la foto.
+- `backend/tests/test_iter43_menu_canvas.py`: 18 tests (13 marcados `ai`, pegan al modelo real).
+- `fonts-liberation` agregado al Dockerfile: sin esas fuentes la medición cae a una estimación.

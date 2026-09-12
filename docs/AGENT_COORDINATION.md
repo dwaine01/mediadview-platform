@@ -1262,4 +1262,27 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   mueve rutas públicas, revisar que `API` y `/marketplace` sigan resolviendo.
 - Estado: CERRADA — commit `73d7d50` (production).
 
+### 2026-06 — E1 — Menús: publicar de verdad al TV, vista previa y «mi propio diseño»
+- Rama: `trunk` → `production` (commits `3d75fe3`, `7a89664`).
+- Archivos tocados: `backend/workspace_routes.py`, `backend/menus_routes.py`,
+  `backend/menu_canvas_routes.py` (nuevo), `backend/server.py` (2 líneas de registro),
+  `Dockerfile` (fonts-liberation), `backend/requirements.txt` (pymupdf),
+  `frontend/app/workspace/menu-edit.tsx`, `frontend/app/workspace/menu-canvas.tsx` (nuevo),
+  `frontend/src/services/api.ts`.
+- Qué cambió:
+  1. P0: publicar un menú ahora sincroniza un playlist propio (`source_menu_id`) en las pantallas
+     elegidas y hace `bump_playlist_version`. Antes sólo escribía `screens.active_menu_id`, que
+     ningún endpoint del player lee, así que el TV nunca cambiaba.
+  2. `GET /workspace/menus/{id}/preview` firma un token HMAC de 1 h para ver un borrador con el
+     render real del TV sin abrir el gate H3.
+  3. Nuevo dominio `canvas`: el menú diseñado del cliente (JPG/PNG/PDF) se vuelve editable con
+     `gemini-3.1-pro-preview`; el render sirve su imagen y sólo pinta los campos editados.
+- Validación: `test_iter42_menu_reaches_tv.py` (10), `test_iter43_menu_canvas.py` (18),
+  61 de regresión verdes (iter40/41/42, owned_playlists, security_fixes) + E2E del panel por el
+  agente de testing (iteration_42.json, iteration_43.json).
+- Riesgo para el otro agente: NINGUNO en `/api/devices/*` ni `/api/player/*` — no se tocó el
+  contrato del APK Kotlin. `build_screen_playlist_items` no se modificó; el menú entra por el
+  camino de playlists que ya existía.
+- Estado: CERRADA — desplegada en `production` y verificada (`/api/livez` = `7a89664`).
+
 <!-- Nuevas entradas ARRIBA de esta línea, más recientes primero. -->
