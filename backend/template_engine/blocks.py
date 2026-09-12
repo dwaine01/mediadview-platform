@@ -15,7 +15,8 @@ import html as html_lib
 from urllib.parse import quote
 
 MAX_ITEMS_PER_BLOCK = 40
-_ANIMS = {"fade": "anim-fade", "pop": "anim-pop", "ken": "anim-ken", "none": ""}
+_ANIMS = {"fade": "anim-fade", "pop": "anim-pop", "ken": "anim-ken",
+          "rise": "anim-rise", "none": ""}
 
 
 def esc(value) -> str:

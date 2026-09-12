@@ -1,49 +1,188 @@
 [
   {
-    "id": "icecream-sabores-16x9",
+    "id": "ice-cream-a",
     "kind": "menu_board",
     "industry": "ice_cream",
-    "name": "Sabores — Vitrina dulce",
-    "tagline": "Cuatro copas grandes arriba y todo lo demás abajo",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
-    "safe_zone": 40,
-    "capacity": { "products": 14, "categories": 3 },
+    "name": "Heladería — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#FFF7FB", "bg2": "#FDE7F1", "ink": "#2A1430", "muted": "#7A5C74",
-        "accent": "#FF4FA3", "accent2": "#D6247C", "accent_ink": "#FFFFFF",
-        "price": "#7A3FD1", "card": "#FFFFFF", "card2": "#FFF0F7", "rule": "#F3C8DF"
+        "bg": "#FFF9FB",
+        "bg2": "#FBEAF2",
+        "ink": "#2A1430",
+        "muted": "#7A5C74",
+        "accent": "#E8468C",
+        "accent2": "#B92A6A",
+        "accent_ink": "#FFFFFF",
+        "price": "#6B3FC0",
+        "card": "#FFFFFF",
+        "card2": "#FFF2F8",
+        "rule": "#F1CFE0"
       },
-      "fonts": { "display": "Baloo 2", "body": "Nunito" },
-      "mood": "heladeria-pastel"
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "heladeria"
     },
     "background": [
-      { "type": "color", "value": "#FFF7FB" },
-      { "type": "gradient", "shape": "radial", "at": "50% -6%", "from": "#FF4FA324", "to": "#00000000" },
-      { "type": "texture", "asset": "gloss" }
+      {
+        "type": "color",
+        "value": "#FFF9FB"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFFFF",
+        "to": "#FBE7F1",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "gloss"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [40, 30, 780, 94], "size": 68 },
-      { "type": "text", "rect": [40, 132, 780, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
-      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
-
-      { "type": "category", "rect": [40, 188, 1840, 54], "binds": "categories[0]", "size": 42 },
-      { "type": "product_grid", "rect": [40, 256, 1840, 470], "cols": 4, "rows": 1, "gap": 22,
-        "binds": "categories[0]", "name_size": 38, "price_size": 44, "desc_size": 18,
-        "show_desc": true, "anim": "pop" },
-
-      { "type": "category", "rect": [40, 748, 900, 48], "binds": "categories[1]", "size": 32 },
-      { "type": "product_list", "rect": [40, 806, 900, 234], "binds": "categories[1]",
-        "size": 34, "gap": 8, "anim": "fade" },
-
-      { "type": "category", "rect": [980, 748, 480, 48], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [980, 806, 480, 234], "binds": "categories[2]",
-        "size": 32, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [1500, 748, 380, 292], "size": 36 }
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
     ],
-    "motion": { "preset": "pop-in" },
+    "motion": {
+      "preset": "pop-in"
+    },
     "sample": {
       "business_name": "Heladería Frescura",
       "tagline": "Helado artesanal hecho acá",
@@ -53,143 +192,442 @@
       "promo_title": "Kilo de helado + 2 conos",
       "promo_price": "$12.90",
       "categories": [
-        { "name": "Copas y postres", "products": [
-          { "key": "copa_sundae", "name": "Copa sundae", "description": "Tres bochas, salsa de chocolate y crema.", "price": 6.5, "badge": "La favorita" },
-          { "key": "banana_split", "name": "Banana split", "description": "Banana, tres bochas, nueces y salsa.", "price": 7.9 },
-          { "key": "waffle_helado", "name": "Waffle con helado", "description": "Waffle tibio, dos bochas y frutos rojos.", "price": 8.5 },
-          { "key": "torta_helada", "name": "Porción de torta helada", "description": "Capas de chocolate y vainilla.", "price": 5.5 }
-        ]},
-        { "name": "Conos y paletas", "products": [
-          { "key": "cono_doble", "name": "Cono doble", "price": 4.5 },
-          { "key": "cono_simple", "name": "Cono simple", "price": 3.2 },
-          { "key": "paleta_frutilla", "name": "Paleta de frutilla", "price": 2.5 },
-          { "key": "granizado", "name": "Granizado", "price": 3.5 }
-        ]},
-        { "name": "Bebidas", "products": [
-          { "key": "malteada", "name": "Malteada", "price": 5.5 },
-          { "key": "cafe_helado", "name": "Café helado", "price": 3.9 },
-          { "key": "agua", "name": "Agua", "price": 1.5 }
-        ]}
+        {
+          "name": "Copas y postres",
+          "products": [
+            {
+              "key": "copa_sundae",
+              "name": "Copa sundae",
+              "description": "Tres bochas, salsa de chocolate y crema.",
+              "price": 6.5,
+              "badge": "La favorita"
+            },
+            {
+              "key": "banana_split",
+              "name": "Banana split",
+              "description": "Banana, tres bochas, nueces y salsa.",
+              "price": 7.9
+            },
+            {
+              "key": "waffle_helado",
+              "name": "Waffle con helado",
+              "description": "Waffle tibio, dos bochas y frutos rojos.",
+              "price": 8.5
+            },
+            {
+              "key": "torta_helada",
+              "name": "Porción de torta helada",
+              "description": "Capas de chocolate y vainilla.",
+              "price": 5.5
+            }
+          ]
+        },
+        {
+          "name": "Conos y paletas",
+          "products": [
+            {
+              "key": "cono_doble",
+              "name": "Cono doble",
+              "price": 4.5
+            },
+            {
+              "key": "cono_simple",
+              "name": "Cono simple",
+              "price": 3.2
+            },
+            {
+              "key": "paleta_frutilla",
+              "name": "Paleta de frutilla",
+              "price": 2.5
+            },
+            {
+              "key": "granizado",
+              "name": "Granizado",
+              "price": 3.5
+            }
+          ]
+        },
+        {
+          "name": "Bebidas",
+          "products": [
+            {
+              "key": "malteada",
+              "name": "Malteada",
+              "price": 5.5
+            },
+            {
+              "key": "cafe_helado",
+              "name": "Café helado",
+              "price": 3.9
+            },
+            {
+              "key": "agua",
+              "name": "Agua",
+              "price": 1.5
+            }
+          ]
+        }
       ]
     }
   },
   {
-    "id": "icecream-totem-9x16",
+    "id": "ice-cream-c",
     "kind": "menu_board",
     "industry": "ice_cream",
-    "name": "Sabores — Tótem de vitrina",
-    "tagline": "Oscuro y neón, para que el helado resalte",
-    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
-    "safe_zone": 36,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Heladería — Sereno",
+    "tagline": "Fondo claro, color en dosis chicas y fotos redondas",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 52,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#140E1E", "bg2": "#1F1630", "ink": "#FFF3FA", "muted": "#C9B4DA",
-        "accent": "#FF4FA3", "accent2": "#8B5CF6", "accent_ink": "#190D22",
-        "price": "#63E6E2", "card": "#1F1630", "card2": "#291C3D", "rule": "#4A3763"
+        "bg": "#FFF9FB",
+        "bg2": "#FBEAF2",
+        "ink": "#2A1430",
+        "muted": "#7A5C74",
+        "accent": "#E8468C",
+        "accent2": "#B92A6A",
+        "accent_ink": "#FFFFFF",
+        "price": "#6B3FC0",
+        "card": "#FFFFFF",
+        "card2": "#FFF2F8",
+        "rule": "#F1CFE0"
       },
-      "fonts": { "display": "Baloo 2", "body": "Nunito" },
-      "mood": "heladeria-neon"
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "heladeria"
     },
     "background": [
-      { "type": "color", "value": "#140E1E" },
-      { "type": "gradient", "shape": "radial", "at": "50% 4%", "from": "#FF4FA333", "to": "#00000000" },
-      { "type": "texture", "asset": "gloss" }
+      {
+        "type": "color",
+        "value": "#FFF9FB"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFFFF",
+        "to": "#FBE7F1",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "gloss"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [36, 40, 1008, 98], "size": 74 },
-      { "type": "text", "rect": [36, 148, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
-
-      { "type": "hero", "rect": [36, 204, 1008, 520], "binds": "categories[0]",
-        "name_size": 84, "price_size": 74, "ken": true },
-
-      { "type": "category", "rect": [36, 756, 1008, 52], "binds": "categories[0]", "size": 38 },
-      { "type": "product_grid", "rect": [36, 822, 1008, 560], "cols": 2, "rows": 2, "gap": 20,
-        "binds": "categories[0]", "name_size": 42, "price_size": 48, "anim": "pop" },
-
-      { "type": "category", "rect": [36, 1412, 1008, 46], "binds": "categories[1]", "size": 30 },
-      { "type": "product_list", "rect": [36, 1466, 1008, 176], "binds": "categories[1]",
-        "size": 34, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [36, 1668, 1008, 216], "size": 42 }
+      {
+        "type": "brand",
+        "rect": [
+          56,
+          46,
+          980,
+          98
+        ],
+        "size": 80
+      },
+      {
+        "type": "text",
+        "rect": [
+          56,
+          152,
+          980,
+          36
+        ],
+        "field": "tagline",
+        "size": 24,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          1000,
+          60,
+          864,
+          420
+        ],
+        "binds": "categories[0]",
+        "align": "right",
+        "name_size": 72,
+        "price_size": 48,
+        "desc_size": 23,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          56,
+          226,
+          900,
+          50
+        ],
+        "binds": "categories[0]",
+        "size": 34
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          56,
+          300,
+          900,
+          330
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          56,
+          690,
+          900,
+          48
+        ],
+        "binds": "categories[2]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          56,
+          748,
+          900,
+          204
+        ],
+        "binds": "categories[2]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1000,
+          512,
+          864,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1000,
+          570,
+          864,
+          150
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1000,
+          742,
+          864,
+          192
+        ],
+        "size": 36
+      },
+      {
+        "type": "ticker",
+        "rect": [
+          56,
+          976,
+          1808,
+          72
+        ],
+        "size": 26
+      }
     ],
-    "motion": { "preset": "pop-in" },
-    "sample_from": "icecream-sabores-16x9"
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "ice-cream-a"
   },
   {
-    "id": "icecream-pizarra-16x9",
+    "id": "ice-cream-v",
     "kind": "menu_board",
     "industry": "ice_cream",
-    "name": "Pizarra — Lista de sabores",
-    "tagline": "La pizarra de la heladería, con foto chica por línea",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "name": "Heladería — Tótem vertical",
+    "tagline": "Para la pared o la fila de la caja",
+    "canvas": {
+      "w": 1080,
+      "h": 1920,
+      "orientation": "portrait"
+    },
     "safe_zone": 44,
-    "capacity": { "products": 18, "categories": 3 },
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#15201C", "bg2": "#1D2B26", "ink": "#F6F3E7", "muted": "#B9C6BC",
-        "accent": "#F7D774", "accent2": "#C9A227", "accent_ink": "#1A1F16",
-        "price": "#F7D774", "card": "#1D2B26", "card2": "#24342E", "rule": "#42564D"
+        "bg": "#FFF9FB",
+        "bg2": "#FBEAF2",
+        "ink": "#2A1430",
+        "muted": "#7A5C74",
+        "accent": "#E8468C",
+        "accent2": "#B92A6A",
+        "accent_ink": "#FFFFFF",
+        "price": "#6B3FC0",
+        "card": "#FFFFFF",
+        "card2": "#FFF2F8",
+        "rule": "#F1CFE0"
       },
-      "fonts": { "display": "Fraunces", "body": "Nunito" },
-      "mood": "pizarra-artesanal"
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "heladeria"
     },
     "background": [
-      { "type": "color", "value": "#15201C" },
-      { "type": "texture", "asset": "chalk" },
-      { "type": "gradient", "angle": 180, "from": "#00000000", "to": "#000000A6" }
+      {
+        "type": "color",
+        "value": "#FFF9FB"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFFFF",
+        "to": "#FBE7F1",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "gloss"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [44, 34, 1832, 100], "size": 78 },
-      { "type": "text", "rect": [44, 144, 1832, 36], "field": "tagline", "size": 25, "upper": true,
-        "accent": true, "align": "center" },
-
-      { "type": "category", "rect": [44, 210, 900, 56], "binds": "categories[0]", "size": 42 },
-      { "type": "product_list", "rect": [44, 280, 900, 540], "binds": "categories[0]",
-        "size": 38, "gap": 12, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [988, 210, 888, 56], "binds": "categories[1]", "size": 42 },
-      { "type": "product_list", "rect": [988, 280, 888, 300], "binds": "categories[1]",
-        "size": 36, "gap": 10, "anim": "fade" },
-
-      { "type": "category", "rect": [988, 600, 888, 48], "binds": "categories[2]", "size": 34 },
-      { "type": "product_list", "rect": [988, 658, 888, 162], "binds": "categories[2]",
-        "size": 34, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [44, 848, 1150, 192], "size": 40 },
-      { "type": "qr", "rect": [1240, 848, 636, 192], "size": 17 }
+      {
+        "type": "brand",
+        "rect": [
+          44,
+          44,
+          992,
+          104
+        ],
+        "size": 78
+      },
+      {
+        "type": "text",
+        "rect": [
+          44,
+          156,
+          992,
+          36
+        ],
+        "field": "tagline",
+        "size": 25,
+        "upper": true,
+        "accent": true,
+        "align": "center"
+      },
+      {
+        "type": "feature",
+        "rect": [
+          44,
+          214,
+          992,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 78,
+        "price_size": 54,
+        "desc_size": 25,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          716,
+          992,
+          52
+        ],
+        "binds": "categories[0]",
+        "size": 36
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          44,
+          782,
+          992,
+          620
+        ],
+        "cols": 2,
+        "rows": 2,
+        "gap": 26,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 34,
+        "price_size": 42,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          1434,
+          992,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          44,
+          1492,
+          992,
+          190
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          44,
+          1716,
+          992,
+          168
+        ],
+        "size": 34
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
-    "sample": {
-      "business_name": "Heladería Frescura",
-      "tagline": "Artesanal · sin colorantes",
-      "hero_kicker": "El más pedido",
-      "promo_kicker": "Promo de la semana",
-      "promo_title": "Kilo de helado",
-      "promo_price": "$9.90",
-      "qr_url": "https://heladeriafrescura.com/sabores",
-      "qr_label": "Todos los sabores",
-      "categories": [
-        { "name": "Copas y postres", "products": [
-          { "key": "copa_sundae", "name": "Copa sundae", "price": 6.5 },
-          { "key": "banana_split", "name": "Banana split", "price": 7.9 },
-          { "key": "waffle_helado", "name": "Waffle con helado", "price": 8.5 },
-          { "key": "torta_helada", "name": "Torta helada (porción)", "price": 5.5 },
-          { "key": "helado_kilo", "name": "Kilo para llevar", "price": 12.9 }
-        ]},
-        { "name": "Conos y paletas", "products": [
-          { "key": "cono_doble", "name": "Cono doble", "price": 4.5 },
-          { "key": "cono_simple", "name": "Cono simple", "price": 3.2 },
-          { "key": "paleta_frutilla", "name": "Paleta de frutilla", "price": 2.5 },
-          { "key": "granizado", "name": "Granizado", "price": 3.5 }
-        ]},
-        { "name": "Bebidas", "products": [
-          { "key": "malteada", "name": "Malteada", "price": 5.5 },
-          { "key": "cafe_helado", "name": "Café helado", "price": 3.9 }
-        ]}
-      ]
-    }
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "ice-cream-a"
   }
 ]

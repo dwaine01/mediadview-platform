@@ -1,51 +1,188 @@
 [
   {
-    "id": "pizzeria-forno-grid-16x9",
+    "id": "pizzeria-a",
     "kind": "menu_board",
     "industry": "pizzeria",
-    "name": "Forno — Grilla de 12",
-    "tagline": "12 pizzas con foto, tamaños y precios en una pantalla",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
-    "safe_zone": 40,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Trattoria — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#120C0A", "bg2": "#1D1411", "ink": "#FFF6E8", "muted": "#E3D2C2",
-        "accent": "#C1440E", "accent2": "#6E1D06", "accent_ink": "#FFF6E8",
-        "price": "#F2C14E", "card": "#1E1613", "card2": "#2A1F1A", "rule": "#4C3A31"
+        "bg": "#FFF8EE",
+        "bg2": "#F5E7D2",
+        "ink": "#241611",
+        "muted": "#6B5546",
+        "accent": "#C1440E",
+        "accent2": "#8E2F06",
+        "accent_ink": "#FFFFFF",
+        "price": "#1E3A2B",
+        "card": "#FFFFFF",
+        "card2": "#FBF1E2",
+        "rule": "#E2CDB0"
       },
-      "fonts": { "display": "Playfair Display", "body": "Inter" },
-      "mood": "warm-italian"
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Manrope"
+      },
+      "mood": "artesanal-horno"
     },
     "background": [
-      { "type": "color", "value": "#120C0A" },
-      { "type": "texture", "asset": "wood-dark" },
-      { "type": "gradient", "shape": "radial", "at": "50% -10%", "from": "#C1440E33", "to": "#00000000" },
-      { "type": "gradient", "angle": 180, "from": "#00000000", "to": "#000000B3" }
+      {
+        "type": "color",
+        "value": "#FFF8EE"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF8",
+        "to": "#F3E4CE",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "paper-warm"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [40, 30, 620, 92], "size": 64 },
-      { "type": "text", "rect": [40, 128, 620, 34], "field": "tagline", "size": 24, "upper": true, "accent": true },
-      { "type": "ticker", "rect": [1240, 34, 640, 76], "size": 28 },
-
-      { "type": "category", "rect": [40, 188, 1180, 56], "binds": "categories[0]", "size": 42 },
-      { "type": "product_grid", "rect": [40, 258, 1180, 782], "cols": 3, "rows": 2,
-        "gap": 22, "binds": "categories[0]",
-        "name_size": 38, "price_size": 42, "desc_size": 18, "show_desc": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1258, 188, 622, 52], "binds": "categories[1]", "size": 32 },
-      { "type": "product_list", "rect": [1258, 252, 622, 300], "binds": "categories[1]",
-        "size": 32, "gap": 10, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1258, 578, 622, 52], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [1258, 642, 622, 200], "binds": "categories[2]",
-        "size": 32, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [1258, 872, 480, 168], "size": 40 },
-      { "type": "qr", "rect": [1766, 872, 114, 168], "size": 12 }
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
+    "motion": {
+      "preset": "pop-in"
+    },
     "sample": {
       "business_name": "Trattoria Forno",
       "tagline": "Horno de leña · desde 1998",
@@ -57,80 +194,500 @@
       "qr_url": "https://trattoriaforno.com/menu",
       "qr_label": "Escaneá el menú",
       "categories": [
-        { "name": "Pizzas artesanales", "products": [
-          { "key": "pepperoni", "name": "Pepperoni", "description": "Doble pepperoni, mozzarella fior di latte y orégano fresco.",
-            "variants": [{"label":"Ch","price":9.99},{"label":"Md","price":12.99},{"label":"Gr","price":15.99}],
-            "featured": true, "badge": "La más pedida" },
-          { "key": "margherita", "name": "Margherita", "description": "Tomate San Marzano, mozzarella y albahaca.",
-            "variants": [{"label":"Ch","price":8.99},{"label":"Md","price":11.99},{"label":"Gr","price":14.99}] },
-          { "key": "meatlovers", "name": "Meat Lovers", "description": "Pepperoni, salchicha italiana, jamón y tocino.",
-            "variants": [{"label":"Ch","price":11.99},{"label":"Md","price":14.99},{"label":"Gr","price":18.99}] },
-          { "key": "quattro", "name": "Quattro Formaggi", "description": "Mozzarella, gorgonzola, parmesano y provolone.",
-            "variants": [{"label":"Ch","price":10.99},{"label":"Md","price":13.99},{"label":"Gr","price":17.49}] },
-          { "key": "veggie", "name": "Hortelana", "description": "Pimientos asados, champiñones, cebolla morada y aceitunas.",
-            "variants": [{"label":"Ch","price":9.49},{"label":"Md","price":12.49},{"label":"Gr","price":15.49}] },
-          { "key": "prosciutto", "name": "Prosciutto e Rucola", "description": "Jamón crudo, rúcula y láminas de parmesano.",
-            "variants": [{"label":"Ch","price":12.49},{"label":"Md","price":15.99},{"label":"Gr","price":19.99}] }
-        ]},
-        { "name": "Combos", "products": [
-          { "key": "combo_lunch", "name": "Almuerzo express", "price": 12.99 },
-          { "key": "combo_family", "name": "Familiar (2 gr + 2L)", "price": 29.99 },
-          { "key": "combo_duo", "name": "Dúo + papas", "price": 21.49 },
-          { "key": "combo_kids", "name": "Menú infantil", "price": 7.99 },
-          { "key": "combo_calzone", "name": "Calzone + bebida", "price": 13.49 }
-        ]},
-        { "name": "Bebidas", "products": [
-          { "key": "coke", "name": "Coca-Cola", "price": 2.49 },
-          { "key": "sprite", "name": "Sprite", "price": 2.49 },
-          { "key": "water", "name": "Agua mineral", "price": 1.99 },
-          { "key": "lemonade", "name": "Limonada de la casa", "price": 3.49 }
-        ]}
+        {
+          "name": "Pizzas artesanales",
+          "products": [
+            {
+              "key": "pepperoni",
+              "name": "Pepperoni",
+              "description": "Doble pepperoni, mozzarella fior di latte y orégano fresco.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 9.99
+                },
+                {
+                  "label": "Md",
+                  "price": 12.99
+                },
+                {
+                  "label": "Gr",
+                  "price": 15.99
+                }
+              ],
+              "featured": true,
+              "badge": "La más pedida"
+            },
+            {
+              "key": "margherita",
+              "name": "Margherita",
+              "description": "Tomate San Marzano, mozzarella y albahaca.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 8.99
+                },
+                {
+                  "label": "Md",
+                  "price": 11.99
+                },
+                {
+                  "label": "Gr",
+                  "price": 14.99
+                }
+              ]
+            },
+            {
+              "key": "meatlovers",
+              "name": "Meat Lovers",
+              "description": "Pepperoni, salchicha italiana, jamón y tocino.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 11.99
+                },
+                {
+                  "label": "Md",
+                  "price": 14.99
+                },
+                {
+                  "label": "Gr",
+                  "price": 18.99
+                }
+              ]
+            },
+            {
+              "key": "quattro",
+              "name": "Quattro Formaggi",
+              "description": "Mozzarella, gorgonzola, parmesano y provolone.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 10.99
+                },
+                {
+                  "label": "Md",
+                  "price": 13.99
+                },
+                {
+                  "label": "Gr",
+                  "price": 17.49
+                }
+              ]
+            },
+            {
+              "key": "veggie",
+              "name": "Hortelana",
+              "description": "Pimientos asados, champiñones, cebolla morada y aceitunas.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 9.49
+                },
+                {
+                  "label": "Md",
+                  "price": 12.49
+                },
+                {
+                  "label": "Gr",
+                  "price": 15.49
+                }
+              ]
+            },
+            {
+              "key": "prosciutto",
+              "name": "Prosciutto e Rucola",
+              "description": "Jamón crudo, rúcula y láminas de parmesano.",
+              "variants": [
+                {
+                  "label": "Ch",
+                  "price": 12.49
+                },
+                {
+                  "label": "Md",
+                  "price": 15.99
+                },
+                {
+                  "label": "Gr",
+                  "price": 19.99
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Combos",
+          "products": [
+            {
+              "key": "combo_lunch",
+              "name": "Almuerzo express",
+              "price": 12.99
+            },
+            {
+              "key": "combo_family",
+              "name": "Familiar (2 gr + 2L)",
+              "price": 29.99
+            },
+            {
+              "key": "combo_duo",
+              "name": "Dúo + papas",
+              "price": 21.49
+            },
+            {
+              "key": "combo_kids",
+              "name": "Menú infantil",
+              "price": 7.99
+            },
+            {
+              "key": "combo_calzone",
+              "name": "Calzone + bebida",
+              "price": 13.49
+            }
+          ]
+        },
+        {
+          "name": "Bebidas",
+          "products": [
+            {
+              "key": "coke",
+              "name": "Coca-Cola",
+              "price": 2.49
+            },
+            {
+              "key": "sprite",
+              "name": "Sprite",
+              "price": 2.49
+            },
+            {
+              "key": "water",
+              "name": "Agua mineral",
+              "price": 1.99
+            },
+            {
+              "key": "lemonade",
+              "name": "Limonada de la casa",
+              "price": 3.49
+            }
+          ]
+        }
       ]
     }
   },
   {
-    "id": "pizzeria-forno-tower-9x16",
+    "id": "pizzeria-b",
     "kind": "menu_board",
     "industry": "pizzeria",
-    "name": "Forno — Tótem vertical",
-    "tagline": "Versión vertical para tótems y pantallas paradas",
-    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
-    "safe_zone": 36,
-    "capacity": { "products": 10, "categories": 2 },
+    "name": "Trattoria — Cine oscuro",
+    "tagline": "La foto ocupa media pantalla y la carta se lee al costado",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#120C0A", "bg2": "#1D1411", "ink": "#FFF6E8", "muted": "#E3D2C2",
-        "accent": "#C1440E", "accent2": "#6E1D06", "accent_ink": "#FFF6E8",
-        "price": "#F2C14E", "card": "#1E1613", "card2": "#2A1F1A", "rule": "#4C3A31"
+        "bg": "#120C0A",
+        "bg2": "#1D1411",
+        "ink": "#FFF6E8",
+        "muted": "#E3D2C2",
+        "accent": "#E2711D",
+        "accent2": "#A8410A",
+        "accent_ink": "#1A0E06",
+        "price": "#FFC94A",
+        "card": "#1D1411",
+        "card2": "#261A15",
+        "rule": "#4A3428"
       },
-      "fonts": { "display": "Playfair Display", "body": "Inter" },
-      "mood": "warm-italian"
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Manrope"
+      },
+      "mood": "artesanal-horno-noche"
     },
     "background": [
-      { "type": "color", "value": "#120C0A" },
-      { "type": "texture", "asset": "wood-dark" },
-      { "type": "gradient", "shape": "radial", "at": "50% 4%", "from": "#C1440E3D", "to": "#00000000" },
-      { "type": "gradient", "angle": 180, "from": "#00000000", "to": "#000000B3" }
+      {
+        "type": "color",
+        "value": "#120C0A"
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 0%",
+        "from": "#E2711D2E",
+        "to": "#00000000"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [36, 40, 1008, 104], "size": 76 },
-      { "type": "text", "rect": [36, 152, 1008, 36], "field": "tagline", "size": 26, "upper": true, "accent": true },
-
-      { "type": "hero", "rect": [36, 206, 1008, 440], "binds": "categories[0]",
-        "name_size": 96, "price_size": 0, "ken": true },
-
-      { "type": "category", "rect": [36, 676, 1008, 56], "binds": "categories[0]", "size": 44 },
-      { "type": "product_grid", "rect": [36, 750, 1008, 690], "cols": 2, "rows": 2, "gap": 22,
-        "binds": "categories[0]", "name_size": 48, "price_size": 50, "anim": "fade" },
-
-      { "type": "category", "rect": [36, 1462, 1008, 48], "binds": "categories[2]", "size": 34 },
-      { "type": "product_list", "rect": [36, 1522, 1008, 168], "binds": "categories[2]",
-        "size": 36, "gap": 10, "anim": "fade" },
-
-      { "type": "promo", "rect": [36, 1706, 1008, 178], "size": 48 }
+      {
+        "type": "backdrop",
+        "rect": [
+          820,
+          0,
+          1100,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true
+      },
+      {
+        "type": "brand",
+        "rect": [
+          80,
+          84,
+          700,
+          118
+        ],
+        "size": 86
+      },
+      {
+        "type": "text",
+        "rect": [
+          80,
+          218,
+          700,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          300,
+          700,
+          56
+        ],
+        "binds": "categories[0]",
+        "size": 40
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          376,
+          700,
+          460
+        ],
+        "binds": "categories[0]",
+        "size": 38,
+        "gap": 14,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          856,
+          700,
+          46
+        ],
+        "binds": "categories[1]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          912,
+          700,
+          148
+        ],
+        "binds": "categories[1]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1180,
+          792,
+          680,
+          232
+        ],
+        "size": 44
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
-    "sample_from": "pizzeria-forno-grid-16x9"
+    "motion": {
+      "preset": "subtle-fade"
+    },
+    "sample_from": "pizzeria-a"
+  },
+  {
+    "id": "pizzeria-v",
+    "kind": "menu_board",
+    "industry": "pizzeria",
+    "name": "Trattoria — Tótem vertical",
+    "tagline": "Para la pared o la fila de la caja",
+    "canvas": {
+      "w": 1080,
+      "h": 1920,
+      "orientation": "portrait"
+    },
+    "safe_zone": 44,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFF8EE",
+        "bg2": "#F5E7D2",
+        "ink": "#241611",
+        "muted": "#6B5546",
+        "accent": "#C1440E",
+        "accent2": "#8E2F06",
+        "accent_ink": "#FFFFFF",
+        "price": "#1E3A2B",
+        "card": "#FFFFFF",
+        "card2": "#FBF1E2",
+        "rule": "#E2CDB0"
+      },
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Manrope"
+      },
+      "mood": "artesanal-horno"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#FFF8EE"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF8",
+        "to": "#F3E4CE",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "paper-warm"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          44,
+          44,
+          992,
+          104
+        ],
+        "size": 78
+      },
+      {
+        "type": "text",
+        "rect": [
+          44,
+          156,
+          992,
+          36
+        ],
+        "field": "tagline",
+        "size": 25,
+        "upper": true,
+        "accent": true,
+        "align": "center"
+      },
+      {
+        "type": "feature",
+        "rect": [
+          44,
+          214,
+          992,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 78,
+        "price_size": 54,
+        "desc_size": 25,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          716,
+          992,
+          52
+        ],
+        "binds": "categories[0]",
+        "size": 36
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          44,
+          782,
+          992,
+          620
+        ],
+        "cols": 2,
+        "rows": 2,
+        "gap": 26,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 34,
+        "price_size": 42,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          1434,
+          992,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          44,
+          1492,
+          992,
+          190
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          44,
+          1716,
+          992,
+          168
+        ],
+        "size": 34
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "pizzeria-a"
   }
 ]

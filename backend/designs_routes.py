@@ -119,6 +119,12 @@ async def seed_signage_templates(db) -> int:
             upsert=True,
         )
         loaded += 1
+    # Una plantilla que ya no está en los archivos sale del catálogo pero NO se
+    # borra: los diseños que la usan tienen que seguir saliendo al aire.
+    retired = await db.signage_templates.update_many(
+        {"id": {"$nin": list(index)}}, {"$set": {"hidden": True}})
+    if retired.modified_count:
+        logger.info("↩ %d plantillas viejas fuera del catálogo", retired.modified_count)
     logger.info("✓ %d plantillas profesionales en el catálogo", loaded)
     return loaded
 

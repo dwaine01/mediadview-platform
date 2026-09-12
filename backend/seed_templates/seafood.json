@@ -1,49 +1,156 @@
 [
   {
-    "id": "seafood-marisco-16x9",
+    "id": "seafood-b",
     "kind": "menu_board",
     "industry": "seafood",
-    "name": "Marisquería — Pesca del día",
-    "tagline": "Seis platos con foto y la pesca fresca al costado",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
-    "safe_zone": 40,
-    "capacity": { "products": 14, "categories": 3 },
+    "name": "Marisquería — Cine oscuro",
+    "tagline": "La foto ocupa media pantalla y la carta se lee al costado",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#061B2A", "bg2": "#0B2A3F", "ink": "#F2FBFF", "muted": "#A9C6D8",
-        "accent": "#00A3C4", "accent2": "#006E86", "accent_ink": "#02121B",
-        "price": "#FFD166", "card": "#0B2A3F", "card2": "#0F3550", "rule": "#2B5470"
+        "bg": "#04121D",
+        "bg2": "#0A2233",
+        "ink": "#EFFAFF",
+        "muted": "#9DBACC",
+        "accent": "#FFD166",
+        "accent2": "#C79A2E",
+        "accent_ink": "#12200C",
+        "price": "#FFD166",
+        "card": "#0A2233",
+        "card2": "#0E2C42",
+        "rule": "#265068"
       },
-      "fonts": { "display": "Fraunces", "body": "Manrope" },
-      "mood": "marisqueria-puerto"
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Manrope"
+      },
+      "mood": "marisqueria-noche"
     },
     "background": [
-      { "type": "color", "value": "#061B2A" },
-      { "type": "texture", "asset": "linen" },
-      { "type": "gradient", "shape": "radial", "at": "18% 0%", "from": "#00A3C42E", "to": "#00000000" }
+      {
+        "type": "color",
+        "value": "#04121D"
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 2%",
+        "from": "#FFD16626",
+        "to": "#00000000"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [40, 30, 860, 96], "size": 70 },
-      { "type": "text", "rect": [40, 134, 860, 34], "field": "tagline", "size": 24, "upper": true, "accent": true },
-      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
-
-      { "type": "category", "rect": [40, 192, 1240, 54], "binds": "categories[0]", "size": 42 },
-      { "type": "product_grid", "rect": [40, 260, 1240, 780], "cols": 3, "rows": 2, "gap": 22,
-        "binds": "categories[0]", "name_size": 36, "price_size": 42, "desc_size": 18,
-        "show_desc": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1320, 192, 560, 48], "binds": "categories[1]", "size": 32 },
-      { "type": "product_list", "rect": [1320, 252, 560, 310], "binds": "categories[1]",
-        "size": 32, "gap": 10, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1320, 588, 560, 48], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [1320, 648, 560, 196], "binds": "categories[2]",
-        "size": 32, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [1320, 870, 560, 170], "size": 36 }
+      {
+        "type": "backdrop",
+        "rect": [
+          820,
+          0,
+          1100,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true
+      },
+      {
+        "type": "brand",
+        "rect": [
+          80,
+          84,
+          700,
+          118
+        ],
+        "size": 86
+      },
+      {
+        "type": "text",
+        "rect": [
+          80,
+          218,
+          700,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          300,
+          700,
+          56
+        ],
+        "binds": "categories[0]",
+        "size": 40
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          376,
+          700,
+          460
+        ],
+        "binds": "categories[0]",
+        "size": 38,
+        "gap": 14,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          856,
+          700,
+          46
+        ],
+        "binds": "categories[1]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          912,
+          700,
+          148
+        ],
+        "binds": "categories[1]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1180,
+          792,
+          680,
+          232
+        ],
+        "size": 44
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
+    "motion": {
+      "preset": "subtle-fade"
+    },
     "sample": {
       "business_name": "Marisquería El Faro",
       "tagline": "Pescado fresco todos los días",
@@ -53,69 +160,275 @@
       "promo_title": "Parrillada marina para dos",
       "promo_price": "$39.90",
       "categories": [
-        { "name": "De la cocina", "products": [
-          { "key": "ceviche", "name": "Ceviche del día", "description": "Pescado fresco, cebolla morada, cilantro y limón.", "price": 14.5, "badge": "Recién hecho" },
-          { "key": "camarones_ajillo", "name": "Camarones al ajillo", "description": "En sartén, con perejil y pan tostado.", "price": 18.9 },
-          { "key": "pescado_frito", "name": "Pescado frito entero", "description": "Con tostones y ensalada.", "price": 22.5 },
-          { "key": "sopa_marinera", "name": "Sopa marinera", "description": "Mejillones, camarón y pescado.", "price": 16.9 },
-          { "key": "pulpo", "name": "Pulpo a la parrilla", "description": "Con pimentón y aceite de oliva.", "price": 26.5 },
-          { "key": "paella", "name": "Paella marinera", "description": "Para dos personas, 30 minutos de espera.", "price": 34.9 }
-        ]},
-        { "name": "Entradas frías", "products": [
-          { "key": "coctel_camaron", "name": "Cóctel de camarón", "price": 12.5 },
-          { "key": "langosta", "name": "Cola de langosta", "price": 32 },
-          { "key": "tostones", "name": "Tostones con ajo", "price": 5.5 }
-        ]},
-        { "name": "Bebidas", "products": [
-          { "key": "cerveza", "name": "Cerveza bien fría", "price": 3.5 },
-          { "key": "limonada", "name": "Limonada de la casa", "price": 2.9 },
-          { "key": "vino", "name": "Copa de vino blanco", "price": 6.5 }
-        ]}
+        {
+          "name": "De la cocina",
+          "products": [
+            {
+              "key": "ceviche",
+              "name": "Ceviche del día",
+              "description": "Pescado fresco, cebolla morada, cilantro y limón.",
+              "price": 14.5,
+              "badge": "Recién hecho"
+            },
+            {
+              "key": "camarones_ajillo",
+              "name": "Camarones al ajillo",
+              "description": "En sartén, con perejil y pan tostado.",
+              "price": 18.9
+            },
+            {
+              "key": "pescado_frito",
+              "name": "Pescado frito entero",
+              "description": "Con tostones y ensalada.",
+              "price": 22.5
+            },
+            {
+              "key": "sopa_marinera",
+              "name": "Sopa marinera",
+              "description": "Mejillones, camarón y pescado.",
+              "price": 16.9
+            },
+            {
+              "key": "pulpo",
+              "name": "Pulpo a la parrilla",
+              "description": "Con pimentón y aceite de oliva.",
+              "price": 26.5
+            },
+            {
+              "key": "paella",
+              "name": "Paella marinera",
+              "description": "Para dos personas, 30 minutos de espera.",
+              "price": 34.9
+            }
+          ]
+        },
+        {
+          "name": "Entradas frías",
+          "products": [
+            {
+              "key": "coctel_camaron",
+              "name": "Cóctel de camarón",
+              "price": 12.5
+            },
+            {
+              "key": "langosta",
+              "name": "Cola de langosta",
+              "price": 32
+            },
+            {
+              "key": "tostones",
+              "name": "Tostones con ajo",
+              "price": 5.5
+            }
+          ]
+        },
+        {
+          "name": "Bebidas",
+          "products": [
+            {
+              "key": "cerveza",
+              "name": "Cerveza bien fría",
+              "price": 3.5
+            },
+            {
+              "key": "limonada",
+              "name": "Limonada de la casa",
+              "price": 2.9
+            },
+            {
+              "key": "vino",
+              "name": "Copa de vino blanco",
+              "price": 6.5
+            }
+          ]
+        }
       ]
     }
   },
   {
-    "id": "seafood-totem-9x16",
+    "id": "seafood-a",
     "kind": "menu_board",
     "industry": "seafood",
-    "name": "Marisquería — Tótem de puerto",
-    "tagline": "La pesca del día enorme y la carta abajo",
-    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
-    "safe_zone": 36,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Marisquería — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#04121D", "bg2": "#0A2233", "ink": "#EFFAFF", "muted": "#9DBACC",
-        "accent": "#FFD166", "accent2": "#C79A2E", "accent_ink": "#12200C",
-        "price": "#FFD166", "card": "#0A2233", "card2": "#0E2C42", "rule": "#265068"
+        "bg": "#F7FBFD",
+        "bg2": "#E7F1F6",
+        "ink": "#0C2432",
+        "muted": "#5A7484",
+        "accent": "#0E7C99",
+        "accent2": "#095A70",
+        "accent_ink": "#FFFFFF",
+        "price": "#B4740A",
+        "card": "#FFFFFF",
+        "card2": "#F1F7FA",
+        "rule": "#CFE0E8"
       },
-      "fonts": { "display": "Fraunces", "body": "Manrope" },
-      "mood": "marisqueria-noche"
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Manrope"
+      },
+      "mood": "marisqueria"
     },
     "background": [
-      { "type": "color", "value": "#04121D" },
-      { "type": "texture", "asset": "linen" },
-      { "type": "gradient", "shape": "radial", "at": "50% 2%", "from": "#FFD16626", "to": "#00000000" }
+      {
+        "type": "color",
+        "value": "#F7FBFD"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFFFF",
+        "to": "#E5EFF5",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [36, 40, 1008, 98], "size": 72 },
-      { "type": "text", "rect": [36, 148, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
-
-      { "type": "hero", "rect": [36, 204, 1008, 540], "binds": "categories[0]",
-        "name_size": 78, "price_size": 70, "ken": true },
-
-      { "type": "category", "rect": [36, 776, 1008, 52], "binds": "categories[0]", "size": 38 },
-      { "type": "product_list", "rect": [36, 842, 1008, 470], "binds": "categories[0]",
-        "size": 38, "gap": 10, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [36, 1342, 1008, 46], "binds": "categories[1]", "size": 30 },
-      { "type": "product_list", "rect": [36, 1396, 1008, 230], "binds": "categories[1]",
-        "size": 34, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [36, 1662, 1008, 222], "size": 42 }
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
-    "sample_from": "seafood-marisco-16x9"
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "seafood-b"
   }
 ]

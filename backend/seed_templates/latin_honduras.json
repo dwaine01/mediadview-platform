@@ -1,46 +1,188 @@
 [
   {
-    "id": "honduras-comedor-16x9",
+    "id": "latin-honduras-a",
     "kind": "menu_board",
     "industry": "latin_honduras",
-    "name": "Comedor — Plato típico",
-    "tagline": "El plato del día en grande y las baleadas al costado",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
-    "safe_zone": 40,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Comedor — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#FFF7E8", "bg2": "#FBE7C6", "ink": "#23160E", "muted": "#6D5748",
-        "accent": "#0E7C86", "accent2": "#0A5A61", "accent_ink": "#FFFFFF",
-        "price": "#B42318", "card": "#FFFFFF", "card2": "#FFF1DA", "rule": "#E0C9A8"
+        "bg": "#FFF9EC",
+        "bg2": "#F6E9CE",
+        "ink": "#23160E",
+        "muted": "#6D5748",
+        "accent": "#0E7C86",
+        "accent2": "#0A5A61",
+        "accent_ink": "#FFFFFF",
+        "price": "#B42318",
+        "card": "#FFFFFF",
+        "card2": "#FFF3DE",
+        "rule": "#E0C9A8"
       },
-      "fonts": { "display": "Fraunces", "body": "Nunito" },
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Nunito"
+      },
       "mood": "comedor-catracho"
     },
     "background": [
-      { "type": "color", "value": "#FFF7E8" },
-      { "type": "texture", "asset": "paper-warm" },
-      { "type": "gradient", "shape": "radial", "at": "12% 4%", "from": "#0E7C8624", "to": "#00000000" }
+      {
+        "type": "color",
+        "value": "#FFF9EC"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF6",
+        "to": "#F4E4C6",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "paper-warm"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [40, 30, 760, 94], "size": 66 },
-      { "type": "text", "rect": [40, 130, 760, 34], "field": "tagline", "size": 24, "upper": true, "accent": true },
-      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
-
-      { "type": "hero", "rect": [40, 190, 880, 850], "binds": "categories[0]",
-        "name_size": 74, "price_size": 62, "ken": true },
-
-      { "type": "category", "rect": [960, 190, 920, 54], "binds": "categories[1]", "size": 38 },
-      { "type": "product_grid", "rect": [960, 258, 920, 496], "cols": 2, "rows": 2, "gap": 20,
-        "binds": "categories[1]", "name_size": 40, "price_size": 44, "desc_size": 19,
-        "show_desc": true, "anim": "fade" },
-
-      { "type": "category", "rect": [960, 776, 920, 48], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [960, 834, 920, 206], "binds": "categories[2]",
-        "size": 34, "gap": 8, "anim": "fade" }
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
+    "motion": {
+      "preset": "pop-in"
+    },
     "sample": {
       "business_name": "Comedor La Catracha",
       "tagline": "Comida casera hondureña · todos los días",
@@ -50,67 +192,392 @@
       "promo_title": "Plato típico con bebida",
       "promo_price": "L 145",
       "categories": [
-        { "name": "Platos del día", "products": [
-          { "key": "plato_tipico", "name": "Plato típico", "description": "Carne asada, frijoles, tajadas, chismol, queso y tortillas.", "price": 165, "badge": "El favorito" },
-          { "key": "pollo_tajadas", "name": "Pollo con tajadas", "description": "Pollo frito sobre tajadas verdes con repollo y salsa.", "price": 140 },
-          { "key": "sopa_caracol", "name": "Sopa de caracol", "description": "Caldo de coco con yuca y plátano.", "price": 195 }
-        ]},
-        { "name": "Baleadas y antojitos", "products": [
-          { "key": "baleada_sencilla", "name": "Baleada sencilla", "description": "Frijoles, mantequilla y queso.", "price": 35 },
-          { "key": "baleada_especial", "name": "Baleada especial", "description": "Frijoles, crema, queso, huevo y aguacate.", "price": 60 },
-          { "key": "pastelitos", "name": "Pastelitos de carne", "description": "Tres, con repollo y salsa.", "price": 55 },
-          { "key": "nacatamal", "name": "Tamal", "description": "De maíz, con cerdo y verduras.", "price": 70 }
-        ]},
-        { "name": "Bebidas y postres", "products": [
-          { "key": "horchata", "name": "Horchata", "price": 30 },
-          { "key": "tres_leches", "name": "Tres leches", "price": 55 }
-        ]}
+        {
+          "name": "Platos del día",
+          "products": [
+            {
+              "key": "plato_tipico",
+              "name": "Plato típico",
+              "description": "Carne asada, frijoles, tajadas, chismol, queso y tortillas.",
+              "price": 165,
+              "badge": "El favorito"
+            },
+            {
+              "key": "pollo_tajadas",
+              "name": "Pollo con tajadas",
+              "description": "Pollo frito sobre tajadas verdes con repollo y salsa.",
+              "price": 140
+            },
+            {
+              "key": "sopa_caracol",
+              "name": "Sopa de caracol",
+              "description": "Caldo de coco con yuca y plátano.",
+              "price": 195
+            }
+          ]
+        },
+        {
+          "name": "Baleadas y antojitos",
+          "products": [
+            {
+              "key": "baleada_sencilla",
+              "name": "Baleada sencilla",
+              "description": "Frijoles, mantequilla y queso.",
+              "price": 35
+            },
+            {
+              "key": "baleada_especial",
+              "name": "Baleada especial",
+              "description": "Frijoles, crema, queso, huevo y aguacate.",
+              "price": 60
+            },
+            {
+              "key": "pastelitos",
+              "name": "Pastelitos de carne",
+              "description": "Tres, con repollo y salsa.",
+              "price": 55
+            },
+            {
+              "key": "nacatamal",
+              "name": "Tamal",
+              "description": "De maíz, con cerdo y verduras.",
+              "price": 70
+            }
+          ]
+        },
+        {
+          "name": "Bebidas y postres",
+          "products": [
+            {
+              "key": "horchata",
+              "name": "Horchata",
+              "price": 30
+            },
+            {
+              "key": "tres_leches",
+              "name": "Tres leches",
+              "price": 55
+            }
+          ]
+        }
       ]
     }
   },
   {
-    "id": "honduras-totem-9x16",
+    "id": "latin-honduras-b",
     "kind": "menu_board",
     "industry": "latin_honduras",
-    "name": "Comedor — Tótem de pared",
-    "tagline": "Todo el menú en vertical, con foto chica en cada línea",
-    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
-    "safe_zone": 36,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Comedor — Cine oscuro",
+    "tagline": "La foto ocupa media pantalla y la carta se lee al costado",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#1B1108", "bg2": "#2A1C10", "ink": "#FFF3DE", "muted": "#D3BCA4",
-        "accent": "#12A3A3", "accent2": "#0A6C6C", "accent_ink": "#10201F",
-        "price": "#FFC94A", "card": "#2A1C10", "card2": "#352415", "rule": "#5A4228"
+        "bg": "#1B1108",
+        "bg2": "#2A1C10",
+        "ink": "#FFF3DE",
+        "muted": "#D3BCA4",
+        "accent": "#12A3A3",
+        "accent2": "#0A6C6C",
+        "accent_ink": "#10201F",
+        "price": "#FFC94A",
+        "card": "#2A1C10",
+        "card2": "#352415",
+        "rule": "#5A4228"
       },
-      "fonts": { "display": "Fraunces", "body": "Nunito" },
-      "mood": "comedor-noche"
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Nunito"
+      },
+      "mood": "comedor-catracho-noche"
     },
     "background": [
-      { "type": "color", "value": "#1B1108" },
-      { "type": "texture", "asset": "linen" },
-      { "type": "gradient", "shape": "radial", "at": "50% 0%", "from": "#12A3A32E", "to": "#00000000" }
+      {
+        "type": "color",
+        "value": "#1B1108"
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 0%",
+        "from": "#12A3A32E",
+        "to": "#00000000"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [36, 40, 1008, 98], "size": 72 },
-      { "type": "text", "rect": [36, 148, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
-
-      { "type": "category", "rect": [36, 204, 1008, 54], "binds": "categories[0]", "size": 40 },
-      { "type": "product_list", "rect": [36, 270, 1008, 430], "binds": "categories[0]",
-        "size": 40, "gap": 12, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [36, 730, 1008, 54], "binds": "categories[1]", "size": 40 },
-      { "type": "product_list", "rect": [36, 796, 1008, 520], "binds": "categories[1]",
-        "size": 40, "gap": 12, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [36, 1346, 1008, 48], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [36, 1404, 1008, 224], "binds": "categories[2]",
-        "size": 36, "gap": 10, "anim": "fade" },
-
-      { "type": "promo", "rect": [36, 1664, 1008, 220], "size": 44 }
+      {
+        "type": "backdrop",
+        "rect": [
+          820,
+          0,
+          1100,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true
+      },
+      {
+        "type": "brand",
+        "rect": [
+          80,
+          84,
+          700,
+          118
+        ],
+        "size": 86
+      },
+      {
+        "type": "text",
+        "rect": [
+          80,
+          218,
+          700,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          300,
+          700,
+          56
+        ],
+        "binds": "categories[0]",
+        "size": 40
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          376,
+          700,
+          460
+        ],
+        "binds": "categories[0]",
+        "size": 38,
+        "gap": 14,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          856,
+          700,
+          46
+        ],
+        "binds": "categories[1]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          912,
+          700,
+          148
+        ],
+        "binds": "categories[1]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1180,
+          792,
+          680,
+          232
+        ],
+        "size": 44
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
-    "sample_from": "honduras-comedor-16x9"
+    "motion": {
+      "preset": "subtle-fade"
+    },
+    "sample_from": "latin-honduras-a"
+  },
+  {
+    "id": "latin-honduras-v",
+    "kind": "menu_board",
+    "industry": "latin_honduras",
+    "name": "Comedor — Tótem vertical",
+    "tagline": "Para la pared o la fila de la caja",
+    "canvas": {
+      "w": 1080,
+      "h": 1920,
+      "orientation": "portrait"
+    },
+    "safe_zone": 44,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFF9EC",
+        "bg2": "#F6E9CE",
+        "ink": "#23160E",
+        "muted": "#6D5748",
+        "accent": "#0E7C86",
+        "accent2": "#0A5A61",
+        "accent_ink": "#FFFFFF",
+        "price": "#B42318",
+        "card": "#FFFFFF",
+        "card2": "#FFF3DE",
+        "rule": "#E0C9A8"
+      },
+      "fonts": {
+        "display": "Fraunces",
+        "body": "Nunito"
+      },
+      "mood": "comedor-catracho"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#FFF9EC"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF6",
+        "to": "#F4E4C6",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "paper-warm"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          44,
+          44,
+          992,
+          104
+        ],
+        "size": 78
+      },
+      {
+        "type": "text",
+        "rect": [
+          44,
+          156,
+          992,
+          36
+        ],
+        "field": "tagline",
+        "size": 25,
+        "upper": true,
+        "accent": true,
+        "align": "center"
+      },
+      {
+        "type": "feature",
+        "rect": [
+          44,
+          214,
+          992,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 78,
+        "price_size": 54,
+        "desc_size": 25,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          716,
+          992,
+          52
+        ],
+        "binds": "categories[0]",
+        "size": 36
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          44,
+          782,
+          992,
+          620
+        ],
+        "cols": 2,
+        "rows": 2,
+        "gap": 26,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 34,
+        "price_size": 42,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          1434,
+          992,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          44,
+          1492,
+          992,
+          190
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          44,
+          1716,
+          992,
+          168
+        ],
+        "size": 34
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "latin-honduras-a"
   }
 ]

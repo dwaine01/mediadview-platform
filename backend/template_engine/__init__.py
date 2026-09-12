@@ -277,5 +277,16 @@ _BASE_CSS = """
 @keyframes mv-ken{from{transform:scale(1)}to{transform:scale(1.09)}}
 .anim-fade{animation:mv-fade .7s both cubic-bezier(.2,.7,.3,1)}
 .anim-pop{animation:mv-pop .6s both cubic-bezier(.2,.9,.3,1)}
-.anim-ken img{animation:mv-ken 18s ease-in-out infinite alternate}
+.anim-ken img{animation:mv-ken 22s ease-in-out infinite alternate}
+/* Movimiento sutil, nunca sobre todo a la vez: el producto entra despacio y el
+   precio aparece un instante después. La lectura nunca se interrumpe. */
+@keyframes mv-rise{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+@keyframes mv-reveal{0%{opacity:0;transform:translateY(10px) scale(.94)}
+  100%{opacity:1;transform:none}}
+.anim-rise{animation:mv-rise 1s both cubic-bezier(.16,.8,.24,1)}
+.anim-rise .card-price,.anim-rise .variants,.anim-rise .row-price{
+  animation:mv-reveal .7s .45s both cubic-bezier(.2,.9,.3,1)}
+.disc{animation:mv-reveal .8s .7s both cubic-bezier(.2,1.1,.3,1)}
+.feat .feat-name{animation:mv-rise 1.1s .1s both cubic-bezier(.16,.8,.24,1)}
+.feat .feat-desc{animation:mv-rise 1.1s .28s both cubic-bezier(.16,.8,.24,1)}
 """

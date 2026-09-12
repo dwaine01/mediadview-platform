@@ -1,49 +1,188 @@
 [
   {
-    "id": "venezuela-arepera-16x9",
+    "id": "latin-venezuela-a",
     "kind": "menu_board",
     "industry": "latin_venezuela",
-    "name": "Arepera — Grilla de rellenos",
-    "tagline": "Las arepas con foto y los antojos al costado",
-    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
-    "safe_zone": 40,
-    "capacity": { "products": 14, "categories": 3 },
+    "name": "Arepera — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#0A1633", "bg2": "#112147", "ink": "#FFF8E1", "muted": "#BCC7E0",
-        "accent": "#FFCF00", "accent2": "#CE1126", "accent_ink": "#10203F",
-        "price": "#FFCF00", "card": "#112147", "card2": "#182B57", "rule": "#33477C"
+        "bg": "#FBF6EC",
+        "bg2": "#F2E7D3",
+        "ink": "#22303D",
+        "muted": "#6E7B8A",
+        "accent": "#C4703A",
+        "accent2": "#2F5D8A",
+        "accent_ink": "#FFFFFF",
+        "price": "#2F5D8A",
+        "card": "#FFFFFF",
+        "card2": "#F7F1E5",
+        "rule": "#DCCFB8"
       },
-      "fonts": { "display": "Archivo Black", "body": "Manrope" },
-      "mood": "arepera-tricolor"
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "latino-sereno"
     },
     "background": [
-      { "type": "color", "value": "#0A1633" },
-      { "type": "texture", "asset": "linen" },
-      { "type": "gradient", "angle": 160, "from": "#FFCF0021", "to": "#CE112621" }
+      {
+        "type": "color",
+        "value": "#FBF6EC"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF8",
+        "to": "#F1E6D2",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [40, 30, 820, 94], "size": 68 },
-      { "type": "text", "rect": [40, 132, 820, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
-      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
-
-      { "type": "category", "rect": [40, 190, 1240, 54], "binds": "categories[0]", "size": 42 },
-      { "type": "product_grid", "rect": [40, 258, 1240, 782], "cols": 3, "rows": 2, "gap": 22,
-        "binds": "categories[0]", "name_size": 38, "price_size": 44, "desc_size": 18,
-        "show_desc": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1320, 190, 560, 48], "binds": "categories[1]", "size": 32 },
-      { "type": "product_list", "rect": [1320, 250, 560, 300], "binds": "categories[1]",
-        "size": 32, "gap": 10, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [1320, 576, 560, 48], "binds": "categories[2]", "size": 32 },
-      { "type": "product_list", "rect": [1320, 636, 560, 196], "binds": "categories[2]",
-        "size": 32, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [1320, 862, 560, 178], "size": 38 }
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
     ],
-    "motion": { "preset": "subtle-fade" },
+    "motion": {
+      "preset": "pop-in"
+    },
     "sample": {
       "business_name": "Arepera La Esquina",
       "tagline": "Arepas, cachapas y tequeños todo el día",
@@ -53,69 +192,603 @@
       "promo_title": "Arepa + tequeños + papelón",
       "promo_price": "$7.50",
       "categories": [
-        { "name": "Arepas rellenas", "products": [
-          { "key": "arepa_reina", "name": "Reina pepiada", "description": "Pollo, aguacate y mayonesa de la casa.", "price": 5.5, "badge": "La reina" },
-          { "key": "arepa_pelua", "name": "Pelúa", "description": "Carne mechada y queso amarillo.", "price": 5.75 },
-          { "key": "cachapa", "name": "Cachapa con queso de mano", "description": "Maíz tierno dulce y queso fresco.", "price": 6.5 },
-          { "key": "pepito", "name": "Pepito de carne", "description": "Pan largo, carne a la plancha, queso y papitas.", "price": 8.5 },
-          { "key": "pabellon", "name": "Pabellón criollo", "description": "Carne mechada, caraotas, arroz y tajadas.", "price": 9.5 },
-          { "key": "empanadas", "name": "Empanadas de carne", "description": "Tres, de maíz, fritas al momento.", "price": 4.5 }
-        ]},
-        { "name": "Para picar", "products": [
-          { "key": "tequenos", "name": "Tequeños x5", "price": 4.25 },
-          { "key": "yuca_frita", "name": "Yuca frita", "price": 3 },
-          { "key": "tajadas", "name": "Tajadas con queso", "price": 3.25 }
-        ]},
-        { "name": "Bebidas", "products": [
-          { "key": "papelon", "name": "Papelón con limón", "price": 2 },
-          { "key": "quesillo", "name": "Quesillo", "price": 3 },
-          { "key": "cafe", "name": "Café con leche", "price": 1.75 }
-        ]}
+        {
+          "name": "Arepas rellenas",
+          "products": [
+            {
+              "key": "arepa_reina",
+              "name": "Reina pepiada",
+              "description": "Pollo, aguacate y mayonesa de la casa.",
+              "price": 5.5,
+              "badge": "La reina"
+            },
+            {
+              "key": "arepa_pelua",
+              "name": "Pelúa",
+              "description": "Carne mechada y queso amarillo.",
+              "price": 5.75
+            },
+            {
+              "key": "cachapa",
+              "name": "Cachapa con queso de mano",
+              "description": "Maíz tierno dulce y queso fresco.",
+              "price": 6.5
+            },
+            {
+              "key": "pepito",
+              "name": "Pepito de carne",
+              "description": "Pan largo, carne a la plancha, queso y papitas.",
+              "price": 8.5
+            },
+            {
+              "key": "pabellon",
+              "name": "Pabellón criollo",
+              "description": "Carne mechada, caraotas, arroz y tajadas.",
+              "price": 9.5
+            },
+            {
+              "key": "empanadas",
+              "name": "Empanadas de carne",
+              "description": "Tres, de maíz, fritas al momento.",
+              "price": 4.5
+            }
+          ]
+        },
+        {
+          "name": "Para picar",
+          "products": [
+            {
+              "key": "tequenos",
+              "name": "Tequeños x5",
+              "price": 4.25
+            },
+            {
+              "key": "yuca_frita",
+              "name": "Yuca frita",
+              "price": 3
+            },
+            {
+              "key": "tajadas",
+              "name": "Tajadas con queso",
+              "price": 3.25
+            }
+          ]
+        },
+        {
+          "name": "Bebidas",
+          "products": [
+            {
+              "key": "papelon",
+              "name": "Papelón con limón",
+              "price": 2
+            },
+            {
+              "key": "quesillo",
+              "name": "Quesillo",
+              "price": 3
+            },
+            {
+              "key": "cafe",
+              "name": "Café con leche",
+              "price": 1.75
+            }
+          ]
+        }
       ]
     }
   },
   {
-    "id": "venezuela-totem-9x16",
+    "id": "latin-venezuela-b",
     "kind": "menu_board",
     "industry": "latin_venezuela",
-    "name": "Arepera — Tótem de mostrador",
-    "tagline": "La arepa del día enorme y la lista completa abajo",
-    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
-    "safe_zone": 36,
-    "capacity": { "products": 12, "categories": 3 },
+    "name": "Arepera — Cine oscuro",
+    "tagline": "La foto ocupa media pantalla y la carta se lee al costado",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#120E08", "bg2": "#1F1810", "ink": "#FFF8E1", "muted": "#D6C5A6",
-        "accent": "#FFCF00", "accent2": "#B88A00", "accent_ink": "#1A1406",
-        "price": "#FFCF00", "card": "#1F1810", "card2": "#291F15", "rule": "#4E3D26"
+        "bg": "#120E08",
+        "bg2": "#1F1810",
+        "ink": "#FFF8E1",
+        "muted": "#D6C5A6",
+        "accent": "#F0B429",
+        "accent2": "#B88A00",
+        "accent_ink": "#1A1406",
+        "price": "#F0B429",
+        "card": "#1F1810",
+        "card2": "#291F15",
+        "rule": "#4E3D26"
       },
-      "fonts": { "display": "Archivo Black", "body": "Manrope" },
-      "mood": "arepera-noche"
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "latino-sereno-noche"
     },
     "background": [
-      { "type": "color", "value": "#120E08" },
-      { "type": "texture", "asset": "chalk" },
-      { "type": "gradient", "shape": "radial", "at": "50% 0%", "from": "#FFCF0026", "to": "#00000000" }
+      {
+        "type": "color",
+        "value": "#120E08"
+      },
+      {
+        "type": "texture",
+        "asset": "chalk"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 0%",
+        "from": "#F0B42926",
+        "to": "#00000000"
+      }
     ],
     "blocks": [
-      { "type": "brand", "rect": [36, 40, 1008, 96], "size": 74 },
-      { "type": "text", "rect": [36, 146, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
-
-      { "type": "hero", "rect": [36, 200, 1008, 540], "binds": "categories[0]",
-        "name_size": 84, "price_size": 74, "ken": true },
-
-      { "type": "category", "rect": [36, 772, 1008, 52], "binds": "categories[0]", "size": 38 },
-      { "type": "product_list", "rect": [36, 838, 1008, 480], "binds": "categories[0]",
-        "size": 38, "gap": 10, "thumbs": true, "anim": "fade" },
-
-      { "type": "category", "rect": [36, 1348, 1008, 46], "binds": "categories[1]", "size": 30 },
-      { "type": "product_list", "rect": [36, 1402, 1008, 224], "binds": "categories[1]",
-        "size": 34, "gap": 8, "anim": "fade" },
-
-      { "type": "promo", "rect": [36, 1662, 1008, 222], "size": 44 }
+      {
+        "type": "backdrop",
+        "rect": [
+          820,
+          0,
+          1100,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true
+      },
+      {
+        "type": "brand",
+        "rect": [
+          80,
+          84,
+          700,
+          118
+        ],
+        "size": 86
+      },
+      {
+        "type": "text",
+        "rect": [
+          80,
+          218,
+          700,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          300,
+          700,
+          56
+        ],
+        "binds": "categories[0]",
+        "size": 40
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          376,
+          700,
+          460
+        ],
+        "binds": "categories[0]",
+        "size": 38,
+        "gap": 14,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          856,
+          700,
+          46
+        ],
+        "binds": "categories[1]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          912,
+          700,
+          148
+        ],
+        "binds": "categories[1]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1180,
+          792,
+          680,
+          232
+        ],
+        "size": 44
+      }
     ],
-    "motion": { "preset": "pop-in" },
-    "sample_from": "venezuela-arepera-16x9"
+    "motion": {
+      "preset": "subtle-fade"
+    },
+    "sample_from": "latin-venezuela-a"
+  },
+  {
+    "id": "latin-venezuela-c",
+    "kind": "menu_board",
+    "industry": "latin_venezuela",
+    "name": "Arepera — Sereno",
+    "tagline": "Fondo claro, color en dosis chicas y fotos redondas",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 52,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FBF6EC",
+        "bg2": "#F2E7D3",
+        "ink": "#22303D",
+        "muted": "#6E7B8A",
+        "accent": "#C4703A",
+        "accent2": "#2F5D8A",
+        "accent_ink": "#FFFFFF",
+        "price": "#2F5D8A",
+        "card": "#FFFFFF",
+        "card2": "#F7F1E5",
+        "rule": "#DCCFB8"
+      },
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "latino-sereno"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#FBF6EC"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF8",
+        "to": "#F1E6D2",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          56,
+          46,
+          980,
+          98
+        ],
+        "size": 80
+      },
+      {
+        "type": "text",
+        "rect": [
+          56,
+          152,
+          980,
+          36
+        ],
+        "field": "tagline",
+        "size": 24,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          1000,
+          60,
+          864,
+          420
+        ],
+        "binds": "categories[0]",
+        "align": "right",
+        "name_size": 72,
+        "price_size": 48,
+        "desc_size": 23,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          56,
+          226,
+          900,
+          50
+        ],
+        "binds": "categories[0]",
+        "size": 34
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          56,
+          300,
+          900,
+          330
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          56,
+          690,
+          900,
+          48
+        ],
+        "binds": "categories[2]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          56,
+          748,
+          900,
+          204
+        ],
+        "binds": "categories[2]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1000,
+          512,
+          864,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1000,
+          570,
+          864,
+          150
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1000,
+          742,
+          864,
+          192
+        ],
+        "size": 36
+      },
+      {
+        "type": "ticker",
+        "rect": [
+          56,
+          976,
+          1808,
+          72
+        ],
+        "size": 26
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "latin-venezuela-a"
+  },
+  {
+    "id": "latin-venezuela-v",
+    "kind": "menu_board",
+    "industry": "latin_venezuela",
+    "name": "Arepera — Tótem vertical",
+    "tagline": "Para la pared o la fila de la caja",
+    "canvas": {
+      "w": 1080,
+      "h": 1920,
+      "orientation": "portrait"
+    },
+    "safe_zone": 44,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FBF6EC",
+        "bg2": "#F2E7D3",
+        "ink": "#22303D",
+        "muted": "#6E7B8A",
+        "accent": "#C4703A",
+        "accent2": "#2F5D8A",
+        "accent_ink": "#FFFFFF",
+        "price": "#2F5D8A",
+        "card": "#FFFFFF",
+        "card2": "#F7F1E5",
+        "rule": "#DCCFB8"
+      },
+      "fonts": {
+        "display": "Baloo 2",
+        "body": "Nunito"
+      },
+      "mood": "latino-sereno"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#FBF6EC"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFDF8",
+        "to": "#F1E6D2",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "linen"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          44,
+          44,
+          992,
+          104
+        ],
+        "size": 78
+      },
+      {
+        "type": "text",
+        "rect": [
+          44,
+          156,
+          992,
+          36
+        ],
+        "field": "tagline",
+        "size": 25,
+        "upper": true,
+        "accent": true,
+        "align": "center"
+      },
+      {
+        "type": "feature",
+        "rect": [
+          44,
+          214,
+          992,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 78,
+        "price_size": 54,
+        "desc_size": 25,
+        "ken": true,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          716,
+          992,
+          52
+        ],
+        "binds": "categories[0]",
+        "size": 36
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          44,
+          782,
+          992,
+          620
+        ],
+        "cols": 2,
+        "rows": 2,
+        "gap": 26,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 34,
+        "price_size": 42,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          44,
+          1434,
+          992,
+          48
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          44,
+          1492,
+          992,
+          190
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          44,
+          1716,
+          992,
+          168
+        ],
+        "size": 34
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "latin-venezuela-a"
   }
 ]
