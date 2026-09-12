@@ -152,6 +152,21 @@ export default function WorkspaceMenus() {
                 </View>
                 <View style={ms.comingPronto}><Text style={ms.comingProntoText}>NUEVO</Text></View>
               </TouchableOpacity>
+              {/* Path D: mi propio diseño, ya leído por la IA */}
+              <TouchableOpacity
+                style={ms.pathCard}
+                onPress={() => { setShowCreate(false); router.push('/workspace/menu-templates'); }}
+                testID="create-from-my-design"
+              >
+                <View style={[ms.pathIcon, { backgroundColor: '#F5F3FF' }]}>
+                  <Ionicons name="albums-outline" size={26} color="#7C3AED" />
+                </View>
+                <View style={ms.pathBody}>
+                  <Text style={ms.pathTitle}>Desde mi propio diseño</Text>
+                  <Text style={ms.pathDesc}>Reusá un diseño tuyo que la IA ya volvió editable. Cambiás nombres, precios y fotos; el diseño queda igual.</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#94A3B8" />
+              </TouchableOpacity>
             </>
           )}
         </ScrollView>
@@ -167,10 +182,20 @@ export default function WorkspaceMenus() {
             <Text style={ms.pageTitle}>Menús</Text>
             <Text style={ms.pageSub}>{menus.length} menú{menus.length !== 1 ? 's' : ''}</Text>
           </View>
-          <TouchableOpacity style={ms.addBtn} onPress={() => setShowCreate(true)}>
-            <Ionicons name="add" size={16} color="#fff" />
-            <Text style={ms.addBtnText}>Crear Menú</Text>
-          </TouchableOpacity>
+          <View style={ms.headerActions}>
+            <TouchableOpacity
+              style={ms.templatesBtn}
+              onPress={() => router.push('/workspace/menu-templates')}
+              testID="open-templates"
+            >
+              <Ionicons name="albums-outline" size={16} color="#7C3AED" />
+              <Text style={ms.templatesBtnText}>Plantillas</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={ms.addBtn} onPress={() => setShowCreate(true)}>
+              <Ionicons name="add" size={16} color="#fff" />
+              <Text style={ms.addBtnText}>Crear Menú</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
@@ -230,6 +255,10 @@ const ms = StyleSheet.create({
   backBtn: { padding: 8, backgroundColor: '#FFFFFF', borderRadius: 10 },
   pageTitle: { fontSize: 22, fontWeight: '800', color: '#0F172A' },
   pageSub: { fontSize: 13, color: '#64748B', marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  templatesBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE', paddingHorizontal: 12, minHeight: 40, borderRadius: 10, justifyContent: 'center' },
+  templatesBtnText: { color: '#6D28D9', fontSize: 13, fontWeight: '700' },
+
   addBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#0891B2', paddingHorizontal: 14, paddingVertical: 9, borderRadius: 10 },
   addBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
   errorText: { color: '#DC2626', fontSize: 13, padding: 16 },

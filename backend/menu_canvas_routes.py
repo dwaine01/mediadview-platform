@@ -36,6 +36,7 @@ from PIL import Image, ImageFont
 from pydantic import BaseModel, Field
 
 from managed_portal_routes import create_audit_log as _audit
+from menu_templates_routes import save_canvas_as_template
 
 load_dotenv()
 
@@ -521,8 +522,13 @@ def create_menu_canvas_routes(db, get_current_user, bump_playlist_version=None):
                                 "detected": len(fields), "finished_at": now},
             "updated_at": now,
         }})
-        menu = await db.menus.find_one({"id": menu_id}, {"_id": 0, "screen_ids": 1})
+        menu = await db.menus.find_one({"id": menu_id}, {"_id": 0})
         await _refresh_screens(menu or {}, "menu canvas analysed")
+        # El layout que acaba de leer la IA queda guardado como plantilla del
+        # cliente: es lo que le permite armar el próximo menú sin volver a
+        # subir nada.
+        if menu:
+            await save_canvas_as_template(db, org_id, menu)
         await _audit(
             db, "menu.canvas_imported", user_id=None, user_email=None,
             resource_type="menu", resource_id=menu_id,

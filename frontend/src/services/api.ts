@@ -224,6 +224,15 @@ export const workspaceAPI = {
                        data: { image_base64: string; content_type: string }) =>
     api.post(`/workspace/menus/${menuId}/canvas/fields/${fieldId}/photo`, data, { timeout: 120000 }),
   deleteCanvas: (menuId: string) => api.delete(`/workspace/menus/${menuId}/canvas`),
+  // Biblioteca de plantillas: el diseño leído por la IA se reusa para armar
+  // menús nuevos sin volver a subir nada.
+  menuTemplates: () => api.get('/workspace/menu-templates'),
+  useMenuTemplate: (templateId: string, name?: string) =>
+    api.post(`/workspace/menu-templates/${templateId}/use`, name ? { name } : {}),
+  renameMenuTemplate: (templateId: string, name: string) =>
+    api.put(`/workspace/menu-templates/${templateId}`, { name }),
+  deleteMenuTemplate: (templateId: string) =>
+    api.delete(`/workspace/menu-templates/${templateId}`),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),
 };

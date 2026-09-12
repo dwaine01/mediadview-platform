@@ -3017,6 +3017,34 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/workspace/menu-templates"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspace/menu-templates/{template_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/workspace/menu-templates/{template_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/menu-templates/{template_id}/use"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/workspace/menus"
   },
   {
