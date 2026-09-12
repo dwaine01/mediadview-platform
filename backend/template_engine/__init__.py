@@ -214,6 +214,44 @@ _BASE_CSS = """
   box-shadow:0 24px 50px -20px rgba(0,0,0,.8)}
 .promo::before{content:'';position:absolute;inset:-40% -10% auto auto;width:70%;height:180%;
   background:radial-gradient(circle,rgba(255,255,255,.22),transparent 65%)}
+/* ── Composición sin recuadros ──────────────────────────────────────────────
+   El producto estrella no vive en una tarjeta: la foto se recorta en círculo,
+   se apoya en el fondo con sombra y el precio va en un disco girado. */
+.feat{display:flex;align-items:center;gap:calc(var(--pad) * 1.8)}
+.feat-right{flex-direction:row-reverse}
+.feat-photo{position:relative;flex:0 0 44%;aspect-ratio:1}
+.feat-photo img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;
+  box-shadow:0 34px 90px rgba(0,0,0,.45),0 0 0 10px rgba(255,255,255,.07)}
+.feat-copy{flex:1;min-width:0}
+.feat-kicker{font-family:var(--f-body);font-weight:900;color:var(--c-accent);
+  text-transform:uppercase;letter-spacing:.22em;margin-bottom:.5em}
+.feat-name{font-family:var(--f-display);font-weight:900;color:var(--c-ink);
+  line-height:.96;letter-spacing:-.02em;text-shadow:var(--sh)}
+.feat-desc{font-family:var(--f-body);font-weight:500;color:var(--c-muted);
+  line-height:1.3;margin-top:.5em;max-width:22em}
+.disc{position:absolute;right:-.5em;bottom:.3em;display:flex;align-items:center;justify-content:center;
+  width:2.9em;height:2.9em;border-radius:50%;background:var(--c-accent);
+  color:var(--c-accent-ink);font-family:var(--f-body);font-weight:900;
+  transform:rotate(-9deg);box-shadow:0 20px 46px rgba(0,0,0,.45);z-index:3}
+/* La tarjeta «desnuda»: foto redonda y texto centrado, sin caja. */
+.card-bare{background:none;box-shadow:none;border:0;align-items:center;text-align:center}
+.card-bare .card-photo{flex:0 0 auto;height:62%;width:auto;aspect-ratio:1;border-radius:50%;
+  align-self:center;box-shadow:0 18px 40px rgba(0,0,0,.38)}
+.card-bare .badge,.card-bare .card-photo::after{display:none}
+.card-bare .card-body{padding:calc(var(--pad) * .7) 0 0;align-items:center;text-align:center}
+.card-bare .variants{justify-content:center}
+/* Fotografía de fondo: se disuelve hacia el lado del texto. */
+.back{overflow:hidden}
+.back img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.06) contrast(1.04)}
+.back-right img{-webkit-mask-image:linear-gradient(90deg,#000 38%,transparent 100%);
+  mask-image:linear-gradient(90deg,#000 38%,transparent 100%)}
+.back-left img{-webkit-mask-image:linear-gradient(270deg,#000 38%,transparent 100%);
+  mask-image:linear-gradient(270deg,#000 38%,transparent 100%)}
+.back-bottom img{-webkit-mask-image:linear-gradient(180deg,#000 34%,transparent 100%);
+  mask-image:linear-gradient(180deg,#000 34%,transparent 100%)}
+.back-top img{-webkit-mask-image:linear-gradient(0deg,#000 34%,transparent 100%);
+  mask-image:linear-gradient(0deg,#000 34%,transparent 100%)}
+
 .promo-kicker{position:relative;font-family:var(--f-body);font-weight:900;
   color:var(--c-accent-ink);opacity:.85;text-transform:uppercase;letter-spacing:.2em}
 .promo-copy{position:relative;min-width:0}

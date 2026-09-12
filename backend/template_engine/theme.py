@@ -146,6 +146,13 @@ def background_css(template: dict, theme: dict) -> str:
             css = TEXTURES.get(str(layer.get("asset") or "none"))
             if css:
                 layers.append(css)
+        elif kind == "diagonal":
+            # Un corte en diagonal: da estructura al fondo sin dibujar cajas.
+            start = colour(layer.get("from"), "#00000000")
+            end = colour(layer.get("to"), "#000000CC")
+            angle = int(layer.get("angle") or 200)
+            split = max(5, min(int(layer.get("split") or 48), 95))
+            layers.append(f"linear-gradient({angle}deg,{start} 0 {split}%,{end} {split}% 100%)")
         elif kind == "gradient":
             start = colour(layer.get("from"), "#00000000")
             end = colour(layer.get("to"), "#000000CC")

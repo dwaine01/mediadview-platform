@@ -29,7 +29,7 @@ TEXT_FIELDS: dict[str, tuple[str, str]] = {
 }
 
 PROMO_FIELDS = ("promo_kicker", "promo_title", "promo_price")
-PRODUCT_BLOCKS = ("product_grid", "product_list", "hero")
+PRODUCT_BLOCKS = ("product_grid", "product_list", "hero", "feature", "backdrop")
 
 
 def _category_index(binds) -> int | None:
@@ -130,11 +130,15 @@ def editor_schema(template: dict) -> dict:
             allow(index, "name", "price")
             if block.get("thumbs"):
                 allow(index, "image")
-        elif kind == "hero":
+        elif kind in ("hero", "feature"):
             allow(index, "name", "image")
+            if kind == "feature":
+                allow(index, "price", "description")
             add(business, _text_field("hero_kicker"))
             if not block.get("binds"):
                 add(business, _text_field("hero_title"))
+        elif kind == "backdrop":
+            allow(index, "image")
 
     groups = [group for group in (
         {"title": "Tu negocio", "fields": business},

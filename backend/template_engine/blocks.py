@@ -142,7 +142,8 @@ def _card(product: dict, block: dict, index: int) -> str:
             f'{esc(product.get("description"))}</div>'
             if block.get("show_desc") and product.get("description") else "")
 
-    return (f'<div class="card {_animation(block)}"'
+    bare = " card-bare" if str(block.get("card") or "") == "bare" else ""
+    return (f'<div class="card{bare} {_animation(block)}"'
             f' style="animation-delay:{min(index, 14) * 0.06:.2f}s">'
             f'<div class="card-photo">{badge}{media}{sold}</div>'
             f'<div class="card-body">'
@@ -213,6 +214,64 @@ def _hero(block, design, theme, products) -> str:
             + (f'<div class="hero-price" style="font-size:{price_size}px">{price}</div>'
                if price else "")
             + "</div></div>")
+
+
+def _feature(block, design, theme, products) -> str:
+    """El producto estrella, sin tarjeta: foto redonda, texto al lado, precio en disco.
+
+    Es el bloque que rompe el look de «cajas apiladas»: la foto se recorta en
+    círculo y se apoya sobre el fondo con sombra, el precio va en un disco
+    girado encima y el texto respira al costado. La composición es el diseño,
+    no el recuadro.
+    """
+    items = _category(design, block, products)[1]
+    product = items[0] if items else {}
+    photo = safe_url(product.get("image_url"))
+    kicker = esc(_field(design, "hero_kicker"))
+    name = esc(product.get("name") or _field(design, "hero_title"))
+    description = esc(product.get("description"))
+    price = esc(money(product.get("sale_price") or product.get("price")))
+    name_size = int(block.get("name_size") or 86)
+    price_size = int(block.get("price_size") or 56)
+    desc_size = int(block.get("desc_size") or 26)
+    side = "right" if str(block.get("align") or "left") == "right" else "left"
+    ken = " anim-ken" if block.get("ken") and photo else ""
+
+    disc = (f'<div class="disc" style="font-size:{price_size}px">{price}</div>'
+            if price else "")
+    # El disco del precio vive PEGADO a la foto, mordiéndole el borde: así se
+    # lee como una etiqueta puesta encima y no como un círculo suelto.
+    media = (f'<div class="feat-photo{ken}"><img src="{photo}" alt="">{disc}</div>'
+             if photo else "")
+    copy = (
+        (f'<div class="feat-kicker" style="font-size:{int(name_size * 0.22)}px">{kicker}</div>'
+         if kicker else "")
+        + f'<div class="feat-name" style="font-size:{name_size}px" data-fit>{name}</div>'
+        + (f'<div class="feat-desc" style="font-size:{desc_size}px">{description}</div>'
+           if description else "")
+    )
+    return (f'<div class="blk feat feat-{side} {_animation(block)}" style="{_rect(block)}">'
+            f'{media}<div class="feat-copy">{copy}</div>'
+            + (disc if not photo else "") + "</div>")
+
+
+def _backdrop(block, design, theme, products) -> str:
+    """Foto de fondo que se disuelve en el fondo de la plantilla.
+
+    Nada de una foto metida en un rectángulo: la imagen se desvanece con una
+    máscara hacia el lado donde va el texto, así la fotografía es parte de la
+    composición y el texto sigue legible.
+    """
+    items = _category(design, block, products)[1]
+    photo = safe_url((items[0] if items else {}).get("image_url") or block.get("photo"))
+    if not photo:
+        return ""
+    fade = str(block.get("fade") or "right")
+    if fade not in ("right", "left", "bottom", "top"):
+        fade = "right"
+    ken = " anim-ken" if block.get("ken") else ""
+    return (f'<div class="blk back back-{fade}{ken}" style="{_rect(block)};z-index:0">'
+            f'<img src="{photo}" alt=""></div>')
 
 
 def _promo(block, design, theme, products) -> str:
@@ -292,6 +351,8 @@ def _ticker(block, design, theme, products) -> str:
 
 BLOCKS = {
     "brand": _brand,
+    "feature": _feature,
+    "backdrop": _backdrop,
     "category": _category_header,
     "product_grid": _product_grid,
     "product_list": _product_list,

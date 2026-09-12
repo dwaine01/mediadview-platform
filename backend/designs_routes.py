@@ -98,8 +98,13 @@ async def seed_signage_templates(db) -> int:
     loaded = 0
     index: dict[str, dict] = {}
     for path in sorted(SEED_DIR.glob("*.json")):
+        # Los archivos `concept_*.json` son propuestas de diseño en revisión:
+        # se siembran para poder verlas en la vista previa, pero NO salen en el
+        # catálogo hasta que se aprueban (`hidden`).
+        concept = path.name.startswith("concept_")
         try:
             for template in json.loads(path.read_text()):
+                template["hidden"] = concept
                 index[template["id"]] = template
         except (json.JSONDecodeError, KeyError, TypeError) as exc:
             logger.error("Bad template seed %s: %s", path.name, exc)
@@ -145,7 +150,7 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
                                      orientation: str = "",
                                      current_user: dict = Depends(get_current_user)):
         _org(current_user)
-        query: dict = {}
+        query: dict = {"hidden": {"$ne": True}}
         if industry:
             query["industry"] = industry[:40]
         if kind in ("menu_board", "flash_offer"):
@@ -165,7 +170,8 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
     @router.get("/workspace/signage-industries", summary="Rubros con plantillas disponibles")
     async def list_industries(current_user: dict = Depends(get_current_user)):
         _org(current_user)
-        rows = await db.signage_templates.find({}, {"_id": 0, "industry": 1, "kind": 1}).to_list(400)
+        rows = await db.signage_templates.find({"hidden": {"$ne": True}},
+                                               {"_id": 0, "industry": 1, "kind": 1}).to_list(400)
         counts: dict[str, int] = {}
         for row in rows:
             counts[row.get("industry") or "generic"] = counts.get(row.get("industry") or "generic", 0) + 1
