@@ -39,9 +39,19 @@ const TEMPLATES = [
   ]},
 ];
 
+type Design = {
+  id: string; name: string; template_id: string; status: string;
+  screen_ids?: string[]; updated_at?: string;
+};
+
 export default function WorkspaceMenus() {
   const insets = useSafeAreaInsets();
   const [menus, setMenus] = useState<Menu[]>([]);
+  // Las carteleras armadas con plantilla profesional viven en esta misma
+  // lista: el dueño edita precios y fotos donde ya está acostumbrado, sin
+  // volver al catálogo de plantillas.
+  const [designs, setDesigns] = useState<Design[]>([]);
+  const [screenNames, setScreenNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
@@ -52,7 +62,37 @@ export default function WorkspaceMenus() {
     try { setLoading(true); setError(''); const res = await workspaceAPI.menus(); setMenus(res.data || []); }
     catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
+    try {
+      const [mine, screens] = await Promise.all([workspaceAPI.designs(), workspaceAPI.screens()]);
+      setDesigns(mine.data || []);
+      setScreenNames(Object.fromEntries((screens.data || []).map((s: any) => [s.id, s.name])));
+    } catch { /* las carteleras son un extra: los menús ya se ven */ }
   }, []);
+
+  const whereLive = (design: Design): string => {
+    const names = (design.screen_ids || []).map(id => screenNames[id]).filter(Boolean);
+    if (design.status !== 'published' || names.length === 0) return 'Sin publicar';
+    return names.length <= 2
+      ? `En vivo en ${names.join(' y ')}`
+      : `En vivo en ${names.length} pantallas`;
+  };
+
+  const deleteDesign = (design: Design) => {
+    setDialog({
+      title: `¿Eliminar «${design.name}»?`,
+      message: design.status === 'published'
+        ? 'Está en vivo: las pantallas dejan de mostrarla.'
+        : 'Esta acción no se puede deshacer.',
+      icon: 'trash-outline',
+      options: [
+        { label: 'Eliminar', destructive: true, onPress: async () => {
+          try { await workspaceAPI.deleteDesign(design.id); load(); }
+          catch (e: any) { setDialog({ title: 'No se pudo eliminar', message: e.response?.data?.detail || e.message }); }
+        }},
+        { label: 'Cancelar' },
+      ],
+    });
+  };
 
   useEffect(() => { load(); }, [load]);
 
@@ -179,8 +219,11 @@ export default function WorkspaceMenus() {
       <ScrollView contentContainerStyle={[ms.content, { paddingBottom: insets.bottom + 24 }]}>
         <View style={ms.header}>
           <View>
-            <Text style={ms.pageTitle}>Menús</Text>
-            <Text style={ms.pageSub}>{menus.length} menú{menus.length !== 1 ? 's' : ''}</Text>
+            <Text style={ms.pageTitle}>Menús y carteleras</Text>
+            <Text style={ms.pageSub}>
+              {menus.length + designs.length} en total
+              {designs.length ? ` · ${designs.length} cartelera${designs.length !== 1 ? 's' : ''}` : ''}
+            </Text>
           </View>
           <View style={ms.headerActions}>
             <TouchableOpacity
@@ -201,7 +244,7 @@ export default function WorkspaceMenus() {
         {loading && <ActivityIndicator color="#0891B2" style={{ marginTop: 40 }} />}
         {!!error && !loading && <Text style={ms.errorText}>{error}</Text>}
 
-        {!loading && menus.length === 0 && !error && (
+        {!loading && menus.length === 0 && designs.length === 0 && !error && (
           <View style={ms.empty}>
             <Ionicons name="fast-food-outline" size={40} color="#CBD5E1" />
             <Text style={ms.emptyTitle}>Todavía no tienes menús</Text>
@@ -212,6 +255,33 @@ export default function WorkspaceMenus() {
             </TouchableOpacity>
           </View>
         )}
+
+        {designs.map(d => (
+          <View key={d.id} style={ms.menuCard} testID={`design-row-${d.id}`}>
+            <TouchableOpacity
+              style={ms.menuCardMain}
+              onPress={() => router.push(`/workspace/design-edit?id=${d.id}`)}
+            >
+              <View style={[ms.menuIcon, { backgroundColor: '#F5F3FF' }]}>
+                <Ionicons name="color-wand" size={20} color="#7C3AED" />
+              </View>
+              <View style={ms.menuBody}>
+                <Text style={ms.menuName}>{d.name}</Text>
+                <Text style={ms.menuMeta}>Cartelera profesional · {whereLive(d)}</Text>
+              </View>
+              <View style={[ms.statusBadge, { backgroundColor: d.status === 'published' ? '#D1FAE5' : '#F8FAFC' }]}>
+                <Text style={{ color: d.status === 'published' ? '#059669' : '#64748B', fontSize: 10, fontWeight: '700' }}>
+                  {d.status === 'published' ? '● EN VIVO' : 'BORRADOR'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#94A3B8" />
+            </TouchableOpacity>
+            <TouchableOpacity style={ms.deleteBtn} onPress={() => deleteDesign(d)}
+                              testID={`delete-design-row-${d.id}`}>
+              <Ionicons name="trash-outline" size={16} color="#DC2626" />
+            </TouchableOpacity>
+          </View>
+        ))}
 
         {menus.map(m => (
           <View key={m.id} style={ms.menuCard}>

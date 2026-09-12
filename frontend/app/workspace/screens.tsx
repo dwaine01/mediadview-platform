@@ -5,8 +5,10 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { router } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
 import { formatScreenLocation, type ScreenLocation } from '../../src/utils/screenLocation';
+import { editRoute, screenEditTarget, type EditTarget } from '../../src/utils/editTarget';
 
 type Screen = {
   id: string; name: string; status: string; code?: string;
@@ -66,6 +68,9 @@ export default function WorkspaceScreens() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [screens, setScreens] = useState<Screen[]>([]);
+  // Lo que cada pantalla tiene al aire, para poder ofrecer «editar esto» acá
+  // mismo en vez de mandar al dueño a buscarlo en una lista.
+  const [live, setLive] = useState<Record<string, EditTarget | null>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showConnect, setShowConnect] = useState(false);
@@ -90,6 +95,12 @@ export default function WorkspaceScreens() {
       setScreens(res.data || []);
     } catch (e: any) { setError(e.response?.data?.detail || e.message || 'No se pudo cargar'); }
     finally { setLoading(false); }
+    // El mapa de «qué hay al aire» es un extra: si falla, la lista de
+    // pantallas igual se ve.
+    try {
+      const rows = (await workspaceAPI.nowPlaying()).data || [];
+      setLive(Object.fromEntries(rows.map((row: any) => [row.screen_id, screenEditTarget(row)])));
+    } catch { /* sin atajo de edición, nada más */ }
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -193,6 +204,20 @@ export default function WorkspaceScreens() {
                   s.active_menu_id ? 'Menú publicado' : '',
                 ].filter(Boolean).join(' · ')}
               </Text>
+              {!!editRoute(live[s.id]) && (
+                <TouchableOpacity
+                  style={ss.editLive}
+                  onPress={() => router.push(editRoute(live[s.id]) as any)}
+                  activeOpacity={0.8}
+                  testID={`edit-screen-${s.id}`}
+                >
+                  <Ionicons name="create-outline" size={15} color="#6D28D9" />
+                  <Text style={ss.editLiveText} numberOfLines={1}>
+                    Editar «{live[s.id]?.title || 'lo que se ve'}»
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color="#A78BFA" />
+                </TouchableOpacity>
+              )}
               <View style={ss.cardActions}>
                 <TouchableOpacity
                   style={ss.orientChip}
@@ -432,6 +457,12 @@ const ss = StyleSheet.create({
   reuseItemOn: { backgroundColor: '#ECFEFF' },
   reuseItemText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#0F172A' },
   cardActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 6 },
+  editLive: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10,
+    paddingHorizontal: 12, minHeight: 44, borderRadius: 11,
+    backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE',
+  },
+  editLiveText: { flex: 1, fontSize: 13, fontWeight: '800', color: '#6D28D9' },
   unlinkChip: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', minHeight: 30, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
   unlinkChipText: { fontSize: 11, fontWeight: '700', color: '#DC2626' },
   modalOverlayCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(15,23,42,0.45)', padding: 16 },

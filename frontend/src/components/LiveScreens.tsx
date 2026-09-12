@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { workspaceAPI } from '../services/api';
+import { editRoute, screenEditTarget } from '../utils/editTarget';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -24,7 +26,9 @@ export type ScreenLive = {
     kind: 'image' | 'video' | 'menu';
     thumb_url?: string | null;
     duration: number; seconds_left: number; playlist_name?: string | null;
+    edit_kind?: 'design' | 'menu' | null; edit_id?: string | null;
   } | null;
+  editables?: { edit_kind: 'design' | 'menu'; edit_id: string; title?: string }[];
 };
 
 /** Etiquetas en español de los estados que reporta el reproductor. */
@@ -51,6 +55,9 @@ function LiveCard({ item, onPress }: { item: ScreenLive; onPress?: () => void })
   // "debería" verse como si fuera real. Solo lo anunciamos como programado.
   const np = item.is_online ? item.now_playing : null;
   const scheduled = item.is_online ? null : item.now_playing;
+  // Se puede editar aunque la pantalla esté offline: el contenido es del
+  // negocio, no del cable de red.
+  const editable = screenEditTarget(item);
   // Local 1s tick so the countdown feels live between polls
   const [left, setLeft] = useState(np?.seconds_left ?? 0);
 
@@ -127,6 +134,21 @@ function LiveCard({ item, onPress }: { item: ScreenLive; onPress?: () => void })
           </Text>
         )}
       </View>
+
+      {/* El atajo que le importa al dueño: de ver la pantalla a cambiar el
+          precio, sin pasar por listas ni catálogos. */}
+      {!!editable && (
+        <TouchableOpacity
+          style={lv.editBar}
+          onPress={() => router.push(editRoute(editable) as any)}
+          testID={`edit-live-${item.screen_id}`}
+        >
+          <Ionicons name="create-outline" size={15} color="#6D28D9" />
+          <Text style={lv.editBarText} numberOfLines={1}>
+            Editar {editable.title || 'lo que se ve'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -201,6 +223,12 @@ const lv = StyleSheet.create({
   },
   stampText: { fontSize: 10, color: '#FFFFFF', fontWeight: '700' },
   meta: { padding: 12, gap: 2 },
+  editBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    minHeight: 44, borderTopWidth: 1, borderTopColor: '#EDE9FE', backgroundColor: '#F5F3FF',
+    paddingHorizontal: 10,
+  },
+  editBarText: { fontSize: 12.5, fontWeight: '800', color: '#6D28D9' },
   name: { fontSize: 13.5, fontWeight: '700', color: '#0F172A' },
   detail: { fontSize: 11.5, color: '#64748B' },
   state: { fontSize: 10.5, color: '#0891B2', fontWeight: '700', marginTop: 2 },

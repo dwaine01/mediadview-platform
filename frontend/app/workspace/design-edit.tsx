@@ -39,7 +39,9 @@ export default function DesignEdit() {
   const [picked, setPicked] = useState<string[]>([]);
   const [showPublish, setShowPublish] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [flash, setFlash] = useState('');
   const [dialog, setDialog] = useState<DialogState>(null);
+  const live = design?.status === 'published' && (design?.screen_ids || []).length > 0;
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +69,10 @@ export default function DesignEdit() {
       });
       setDesign((prev: any) => ({ ...prev, products: { ...prev.products, [draft.id]: res.data } }));
       setEditing(null);
+      // Ya está en vivo: el backend sube la versión del playlist al guardar, no
+      // hace falta volver a publicar. Se lo decimos, si no el dueño lo duda.
+      setFlash(live ? 'Guardado · ya está en el TV' : 'Guardado');
+      setTimeout(() => setFlash(''), 2600);
     } catch (e: any) {
       setDialog({ title: 'No se pudo guardar', message: e.response?.data?.detail || e.message });
     } finally { setSaving(false); }
@@ -157,13 +163,15 @@ export default function DesignEdit() {
         </TouchableOpacity>
         <View style={{ flex: 1 }}>
           <Text style={st.topTitle} numberOfLines={1}>{design?.name}</Text>
-          <Text style={st.topSub}>Plantilla profesional</Text>
+          <Text style={[st.topSub, !!flash && st.topSubOk]} numberOfLines={1}>
+            {flash || (live ? 'En vivo · los cambios salen al aire al guardar' : 'Sin publicar')}
+          </Text>
         </View>
         <TouchableOpacity style={st.iconBtn} onPress={preview} testID="design-preview">
           <Ionicons name="tv-outline" size={20} color="#6D28D9" />
         </TouchableOpacity>
         <TouchableOpacity style={st.pubBtn} onPress={openPublish} testID="design-publish">
-          <Text style={st.pubBtnText}>Publicar</Text>
+          <Text style={st.pubBtnText}>{live ? 'Pantallas' : 'Publicar'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -334,6 +342,7 @@ const st = StyleSheet.create({
   backBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F1F5F9' },
   topTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
   topSub: { fontSize: 11, color: '#64748B', fontWeight: '600' },
+  topSubOk: { color: '#059669' },
   iconBtn: { width: 40, height: 40, borderRadius: 10, justifyContent: 'center', alignItems: 'center', backgroundColor: '#F5F3FF' },
   pubBtn: { backgroundColor: '#7C3AED', paddingHorizontal: 14, minHeight: 40, borderRadius: 10, justifyContent: 'center' },
   pubBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },

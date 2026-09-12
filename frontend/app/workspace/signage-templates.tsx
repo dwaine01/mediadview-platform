@@ -180,10 +180,10 @@ export default function SignageTemplates() {
         </View>
         <TouchableOpacity
           style={st.mineBtn}
-          onPress={() => router.push('/workspace/designs')}
+          onPress={() => router.push('/workspace/menus')}
           testID="my-designs"
         >
-          <Text style={st.mineBtnText}>Mis diseños</Text>
+          <Text style={st.mineBtnText}>Mis carteleras</Text>
         </TouchableOpacity>
       </View>
 

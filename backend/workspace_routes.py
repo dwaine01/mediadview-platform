@@ -246,6 +246,20 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             details=details or {}, org_id=user.get("organization_id"),
         )
 
+    def _edit_target(item: dict) -> dict:
+        """De qué se edita lo que está al aire.
+
+        El `media_id` del contrato del reproductor ya dice qué es cada ítem
+        (`design:<id>`, `menu:<id>`), así que el panel puede llevar al dueño
+        directo al editor de eso que está viendo en la pantalla, sin pasar por
+        ninguna lista. Un video o una imagen no tienen nada que editar.
+        """
+        media_id = str(item.get("media_id") or "")
+        for prefix, kind in (("design:", "design"), ("menu:", "menu")):
+            if media_id.startswith(prefix):
+                return {"edit_kind": kind, "edit_id": media_id[len(prefix):]}
+        return {}
+
     @router.get("/now-playing", summary="Live thumbnail: what every screen is showing right now")
     async def workspace_now_playing(current_user: dict = Depends(require_workspace_user)):
         org_id = current_user["organization_id"]
@@ -287,6 +301,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                             "duration": duration,
                             "seconds_left": max(0, cursor + duration - elapsed),
                             "playlist_name": item.get("playlist_name"),
+                            **_edit_target(item),
                         }
                         break
                     cursor += duration
@@ -308,6 +323,14 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 "last_seen_seconds": int((now - hb).total_seconds()) if hb else None,
                 "cycle_seconds": cycle,
                 "now_playing": current,
+                # Todo lo editable que esta pantalla tiene al aire, sin repetir.
+                # Si en este segundo está pasando un video, el dueño igual
+                # necesita el botón para entrar al menú de esa pantalla.
+                "editables": list({
+                    target["edit_id"]: {**target, "title": item.get("filename") or "Contenido"}
+                    for item, target in ((i, _edit_target(i)) for i in playable)
+                    if target
+                }.values()),
             })
         return out
 
