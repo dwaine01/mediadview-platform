@@ -839,3 +839,40 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   de testing (`test_reports/iteration_45.json`).
 - Pendiente: subir fotos propias desde el editor (el endpoint ya existe) y el resto de los rubros
   (comida rápida, heladería, mexicano, mariscos, farmacia, ofertas flash).
+
+## Rediseño (2026-06) — Tres familias de diseño y el motor que las hace posibles
+- El dueño rechazó el diseño anterior: «cajas sobre un fondo». Se rehizo el sistema visual, no
+  se parchearon las plantillas.
+- FAMILIAS aprobadas (se eligen por rubro, las tres conviven):
+  - **A «Vitrina clara»**: producto estrella con la foto recortada en círculo apoyada en el
+    fondo, precio en disco mordiendo el borde, grilla sin recuadros, fondo claro con corte
+    diagonal. Aire y jerarquía.
+  - **B «Cine oscuro»**: la fotografía ocupa media pantalla y se disuelve con máscara hacia el
+    lado del texto; carta tipográfica con guías de puntos; dorado en dosis mínimas.
+  - **C «Sereno»**: fondo crema, color del rubro en dosis chicas, fotos redondas. Nació de que
+    el vibrante «era muy rudo para la vista».
+  - **V «Tótem vertical»**: la familia A en 1080x1920.
+- Las plantillas NO se escriben a mano: `backend/scripts/rebuild_templates.py` combina FAMILIA +
+  IDENTIDAD del rubro (paleta clara y oscura, tipografías, fondo, set fotográfico) + el contenido
+  de muestra que ya existía. Mejorar una familia mejora los 31 tableros. Una plantilla nueva es
+  una entrada en `RUBROS`/`PLAN`, no un archivo nuevo.
+- Bloques nuevos del motor: `feature` (estrella sin tarjeta), `backdrop` (foto con máscara),
+  tarjeta `bare`, capa de fondo `diagonal`, `skip` en la grilla (no repetir al estrella).
+- Movimiento sutil (pedido explícito): el producto entra despacio (`anim-rise`), el precio
+  aparece 0.45 s después, la foto del estrella panea muy lento. Nunca todo a la vez.
+- REGLAS QUE NO SE PUEDEN ROMPER:
+  1. `--sh` (sombra del texto) y `--c-photo-ink`/`--c-photo-price` existen porque el texto sobre
+     foto y el texto sobre fondo claro necesitan colores distintos. Heredar `--c-ink` sobre una
+     foto deja tinta oscura sobre foto oscura.
+  2. El título de sección usa `--c-ink`, NUNCA `--c-accent-ink` (ese es el color que va ENCIMA
+     del acento).
+  3. Una plantilla que sale de los archivos se marca `hidden`, no se borra: los diseños
+     publicados con ella tienen que seguir saliendo al aire.
+  4. Los archivos `concept_*.json` se siembran ocultos: son propuestas a la espera de aprobación.
+- Catálogo: galería con miniatura del render real (`HtmlPreview` con `srcDoc`, porque el render
+  se sirve con `X-Frame-Options: DENY`). La miniatura no recibe toques (`noInput`), toda la
+  tarjeta es un botón.
+- Playlists: cada foto o video tiene su ventana (`starts_at`/`ends_at`). El filtro se aplica al
+  armar el playlist; el APK no sabe nada de fechas.
+- Navegación móvil: cinco accesos fijos abajo (Panel, Pantallas, Menús, **Playlists**, Contenido)
+  y el resto en el menú que baja del encabezado.
