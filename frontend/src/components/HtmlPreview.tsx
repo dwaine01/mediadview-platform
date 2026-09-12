@@ -20,11 +20,13 @@ type Props = {
   maxWidth: number;
   maxHeight: number;
   loading?: boolean;
+  /** La miniatura del catálogo es una foto: el toque es de la tarjeta. */
+  noInput?: boolean;
   testID?: string;
 };
 
 export default function HtmlPreview({
-  html, url, canvasW, canvasH, maxWidth, maxHeight, loading, testID,
+  html, url, canvasW, canvasH, maxWidth, maxHeight, loading, noInput, testID,
 }: Props) {
   const ratio = canvasW > 0 && canvasH > 0 ? canvasW / canvasH : 16 / 9;
   const width = Math.min(maxWidth, maxHeight * ratio);
@@ -43,7 +45,7 @@ export default function HtmlPreview({
                 style: {
                   width: '100%', height: '100%', border: 0, display: 'block',
                   // En el catálogo la miniatura es una foto, no algo que se toca.
-                  pointerEvents: url ? 'none' : 'auto',
+                  pointerEvents: url || noInput ? 'none' : 'auto',
                 },
                 title: 'Vista previa',
               })
@@ -51,7 +53,7 @@ export default function HtmlPreview({
                 source={url ? { uri: url } : { html: html || '' }}
                 style={hp.web}
                 scrollEnabled={false}
-                pointerEvents={url ? 'none' : 'auto'}
+                pointerEvents={url || noInput ? 'none' : 'auto'}
                 originWhitelist={['*']}
                 javaScriptEnabled
               />)

@@ -131,6 +131,7 @@ export default function SignageTemplates() {
             maxWidth={cardWidth - 28}
             maxHeight={THUMB_HEIGHT}
             loading={!thumbs[item.id]}
+            noInput
             testID={`thumb-${item.id}`}
           />
           {usingId === item.id && (
