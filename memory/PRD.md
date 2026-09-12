@@ -711,3 +711,40 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   recuadro para cambiar el texto o reemplazar la foto.
 - `backend/tests/test_iter43_menu_canvas.py`: 18 tests (13 marcados `ai`, pegan al modelo real).
 - `fonts-liberation` agregado al Dockerfile: sin esas fuentes la medición cae a una estimación.
+
+## Fix P0 (2026-06) — «Cambié el precio, guardé, publiqué y la tele no cambia»
+- CAUSA RAÍZ REAL (la de fondo, distinta a la del fix anterior): el player Kotlin decide si
+  recargar comparando una firma de la playlist — `media_id:checksum:duration:rotation:display_mode`
+  (`PlayerModels.kt:98`). Un menú viaja como una URL, así que editar un precio no cambiaba NADA de
+  esa firma y el WebView seguía mostrando el precio viejo para siempre.
+- Fix 1: el ítem de menú ahora lleva en `checksum` un sha256 de `menu_id + última edición`. Es un
+  campo que ya existía y el player exige 64 hex (`PlayerModels.kt:68`), así que el contrato del
+  APK no se toca; `ContentCache` ni siquiera verifica checksums de ítems `widget`. La URL del
+  render suma `?v=<ms>` para el caché HTTP del WebView, y el render responde `Cache-Control:
+  no-store`.
+- Fix 2: el panel sólo subía `playlist_version` cuando se marcaba «agotado». Ahora cualquier
+  edición (precio, nombre, alta o baja de producto, rename del menú, foto IA, guardado del diseño
+  propio) sube la versión de las pantallas afectadas y además emite el evento realtime
+  `menu.updated`, que recarga al instante las pantallas que ya tienen el menú abierto.
+- Fix 3 (bug que introdujo la feature anterior): borrar un menú dejaba su playlist publicada.
+  Ganaba el desempate por prioridad, no renderizaba nada y la pantalla se iba a NEGRO. Ahora el
+  playlist se borra con el menú y, como red de seguridad, `_build_owned_playlist_items` cae al
+  siguiente contendiente cuando el ganador no produce ningún ítem. Se limpiaron 118 playlists
+  huérfanos de la base de desarrollo.
+- `backend/tests/test_iter45_menu_edits_reach_the_tv.py` (13 tests) fija la firma que ve el player,
+  los bumps de versión y que borrar un menú no apague la pantalla.
+
+## Feature (2026-06) — «¿Qué está mostrando mi pantalla y por qué?»
+- `GET /api/workspace/screens/{id}/now-playing` responde en castellano por qué la pantalla muestra
+  lo que muestra: equipo sin enlazar, equipo apagado, sin contenido, o una playlist con más
+  prioridad ganándole al menú (las promos son prioridad 90 contra 10 del menú, a propósito).
+  Aplica el mismo filtro de vencimiento que el player, así no reporta como ganadora una promo
+  vencida que el TV ya ignora.
+- El panel lo llama automáticamente después de publicar un menú y muestra el veredicto por
+  pantalla en el mismo diálogo de «¡Publicado!». Publicar ya no es un acto de fe.
+- `backend/tests/test_iter44_now_playing.py` (8 tests).
+
+## Fix (2026-06) — Subir el diseño propio fallaba en el panel web
+- `FileSystem.readAsStringAsync` quedó deprecada en expo-file-system 19 (SDK 54) y tiraba el error
+  en pantalla. Ahora en web se lee el `File` del navegador con `FileReader.readAsDataURL` y en
+  nativo con la clase `File` nueva del filesystem.

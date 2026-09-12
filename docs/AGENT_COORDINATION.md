@@ -1285,4 +1285,28 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   camino de playlists que ya existía.
 - Estado: CERRADA — desplegada en `production` y verificada (`/api/livez` = `7a89664`).
 
+### 2026-06 — E1 — El cambio de precio llega al TV + diagnóstico de pantalla
+- Rama: `trunk` → `production` (commit `dab7e78`).
+- Archivos tocados: `backend/server.py` (`_build_owned_playlist_items`), `backend/workspace_routes.py`,
+  `backend/menus_routes.py`, `backend/menu_ai_routes.py`, `backend/tests/route_inventory_snapshot.json`,
+  `frontend/app/workspace/menu-edit.tsx`, `frontend/app/workspace/menu-canvas.tsx`,
+  `frontend/src/services/api.ts`.
+- LEER ANTES DE TOCAR EL PLAYER: el APK decide si recargar con
+  `signature = media_id:checksum:duration:rotation:display_mode` (`PlayerModels.kt:98`) y descarta
+  cualquier `checksum` que no sea sha256 de 64 hex (`PlayerModels.kt:68`). Los ítems de menú ahora
+  usan ese `checksum` como versión de contenido. Si alguien lo vuelve a poner en `null`, editar un
+  precio deja de llegar a la tele. No se agregó ni se quitó ningún campo del JSON.
+- También: cualquier edición de un menú publicado sube `playlist_version` y emite `menu.updated`;
+  borrar un menú borra su playlist (antes quedaba publicado, ganaba por prioridad y dejaba la
+  pantalla en negro) y el builder cae al siguiente contendiente si el ganador no renderiza nada.
+- Nuevo: `GET /api/workspace/screens/{id}/now-playing` — diagnóstico en castellano de por qué una
+  pantalla muestra lo que muestra. El panel lo usa después de publicar.
+- Validación: `test_iter45_menu_edits_reach_the_tv.py` (13), `test_iter44_now_playing.py` (8),
+  `test_iter43_menu_canvas.py` (18), `test_iter42_menu_reaches_tv.py` (10), `test_iter39` verde de
+  nuevo. Suite completa: 602 passed; las 14 que fallan ya fallaban antes de esta entrada (drift de
+  datos de seed, ver nota abajo).
+- Deuda conocida: 14 tests dependen de `menus[0]`/`screens[0]` del seed y se rompen según el orden
+  de ejecución. No es una regresión de este trabajo (verificado con `git stash`).
+- Estado: CERRADA — desplegada y verificada (`/api/livez` = `dab7e78`).
+
 <!-- Nuevas entradas ARRIBA de esta línea, más recientes primero. -->
