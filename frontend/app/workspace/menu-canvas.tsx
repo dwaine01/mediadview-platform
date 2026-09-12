@@ -287,7 +287,9 @@ export default function MenuCanvas() {
         title: res.data.detected ? '¡Tu diseño ya es editable!' : 'No encontramos textos',
         icon: res.data.detected ? 'sparkles-outline' : 'alert-circle-outline',
         message: res.data.detected
-          ? `Marcamos ${res.data.detected} recuadro(s). Tocá cualquiera para cambiar el texto o la foto.`
+          ? `Marcamos ${res.data.detected} recuadro(s) sobre tu diseño y quedó guardado como tu `
+            + 'plantilla. Tocá cualquier recuadro para cambiar el nombre, el precio o la foto: '
+            + 'el diseño, los colores y la tipografía no se mueven.'
           : 'Probá con una imagen más nítida y de frente, o subí el PDF original.',
       });
     } catch (e: any) {
@@ -412,11 +414,12 @@ export default function MenuCanvas() {
           <View style={st.emptyIcon}>
             <Ionicons name="color-palette-outline" size={34} color="#0891B2" />
           </View>
-          <Text style={st.emptyTitle}>Usá tu menú como está</Text>
+          <Text style={st.emptyTitle}>Tu menú como plantilla</Text>
           <Text style={st.emptyText}>
-            Subí el menú que ya tenés diseñado en JPG, PNG o PDF. La IA encuentra los nombres,
-            los precios y las fotos, y te deja cambiarlos sin tocar tu diseño: mismos colores,
-            misma tipografía, mismo lugar.
+            Subí el menú que ya tenés diseñado en JPG, PNG o PDF. La IA lee toda la estructura y
+            encuentra los nombres, los precios y las fotos. Queda guardado como tu plantilla: vos
+            cambiás lo que quieras desde el celular y el diseño, los colores y la tipografía siguen
+            exactamente iguales.
           </Text>
           <TouchableOpacity
             style={[st.primaryBtn, importing && { opacity: 0.6 }]}
