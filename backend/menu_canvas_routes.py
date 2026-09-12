@@ -27,11 +27,11 @@ import logging
 import os
 import re
 import uuid as _uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import numpy as np
 from dotenv import load_dotenv
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from PIL import Image, ImageFont
 from pydantic import BaseModel, Field
 
@@ -59,7 +59,9 @@ MAX_ANALYSIS_SIDE = 1600
 # The stage the TV renders. Anything bigger wastes bandwidth on a 4K panel that
 # upscales fine anyway.
 MAX_STAGE_SIDE = 2400
-MAX_FIELDS = 160
+MAX_FIELDS = 220
+# Si el worker se reinicia en medio del análisis, nadie escribe el resultado.
+ANALYSIS_TIMEOUT_MINUTES = 6
 
 IMAGE_TYPES = {"image/jpeg", "image/jpg", "image/png", "image/webp"}
 PDF_TYPES = {"application/pdf"}
@@ -163,7 +165,14 @@ def _pdf_first_page_to_png(data: bytes) -> bytes:
 
 
 def _normalise_background(data: bytes, content_type: str) -> tuple[bytes, int, int, Image.Image]:
-    """Returns (png_bytes, width, height, PIL image) of the stage background."""
+    """Returns (jpeg_bytes, width, height, image decoded from those bytes).
+
+    JPEG y no PNG: el diseño de un menú suele traer fotos, y un PNG de 2400 px
+    se va a 8 MB, que después hay que guardar y servir a cada TV. Y la imagen
+    que devolvemos se decodifica DESDE el JPEG final, porque de ahí se muestrea
+    el color que tapa los precios: muestrear del original y servir el
+    comprimido deja parches que no matchean.
+    """
     if content_type in PDF_TYPES:
         data = _pdf_first_page_to_png(data)
     try:
@@ -185,8 +194,11 @@ def _normalise_background(data: bytes, content_type: str) -> tuple[bytes, int, i
         image = image.resize((max(1, round(image.width * ratio)), max(1, round(image.height * ratio))),
                              Image.LANCZOS)
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG", optimize=True)
-    return buffer.getvalue(), image.width, image.height, image
+    image.save(buffer, format="JPEG", quality=92, optimize=True, progressive=True)
+    jpeg = buffer.getvalue()
+    served = Image.open(io.BytesIO(jpeg))
+    served.load()
+    return jpeg, served.width, served.height, served.convert("RGB")
 
 
 def _analysis_copy(image: Image.Image) -> str:
@@ -463,9 +475,71 @@ def create_menu_canvas_routes(db, get_current_user, bump_playlist_version=None):
         for screen_id in menu.get("screen_ids") or []:
             await bump_playlist_version(screen_id, reason=reason)
 
-    @router.post("/menus/{menu_id}/canvas/import",
-                 summary="Sube tu menú diseñado y la IA lo vuelve editable")
-    async def import_canvas(menu_id: str, payload: CanvasImport,
+    async def _run_analysis(menu_id: str, org_id: str, jpeg: bytes) -> None:
+        """Le pide el layout a la IA y guarda el resultado en el menú.
+
+        Corre en segundo plano porque el modelo tarda entre 15 y 90 segundos y
+        el proxy de adelante corta la conexión mucho antes: eso era el 502/504
+        que veía el cliente. Acá no hay nadie esperando del otro lado, así que
+        cualquier error se escribe en `canvas.analysis.error` y el panel lo
+        muestra tal cual.
+        """
+        try:
+            image = Image.open(io.BytesIO(jpeg))
+            image.load()
+            image = image.convert("RGB")
+
+            from emergentintegrations.llm.chat import ImageContent, LlmChat, UserMessage
+
+            chat = LlmChat(
+                api_key=EMERGENT_LLM_KEY,
+                session_id=f"menu-canvas-{_uuid.uuid4()}",
+                system_message=SYSTEM_PROMPT,
+            ).with_model(LAYOUT_PROVIDER, LAYOUT_MODEL)
+            answer = await chat.send_message(UserMessage(
+                text=LAYOUT_PROMPT,
+                file_contents=[ImageContent(image_base64=_analysis_copy(image))],
+            ))
+            parsed = _extract_json(answer if isinstance(answer, str) else str(answer))
+            fields = _normalise_fields(parsed.get("fields"), image)
+        except (json.JSONDecodeError, ValueError) as parse_error:
+            logger.warning("Canvas layout returned non-JSON for %s: %s", menu_id, parse_error)
+            await _mark_analysis(menu_id, "failed",
+                                 "La IA no devolvió un resultado legible. Probá con una imagen más "
+                                 "nítida y de frente, o subí el PDF original.")
+            return
+        except Exception as exc:
+            logger.exception("Canvas layout detection failed for %s", menu_id)
+            await _mark_analysis(menu_id, "failed", f"La IA no pudo analizar el diseño: {exc}")
+            return
+
+        now = datetime.utcnow()
+        await db.menus.update_one({"id": menu_id}, {"$set": {
+            "canvas.fields": fields,
+            "canvas.updated_at": now,
+            "canvas.analysis": {"status": "ready", "error": None,
+                                "detected": len(fields), "finished_at": now},
+            "updated_at": now,
+        }})
+        menu = await db.menus.find_one({"id": menu_id}, {"_id": 0, "screen_ids": 1})
+        await _refresh_screens(menu or {}, "menu canvas analysed")
+        await _audit(
+            db, "menu.canvas_imported", user_id=None, user_email=None,
+            resource_type="menu", resource_id=menu_id,
+            details={"fields": len(fields), "size": f"{image.width}x{image.height}"},
+            org_id=org_id,
+        )
+
+    async def _mark_analysis(menu_id: str, status: str, error: str | None) -> None:
+        await db.menus.update_one({"id": menu_id}, {"$set": {
+            "canvas.analysis": {"status": status, "error": error,
+                                "detected": 0, "finished_at": datetime.utcnow()},
+            "updated_at": datetime.utcnow(),
+        }})
+
+    @router.post("/menus/{menu_id}/canvas/import", status_code=202,
+                 summary="Sube tu menú diseñado; la IA lo vuelve editable en segundo plano")
+    async def import_canvas(menu_id: str, payload: CanvasImport, background: BackgroundTasks,
                             current_user: dict = Depends(get_current_user)):
         menu = await _owned_menu(menu_id, current_user)
         if not EMERGENT_LLM_KEY:
@@ -476,42 +550,21 @@ def create_menu_canvas_routes(db, get_current_user, bump_playlist_version=None):
             raise HTTPException(400, "Formato no soportado. Subí tu menú en JPG, PNG o PDF.")
 
         data = _decode(payload.file_base64, MAX_UPLOAD_BYTES)
-        png, width, height, image = _normalise_background(data, content_type)
+        jpeg, width, height, _served = _normalise_background(data, content_type)
+        del data
         slug = re.sub(r"[^\w -]", "", menu.get("name") or "menu")[:40] or "menu"
         media_id, background_url = await _store_image(
-            db, current_user["id"], png, "image/png", f"{slug}-diseno.png")
+            db, current_user["id"], jpeg, "image/jpeg", f"{slug}-diseno.jpg")
 
-        from emergentintegrations.llm.chat import ImageContent, LlmChat, UserMessage
-
-        chat = LlmChat(
-            api_key=EMERGENT_LLM_KEY,
-            session_id=f"menu-canvas-{_uuid.uuid4()}",
-            system_message=SYSTEM_PROMPT,
-        ).with_model(LAYOUT_PROVIDER, LAYOUT_MODEL)
-
-        try:
-            answer = await chat.send_message(UserMessage(
-                text=LAYOUT_PROMPT,
-                file_contents=[ImageContent(image_base64=_analysis_copy(image))],
-            ))
-        except Exception as exc:
-            logger.exception("Menu canvas layout detection failed")
-            raise HTTPException(502, f"La IA no pudo analizar el diseño: {exc}") from exc
-
-        try:
-            parsed = _extract_json(answer if isinstance(answer, str) else str(answer))
-        except (json.JSONDecodeError, ValueError):
-            logger.warning("Canvas layout returned non-JSON: %s", str(answer)[:400])
-            raise HTTPException(422, "No pudimos leer ese diseño. Probá con una imagen más nítida y de frente.")
-
-        fields = _normalise_fields(parsed.get("fields"), image)
         now = datetime.utcnow()
         canvas = {
             "background_url": background_url,
             "background_media_id": media_id,
             "width": width,
             "height": height,
-            "fields": fields,
+            "fields": [],
+            "analysis": {"status": "analyzing", "error": None,
+                         "detected": 0, "started_at": now},
             "updated_at": now,
         }
         await db.menus.update_one({"id": menu_id}, {"$set": {
@@ -519,16 +572,8 @@ def create_menu_canvas_routes(db, get_current_user, bump_playlist_version=None):
             "canvas": canvas,
             "updated_at": now,
         }})
-        await _refresh_screens(menu, "menu canvas imported")
-        await _audit(
-            db, "menu.canvas_imported",
-            user_id=current_user["id"], user_email=current_user.get("email"),
-            resource_type="menu", resource_id=menu_id,
-            details={"menu_name": menu.get("name"), "fields": len(fields),
-                     "size": f"{width}x{height}"},
-            org_id=current_user.get("organization_id"),
-        )
-        return {"layout_mode": "canvas", "canvas": canvas, "detected": len(fields)}
+        background.add_task(_run_analysis, menu_id, current_user["organization_id"], jpeg)
+        return {"layout_mode": "canvas", "canvas": canvas, "analysis_status": "analyzing"}
 
     @router.get("/menus/{menu_id}/canvas", summary="Layout editable del menú")
     async def get_canvas(menu_id: str, current_user: dict = Depends(get_current_user)):
@@ -536,7 +581,18 @@ def create_menu_canvas_routes(db, get_current_user, bump_playlist_version=None):
         canvas = menu.get("canvas")
         if not canvas:
             raise HTTPException(404, "Este menú todavía no tiene un diseño propio cargado.")
-        return {"layout_mode": menu.get("layout_mode") or "template", "canvas": canvas,
+        analysis = canvas.get("analysis") or {"status": "ready", "error": None}
+        # Si el worker se reinició en medio del análisis nadie va a escribir el
+        # resultado nunca. Mejor decirlo que dejar el panel girando para siempre.
+        started = analysis.get("started_at")
+        if (analysis.get("status") == "analyzing" and started
+                and datetime.utcnow() - started > timedelta(minutes=ANALYSIS_TIMEOUT_MINUTES)):
+            analysis = {"status": "failed", "detected": 0,
+                        "error": "El análisis se interrumpió. Volvé a subir tu diseño."}
+            await _mark_analysis(menu_id, "failed", analysis["error"])
+        return {"layout_mode": menu.get("layout_mode") or "template",
+                "canvas": {**canvas, "analysis": analysis},
+                "analysis": analysis,
                 "menu_name": menu.get("name"), "status": menu.get("status")}
 
     @router.put("/menus/{menu_id}/canvas", summary="Guardar textos y posiciones editadas")

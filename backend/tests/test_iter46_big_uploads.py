@@ -65,9 +65,9 @@ class TestBigFilesDoNotKillTheWorker:
         r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
                           json={"file_base64": base64.b64encode(data).decode(),
                                 "content_type": "image/jpeg"}, timeout=300)
-        # Nos importa que el proceso siga vivo y conteste algo razonable: 200 si
-        # la IA lo leyó, 413 si lo rechaza por tamaño, 422 si no era un menú.
-        assert r.status_code in (200, 413, 422), f"{r.status_code}: {r.text[:300]}"
+        # Nos importa que el proceso siga vivo y conteste algo razonable: 202 si
+        # aceptó el archivo y arrancó el análisis, 413 si lo rechaza por tamaño.
+        assert r.status_code in (202, 413), f"{r.status_code}: {r.text[:300]}"
         assert requests.get(f"{BASE_URL}/api/livez", timeout=10).json()["ok"] is True
 
     def test_the_stage_is_capped_so_the_tv_payload_stays_sane(self, headers, menu):
@@ -76,7 +76,7 @@ class TestBigFilesDoNotKillTheWorker:
         r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
                           json={"file_base64": base64.b64encode(open(design, "rb").read()).decode(),
                                 "content_type": "image/jpeg"}, timeout=300)
-        assert r.status_code == 200, r.text[:300]
+        assert r.status_code == 202, r.text[:300]
         canvas = r.json()["canvas"]
         assert max(canvas["width"], canvas["height"]) <= 2400, canvas
         # y el aspecto del diseño original se respeta
@@ -119,7 +119,7 @@ class TestPdfRasterisation:
         r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
                           json={"file_base64": base64.b64encode(data).decode(),
                                 "content_type": "application/pdf"}, timeout=300)
-        assert r.status_code == 200, r.text[:400]
+        assert r.status_code == 202, r.text[:400]
         canvas = r.json()["canvas"]
         assert max(canvas["width"], canvas["height"]) <= 2400, canvas
         assert canvas["background_url"].startswith("/api/player/media/")

@@ -189,6 +189,8 @@ export default function MenuCanvas() {
   const [zoom, setZoom] = useState(1);
   const [draftText, setDraftText] = useState('');
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [analysis, setAnalysis] = useState<
+    { status: string; error?: string | null; detected?: number } | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
   const load = useCallback(async () => {
@@ -197,7 +199,9 @@ export default function MenuCanvas() {
       const res = await workspaceAPI.getCanvas(menuId);
       setCanvas(res.data.canvas);
       setMenuName(res.data.menu_name || '');
+      setAnalysis(res.data.analysis || null);
       setDirty(false);
+      if (res.data.analysis?.status === 'analyzing') setImporting(true);
     } catch (e: any) {
       if (e.response?.status !== 404) {
         setDialog({ title: 'No pudimos abrir tu diseño', message: e.response?.data?.detail || e.message });
@@ -207,6 +211,44 @@ export default function MenuCanvas() {
   }, [menuId]);
 
   useEffect(() => { load(); }, [load]);
+
+  /**
+   * El análisis corre en el servidor, no en esta request. Preguntamos cada 3
+   * segundos hasta que esté listo: así el navegador nunca espera colgado de
+   * una conexión que el proxy va a cortar.
+   */
+  useEffect(() => {
+    if (analysis?.status !== 'analyzing') return;
+    let cancelled = false;
+    const timer = setInterval(async () => {
+      try {
+        const res = await workspaceAPI.getCanvas(menuId);
+        if (cancelled) return;
+        const next = res.data.analysis;
+        setAnalysis(next || null);
+        if (next?.status === 'ready') {
+          setCanvas(res.data.canvas);
+          setImporting(false);
+          setDialog({
+            title: next.detected ? '¡Tu diseño ya es editable!' : 'No encontramos textos',
+            icon: next.detected ? 'sparkles-outline' : 'alert-circle-outline',
+            message: next.detected
+              ? `Marcamos ${next.detected} recuadro(s) sobre tu diseño y quedó guardado como tu `
+                + 'plantilla. Tocá cualquier recuadro para cambiar el nombre, el precio o la foto: '
+                + 'el diseño, los colores y la tipografía no se mueven.'
+              : 'Probá con una imagen más nítida y de frente, o subí el PDF original.',
+          });
+        } else if (next?.status === 'failed') {
+          setImporting(false);
+          setDialog({
+            title: 'No pudimos leer tu diseño',
+            message: next.error || 'Volvé a intentarlo en un momento.',
+          });
+        }
+      } catch { /* un fallo suelto de red no corta el sondeo */ }
+    }, 3000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [analysis?.status, menuId]);
 
   // Ancho útil del lienzo: la pantalla menos el padding lateral.
   const stageWidth = Math.max(240, Math.min(windowWidth, 900) - 32);
@@ -280,28 +322,25 @@ export default function MenuCanvas() {
         file_base64: upload.base64,
         content_type: upload.mime,
       });
+      // La subida terminó; el análisis sigue del lado del servidor y lo
+      // seguimos con el sondeo de arriba.
       setCanvas(res.data.canvas);
+      setAnalysis(res.data.canvas?.analysis || { status: 'analyzing' });
       setDirty(false);
       setSelectedId(null);
-      setDialog({
-        title: res.data.detected ? '¡Tu diseño ya es editable!' : 'No encontramos textos',
-        icon: res.data.detected ? 'sparkles-outline' : 'alert-circle-outline',
-        message: res.data.detected
-          ? `Marcamos ${res.data.detected} recuadro(s) sobre tu diseño y quedó guardado como tu `
-            + 'plantilla. Tocá cualquier recuadro para cambiar el nombre, el precio o la foto: '
-            + 'el diseño, los colores y la tipografía no se mueven.'
-          : 'Probá con una imagen más nítida y de frente, o subí el PDF original.',
-      });
     } catch (e: any) {
       const status = e.response?.status;
+      setImporting(false);
       setDialog({
         title: 'No pudimos procesar tu diseño',
-        message: status === 502 || status === 504
-          ? 'El archivo era demasiado pesado para procesarlo de una. Exportá tu menú como JPG '
-            + '(o bajale la resolución) y probá de nuevo.'
-          : e.response?.data?.detail || e.message || 'Intentá de nuevo en un momento.',
+        message: status === 413
+          ? 'Ese archivo es demasiado grande. Exportá tu menú como JPG y probá de nuevo.'
+          : status === 502 || status === 504
+            ? 'El servidor tardó demasiado en recibir el archivo. Probá de nuevo con una conexión '
+              + 'más estable o exportá tu menú como JPG.'
+            : e.response?.data?.detail || e.message || 'Intentá de nuevo en un momento.',
       });
-    } finally { setImporting(false); }
+    }
   }, [menuId]);
 
   /** Reemplaza la foto de un recuadro; el backend la recorta al hueco exacto. */
@@ -438,22 +477,40 @@ export default function MenuCanvas() {
       ) : (
         <>
           <View style={st.toolbar}>
-            <Text style={st.toolbarText}>
-              {canvas.fields.length} recuadro{canvas.fields.length === 1 ? '' : 's'} · tocá para editar
-            </Text>
-            <View style={st.zoomRow}>
-              {[1, 2, 3].map(level => (
-                <TouchableOpacity
-                  key={level}
-                  style={[st.zoomBtn, zoom === level && st.zoomBtnOn]}
-                  onPress={() => setZoom(level)}
-                  testID={`zoom-${level}`}
-                >
-                  <Text style={[st.zoomText, zoom === level && st.zoomTextOn]}>{level}x</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            {analysis?.status === 'analyzing' ? (
+              <View style={st.analyzingRow}>
+                <ActivityIndicator size={16} color="#0891B2" />
+                <Text style={st.analyzingText}>
+                  Leyendo tu diseño… puede tardar hasta un minuto. Podés dejar esta pantalla abierta.
+                </Text>
+              </View>
+            ) : (
+              <>
+                <Text style={st.toolbarText}>
+                  {canvas.fields.length} recuadro{canvas.fields.length === 1 ? '' : 's'} · tocá para editar
+                </Text>
+                <View style={st.zoomRow}>
+                  {[1, 2, 3].map(level => (
+                    <TouchableOpacity
+                      key={level}
+                      style={[st.zoomBtn, zoom === level && st.zoomBtnOn]}
+                      onPress={() => setZoom(level)}
+                      testID={`zoom-${level}`}
+                    >
+                      <Text style={[st.zoomText, zoom === level && st.zoomTextOn]}>{level}x</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
           </View>
+
+          {analysis?.status === 'failed' && (
+            <TouchableOpacity style={st.retryBtn} onPress={importDesign} testID="canvas-retry">
+              <Ionicons name="refresh" size={16} color="#0E7490" />
+              <Text style={st.retryBtnText}>Volver a subir mi diseño</Text>
+            </TouchableOpacity>
+          )}
 
           <ScrollView style={st.stageScrollV} contentContainerStyle={{ paddingBottom: insets.bottom + 260 }}>
             <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={st.stagePad}>
@@ -629,6 +686,10 @@ const st = StyleSheet.create({
 
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10 },
   toolbarText: { fontSize: 12, color: '#64748B', fontWeight: '600', flex: 1 },
+  analyzingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  analyzingText: { fontSize: 12, color: '#0E7490', fontWeight: '600', flex: 1, lineHeight: 17 },
+  retryBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginHorizontal: 16, marginBottom: 8, minHeight: 44, borderRadius: 10, backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#A5F3FC' },
+  retryBtnText: { fontSize: 13, color: '#0E7490', fontWeight: '700' },
   zoomRow: { flexDirection: 'row', gap: 6 },
   zoomBtn: { minWidth: 44, minHeight: 32, paddingHorizontal: 10, borderRadius: 9, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E2E8F0', justifyContent: 'center', alignItems: 'center' },
   zoomBtnOn: { backgroundColor: '#ECFEFF', borderColor: '#0891B2' },

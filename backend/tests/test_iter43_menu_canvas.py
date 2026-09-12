@@ -11,7 +11,9 @@ import base64
 import io
 import os
 import sys
+import time
 import uuid
+from datetime import datetime, timedelta
 
 import pytest
 import requests
@@ -34,6 +36,14 @@ def headers():
 
 
 @pytest.fixture(scope="module")
+def mongo_menus():
+    from pymongo import MongoClient
+    client = MongoClient(os.environ["MONGO_URL"])
+    yield client[os.environ.get("DB_NAME", "test_database")].menus
+    client.close()
+
+
+@pytest.fixture(scope="module")
 def design_b64():
     return base64.b64encode(open(build_design("/tmp/menu_design_test.jpg"), "rb").read()).decode()
 
@@ -48,12 +58,30 @@ def menu(headers):
     requests.delete(f"{BASE_URL}/api/workspace/menus/{menu_id}", headers=headers, timeout=20)
 
 
+def import_and_wait(headers, menu_id, file_b64, content_type="image/jpeg", timeout=240):
+    """Sube el diseño y espera a que el análisis en segundo plano termine.
+
+    El endpoint devuelve 202 al instante a propósito: el modelo tarda entre 15
+    y 90 segundos y el proxy de producción cortaba la conexión mucho antes
+    (eso era el 502 que veía el cliente).
+    """
+    r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu_id}/canvas/import", headers=headers,
+                      json={"file_base64": file_b64, "content_type": content_type}, timeout=120)
+    assert r.status_code == 202, f"{r.status_code}: {r.text[:400]}"
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        time.sleep(2)
+        body = requests.get(f"{BASE_URL}/api/workspace/menus/{menu_id}/canvas",
+                            headers=headers, timeout=20).json()
+        if body["analysis"]["status"] != "analyzing":
+            assert body["analysis"]["status"] == "ready", body["analysis"]
+            return body["canvas"]
+    raise AssertionError("el análisis nunca terminó")
+
+
 @pytest.fixture
 def imported(headers, menu, design_b64):
-    r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
-                      json={"file_base64": design_b64, "content_type": "image/jpeg"}, timeout=240)
-    assert r.status_code == 200, r.text[:500]
-    return menu, r.json()["canvas"]
+    return menu, import_and_wait(headers, menu, design_b64)
 
 
 def _preview_html(headers, menu_id):
@@ -110,6 +138,8 @@ class TestImport:
 
 class TestImportValidation:
     def test_a_garbage_file_is_rejected(self, headers, menu):
+        """La validación del archivo sigue siendo síncrona: rechazar basura es
+        instantáneo y no hay que hacerlo esperar al usuario."""
         r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
                           json={"file_base64": base64.b64encode(b"not an image at all" * 4).decode(),
                                 "content_type": "image/png"}, timeout=60)
@@ -231,3 +261,52 @@ class TestItReachesTheTv:
         page = requests.get(f"{BASE_URL}{item['media_url']}", timeout=30)
         assert page.status_code == 200
         assert 'id="stage"' in page.text, "el TV no recibió el diseño propio"
+
+
+class TestTheAnalysisRunsInTheBackground:
+    """La causa del 502/504 en producción era el request largo: el modelo tarda
+    15-90 s y el proxy corta mucho antes. La subida ahora contesta al instante
+    y el resultado se consulta después."""
+
+    def test_the_upload_answers_immediately(self, headers, menu, design_b64):
+        started = time.time()
+        r = requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
+                          json={"file_base64": design_b64, "content_type": "image/jpeg"}, timeout=120)
+        elapsed = time.time() - started
+        assert r.status_code == 202, r.text[:300]
+        assert elapsed < 10, f"la subida tardó {elapsed:.1f}s, el proxy la va a cortar"
+        assert r.json()["canvas"]["analysis"]["status"] == "analyzing"
+
+    def test_the_background_is_usable_before_the_analysis_finishes(self, headers, menu, design_b64):
+        """El cliente tiene que ver su diseño enseguida, no una pantalla vacía."""
+        requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
+                      json={"file_base64": design_b64, "content_type": "image/jpeg"}, timeout=120)
+        body = requests.get(f"{BASE_URL}/api/workspace/menus/{menu}/canvas",
+                            headers=headers, timeout=20).json()
+        assert body["canvas"]["background_url"].startswith("/api/player/media/")
+        assert body["canvas"]["width"] > 0 and body["canvas"]["height"] > 0
+        served = requests.get(f"{BASE_URL}{body['canvas']['background_url']}", timeout=30)
+        assert served.status_code == 200
+
+    def test_the_status_ends_as_ready_with_a_count(self, headers, menu, design_b64):
+        import_and_wait(headers, menu, design_b64)
+        body = requests.get(f"{BASE_URL}/api/workspace/menus/{menu}/canvas",
+                            headers=headers, timeout=20).json()
+        assert body["analysis"]["status"] == "ready"
+        assert body["analysis"]["detected"] == len(body["canvas"]["fields"]) > 0
+        assert body["analysis"]["error"] is None
+
+    def test_a_stalled_analysis_is_reported_instead_of_spinning_forever(self, headers, menu,
+                                                                       design_b64, mongo_menus):
+        """Si el worker se reinicia a mitad de camino nadie escribe el
+        resultado; el panel no puede quedar girando para siempre."""
+        requests.post(f"{BASE_URL}/api/workspace/menus/{menu}/canvas/import", headers=headers,
+                      json={"file_base64": design_b64, "content_type": "image/jpeg"}, timeout=120)
+        mongo_menus.update_one({"id": menu}, {"$set": {
+            "canvas.analysis": {"status": "analyzing", "error": None, "detected": 0,
+                                "started_at": datetime.utcnow() - timedelta(minutes=30)},
+        }})
+        body = requests.get(f"{BASE_URL}/api/workspace/menus/{menu}/canvas",
+                            headers=headers, timeout=20).json()
+        assert body["analysis"]["status"] == "failed"
+        assert "interrumpi" in body["analysis"]["error"].lower()
