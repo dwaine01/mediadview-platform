@@ -50,9 +50,12 @@
       "business_name": "Trattoria Forno",
       "tagline": "Horno de leña · desde 1998",
       "ticker": "Delivery gratis en pedidos de $25 o más",
+      "hero_kicker": "La más pedida",
       "promo_kicker": "Combo familiar",
       "promo_title": "2 grandes + refresco 2L",
       "promo_price": "$29.99",
+      "qr_url": "https://trattoriaforno.com/menu",
+      "qr_label": "Escaneá el menú",
       "categories": [
         { "name": "Pizzas artesanales", "products": [
           { "key": "pepperoni", "name": "Pepperoni", "description": "Doble pepperoni, mozzarella fior di latte y orégano fresco.",
@@ -115,7 +118,7 @@
       { "type": "text", "rect": [36, 152, 1008, 36], "field": "tagline", "size": 26, "upper": true, "accent": true },
 
       { "type": "hero", "rect": [36, 206, 1008, 440], "binds": "categories[0]",
-        "kicker": "La más pedida", "name_size": 96, "price_size": 0, "ken": true },
+        "name_size": 96, "price_size": 0, "ken": true },
 
       { "type": "category", "rect": [36, 676, 1008, 56], "binds": "categories[0]", "size": 44 },
       { "type": "product_grid", "rect": [36, 750, 1008, 690], "cols": 2, "rows": 2, "gap": 22,

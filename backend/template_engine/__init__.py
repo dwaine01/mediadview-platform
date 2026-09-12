@@ -18,9 +18,10 @@ import html as html_lib
 import json
 
 from .blocks import render_block
+from .editor import editor_schema, literal_texts
 from .theme import background_css, font_link, palette_vars
 
-__all__ = ["render_design"]
+__all__ = ["render_design", "editor_schema", "literal_texts"]
 
 
 def esc(value) -> str:

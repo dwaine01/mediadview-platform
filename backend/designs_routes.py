@@ -22,7 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
-from template_engine import render_design
+from template_engine import editor_schema, render_design
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +33,13 @@ SAMPLE_PHOTOS_DIR = "/api/static/template-samples"
 class DesignCreate(BaseModel):
     template_id: str = Field(..., min_length=1, max_length=80)
     name: str | None = Field(default=None, max_length=120)
+
+
+class DesignPreviewPatch(BaseModel):
+    """Lo que el dueño está escribiendo ahora mismo, todavía sin guardar."""
+    brand: dict | None = None
+    bindings: dict | None = None
+    products: dict | None = None
 
 
 class DesignPatch(BaseModel):
@@ -70,15 +77,11 @@ def _materialise_sample(template: dict) -> tuple[dict, dict[str, dict]]:
             }
             ids.append(product_id)
         categories.append({"name": category.get("name"), "product_ids": ids})
-    bindings = {
-        "categories": categories,
-        "tagline": sample.get("tagline", ""),
-        "ticker": sample.get("ticker", ""),
-        "promo_kicker": sample.get("promo_kicker", ""),
-        "promo_title": sample.get("promo_title", ""),
-        "promo_price": sample.get("promo_price", ""),
-        "qr_url": sample.get("qr_url", ""),
-    }
+    # Todo texto suelto de la muestra pasa a bindings tal cual: así una
+    # plantilla nueva que use `hours` o `address` no necesita tocar este código.
+    bindings = {key: value for key, value in sample.items()
+                if isinstance(value, (str, int, float)) and key != "business_name"}
+    bindings["categories"] = categories
     brand = {"business_name": sample.get("business_name", ""), "logo_url": None}
     return {"brand": brand, "bindings": bindings}, products
 
@@ -224,7 +227,7 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
             "id": template["id"], "name": template.get("name"),
             "canvas": template.get("canvas"), "capacity": template.get("capacity"),
             "theme": template.get("theme"),
-        }}
+        }, "editor": editor_schema(template)}
 
     @router.put("/workspace/designs/{design_id}", summary="Guardar contenido del diseño")
     async def update_design(design_id: str, payload: DesignPatch,
@@ -247,6 +250,31 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
             for screen_id in design.get("screen_ids") or []:
                 await bump_playlist_version(screen_id, reason="design edited")
         return {**design, **update}
+
+    @router.post("/workspace/designs/{design_id}/preview", response_class=HTMLResponse,
+                 summary="Vista previa de lo que estoy escribiendo, sin guardar")
+    async def preview_design_draft(design_id: str, payload: DesignPreviewPatch,
+                                   current_user: dict = Depends(get_current_user)):
+        """El mismo render que ve el TV, pero con los valores del borrador.
+
+        Sin esto el dueño tiene que guardar para enterarse de si el precio le
+        entra en la tarjeta. Y guardar, en un diseño en vivo, es mandarlo al
+        TV: la vista previa NO toca la base ni el playlist.
+        """
+        design = await _owned_design(design_id, _org(current_user))
+        template = await _template(design["template_id"])
+        draft = dict(design)
+        if payload.brand:
+            draft["brand"] = {**(design.get("brand") or {}), **payload.brand}
+        if payload.bindings:
+            draft["bindings"] = {**(design.get("bindings") or {}), **payload.bindings}
+        products = dict(design.get("products") or {})
+        for product_id, patch in (payload.products or {}).items():
+            current = products.get(str(product_id))
+            if current and isinstance(patch, dict):
+                products[str(product_id)] = {**current, **patch}
+        return HTMLResponse(render_design(draft, template, products),
+                            headers={"Cache-Control": "no-store"})
 
     @router.put("/workspace/designs/{design_id}/products/{product_id}",
                 summary="Cambiar nombre, precio o foto de un producto del diseño")
@@ -318,6 +346,101 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
             for screen_id in design.get("screen_ids") or []:
                 await bump_playlist_version(screen_id, reason="design photo changed")
         return merged
+
+    @router.post("/workspace/designs/{design_id}/categories/{index}/products",
+                 summary="Agregar un producto a una sección del diseño")
+    async def add_design_product(design_id: str, index: int, payload: dict | None = None,
+                                 current_user: dict = Depends(get_current_user)):
+        """Un producto más en esa sección, vacío y listo para escribirle encima."""
+        org_id = _org(current_user)
+        design = await _owned_design(design_id, org_id)
+        categories = list((design.get("bindings") or {}).get("categories") or [])
+        if index < 0 or index >= len(categories):
+            raise HTTPException(404, "Esa sección no existe en este diseño")
+        products = design.get("products") or {}
+        if len(products) >= 120:
+            raise HTTPException(400, "Demasiados productos en este diseño.")
+        data = payload or {}
+        product_id = f"{design['template_id']}:new-{_uuid.uuid4().hex[:8]}"
+        product = {
+            "id": product_id,
+            "name": str(data.get("name") or "Producto nuevo")[:120],
+            "description": str(data.get("description") or "")[:400],
+            "price": data.get("price"),
+            "image_url": None,
+            "available": True,
+        }
+        categories[index]["product_ids"] = list(categories[index].get("product_ids") or []) + [product_id]
+        await db.designs.update_one({"id": design_id}, {"$set": {
+            f"products.{product_id}": product,
+            "bindings.categories": categories,
+            "updated_at": datetime.utcnow(),
+        }})
+        if bump_playlist_version:
+            for screen_id in design.get("screen_ids") or []:
+                await bump_playlist_version(screen_id, reason="design product added")
+        return product
+
+    @router.delete("/workspace/designs/{design_id}/products/{product_id}",
+                   summary="Quitar un producto del diseño")
+    async def delete_design_product(design_id: str, product_id: str,
+                                    current_user: dict = Depends(get_current_user)):
+        org_id = _org(current_user)
+        design = await _owned_design(design_id, org_id)
+        if product_id not in (design.get("products") or {}):
+            raise HTTPException(404, "Producto no encontrado en este diseño")
+        categories = [
+            {**category,
+             "product_ids": [pid for pid in (category.get("product_ids") or []) if pid != product_id]}
+            for category in ((design.get("bindings") or {}).get("categories") or [])
+        ]
+        await db.designs.update_one({"id": design_id}, {
+            "$unset": {f"products.{product_id}": ""},
+            "$set": {"bindings.categories": categories, "updated_at": datetime.utcnow()},
+        })
+        if bump_playlist_version:
+            for screen_id in design.get("screen_ids") or []:
+                await bump_playlist_version(screen_id, reason="design product removed")
+        return {"deleted": product_id}
+
+    @router.post("/workspace/designs/{design_id}/logo", summary="Subir el logo del negocio")
+    async def upload_design_logo(design_id: str, payload: dict,
+                                 current_user: dict = Depends(get_current_user)):
+        """El logo va sin recortar: un logo recortado es un logo arruinado.
+
+        Se guarda en PNG para no perder la transparencia, que es lo que hace
+        que se vea apoyado sobre el fondo de la plantilla y no en una caja.
+        """
+        import io
+        from PIL import Image
+
+        from menu_canvas_routes import _decode, _store_image
+        org_id = _org(current_user)
+        design = await _owned_design(design_id, org_id)
+        mime = str(payload.get("content_type") or "image/png").lower().split(";")[0]
+        if mime not in ("image/jpeg", "image/jpg", "image/png", "image/webp"):
+            raise HTTPException(400, "Formato no soportado. Usá PNG, JPG o WebP.")
+        data = _decode(str(payload.get("image_base64") or ""), 6 * 1024 * 1024)
+        try:
+            picture = Image.open(io.BytesIO(data))
+            picture.load()
+        except Exception:
+            raise HTTPException(400, "No pudimos abrir ese logo. Probá con otro.")
+        picture = picture.convert("RGBA")
+        if picture.height > 400:
+            picture = picture.resize(
+                (max(1, round(picture.width * 400 / picture.height)), 400), Image.LANCZOS)
+        buffer = io.BytesIO()
+        picture.save(buffer, format="PNG", optimize=True)
+        _media_id, url = await _store_image(db, current_user["id"], buffer.getvalue(),
+                                            "image/png", f"logo-{design_id[:8]}.png")
+        brand = {**(design.get("brand") or {}), "logo_url": url}
+        await db.designs.update_one({"id": design_id}, {"$set": {
+            "brand": brand, "updated_at": datetime.utcnow()}})
+        if bump_playlist_version:
+            for screen_id in design.get("screen_ids") or []:
+                await bump_playlist_version(screen_id, reason="design logo changed")
+        return brand
 
     @router.delete("/workspace/designs/{design_id}", summary="Borrar un diseño")
     async def delete_design(design_id: str, current_user: dict = Depends(get_current_user)):

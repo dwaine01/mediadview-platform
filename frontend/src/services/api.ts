@@ -249,10 +249,21 @@ export const workspaceAPI = {
     api.put(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}`, patch),
   publishDesign: (designId: string, screenIds: string[]) =>
     api.post(`/workspace/designs/${designId}/publish`, { screen_ids: screenIds }),
+  // HTML de la cartelera con los valores del borrador: no guarda nada, así el
+  // dueño ve cómo queda el precio mientras lo escribe.
+  previewDesign: (designId: string, patch: { brand?: any; bindings?: any; products?: any }) =>
+    api.post(`/workspace/designs/${designId}/preview`, patch,
+             { transformResponse: (raw: string) => raw }),
   uploadDesignPhoto: (designId: string, productId: string,
                       data: { image_base64: string; content_type: string }) =>
     api.post(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}/photo`,
              data, { timeout: 120000 }),
+  uploadDesignLogo: (designId: string, data: { image_base64: string; content_type: string }) =>
+    api.post(`/workspace/designs/${designId}/logo`, data, { timeout: 120000 }),
+  addDesignProduct: (designId: string, categoryIndex: number) =>
+    api.post(`/workspace/designs/${designId}/categories/${categoryIndex}/products`, {}),
+  deleteDesignProduct: (designId: string, productId: string) =>
+    api.delete(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}`),
   deleteDesign: (designId: string) => api.delete(`/workspace/designs/${designId}`),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),

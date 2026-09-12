@@ -123,8 +123,8 @@ def _card(product: dict, block: dict, index: int) -> str:
     media = (f'<img src="{photo}" alt="">' if photo
              else '<div style="width:100%;height:100%;background:var(--c-card-2)"></div>')
     badge = ('<div class="badge" style="font-size:%dpx">%s</div>'
-             % (badge_size, esc(product.get("badge") or "Destacado"))
-             if product.get("featured") else "")
+             % (badge_size, esc(product.get("badge")))
+             if str(product.get("badge") or "").strip() else "")
     sold = ('<div class="sold" style="font-size:%dpx">Agotado</div>' % int(name_size * 0.8)
             if product.get("available") is False else "")
 
@@ -248,7 +248,7 @@ def _qr(block, design, theme, products) -> str:
         return ""
     src = ("https://api.qrserver.com/v1/create-qr-code/?size=360x360&margin=0&data="
            + quote(target, safe=""))
-    label = esc(block.get("label") or "Escaneá el menú")
+    label = esc(_field(design, "qr_label") or block.get("label") or "Escaneá el menú")
     return (f'<div class="blk qr" style="{_rect(block)}"><img src="{esc(src)}" alt="">'
             f'<div class="qr-label" style="font-size:{int(block.get("size") or 13)}px">{label}</div></div>')
 
