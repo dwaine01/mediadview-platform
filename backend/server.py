@@ -354,6 +354,17 @@ async def _render_playlist_items(winner: dict) -> list:
                     f"menu:{ref_id}:{edited_at.isoformat() if edited_at else ''}".encode()
                 ).hexdigest(),
             })
+        if item_type == "design":
+            # Plantilla profesional: HTML en una URL, igual que un menú. El APK
+            # ya sabe mostrarlo en el WebView, así que no hace falta tocarlo.
+            design = await db.designs.find_one(
+                {"id": ref_id, "status": {"$in": ["published", "active"]}},
+                {"_id": 0, "id": 1, "name": 1, "updated_at": 1})
+            if not design:
+                continue
+            rendered.append({**base, **design_playlist_item(design)})
+            continue
+
         elif item_type == "webpage":
             rendered.append({
                 **base, "media_id": item["id"], "filename": item.get("title", "Web page"),
@@ -1715,6 +1726,7 @@ from workspace_team_routes import create_workspace_team_routes
 from menu_ai_routes import create_menu_ai_routes
 from menu_canvas_routes import create_menu_canvas_routes
 from menu_templates_routes import create_menu_templates_routes
+from designs_routes import create_designs_routes, design_playlist_item, seed_signage_templates
 from menus_routes import create_menus_routes
 from media_routes import create_media_routes
 from screens_routes import create_screens_routes
@@ -1737,6 +1749,7 @@ app.include_router(create_workspace_team_routes(db, get_current_user))
 app.include_router(create_menu_ai_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_menu_canvas_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_menu_templates_routes(db, get_current_user))
+app.include_router(create_designs_routes(db, get_current_user, bump_playlist_version))
 # -- Fase 2B-1: /menus/* (see docs/REFACTOR_FASE2_PLAN.md) --
 app.include_router(create_menus_routes(gen_id, serialize_doc, _is_platform_admin,
                                         _can_view_playlist, _bump_playlist_screens, _esc))
@@ -1892,6 +1905,12 @@ async def serve_dashboard():
 
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")
+# Fotos genéricas de cada rubro para el catálogo de plantillas. El cliente las
+# reemplaza por las suyas al llenar la plantilla.
+TEMPLATE_SAMPLES_DIR = os.path.join(ROOT_DIR, "static", "template-samples")
+os.makedirs(TEMPLATE_SAMPLES_DIR, exist_ok=True)
+app.mount("/api/static/template-samples", StaticFiles(directory=TEMPLATE_SAMPLES_DIR),
+          name="template-samples")
 
 # Mount Expo SaaS frontend static assets at root-level paths
 # (Expo builds use absolute /_expo/ and /assets/ paths)
@@ -2080,6 +2099,9 @@ async def startup():
     await ensure_indexes(db)
 
     await seed_data()
+    # El catálogo de plantillas profesionales es de MediaView y vive versionado
+    # en el repo, así que se carga en cada arranque (idempotente).
+    await seed_signage_templates(db)
 
     # ── Fase 3 + Fase 5: Campaign Lifecycle Scheduler ─────────────────────────
     # SCHEDULER_MODE controls where cron jobs run:

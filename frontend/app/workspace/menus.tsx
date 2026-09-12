@@ -185,11 +185,11 @@ export default function WorkspaceMenus() {
           <View style={ms.headerActions}>
             <TouchableOpacity
               style={ms.templatesBtn}
-              onPress={() => router.push('/workspace/menu-templates')}
+              onPress={() => router.push('/workspace/signage-templates')}
               testID="open-templates"
             >
               <Ionicons name="albums-outline" size={16} color="#7C3AED" />
-              <Text style={ms.templatesBtnText}>Plantillas</Text>
+              <Text style={ms.templatesBtnText}>Plantillas Pro</Text>
             </TouchableOpacity>
             <TouchableOpacity style={ms.addBtn} onPress={() => setShowCreate(true)}>
               <Ionicons name="add" size={16} color="#fff" />

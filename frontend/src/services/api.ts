@@ -180,7 +180,10 @@ export const workspaceAPI = {
   publishMenu: (menuId: string, data?: { screen_ids?: string[] }) =>
     api.post(`/workspace/menus/${menuId}/publish`, data || {}),
   menuPreviewUrl: (menuId: string) => api.get(`/workspace/menus/${menuId}/preview`),
-  nowPlaying: (screenId: string) =>
+  // Diagnóstico de una pantalla puntual. Nombre distinto a `nowPlaying()` a
+  // propósito: dos claves iguales en este objeto se pisaban y el chequeo tras
+  // publicar terminaba llamando al endpoint general sin el id.
+  screenNowPlaying: (screenId: string) =>
     api.get(`/workspace/screens/${screenId}/now-playing`, { timeout: 30000 }),
   // Billing
   billing: () => api.get('/workspace/billing'),
@@ -233,6 +236,24 @@ export const workspaceAPI = {
     api.put(`/workspace/menu-templates/${templateId}`, { name }),
   deleteMenuTemplate: (templateId: string) =>
     api.delete(`/workspace/menu-templates/${templateId}`),
+  // Catálogo de plantillas profesionales de MediaView + «Mis diseños»
+  signageTemplates: (params?: { industry?: string; kind?: string; orientation?: string }) =>
+    api.get('/workspace/signage-templates', { params }),
+  signageIndustries: () => api.get('/workspace/signage-industries'),
+  designs: () => api.get('/workspace/designs'),
+  createDesign: (templateId: string, name?: string) =>
+    api.post('/workspace/designs', { template_id: templateId, name }),
+  getDesign: (designId: string) => api.get(`/workspace/designs/${designId}`),
+  updateDesign: (designId: string, data: any) => api.put(`/workspace/designs/${designId}`, data),
+  updateDesignProduct: (designId: string, productId: string, patch: any) =>
+    api.put(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}`, patch),
+  publishDesign: (designId: string, screenIds: string[]) =>
+    api.post(`/workspace/designs/${designId}/publish`, { screen_ids: screenIds }),
+  uploadDesignPhoto: (designId: string, productId: string,
+                      data: { image_base64: string; content_type: string }) =>
+    api.post(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}/photo`,
+             data, { timeout: 120000 }),
+  deleteDesign: (designId: string) => api.delete(`/workspace/designs/${designId}`),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),
 };

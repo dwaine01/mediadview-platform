@@ -289,7 +289,7 @@ export default function MenuEditor() {
       try {
         const checks = await Promise.all(
           pickedScreens.slice(0, 4).map(id =>
-            workspaceAPI.nowPlaying(id).then(r => ({ name: r.data.screen?.name, verdict: r.data.verdict }))
+            workspaceAPI.screenNowPlaying(id).then(r => ({ name: r.data.screen?.name, verdict: r.data.verdict }))
               .catch(() => null)),
         );
         diagnosis = checks.filter(Boolean)

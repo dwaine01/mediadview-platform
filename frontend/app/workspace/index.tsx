@@ -32,6 +32,7 @@ const QUICK_ACTIONS = [
   { label: 'Lanzar Promo', desc: 'A todas las pantallas en un toque', icon: 'megaphone' as const, color: '#DB2777', route: '/workspace/promo' },
   { label: 'Agregar Pantalla', desc: 'Conectar con código de 6 dígitos', icon: 'tv' as const, color: C.brand, route: '/workspace/screens' },
   { label: 'Editar Menú', desc: 'Cambiar precios y fotos', icon: 'fast-food' as const, color: '#EA580C', route: '/workspace/menus' },
+  { label: 'Plantillas Pro', desc: 'Carteleras diseñadas para tu rubro', icon: 'color-wand' as const, color: '#7C3AED', route: '/workspace/signage-templates' },
   { label: 'Subir Contenido', desc: 'Imágenes y videos', icon: 'cloud-upload' as const, color: '#0EA5E9', route: '/workspace/content' },
   { label: 'Programar', desc: 'Horarios de emisión', icon: 'calendar' as const, color: C.green, route: '/workspace/schedules' },
 ];
