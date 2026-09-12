@@ -1,0 +1,427 @@
+[
+  {
+    "id": "tires-a",
+    "kind": "menu_board",
+    "industry": "tires",
+    "name": "Llantera — Vitrina clara",
+    "tagline": "El plato estrella en grande y todo el menú de un vistazo",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 56,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#F6F7F8",
+        "bg2": "#E6E9EC",
+        "ink": "#15181C",
+        "muted": "#5C6570",
+        "accent": "#E2A011",
+        "accent2": "#A87100",
+        "accent_ink": "#15181C",
+        "price": "#15181C",
+        "card": "#FFFFFF",
+        "card2": "#EEF1F4",
+        "rule": "#D2D8DE"
+      },
+      "fonts": {
+        "display": "Oswald",
+        "body": "Manrope"
+      },
+      "mood": "taller"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#F6F7F8"
+      },
+      {
+        "type": "diagonal",
+        "angle": 200,
+        "from": "#FFFFFF",
+        "to": "#E4E8EC",
+        "split": 58
+      },
+      {
+        "type": "texture",
+        "asset": "tile"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          60,
+          44,
+          1000,
+          92
+        ],
+        "size": 72
+      },
+      {
+        "type": "text",
+        "rect": [
+          60,
+          142,
+          1000,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          60,
+          196,
+          1090,
+          470
+        ],
+        "binds": "categories[0]",
+        "name_size": 96,
+        "price_size": 60,
+        "desc_size": 27,
+        "ken": true,
+        "rotate": 60,
+        "anim": "pop"
+      },
+      {
+        "type": "category",
+        "rect": [
+          60,
+          700,
+          1090,
+          48
+        ],
+        "binds": "categories[0]",
+        "size": 32
+      },
+      {
+        "type": "product_grid",
+        "rect": [
+          60,
+          756,
+          1090,
+          268
+        ],
+        "cols": 3,
+        "rows": 1,
+        "gap": 28,
+        "binds": "categories[0]",
+        "card": "bare",
+        "skip": 1,
+        "name_size": 30,
+        "price_size": 38,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          196,
+          650,
+          50
+        ],
+        "binds": "categories[1]",
+        "size": 32
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          256,
+          650,
+          220
+        ],
+        "binds": "categories[1]",
+        "size": 34,
+        "gap": 12,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          1210,
+          508,
+          650,
+          46
+        ],
+        "binds": "categories[2]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          1210,
+          564,
+          650,
+          200
+        ],
+        "binds": "categories[2]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1210,
+          800,
+          650,
+          224
+        ],
+        "size": 40
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample": {
+      "business_name": "Llantera El Camino",
+      "tagline": "Montaje y balanceo en el día",
+      "ticker": "Compre 4 llantas y el balanceo va de regalo",
+      "hero_kicker": "Oferta del mes",
+      "promo_kicker": "Paquete completo",
+      "promo_title": "4 llantas + alineación",
+      "promo_price": "$399",
+      "qr_url": "https://llanteraelcamino.com",
+      "qr_label": "Consultá tu medida",
+      "hours": "Lun a Sáb de 8:00 a 18:00",
+      "categories": [
+        {
+          "name": "Llantas por medida",
+          "products": [
+            {
+              "key": "llanta_auto",
+              "name": "185/65 R15 · auto",
+              "description": "Radial, para auto chico y mediano.",
+              "price": 62,
+              "badge": "Más vendida"
+            },
+            {
+              "key": "llanta_camioneta",
+              "name": "265/70 R17 · camioneta",
+              "description": "Todo terreno, cualquier camino.",
+              "price": 128
+            },
+            {
+              "key": "llanta_carga",
+              "name": "215/75 R17.5 · carga",
+              "description": "Para trabajo pesado.",
+              "price": 186
+            },
+            {
+              "key": "llanta_moto",
+              "name": "110/70 R17 · moto",
+              "description": "Agarre en mojado.",
+              "price": 54
+            }
+          ]
+        },
+        {
+          "name": "Rines",
+          "products": [
+            {
+              "key": "rin_deportivo",
+              "name": "Rin deportivo 17\"",
+              "price": 145
+            },
+            {
+              "key": "rin_cromado",
+              "name": "Rin cromado 18\"",
+              "price": 178
+            },
+            {
+              "key": "bateria",
+              "name": "Batería 12V",
+              "price": 95
+            }
+          ]
+        },
+        {
+          "name": "Servicios",
+          "products": [
+            {
+              "key": "alineacion",
+              "name": "Alineación",
+              "price": 25
+            },
+            {
+              "key": "balanceo",
+              "name": "Balanceo",
+              "price": 12
+            },
+            {
+              "key": "montaje",
+              "name": "Montaje por llanta",
+              "price": 6
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "tires-b",
+    "kind": "menu_board",
+    "industry": "tires",
+    "name": "Llantera — Cine oscuro",
+    "tagline": "La foto ocupa media pantalla y la carta se lee al costado",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 14,
+      "categories": 3
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0D0F11",
+        "bg2": "#15181C",
+        "ink": "#F2F5F8",
+        "muted": "#A6B0BA",
+        "accent": "#F2B01E",
+        "accent2": "#B07A00",
+        "accent_ink": "#14100A",
+        "price": "#F2B01E",
+        "card": "#15181C",
+        "card2": "#1D2126",
+        "rule": "#3A4249"
+      },
+      "fonts": {
+        "display": "Oswald",
+        "body": "Manrope"
+      },
+      "mood": "taller-noche"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#0D0F11"
+      },
+      {
+        "type": "texture",
+        "asset": "tile"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 0%",
+        "from": "#F2B01E24",
+        "to": "#00000000"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "backdrop",
+        "rect": [
+          820,
+          0,
+          1100,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true,
+        "rotate": 60
+      },
+      {
+        "type": "brand",
+        "rect": [
+          80,
+          84,
+          700,
+          118
+        ],
+        "size": 86
+      },
+      {
+        "type": "text",
+        "rect": [
+          80,
+          218,
+          700,
+          34
+        ],
+        "field": "tagline",
+        "size": 23,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          300,
+          700,
+          56
+        ],
+        "binds": "categories[0]",
+        "size": 40
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          376,
+          700,
+          460
+        ],
+        "binds": "categories[0]",
+        "size": 38,
+        "gap": 14,
+        "anim": "rise"
+      },
+      {
+        "type": "category",
+        "rect": [
+          80,
+          856,
+          700,
+          46
+        ],
+        "binds": "categories[1]",
+        "size": 30
+      },
+      {
+        "type": "product_list",
+        "rect": [
+          80,
+          912,
+          700,
+          148
+        ],
+        "binds": "categories[1]",
+        "size": 32,
+        "gap": 10,
+        "anim": "rise"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          1180,
+          792,
+          680,
+          232
+        ],
+        "size": 44
+      }
+    ],
+    "motion": {
+      "preset": "subtle-fade"
+    },
+    "sample_from": "tires-a"
+  }
+]

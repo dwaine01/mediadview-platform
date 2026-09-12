@@ -47,10 +47,14 @@ SET_BY_INDUSTRY = {
               "floor, bright overhead workshop light, three quarter angle, single product "
               "centered, industrial and sharp, no hands, no people, no text, no logos, "
               "no watermark, square crop"),
-    "pharmacy": ("clean pharmacy product photography, pure white seamless background, "
-                 "bright even soft light, straight on angle, single product centered, "
-                 "clinical and tidy, no hands, no people, no text, no brand names, "
-                 "no watermark, square crop"),
+    # Sobre blanco puro un producto blanco desaparece y el círculo del tablero
+    # se ve vacío. El fondo es gris verdoso muy suave con una sombra marcada:
+    # el producto se despega y la serie sigue viéndose clínica.
+    "pharmacy": ("clean pharmacy product photography, soft seamless pale mint grey "
+                 "background, bright even soft light with a visible soft shadow under "
+                 "the product, slight 20 degree angle, single product centered and "
+                 "filling the frame, clinical and tidy, no hands, no people, no text, "
+                 "no brand names, no watermark, square crop"),
     "latin_honduras": ("authentic Honduran home cooking photography, rustic dark wood table "
                        "with a woven palm mat, warm afternoon daylight from the right, "
                        "40 degree angle, glazed terracotta plate, no hands, no people, "
@@ -236,7 +240,7 @@ PROMPTS = {
 }
 
 
-async def generate(industry: str) -> None:
+async def generate(industry: str, force: bool = False) -> None:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
 
     key = os.environ.get("EMERGENT_LLM_KEY")
@@ -250,7 +254,7 @@ async def generate(industry: str) -> None:
     folder.mkdir(parents=True, exist_ok=True)
     for key_name, subject in prompts.items():
         target = folder / f"{key_name}.jpg"
-        if target.exists():
+        if target.exists() and not force:
             print(f"  = {target.name} (ya existe)")
             continue
         from menu_ai_routes import IMAGE_MODEL
@@ -272,4 +276,5 @@ async def generate(industry: str) -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(generate(sys.argv[1] if len(sys.argv) > 1 else "pizzeria"))
+    asyncio.run(generate(sys.argv[1] if len(sys.argv) > 1 else "pizzeria",
+                         force="--force" in sys.argv))

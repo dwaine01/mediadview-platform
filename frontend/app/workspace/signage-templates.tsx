@@ -36,6 +36,7 @@ const INDUSTRY_LABEL: Record<string, string> = {
   tires: 'Gomería',
   seafood: 'Pescadería',
   pharmacy: 'Farmacia',
+  offers: 'Ofertas flash',
   generic: 'General',
 };
 

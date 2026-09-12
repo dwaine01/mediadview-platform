@@ -27,7 +27,8 @@ def family_a(name_size=96):
             {"type": "text", "rect": [60, 142, 1000, 34], "field": "tagline",
              "size": 23, "upper": True, "accent": True},
             {"type": "feature", "rect": [60, 196, 1090, 470], "binds": "categories[0]",
-             "name_size": name_size, "price_size": 60, "desc_size": 27, "ken": True, "anim": "pop"},
+             "name_size": name_size, "price_size": 60, "desc_size": 27, "ken": True,
+             "rotate": 60, "anim": "pop"},
             {"type": "category", "rect": [60, 700, 1090, 48], "binds": "categories[0]", "size": 32},
             {"type": "product_grid", "rect": [60, 756, 1090, 268], "cols": 3, "rows": 1,
              "gap": 28, "binds": "categories[0]", "card": "bare", "skip": 1,
@@ -51,7 +52,7 @@ def family_b(brand_size=86):
         "safe_zone": 60,
         "blocks": [
             {"type": "backdrop", "rect": [820, 0, 1100, 1080], "binds": "categories[0]",
-             "fade": "left", "ken": True},
+             "fade": "left", "ken": True, "rotate": 60},
             {"type": "brand", "rect": [80, 84, 700, 118], "size": brand_size},
             {"type": "text", "rect": [80, 218, 700, 34], "field": "tagline",
              "size": 23, "upper": True, "accent": True},
@@ -78,7 +79,7 @@ def family_c():
              "size": 24, "upper": True, "accent": True},
             {"type": "feature", "rect": [1000, 60, 864, 420], "binds": "categories[0]",
              "align": "right", "name_size": 72, "price_size": 48, "desc_size": 23,
-             "ken": True, "anim": "pop"},
+             "ken": True, "rotate": 60, "anim": "pop"},
             {"type": "category", "rect": [56, 226, 900, 50], "binds": "categories[0]", "size": 34},
             {"type": "product_grid", "rect": [56, 300, 900, 330], "cols": 3, "rows": 1,
              "gap": 28, "binds": "categories[0]", "card": "bare", "skip": 1,
@@ -106,7 +107,8 @@ def family_v():
             {"type": "text", "rect": [44, 156, 992, 36], "field": "tagline",
              "size": 25, "upper": True, "accent": True, "align": "center"},
             {"type": "feature", "rect": [44, 214, 992, 470], "binds": "categories[0]",
-             "name_size": 78, "price_size": 54, "desc_size": 25, "ken": True, "anim": "pop"},
+             "name_size": 78, "price_size": 54, "desc_size": 25, "ken": True,
+             "rotate": 60, "anim": "pop"},
             {"type": "category", "rect": [44, 716, 992, 52], "binds": "categories[0]", "size": 36},
             {"type": "product_grid", "rect": [44, 782, 992, 620], "cols": 2, "rows": 2,
              "gap": 26, "binds": "categories[0]", "card": "bare", "skip": 1,
@@ -263,6 +265,30 @@ RUBROS = {
         "light_bg": ["#F7FBFD", "#FFFFFF", "#E5EFF5", "linen"],
         "dark_bg": ["#04121D", "linen", "50% 2%", "#FFD16626"],
     },
+    "tires": {
+        "industry": "tires", "brand": "Llantera El Camino",
+        "display": "Oswald", "body": "Manrope", "mood": "taller",
+        "light": {"bg": "#F6F7F8", "bg2": "#E6E9EC", "ink": "#15181C", "muted": "#5C6570",
+                  "accent": "#E2A011", "accent2": "#A87100", "accent_ink": "#15181C",
+                  "price": "#15181C", "card": "#FFFFFF", "card2": "#EEF1F4", "rule": "#D2D8DE"},
+        "dark": {"bg": "#0D0F11", "bg2": "#15181C", "ink": "#F2F5F8", "muted": "#A6B0BA",
+                 "accent": "#F2B01E", "accent2": "#B07A00", "accent_ink": "#14100A",
+                 "price": "#F2B01E", "card": "#15181C", "card2": "#1D2126", "rule": "#3A4249"},
+        "light_bg": ["#F6F7F8", "#FFFFFF", "#E4E8EC", "tile"],
+        "dark_bg": ["#0D0F11", "tile", "50% 0%", "#F2B01E24"],
+    },
+    "pharmacy": {
+        "industry": "pharmacy", "brand": "Farmacia San Rafael",
+        "display": "Manrope", "body": "Manrope", "mood": "farmacia",
+        "light": {"bg": "#F7FCFB", "bg2": "#E8F4F2", "ink": "#0F2A28", "muted": "#5A7472",
+                  "accent": "#0E9384", "accent2": "#07695F", "accent_ink": "#FFFFFF",
+                  "price": "#0F2A28", "card": "#FFFFFF", "card2": "#F0F8F7", "rule": "#D0E4E1"},
+        "dark": {"bg": "#04140F", "bg2": "#0A2119", "ink": "#EFFBF7", "muted": "#A2C4BC",
+                 "accent": "#32D5AE", "accent2": "#0E9384", "accent_ink": "#04140F",
+                 "price": "#32D5AE", "card": "#0A2119", "card2": "#0F2C22", "rule": "#25514A"},
+        "light_bg": ["#F7FCFB", "#FFFFFF", "#E6F3F1", "linen"],
+        "dark_bg": ["#04140F", "linen", "50% 2%", "#32D5AE24"],
+    },
 }
 
 PLAN = {  # qué familias recibe cada rubro y con qué nombre de archivo
@@ -276,6 +302,8 @@ PLAN = {  # qué familias recibe cada rubro y con qué nombre de archivo
     "mexican": ["a", "b", "v"],
     "ice_cream": ["a", "c", "v"],
     "seafood": ["b", "a"],
+    "tires": ["a", "b"],
+    "pharmacy": ["a", "c"],
 }
 
 

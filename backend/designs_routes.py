@@ -73,7 +73,12 @@ def _materialise_sample(template: dict) -> tuple[dict, dict[str, dict]]:
             products[product_id] = {
                 **item,
                 "id": product_id,
-                "image_url": item.get("image_url") or _sample_photo(industry, key),
+                # `image` deja a una plantilla tomar prestada la foto de otro
+                # rubro: una oferta flash puede ser de hamburguesas o de helado.
+                "image_url": (item.get("image_url")
+                              or (f"/api/static/template-samples/{item['image']}"
+                                  if item.get("image") else None)
+                              or _sample_photo(industry, key)),
             }
             ids.append(product_id)
         categories.append({"name": category.get("name"), "product_ids": ids})

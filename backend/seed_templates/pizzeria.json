@@ -90,6 +90,7 @@
         "price_size": 60,
         "desc_size": 27,
         "ken": true,
+        "rotate": 60,
         "anim": "pop"
       },
       {
@@ -438,7 +439,8 @@
         ],
         "binds": "categories[0]",
         "fade": "left",
-        "ken": true
+        "ken": true,
+        "rotate": 60
       },
       {
         "type": "brand",
@@ -619,6 +621,7 @@
         "price_size": 54,
         "desc_size": 25,
         "ken": true,
+        "rotate": 60,
         "anim": "pop"
       },
       {

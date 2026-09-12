@@ -110,6 +110,25 @@ function fit(){{
 window.addEventListener('resize',fit);fit();
 // El texto del cliente puede ser más largo que el de muestra. Lo encogemos
 // hasta que entre, en vez de dejarlo desbordar y romper la composición.
+(function(){{
+  // El destacado cambia solo: mismo bloque, otro producto. Sin recargar nada.
+  var groups=document.querySelectorAll('[data-rotate]');
+  for(var g=0;g<groups.length;g++){{
+    (function(box){{
+      var slides=[],kids=box.children;
+      for(var k=0;k<kids.length;k++){{
+        if(kids[k].className.indexOf('slide')>=0) slides.push(kids[k]);
+      }}
+      if(slides.length<2) return;
+      var at=0,every=parseInt(box.getAttribute('data-rotate'),10)||60000;
+      setInterval(function(){{
+        slides[at].className=slides[at].className.replace(' on','');
+        at=(at+1)%slides.length;
+        slides[at].className+=' on';
+      }},every);
+    }})(groups[g]);
+  }}
+}})();
 function fitText(){{
   var nodes=document.querySelectorAll('[data-fit]');
   for(var i=0;i<nodes.length;i++){{
@@ -217,8 +236,13 @@ _BASE_CSS = """
 /* ── Composición sin recuadros ──────────────────────────────────────────────
    El producto estrella no vive en una tarjeta: la foto se recorta en círculo,
    se apoya en el fondo con sombra y el precio va en un disco girado. */
-.feat{display:flex;align-items:center;gap:calc(var(--pad) * 1.8)}
-.feat-right{flex-direction:row-reverse}
+/* El bloque es el escenario; cada `.slide` es un producto entrando y saliendo. */
+.feat > .slide{position:absolute;inset:0;display:flex;align-items:center;
+  gap:calc(var(--pad) * 1.8);opacity:0;transition:opacity 1.1s ease-in-out}
+.feat-right > .slide{flex-direction:row-reverse}
+.feat > .slide.on{opacity:1}
+.back > .slide{position:absolute;inset:0;opacity:0;transition:opacity 1.4s ease-in-out}
+.back > .slide.on{opacity:1}
 .feat-photo{position:relative;flex:0 0 44%;aspect-ratio:1}
 .feat-photo img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%;
   box-shadow:0 34px 90px rgba(0,0,0,.45),0 0 0 10px rgba(255,255,255,.07)}
@@ -229,6 +253,12 @@ _BASE_CSS = """
   line-height:.96;letter-spacing:-.02em;text-shadow:var(--sh)}
 .feat-desc{font-family:var(--f-body);font-weight:500;color:var(--c-muted);
   line-height:1.3;margin-top:.5em;max-width:22em}
+/* El precio dentro del texto: cuando manda el precio o cuando la foto vive en
+   el fondo, el número va en la columna de texto y no en un disco flotante. */
+.feat-price{font-family:var(--f-display);font-weight:900;color:var(--c-price);
+  line-height:.9;margin-top:.28em;letter-spacing:-.03em;text-shadow:var(--sh)}
+/* Precio al frente: manda él, así que no arrastra el margen del texto. */
+.feat-copy > .feat-price:first-child{margin-top:0;margin-bottom:.06em}
 .disc{position:absolute;right:-.5em;bottom:.3em;display:flex;align-items:center;justify-content:center;
   width:2.9em;height:2.9em;border-radius:50%;background:var(--c-accent);
   color:var(--c-accent-ink);font-family:var(--f-body);font-weight:900;
@@ -239,19 +269,27 @@ _BASE_CSS = """
 .card-bare .card-photo{flex:0 0 auto;height:58%;width:auto;aspect-ratio:1;border-radius:50%;
   align-self:center;box-shadow:0 18px 40px rgba(0,0,0,.38)}
 .card-bare .badge,.card-bare .card-photo::after{display:none}
+/* Monograma: el lugar de la foto que falta se ve intencional, no roto. */
+.card-mono{display:flex;align-items:center;justify-content:center;width:100%;height:100%;
+  font-family:var(--f-display);font-weight:900;color:var(--c-accent);opacity:.5;
+  line-height:1;background:var(--c-card-2)}
 .card-bare .card-body{padding:calc(var(--pad) * .7) 0 0;align-items:center;text-align:center}
 .card-bare .variants{justify-content:center}
 /* Fotografía de fondo: se disuelve hacia el lado del texto. */
 .back{overflow:hidden}
 .back img{width:100%;height:100%;object-fit:cover;display:block;filter:saturate(1.06) contrast(1.04)}
-.back-right img{-webkit-mask-image:linear-gradient(90deg,#000 38%,transparent 100%);
-  mask-image:linear-gradient(90deg,#000 38%,transparent 100%)}
-.back-left img{-webkit-mask-image:linear-gradient(270deg,#000 38%,transparent 100%);
-  mask-image:linear-gradient(270deg,#000 38%,transparent 100%)}
-.back-bottom img{-webkit-mask-image:linear-gradient(180deg,#000 34%,transparent 100%);
-  mask-image:linear-gradient(180deg,#000 34%,transparent 100%)}
-.back-top img{-webkit-mask-image:linear-gradient(0deg,#000 34%,transparent 100%);
-  mask-image:linear-gradient(0deg,#000 34%,transparent 100%)}
+.back .slide.anim-ken img{animation:mv-ken 24s ease-in-out infinite alternate}
+/* La máscara no es un corte: tres paradas para que la foto se apague de a poco.
+   Con dos paradas quedaba una costura vertical visible cuando la foto tiene
+   fondo claro de estudio y la plantilla es oscura. */
+.back-right img{-webkit-mask-image:linear-gradient(90deg,#000 0%,#000 30%,rgba(0,0,0,.5) 68%,transparent 99%);
+  mask-image:linear-gradient(90deg,#000 0%,#000 30%,rgba(0,0,0,.5) 68%,transparent 99%)}
+.back-left img{-webkit-mask-image:linear-gradient(270deg,#000 0%,#000 30%,rgba(0,0,0,.5) 68%,transparent 99%);
+  mask-image:linear-gradient(270deg,#000 0%,#000 30%,rgba(0,0,0,.5) 68%,transparent 99%)}
+.back-bottom img{-webkit-mask-image:linear-gradient(180deg,#000 0%,#000 26%,rgba(0,0,0,.5) 66%,transparent 99%);
+  mask-image:linear-gradient(180deg,#000 0%,#000 26%,rgba(0,0,0,.5) 66%,transparent 99%)}
+.back-top img{-webkit-mask-image:linear-gradient(0deg,#000 0%,#000 26%,rgba(0,0,0,.5) 66%,transparent 99%);
+  mask-image:linear-gradient(0deg,#000 0%,#000 26%,rgba(0,0,0,.5) 66%,transparent 99%)}
 
 .promo-kicker{position:relative;font-family:var(--f-body);font-weight:900;
   color:var(--c-accent-ink);opacity:.85;text-transform:uppercase;letter-spacing:.2em}
@@ -289,4 +327,5 @@ _BASE_CSS = """
 .disc{animation:mv-reveal .8s .7s both cubic-bezier(.2,1.1,.3,1)}
 .feat .feat-name{animation:mv-rise 1.1s .1s both cubic-bezier(.16,.8,.24,1)}
 .feat .feat-desc{animation:mv-rise 1.1s .28s both cubic-bezier(.16,.8,.24,1)}
+.feat .feat-price{animation:mv-reveal .9s .52s both cubic-bezier(.2,1.05,.3,1)}
 """

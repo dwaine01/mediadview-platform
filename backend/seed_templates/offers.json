@@ -1,0 +1,538 @@
+[
+  {
+    "id": "offers-flash-cine",
+    "kind": "offer",
+    "industry": "offers",
+    "name": "Oferta flash — Cine",
+    "tagline": "Un solo producto, la foto llenando la pantalla",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 4,
+      "categories": 1
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#07090C",
+        "bg2": "#101319",
+        "ink": "#FFFFFF",
+        "muted": "#B9BFC9",
+        "accent": "#E4322B",
+        "accent2": "#A5120D",
+        "accent_ink": "#FFFFFF",
+        "price": "#FFD84D",
+        "card": "#101319",
+        "card2": "#171C24",
+        "rule": "#2C333D"
+      },
+      "fonts": {
+        "display": "Archivo Black",
+        "body": "Manrope"
+      },
+      "mood": "flash-cine"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#07090C"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "70% 40%",
+        "from": "#E4322B2E",
+        "to": "#00000000"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "backdrop",
+        "rect": [
+          880,
+          0,
+          1040,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true,
+        "rotate": 45
+      },
+      {
+        "type": "brand",
+        "rect": [
+          88,
+          84,
+          720,
+          92
+        ],
+        "size": 58
+      },
+      {
+        "type": "text",
+        "rect": [
+          88,
+          194,
+          720,
+          34
+        ],
+        "field": "tagline",
+        "size": 24,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          88,
+          296,
+          760,
+          480
+        ],
+        "binds": "categories[0]",
+        "photo": false,
+        "name_size": 112,
+        "price_size": 116,
+        "desc_size": 30,
+        "rotate": 45,
+        "anim": "pop"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          88,
+          830,
+          760,
+          194
+        ],
+        "size": 42
+      },
+      {
+        "type": "ticker",
+        "rect": [
+          980,
+          936,
+          860,
+          88
+        ],
+        "size": 30
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample": {
+      "business_name": "Mi Negocio",
+      "tagline": "Oferta del día",
+      "ticker": "Sólo hoy, hasta agotar existencias",
+      "hero_kicker": "Oferta flash",
+      "promo_kicker": "Válido hoy",
+      "promo_title": "Llevá dos y pagá uno",
+      "promo_price": "2x1",
+      "qr_url": "https://minegocio.com/oferta",
+      "qr_label": "Pedí acá",
+      "categories": [
+        {
+          "name": "Oferta del día",
+          "products": [
+            {
+              "key": "combo_doble",
+              "name": "Doble Bacon",
+              "description": "Hoy con papas y refresco incluido.",
+              "price": 7.99,
+              "badge": "Hoy",
+              "image": "fast_food/combo_doble.jpg"
+            },
+            {
+              "key": "taco_pastor",
+              "name": "Tacos al pastor",
+              "description": "Orden de cinco, con piña y cilantro.",
+              "price": 8.9,
+              "image": "mexican/taco_pastor.jpg"
+            },
+            {
+              "key": "copa_sundae",
+              "name": "Copa sundae",
+              "description": "Tres bochas con salsa y crema.",
+              "price": 4.5,
+              "image": "ice_cream/copa_sundae.jpg"
+            },
+            {
+              "key": "arepa_reina",
+              "name": "Reina pepiada",
+              "description": "Pollo y aguacate, recién hecha.",
+              "price": 4.9,
+              "image": "latin_venezuela/arepa_reina.jpg"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    "id": "offers-flash-claro",
+    "kind": "offer",
+    "industry": "offers",
+    "name": "Oferta flash — Clara",
+    "tagline": "Fondo claro, foto redonda y precio en disco enorme",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 60,
+    "capacity": {
+      "products": 4,
+      "categories": 1
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFFBF2",
+        "bg2": "#F3E7D2",
+        "ink": "#151210",
+        "muted": "#6B625B",
+        "accent": "#E4322B",
+        "accent2": "#A5120D",
+        "accent_ink": "#FFFFFF",
+        "price": "#151210",
+        "card": "#FFFFFF",
+        "card2": "#F7F1E6",
+        "rule": "#DED5C9"
+      },
+      "fonts": {
+        "display": "Archivo Black",
+        "body": "Manrope"
+      },
+      "mood": "flash-claro"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#FFFBF2"
+      },
+      {
+        "type": "diagonal",
+        "angle": 196,
+        "from": "#FFFFFF",
+        "to": "#F1E4CE",
+        "split": 56
+      },
+      {
+        "type": "texture",
+        "asset": "gloss"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "brand",
+        "rect": [
+          72,
+          60,
+          900,
+          96
+        ],
+        "size": 66
+      },
+      {
+        "type": "text",
+        "rect": [
+          72,
+          166,
+          900,
+          36
+        ],
+        "field": "tagline",
+        "size": 26,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          72,
+          240,
+          1776,
+          620
+        ],
+        "binds": "categories[0]",
+        "align": "right",
+        "name_size": 120,
+        "price_size": 104,
+        "desc_size": 34,
+        "ken": true,
+        "rotate": 45,
+        "anim": "pop"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          72,
+          900,
+          1180,
+          148
+        ],
+        "size": 42
+      },
+      {
+        "type": "qr",
+        "rect": [
+          1320,
+          900,
+          528,
+          148
+        ],
+        "size": 15
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "offers-flash-cine"
+  },
+  {
+    "id": "offers-flash-totem",
+    "kind": "offer",
+    "industry": "offers",
+    "name": "Oferta flash — Tótem",
+    "tagline": "Vertical, para la puerta o la vidriera",
+    "canvas": {
+      "w": 1080,
+      "h": 1920,
+      "orientation": "portrait"
+    },
+    "safe_zone": 48,
+    "capacity": {
+      "products": 4,
+      "categories": 1
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0B0A12",
+        "bg2": "#151322",
+        "ink": "#FFFFFF",
+        "muted": "#BEBACD",
+        "accent": "#FF3D7F",
+        "accent2": "#B3155A",
+        "accent_ink": "#FFFFFF",
+        "price": "#FFE066",
+        "card": "#151322",
+        "card2": "#1D1A2C",
+        "rule": "#332F47"
+      },
+      "fonts": {
+        "display": "Archivo Black",
+        "body": "Manrope"
+      },
+      "mood": "flash-totem"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#0B0A12"
+      },
+      {
+        "type": "gradient",
+        "shape": "radial",
+        "at": "50% 26%",
+        "from": "#FF3D7F33",
+        "to": "#00000000"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "backdrop",
+        "rect": [
+          0,
+          0,
+          1080,
+          1200
+        ],
+        "binds": "categories[0]",
+        "fade": "bottom",
+        "ken": true,
+        "rotate": 45
+      },
+      {
+        "type": "brand",
+        "rect": [
+          48,
+          952,
+          984,
+          88
+        ],
+        "size": 54
+      },
+      {
+        "type": "feature",
+        "rect": [
+          48,
+          1120,
+          984,
+          520
+        ],
+        "binds": "categories[0]",
+        "photo": false,
+        "name_size": 112,
+        "price_size": 150,
+        "desc_size": 32,
+        "rotate": 45,
+        "anim": "pop"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          48,
+          1688,
+          984,
+          184
+        ],
+        "size": 46
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "offers-flash-cine"
+  },
+  {
+    "id": "offers-flash-precio",
+    "kind": "offer",
+    "industry": "offers",
+    "name": "Oferta flash — Precio gigante",
+    "tagline": "El precio manda: se lee desde la calle",
+    "canvas": {
+      "w": 1920,
+      "h": 1080,
+      "orientation": "landscape"
+    },
+    "safe_zone": 64,
+    "capacity": {
+      "products": 4,
+      "categories": 1
+    },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#111827",
+        "bg2": "#1B2537",
+        "ink": "#FFFFFF",
+        "muted": "#AFBACB",
+        "accent": "#FFD400",
+        "accent2": "#C9A400",
+        "accent_ink": "#141006",
+        "price": "#FFD400",
+        "card": "#1B2537",
+        "card2": "#222E44",
+        "rule": "#3A4760"
+      },
+      "fonts": {
+        "display": "Archivo Black",
+        "body": "Manrope"
+      },
+      "mood": "flash-precio"
+    },
+    "background": [
+      {
+        "type": "color",
+        "value": "#111827"
+      },
+      {
+        "type": "diagonal",
+        "angle": 206,
+        "from": "#1B2537",
+        "to": "#0B111D",
+        "split": 52
+      },
+      {
+        "type": "texture",
+        "asset": "tile"
+      }
+    ],
+    "blocks": [
+      {
+        "type": "backdrop",
+        "rect": [
+          940,
+          0,
+          980,
+          1080
+        ],
+        "binds": "categories[0]",
+        "fade": "left",
+        "ken": true,
+        "rotate": 45
+      },
+      {
+        "type": "brand",
+        "rect": [
+          72,
+          62,
+          760,
+          92
+        ],
+        "size": 58
+      },
+      {
+        "type": "text",
+        "rect": [
+          72,
+          172,
+          760,
+          34
+        ],
+        "field": "tagline",
+        "size": 24,
+        "upper": true,
+        "accent": true
+      },
+      {
+        "type": "feature",
+        "rect": [
+          72,
+          264,
+          820,
+          520
+        ],
+        "binds": "categories[0]",
+        "photo": false,
+        "price_style": "lead",
+        "name_size": 84,
+        "price_size": 240,
+        "desc_size": 28,
+        "rotate": 45,
+        "anim": "pop"
+      },
+      {
+        "type": "promo",
+        "rect": [
+          72,
+          836,
+          820,
+          188
+        ],
+        "size": 42
+      },
+      {
+        "type": "ticker",
+        "rect": [
+          960,
+          940,
+          880,
+          84
+        ],
+        "size": 30
+      }
+    ],
+    "motion": {
+      "preset": "pop-in"
+    },
+    "sample_from": "offers-flash-cine"
+  }
+]

@@ -1,9 +1,9 @@
 [
   {
-    "id": "ice-cream-a",
+    "id": "pharmacy-a",
     "kind": "menu_board",
-    "industry": "ice_cream",
-    "name": "Heladería — Vitrina clara",
+    "industry": "pharmacy",
+    "name": "Farmacia — Vitrina clara",
     "tagline": "El plato estrella en grande y todo el menú de un vistazo",
     "canvas": {
       "w": 1920,
@@ -18,39 +18,39 @@
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#FFF9FB",
-        "bg2": "#FBEAF2",
-        "ink": "#2A1430",
-        "muted": "#7A5C74",
-        "accent": "#E8468C",
-        "accent2": "#B92A6A",
+        "bg": "#F7FCFB",
+        "bg2": "#E8F4F2",
+        "ink": "#0F2A28",
+        "muted": "#5A7472",
+        "accent": "#0E9384",
+        "accent2": "#07695F",
         "accent_ink": "#FFFFFF",
-        "price": "#6B3FC0",
+        "price": "#0F2A28",
         "card": "#FFFFFF",
-        "card2": "#FFF2F8",
-        "rule": "#F1CFE0"
+        "card2": "#F0F8F7",
+        "rule": "#D0E4E1"
       },
       "fonts": {
-        "display": "Baloo 2",
-        "body": "Nunito"
+        "display": "Manrope",
+        "body": "Manrope"
       },
-      "mood": "heladeria"
+      "mood": "farmacia"
     },
     "background": [
       {
         "type": "color",
-        "value": "#FFF9FB"
+        "value": "#F7FCFB"
       },
       {
         "type": "diagonal",
         "angle": 200,
         "from": "#FFFFFF",
-        "to": "#FBE7F1",
+        "to": "#E6F3F1",
         "split": 58
       },
       {
         "type": "texture",
-        "asset": "gloss"
+        "asset": "linen"
       }
     ],
     "blocks": [
@@ -185,86 +185,89 @@
       "preset": "pop-in"
     },
     "sample": {
-      "business_name": "Heladería Frescura",
-      "tagline": "Helado artesanal hecho acá",
-      "ticker": "Martes de 2x1 en conos simples",
-      "hero_kicker": "El más pedido",
-      "promo_kicker": "Para llevar",
-      "promo_title": "Kilo de helado + 2 conos",
-      "promo_price": "$12.90",
+      "business_name": "Farmacia San Rafael",
+      "tagline": "Atención con receta y sin receta",
+      "ticker": "Toma de presión gratis todos los días",
+      "hero_kicker": "Promoción de la semana",
+      "promo_kicker": "Llevá 2",
+      "promo_title": "Vitaminas y suplementos",
+      "promo_price": "-30%",
+      "qr_url": "https://farmaciasanrafael.com",
+      "qr_label": "Pedí a domicilio",
+      "hours": "Lun a Dom de 7:00 a 22:00",
       "categories": [
         {
-          "name": "Copas y postres",
+          "name": "Promociones",
           "products": [
             {
-              "key": "copa_sundae",
-              "name": "Copa sundae",
-              "description": "Tres bochas, salsa de chocolate y crema.",
-              "price": 6.5,
-              "badge": "La favorita"
+              "key": "vitaminas",
+              "name": "Vitaminas y suplementos",
+              "description": "Llevando dos, 30% en la segunda.",
+              "price": 14.9,
+              "badge": "Promo"
             },
             {
-              "key": "banana_split",
-              "name": "Banana split",
-              "description": "Banana, tres bochas, nueces y salsa.",
-              "price": 7.9
+              "key": "mascarillas",
+              "name": "Mascarillas x50",
+              "description": "Caja de cincuenta unidades.",
+              "price": 6.9
             },
             {
-              "key": "waffle_helado",
-              "name": "Waffle con helado",
-              "description": "Waffle tibio, dos bochas y frutos rojos.",
-              "price": 8.5
-            },
-            {
-              "key": "torta_helada",
-              "name": "Porción de torta helada",
-              "description": "Capas de chocolate y vainilla.",
-              "price": 5.5
-            }
-          ]
-        },
-        {
-          "name": "Conos y paletas",
-          "products": [
-            {
-              "key": "cono_doble",
-              "name": "Cono doble",
-              "price": 4.5
-            },
-            {
-              "key": "cono_simple",
-              "name": "Cono simple",
-              "price": 3.2
-            },
-            {
-              "key": "paleta_frutilla",
-              "name": "Paleta de frutilla",
+              "key": "alcohol",
+              "name": "Alcohol 70%",
+              "description": "Botella de un litro.",
               "price": 2.5
             },
             {
-              "key": "granizado",
-              "name": "Granizado",
-              "price": 3.5
+              "key": "curitas",
+              "name": "Curitas surtidas",
+              "description": "Tres medidas en la misma caja.",
+              "price": 3.2
             }
           ]
         },
         {
-          "name": "Bebidas",
+          "name": "Cuidado diario",
           "products": [
             {
-              "key": "malteada",
-              "name": "Malteada",
-              "price": 5.5
+              "key": "presion",
+              "name": "Tensiómetro digital",
+              "price": 39.9
             },
             {
-              "key": "cafe_helado",
-              "name": "Café helado",
-              "price": 3.9
+              "key": "panales",
+              "name": "Pañales, paquete grande",
+              "price": 18.5
             },
             {
-              "key": "agua",
-              "name": "Agua",
-              "price": 1.5
+              "key": "jarabe",
+              "name": "Jarabe para la tos",
+              "price": 7.9
+            },
+            {
+              "key": "termometro",
+              "name": "Termómetro digital",
+              "price": 8.9
+            }
+          ]
+        },
+        {
+          "name": "Servicios",
+          "products": [
+            {
+              "key": "analgesico",
+              "name": "Analgésicos",
+              "price": 4.5
+            },
+            {
+              "key": "presion_toma",
+              "name": "Toma de presión",
+              "price": 0
+            },
+            {
+              "key": "inyeccion",
+              "name": "Aplicación de inyección",
+              "price": 3
             }
           ]
         }
@@ -272,10 +275,10 @@
     }
   },
   {
-    "id": "ice-cream-c",
+    "id": "pharmacy-c",
     "kind": "menu_board",
-    "industry": "ice_cream",
-    "name": "Heladería — Sereno",
+    "industry": "pharmacy",
+    "name": "Farmacia — Sereno",
     "tagline": "Fondo claro, color en dosis chicas y fotos redondas",
     "canvas": {
       "w": 1920,
@@ -290,39 +293,39 @@
     "animated": true,
     "theme": {
       "palette": {
-        "bg": "#FFF9FB",
-        "bg2": "#FBEAF2",
-        "ink": "#2A1430",
-        "muted": "#7A5C74",
-        "accent": "#E8468C",
-        "accent2": "#B92A6A",
+        "bg": "#F7FCFB",
+        "bg2": "#E8F4F2",
+        "ink": "#0F2A28",
+        "muted": "#5A7472",
+        "accent": "#0E9384",
+        "accent2": "#07695F",
         "accent_ink": "#FFFFFF",
-        "price": "#6B3FC0",
+        "price": "#0F2A28",
         "card": "#FFFFFF",
-        "card2": "#FFF2F8",
-        "rule": "#F1CFE0"
+        "card2": "#F0F8F7",
+        "rule": "#D0E4E1"
       },
       "fonts": {
-        "display": "Baloo 2",
-        "body": "Nunito"
+        "display": "Manrope",
+        "body": "Manrope"
       },
-      "mood": "heladeria"
+      "mood": "farmacia"
     },
     "background": [
       {
         "type": "color",
-        "value": "#FFF9FB"
+        "value": "#F7FCFB"
       },
       {
         "type": "diagonal",
         "angle": 200,
         "from": "#FFFFFF",
-        "to": "#FBE7F1",
+        "to": "#E6F3F1",
         "split": 58
       },
       {
         "type": "texture",
-        "asset": "gloss"
+        "asset": "linen"
       }
     ],
     "blocks": [
@@ -467,170 +470,6 @@
     "motion": {
       "preset": "pop-in"
     },
-    "sample_from": "ice-cream-a"
-  },
-  {
-    "id": "ice-cream-v",
-    "kind": "menu_board",
-    "industry": "ice_cream",
-    "name": "Heladería — Tótem vertical",
-    "tagline": "Para la pared o la fila de la caja",
-    "canvas": {
-      "w": 1080,
-      "h": 1920,
-      "orientation": "portrait"
-    },
-    "safe_zone": 44,
-    "capacity": {
-      "products": 14,
-      "categories": 3
-    },
-    "animated": true,
-    "theme": {
-      "palette": {
-        "bg": "#FFF9FB",
-        "bg2": "#FBEAF2",
-        "ink": "#2A1430",
-        "muted": "#7A5C74",
-        "accent": "#E8468C",
-        "accent2": "#B92A6A",
-        "accent_ink": "#FFFFFF",
-        "price": "#6B3FC0",
-        "card": "#FFFFFF",
-        "card2": "#FFF2F8",
-        "rule": "#F1CFE0"
-      },
-      "fonts": {
-        "display": "Baloo 2",
-        "body": "Nunito"
-      },
-      "mood": "heladeria"
-    },
-    "background": [
-      {
-        "type": "color",
-        "value": "#FFF9FB"
-      },
-      {
-        "type": "diagonal",
-        "angle": 200,
-        "from": "#FFFFFF",
-        "to": "#FBE7F1",
-        "split": 58
-      },
-      {
-        "type": "texture",
-        "asset": "gloss"
-      }
-    ],
-    "blocks": [
-      {
-        "type": "brand",
-        "rect": [
-          44,
-          44,
-          992,
-          104
-        ],
-        "size": 78
-      },
-      {
-        "type": "text",
-        "rect": [
-          44,
-          156,
-          992,
-          36
-        ],
-        "field": "tagline",
-        "size": 25,
-        "upper": true,
-        "accent": true,
-        "align": "center"
-      },
-      {
-        "type": "feature",
-        "rect": [
-          44,
-          214,
-          992,
-          470
-        ],
-        "binds": "categories[0]",
-        "name_size": 78,
-        "price_size": 54,
-        "desc_size": 25,
-        "ken": true,
-        "rotate": 60,
-        "anim": "pop"
-      },
-      {
-        "type": "category",
-        "rect": [
-          44,
-          716,
-          992,
-          52
-        ],
-        "binds": "categories[0]",
-        "size": 36
-      },
-      {
-        "type": "product_grid",
-        "rect": [
-          44,
-          782,
-          992,
-          620
-        ],
-        "cols": 2,
-        "rows": 2,
-        "gap": 26,
-        "binds": "categories[0]",
-        "card": "bare",
-        "skip": 1,
-        "name_size": 34,
-        "price_size": 42,
-        "anim": "rise"
-      },
-      {
-        "type": "category",
-        "rect": [
-          44,
-          1434,
-          992,
-          48
-        ],
-        "binds": "categories[1]",
-        "size": 32
-      },
-      {
-        "type": "product_list",
-        "rect": [
-          44,
-          1492,
-          992,
-          190
-        ],
-        "binds": "categories[1]",
-        "size": 34,
-        "gap": 10,
-        "anim": "rise"
-      },
-      {
-        "type": "promo",
-        "rect": [
-          44,
-          1716,
-          992,
-          168
-        ],
-        "size": 34
-      }
-    ],
-    "motion": {
-      "preset": "pop-in"
-    },
-    "sample_from": "ice-cream-a"
+    "sample_from": "pharmacy-a"
   }
 ]

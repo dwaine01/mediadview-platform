@@ -121,8 +121,13 @@ def _card(product: dict, block: dict, index: int) -> str:
     desc_size = int(block.get("desc_size") or 15)
     badge_size = max(9, int(name_size * 0.42))
 
+    # Sin foto no se deja un círculo vacío: se dibuja un monograma con la
+    # inicial del producto. Un hueco blanco parece un error; una inicial
+    # tipográfica parece una decisión de diseño.
+    initial = esc((str(product.get("name") or "·").strip() or "·")[0].upper())
     media = (f'<img src="{photo}" alt="">' if photo
-             else '<div style="width:100%;height:100%;background:var(--c-card-2)"></div>')
+             else f'<div class="card-mono" style="font-size:{int(name_size * 1.9)}px">'
+                  f'{initial}</div>')
     badge = ('<div class="badge" style="font-size:%dpx">%s</div>'
              % (badge_size, esc(product.get("badge")))
              if str(product.get("badge") or "").strip() else "")
@@ -224,40 +229,59 @@ def _hero(block, design, theme, products) -> str:
 def _feature(block, design, theme, products) -> str:
     """El producto estrella, sin tarjeta: foto redonda, texto al lado, precio en disco.
 
-    Es el bloque que rompe el look de «cajas apiladas»: la foto se recorta en
-    círculo y se apoya sobre el fondo con sombra, el precio va en un disco
-    girado encima y el texto respira al costado. La composición es el diseño,
-    no el recuadro.
+    Con `rotate` (segundos) va cambiando solo entre los productos de su
+    sección: la pantalla se siente viva y el cliente ve más de un plato sin
+    que el tablero se llene de fotos chicas.
     """
     items = _category(design, block, products)[1]
-    product = items[0] if items else {}
-    photo = safe_url(product.get("image_url"))
+    if not items:
+        return ""
+    rotate = int(block.get("rotate") or 0)
+    shown = items[:4] if rotate else items[:1]
     kicker = esc(_field(design, "hero_kicker"))
-    name = esc(product.get("name") or _field(design, "hero_title"))
-    description = esc(product.get("description"))
-    price = esc(money(product.get("sale_price") or product.get("price")))
     name_size = int(block.get("name_size") or 86)
     price_size = int(block.get("price_size") or 56)
     desc_size = int(block.get("desc_size") or 26)
     side = "right" if str(block.get("align") or "left") == "right" else "left"
-    ken = " anim-ken" if block.get("ken") and photo else ""
+    ken = " anim-ken" if block.get("ken") else ""
+    # La foto redonda se apaga cuando la fotografía ya está en el fondo
+    # (`backdrop`): dos veces el mismo plato en la misma pantalla es ruido.
+    with_photo = block.get("photo") is not False
+    # Un precio enorme no cabe en un disco apoyado en la foto: se sale del
+    # círculo y se come el título. Cuando el precio manda, va en el texto y
+    # puede ir incluso antes del nombre (`lead`).
+    style = str(block.get("price_style") or ("disc" if with_photo else "plain"))
+    if style not in ("disc", "plain", "lead"):
+        style = "plain"
+    if style == "disc" and not with_photo:
+        style = "plain"
 
-    disc = (f'<div class="disc" style="font-size:{price_size}px">{price}</div>'
-            if price else "")
-    # El disco del precio vive PEGADO a la foto, mordiéndole el borde: así se
-    # lee como una etiqueta puesta encima y no como un círculo suelto.
-    media = (f'<div class="feat-photo{ken}"><img src="{photo}" alt="">{disc}</div>'
-             if photo else "")
-    copy = (
-        (f'<div class="feat-kicker" style="font-size:{int(name_size * 0.22)}px">{kicker}</div>'
-         if kicker else "")
-        + f'<div class="feat-name" style="font-size:{name_size}px" data-fit>{name}</div>'
-        + (f'<div class="feat-desc" style="font-size:{desc_size}px">{description}</div>'
-           if description else "")
-    )
-    return (f'<div class="blk feat feat-{side} {_animation(block)}" style="{_rect(block)}">'
-            f'{media}<div class="feat-copy">{copy}</div>'
-            + (disc if not photo else "") + "</div>")
+    slides = []
+    for index, product in enumerate(shown):
+        photo = safe_url(product.get("image_url")) if with_photo else ""
+        name = esc(product.get("name") or _field(design, "hero_title"))
+        description = esc(product.get("description"))
+        price = esc(money(product.get("sale_price") or product.get("price")))
+        disc = (f'<div class="disc" style="font-size:{price_size}px">{price}</div>'
+                if price and style == "disc" else "")
+        media = (f'<div class="feat-photo{ken}"><img src="{photo}" alt="">{disc}</div>'
+                 if photo else "")
+        big = (f'<div class="feat-price" style="font-size:{price_size}px" data-fit>{price}</div>'
+               if price and style in ("plain", "lead") else "")
+        copy = (
+            (big if style == "lead" else "")
+            + (f'<div class="feat-kicker" style="font-size:{int(name_size * 0.22)}px">{kicker}</div>'
+               if kicker else "")
+            + f'<div class="feat-name" style="font-size:{name_size}px" data-fit>{name}</div>'
+            + (f'<div class="feat-desc" style="font-size:{desc_size}px">{description}</div>'
+               if description else "")
+            + (big if style == "plain" else "")
+        )
+        slides.append(f'<div class="slide{" on" if index == 0 else ""}">{media}'
+                      f'<div class="feat-copy">{copy}</div></div>')
+    rotation = f' data-rotate="{max(8, rotate) * 1000}"' if rotate and len(slides) > 1 else ""
+    return (f'<div class="blk feat feat-{side} {_animation(block)}"{rotation}'
+            f' style="{_rect(block)}">' + "".join(slides) + "</div>")
 
 
 def _backdrop(block, design, theme, products) -> str:
@@ -268,15 +292,21 @@ def _backdrop(block, design, theme, products) -> str:
     composición y el texto sigue legible.
     """
     items = _category(design, block, products)[1]
-    photo = safe_url((items[0] if items else {}).get("image_url") or block.get("photo"))
-    if not photo:
+    rotate = int(block.get("rotate") or 0)
+    photos = [safe_url(item.get("image_url")) for item in (items[:4] if rotate else items[:1])]
+    photos = [photo for photo in photos if photo] or [safe_url(block.get("photo"))]
+    if not photos[0]:
         return ""
     fade = str(block.get("fade") or "right")
     if fade not in ("right", "left", "bottom", "top"):
         fade = "right"
     ken = " anim-ken" if block.get("ken") else ""
-    return (f'<div class="blk back back-{fade}{ken}" style="{_rect(block)};z-index:0">'
-            f'<img src="{photo}" alt=""></div>')
+    slides = "".join(f'<div class="slide{" on" if i == 0 else ""}{ken}">'
+                     f'<img src="{photo}" alt=""></div>'
+                     for i, photo in enumerate(photos))
+    rotation = f' data-rotate="{max(8, rotate) * 1000}"' if rotate and len(photos) > 1 else ""
+    return (f'<div class="blk back back-{fade}"{rotation} style="{_rect(block)};z-index:0">'
+            f'{slides}</div>')
 
 
 def _promo(block, design, theme, products) -> str:

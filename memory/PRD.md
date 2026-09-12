@@ -876,3 +876,31 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   armar el playlist; el APK no sabe nada de fechas.
 - Navegación móvil: cinco accesos fijos abajo (Panel, Pantallas, Menús, **Playlists**, Contenido)
   y el resto en el menú que baja del encabezado.
+
+## Gomería, Farmacia, Ofertas Flash y el destacado que rota (2026-06)
+- Catálogo cerrado en **10 rubros / 39 tableros visibles**: pizzería, comida rápida, restaurante,
+  Honduras, El Salvador, Panamá, Venezuela, mexicano, heladería, mariscos, **gomería** (a, b),
+  **farmacia** (a, c) y **4 ofertas flash** (cine, clara, tótem, precio gigante).
+- **Rotar destacado**: el bloque `feature` y el `backdrop` aceptan `rotate` (segundos). Guardan
+  hasta 4 productos de su sección como `.slide` y el JS del motor va prendiendo uno por uno.
+  Verificado en vivo: a los 45 s «Doble Bacon / $7.99» pasa a «Tacos al pastor / $8.90» y la foto
+  del fondo cambia con él. Menús: 60 s. Ofertas: 45 s.
+- REGLA NUEVA (y un test que la vigila, `tests/test_feature_price_never_covers_name.py`):
+  el disco del precio se apoya en la foto redonda y crece con el cuerpo del precio. Con la foto a
+  la izquierda, un precio de más de 80 px se sale del círculo y **tapa el nombre del producto**
+  (así se rompieron «Cine» y «Precio gigante»). Cuando el precio manda:
+  `"photo": false` (la fotografía se va al `backdrop`) + `"price_style": "plain"` o `"lead"`
+  (`lead` pone el número ANTES del nombre: es el tablero «el precio manda»).
+- `backdrop`: la máscara pasó a tres paradas (`#000 → rgba(0,0,0,.5) → transparent`). Con dos
+  quedaba una costura vertical visible cuando la foto tiene fondo claro de estudio.
+- Sin foto ya no queda un círculo en blanco: `.card-mono` dibuja la inicial del producto en el
+  color del rubro. Un hueco blanco parece un error; una inicial parece una decisión.
+- Farmacia: el set fotográfico tiene 5 fotos (vitaminas, mascarillas, alcohol, curitas,
+  analgésico). La muestra se reordenó para que la grilla use sólo productos CON foto y el
+  tensiómetro/pañales/jarabe/termómetro vayan a las listas.
+  PENDIENTE: generar `presion/panales/jarabe/termometro` con
+  `python scripts/seed_template_photos.py pharmacy --force` — el 12/06/2026 la Universal Key
+  estaba sin saldo diario («Daily spend limit reached»). El prompt del rubro ya se cambió a fondo
+  verde menta suave con sombra (sobre blanco puro un producto blanco desaparecía).
+- Scripts de esta iteración: `scripts/fix_offer_layouts.py` (composición de las 3 ofertas que
+  usan foto de fondo) y `scripts/fix_pharmacy_sample.py`.
