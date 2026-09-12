@@ -1309,4 +1309,19 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   de ejecución. No es una regresión de este trabajo (verificado con `git stash`).
 - Estado: CERRADA — desplegada y verificada (`/api/livez` = `dab7e78`).
 
+### 2026-06 — E1 — 502 al subir el menú diseñado (OOM del worker)
+- Rama: `trunk` → `production` (commits `115cf7f`, `c367b47`).
+- Archivos tocados: `backend/menu_canvas_routes.py`, `frontend/app/workspace/menu-canvas.tsx`.
+- DATO DE INFRA QUE HAY QUE TENER PRESENTE: `render.yaml` usa plan `starter` (512 MB) y el
+  `Dockerfile` arranca uvicorn con `--workers 2`. O sea ~250 MB por worker. Cualquier endpoint que
+  decodifique imágenes tiene que trabajar con la imagen ya reducida, nunca a tamaño completo, o el
+  worker muere por OOM y el proxy contesta 502 (no 413, no 500: **502**).
+- Fixes: reducción en el navegador a 2200 px antes de subir, `Image.draft()` en el decodificado,
+  zoom del PDF calculado en vez de 2x ciego, `MAX_IMAGE_PIXELS = 25M` con 413 limpio, y
+  `_sample_background` vectorizado con numpy.
+- Validación: `test_iter46_big_uploads.py` (6) sube un JPEG de 40 MP y un PDF A3 reales;
+  `test_iter43_menu_canvas.py` (18), `test_iter45` (13), `test_iter44` (8), `test_iter42` (10)
+  verdes.
+- Estado: CERRADA — desplegada y verificada (`/api/livez` = `c367b47`).
+
 <!-- Nuevas entradas ARRIBA de esta línea, más recientes primero. -->

@@ -748,3 +748,27 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - `FileSystem.readAsStringAsync` quedó deprecada en expo-file-system 19 (SDK 54) y tiraba el error
   en pantalla. Ahora en web se lee el `File` del navegador con `FileReader.readAsDataURL` y en
   nativo con la clase `File` nueva del filesystem.
+
+## Fix P0 (2026-06) — 502 al subir el menú diseñado
+- Síntoma: «No pudimos procesar tu diseño. Request failed with status code 502» al subir un JPG/PDF
+  real desde el panel de producción.
+- CAUSA RAÍZ: el servicio corre en plan `starter` de Render (512 MB) con **2 workers de uvicorn**,
+  o sea ~250 MB por worker. El handler decodificaba la imagen a tamaño completo: un JPG de cámara
+  de 40 megapixeles ocupa 300+ MB en RGB, y el PDF se rasterizaba con un zoom fijo de 2x (un A3 a
+  300 dpi daba un pixmap de 100+ megapixeles). El worker moría por OOM y el proxy devolvía 502.
+- Fixes, de arriba hacia abajo del pipeline:
+  1. El navegador reduce la imagen a 2200 px de lado largo con un canvas antes de subirla. Un JPG
+     de 12 MB se convierte en ~800 KB y el JSON deja de pesar 30 MB. Los PDF pasan intactos porque
+     no se pueden redibujar en canvas (y suelen ser vectoriales y livianos).
+  2. `Image.draft()` le pide al decodificador JPEG la imagen ya reducida, en vez de decodificar
+     todo y después achicar.
+  3. El zoom del PDF se calcula para caer en el tamaño del escenario (máx. 2x, mín. 1x), nunca 2x
+     ciego.
+  4. `Image.MAX_IMAGE_PIXELS = 25_000_000`: por encima de eso se responde 413 con un mensaje claro
+     en vez de morir.
+  5. `_sample_background` pasó de un loop de pixeles en Python puro a numpy — 160 campos tardaban
+     segundos de CPU por campo.
+- `backend/tests/test_iter46_big_uploads.py` (6 tests) sube un JPEG de 40 MP real y un PDF A3 de
+  imprenta y exige que el backend conteste y siga vivo (`/api/livez`).
+- Nota de producto: el diseño subido queda guardado en el menú y funciona como la plantilla del
+  cliente; no hay (todavía) una biblioteca de plantillas reutilizables entre menús.
