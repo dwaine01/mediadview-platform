@@ -173,8 +173,23 @@ export default function DesignEdit() {
     } finally { setSaving(false); }
   };
 
-  const addProduct = async (index: number) => {
+  // Mover un producto dentro de su sección: el orden del panel es el orden de
+  // la cartelera, así que se guarda al toque.
+  const moveProduct = async (index: number, position: number, delta: number) => {
+    const ids: string[] = [...(design?.bindings?.categories?.[index]?.product_ids || [])];
+    const target = position + delta;
+    if (target < 0 || target >= ids.length) return;
+    [ids[position], ids[target]] = [ids[target], ids[position]];
+    setDesign((prev: any) => writePath(prev, `bindings.categories[${index}].product_ids`, ids));
     try {
+      await workspaceAPI.reorderDesignProducts(id, index, ids);
+    } catch (e: any) {
+      load();
+      setDialog({ title: 'No se pudo mover', message: e.response?.data?.detail || e.message });
+    }
+  };
+
+  const addProduct = async (index: number) => {    try {
       const res = await workspaceAPI.addDesignProduct(id, index);
       await load();
       setEditing(res.data); setDraft(res.data);
@@ -421,7 +436,7 @@ export default function DesignEdit() {
                 </View>
               ) : <Text style={st.catTitle}>Sección {section.index + 1}</Text>}
 
-              {ids.map((pid: string) => {
+              {ids.map((pid: string, position: number) => {
                 const product = products[pid];
                 if (!product) return null;
                 const price = product.variants?.length
@@ -443,6 +458,24 @@ export default function DesignEdit() {
                       <Text style={st.rowName} numberOfLines={1}>{product.name}</Text>
                       <Text style={st.rowPrice} numberOfLines={1}>{price}</Text>
                     </View>
+                    <TouchableOpacity
+                      style={st.moveBtn} hitSlop={6}
+                      disabled={position === 0}
+                      onPress={() => moveProduct(section.index, position, -1)}
+                      testID={`up-${pid}`}
+                    >
+                      <Ionicons name="chevron-up" size={18}
+                                color={position === 0 ? '#E2E8F0' : '#7C3AED'} />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={st.moveBtn} hitSlop={6}
+                      disabled={position === ids.length - 1}
+                      onPress={() => moveProduct(section.index, position, 1)}
+                      testID={`down-${pid}`}
+                    >
+                      <Ionicons name="chevron-down" size={18}
+                                color={position === ids.length - 1 ? '#E2E8F0' : '#7C3AED'} />
+                    </TouchableOpacity>
                     <Ionicons name="chevron-forward" size={17} color="#CBD5E1" />
                   </TouchableOpacity>
                 );
@@ -664,6 +697,7 @@ const st = StyleSheet.create({
     paddingHorizontal: 14, borderTopWidth: 1, borderTopColor: '#F1F5F9',
   },
   addRowText: { fontSize: 13, fontWeight: '700', color: '#6D28D9' },
+  moveBtn: { width: 32, height: 44, alignItems: 'center', justifyContent: 'center' },
   removeBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     minHeight: 44, marginTop: 8,

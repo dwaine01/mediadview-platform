@@ -137,10 +137,13 @@ _BASE_CSS = """
 .brand{display:flex;align-items:center;gap:var(--gap)}
 .brand img{height:100%;width:auto;object-fit:contain;filter:drop-shadow(0 4px 12px rgba(0,0,0,.45))}
 .brand-name{font-family:var(--f-display);font-weight:900;color:var(--c-ink);
-  letter-spacing:-.02em;line-height:.95;text-shadow:0 2px 18px rgba(0,0,0,.5)}
+  letter-spacing:-.02em;line-height:.95;text-shadow:var(--sh)}
 
 .cat{display:flex;align-items:center;gap:18px}
-.cat-label{font-family:var(--f-display);font-weight:900;color:var(--c-accent-ink);
+/* El título de sección va con el color de texto de la plantilla, NO con el del
+   acento: `accent_ink` es el color que va ENCIMA del acento (una promo dorada
+   lleva texto oscuro) y usarlo acá dejaba «ENTRADAS» invisible sobre el fondo. */
+.cat-label{font-family:var(--f-display);font-weight:900;color:var(--c-ink);
   letter-spacing:.14em;text-transform:uppercase;line-height:1;white-space:nowrap}
 .cat-rule{flex:1;height:3px;border-radius:3px;
   background:linear-gradient(90deg,var(--c-accent),transparent)}
@@ -156,7 +159,7 @@ _BASE_CSS = """
 .card-body{padding:var(--pad) var(--pad) calc(var(--pad) * 1.1)}
 .card-name{font-family:var(--f-display);font-weight:900;color:var(--c-ink);
   line-height:1.03;letter-spacing:-.01em;overflow:hidden;
-  text-shadow:0 2px 10px rgba(0,0,0,.55)}
+  text-shadow:var(--sh)}
 /* Legibilidad a distancia: la descripción es secundaria pero tiene que leerse,
    así que sube de peso y de contraste y se corta a dos renglones para que nunca
    le robe altura a la foto ni desborde la tarjeta. */
@@ -165,10 +168,10 @@ _BASE_CSS = """
   -webkit-box-orient:vertical;-webkit-line-clamp:2}
 .card-price{font-family:var(--f-body);font-weight:900;color:var(--c-price);
   line-height:1;margin-top:.4em;letter-spacing:-.01em;
-  text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  text-shadow:var(--sh)}
 .variants{display:flex;flex-wrap:wrap;gap:.4em .78em;margin-top:.45em}
 .variant{display:flex;align-items:baseline;gap:.28em;font-family:var(--f-body);line-height:1}
-.variant b{font-weight:900;color:var(--c-price);text-shadow:0 2px 10px rgba(0,0,0,.55)}
+.variant b{font-weight:900;color:var(--c-price);text-shadow:var(--sh)}
 .variant span{font-weight:800;color:var(--c-ink);opacity:.72;
   text-transform:uppercase;letter-spacing:.06em}
 .badge{position:absolute;top:var(--pad);left:var(--pad);z-index:2;
@@ -182,10 +185,10 @@ _BASE_CSS = """
 .list{display:flex;flex-direction:column;height:100%}
 .row{display:flex;align-items:baseline;gap:.6em;flex:1;min-height:0}
 .row-name{font-family:var(--f-body);font-weight:800;color:var(--c-ink);white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+  overflow:hidden;text-overflow:ellipsis;text-shadow:var(--sh)}
 .row-dots{flex:1;border-bottom:3px dotted var(--c-rule);transform:translateY(-.22em)}
 .row-price{font-family:var(--f-body);font-weight:900;color:var(--c-price);white-space:nowrap;
-  text-shadow:0 2px 12px rgba(0,0,0,.6)}
+  text-shadow:var(--sh)}
 .row-thumb{width:1.9em;height:1.9em;border-radius:10px;object-fit:cover;flex:0 0 auto;
   align-self:center;box-shadow:0 6px 14px -6px rgba(0,0,0,.7)}
 

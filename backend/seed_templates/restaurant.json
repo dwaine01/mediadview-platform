@@ -1,0 +1,196 @@
+[
+  {
+    "id": "restaurant-carta-16x9",
+    "kind": "menu_board",
+    "industry": "restaurant",
+    "name": "Carta — Dos columnas sin fotos",
+    "tagline": "La carta impresa, elegante y legible, en la pantalla",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 48,
+    "capacity": { "products": 18, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0B0E12", "bg2": "#121722", "ink": "#F4EEE3", "muted": "#B9AC97",
+        "accent": "#C9A227", "accent2": "#8A6D12", "accent_ink": "#0B0E12",
+        "price": "#C9A227", "card": "#121722", "card2": "#171E2A", "rule": "#3B3529"
+      },
+      "fonts": { "display": "Cormorant Garamond", "body": "Manrope" },
+      "mood": "fine-dining"
+    },
+    "background": [
+      { "type": "color", "value": "#0B0E12" },
+      { "type": "texture", "asset": "linen" },
+      { "type": "gradient", "shape": "radial", "at": "50% 0%", "from": "#C9A22726", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [48, 40, 1824, 104], "size": 80 },
+      { "type": "text", "rect": [48, 154, 1824, 36], "field": "tagline", "size": 26, "upper": true,
+        "accent": true, "align": "center" },
+
+      { "type": "category", "rect": [48, 240, 880, 60], "binds": "categories[0]", "size": 46 },
+      { "type": "product_list", "rect": [48, 316, 880, 420], "binds": "categories[0]",
+        "size": 38, "gap": 12, "anim": "fade" },
+
+      { "type": "category", "rect": [48, 768, 880, 52], "binds": "categories[1]", "size": 40 },
+      { "type": "product_list", "rect": [48, 836, 880, 204], "binds": "categories[1]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "category", "rect": [992, 240, 880, 60], "binds": "categories[2]", "size": 46 },
+      { "type": "product_list", "rect": [992, 316, 880, 420], "binds": "categories[2]",
+        "size": 38, "gap": 12, "anim": "fade" },
+
+      { "type": "promo", "rect": [992, 768, 880, 272], "size": 44 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Casa Aurora",
+      "tagline": "Cocina de autor · reservas al 555 0199",
+      "promo_kicker": "Menú del chef",
+      "promo_title": "Cinco pasos con maridaje",
+      "promo_price": "$64",
+      "qr_url": "https://casaaurora.com/reservas",
+      "qr_label": "Reservá tu mesa",
+      "categories": [
+        { "name": "Entradas", "products": [
+          { "key": "burrata", "name": "Burrata con tomate confitado", "price": 14 },
+          { "key": "vieiras", "name": "Vieiras a la plancha", "price": 19 },
+          { "key": "tartar", "name": "Tartar de res y alcaparras", "price": 18 },
+          { "key": "sopa", "name": "Crema de calabaza asada", "price": 11 },
+          { "key": "ensalada", "name": "Verdes de estación y pera", "price": 12 }
+        ]},
+        { "name": "Postres", "products": [
+          { "key": "tarta", "name": "Tarta tibia de chocolate", "price": 10 },
+          { "key": "helado", "name": "Helado de vainilla de Tahití", "price": 8 },
+          { "key": "citricos", "name": "Cítricos y merengue", "price": 9 }
+        ]},
+        { "name": "Platos principales", "products": [
+          { "key": "cordero", "name": "Cordero de siete horas", "price": 34 },
+          { "key": "lubina", "name": "Lubina al horno de sal", "price": 31 },
+          { "key": "risotto", "name": "Risotto de hongos", "price": 26 },
+          { "key": "pato", "name": "Magret de pato y cereza", "price": 33 },
+          { "key": "ravioles", "name": "Ravioles de ricota y salvia", "price": 24 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "restaurant-plato-16x9",
+    "kind": "menu_board",
+    "industry": "restaurant",
+    "name": "Plato del día — Foto grande",
+    "tagline": "Una foto enorme del plato y la carta corta al lado",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 44,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0C0B0A", "bg2": "#16130F", "ink": "#F7F2E8", "muted": "#BEB0A0",
+        "accent": "#B08544", "accent2": "#6B4E20", "accent_ink": "#0C0B0A",
+        "price": "#E8C98A", "card": "#16130F", "card2": "#1E1914", "rule": "#40382C"
+      },
+      "fonts": { "display": "Fraunces", "body": "Manrope" },
+      "mood": "warm-bistro"
+    },
+    "background": [
+      { "type": "color", "value": "#0C0B0A" },
+      { "type": "texture", "asset": "paper-warm" },
+      { "type": "gradient", "angle": 90, "from": "#00000000", "to": "#000000B3" }
+    ],
+    "blocks": [
+      { "type": "hero", "rect": [0, 0, 1060, 1080], "binds": "categories[0]",
+        "name_size": 86, "price_size": 70, "ken": true },
+
+      { "type": "brand", "rect": [1112, 56, 748, 96], "size": 66 },
+      { "type": "text", "rect": [1112, 162, 748, 34], "field": "tagline", "size": 24,
+        "upper": true, "accent": true },
+
+      { "type": "category", "rect": [1112, 228, 748, 52], "binds": "categories[1]", "size": 38 },
+      { "type": "product_list", "rect": [1112, 292, 748, 330], "binds": "categories[1]",
+        "size": 34, "gap": 10, "anim": "fade" },
+
+      { "type": "category", "rect": [1112, 652, 748, 48], "binds": "categories[2]", "size": 34 },
+      { "type": "product_list", "rect": [1112, 712, 748, 180], "binds": "categories[2]",
+        "size": 32, "gap": 8, "anim": "fade" },
+
+      { "type": "promo", "rect": [1112, 926, 560, 112], "size": 30 },
+      { "type": "qr", "rect": [1704, 926, 156, 112], "size": 13 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Casa Aurora",
+      "tagline": "Plato del día · hasta agotar",
+      "hero_kicker": "Hoy recomendamos",
+      "promo_kicker": "Menú del chef",
+      "promo_title": "Cinco pasos con maridaje",
+      "promo_price": "$64",
+      "qr_url": "https://casaaurora.com/reservas",
+      "qr_label": "Reservá tu mesa",
+      "categories": [
+        { "name": "Plato del día", "products": [
+          { "key": "cordero", "name": "Cordero de siete horas", "description": "Con puré de papa ahumado y jugo de romero.", "price": 34, "badge": "Hoy" }
+        ]},
+        { "name": "También hoy", "products": [
+          { "key": "lubina", "name": "Lubina al horno de sal", "price": 31 },
+          { "key": "risotto", "name": "Risotto de hongos", "price": 26 },
+          { "key": "pato", "name": "Magret de pato y cereza", "price": 33 },
+          { "key": "ravioles", "name": "Ravioles de ricota y salvia", "price": 24 },
+          { "key": "burrata", "name": "Burrata con tomate confitado", "price": 14 }
+        ]},
+        { "name": "Postres", "products": [
+          { "key": "tarta", "name": "Tarta tibia de chocolate", "price": 10 },
+          { "key": "citricos", "name": "Cítricos y merengue", "price": 9 },
+          { "key": "helado", "name": "Helado de vainilla de Tahití", "price": 8 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "restaurant-totem-9x16",
+    "kind": "menu_board",
+    "industry": "restaurant",
+    "name": "Carta — Tótem de entrada",
+    "tagline": "El atril de la puerta, en vertical",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 44,
+    "capacity": { "products": 14, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0B0E12", "bg2": "#121722", "ink": "#F4EEE3", "muted": "#B9AC97",
+        "accent": "#C9A227", "accent2": "#8A6D12", "accent_ink": "#0B0E12",
+        "price": "#C9A227", "card": "#121722", "card2": "#171E2A", "rule": "#3B3529"
+      },
+      "fonts": { "display": "Cormorant Garamond", "body": "Manrope" },
+      "mood": "fine-dining"
+    },
+    "background": [
+      { "type": "color", "value": "#0B0E12" },
+      { "type": "texture", "asset": "linen" },
+      { "type": "gradient", "shape": "radial", "at": "50% 4%", "from": "#C9A2272B", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [44, 48, 992, 110], "size": 84 },
+      { "type": "text", "rect": [44, 168, 992, 38], "field": "tagline", "size": 26, "upper": true,
+        "accent": true, "align": "center" },
+
+      { "type": "category", "rect": [44, 250, 992, 58], "binds": "categories[0]", "size": 44 },
+      { "type": "product_list", "rect": [44, 322, 992, 400], "binds": "categories[0]",
+        "size": 38, "gap": 12, "anim": "fade" },
+
+      { "type": "category", "rect": [44, 758, 992, 58], "binds": "categories[2]", "size": 44 },
+      { "type": "product_list", "rect": [44, 830, 992, 420], "binds": "categories[2]",
+        "size": 38, "gap": 12, "anim": "fade" },
+
+      { "type": "category", "rect": [44, 1286, 992, 52], "binds": "categories[1]", "size": 38 },
+      { "type": "product_list", "rect": [44, 1352, 992, 250], "binds": "categories[1]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "promo", "rect": [44, 1640, 780, 236], "size": 40 },
+      { "type": "qr", "rect": [860, 1640, 176, 236], "size": 14 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample_from": "restaurant-carta-16x9"
+  }
+]

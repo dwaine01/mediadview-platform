@@ -34,6 +34,12 @@ FALLBACKS = {
     "Fraunces": "Georgia,serif",
     "Outfit": "'Helvetica Neue',Arial,sans-serif",
     "Archivo Black": "'Arial Black',Impact,sans-serif",
+    "Manrope": "'Helvetica Neue',Arial,sans-serif",
+    "Cormorant Garamond": "Garamond,Georgia,serif",
+    "DM Serif Display": "Georgia,serif",
+    "Oswald": "Impact,'Arial Narrow',sans-serif",
+    "Baloo 2": "'Trebuchet MS',Verdana,sans-serif",
+    "Nunito": "'Helvetica Neue',Arial,sans-serif",
 }
 
 # Texturas puramente CSS. Cada una es la firma visual de un rubro.
@@ -65,6 +71,18 @@ def colour(value, fallback: str) -> str:
     return text if _HEX.match(text) else fallback
 
 
+def _luminance(hex_colour: str) -> float:
+    """0 = negro, 1 = blanco. Sirve para saber si la plantilla es clara."""
+    value = hex_colour.lstrip("#")
+    if len(value) == 3:
+        value = "".join(char * 2 for char in value)
+    try:
+        red, green, blue = (int(value[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except (ValueError, IndexError):
+        return 0.0
+    return 0.2126 * red + 0.7152 * green + 0.0722 * blue
+
+
 def palette_vars(theme: dict) -> str:
     """Las variables CSS que consumen todos los bloques."""
     given = theme.get("palette") or {}
@@ -72,12 +90,18 @@ def palette_vars(theme: dict) -> str:
     fonts = theme.get("fonts") or {}
     display = str(fonts.get("display") or "Playfair Display")[:60]
     body = str(fonts.get("body") or "Inter")[:60]
+    # La sombra que despega el texto del fondo sólo tiene sentido en plantillas
+    # oscuras. En una clara (una hamburguesería, por ejemplo) el mismo truco
+    # deja un halo sucio alrededor de cada letra.
+    shadow = ("0 2px 12px rgba(0,0,0,.55)" if _luminance(p["bg"]) < 0.5
+              else "0 1px 0 rgba(255,255,255,.5)")
     return (
         f"--c-bg:{p['bg']};--c-bg-2:{p['bg2']};--c-ink:{p['ink']};--c-muted:{p['muted']};"
         f"--c-accent:{p['accent']};--c-accent-2:{p['accent2']};--c-accent-ink:{p['accent_ink']};"
         f"--c-price:{p['price']};--c-card:{p['card']};--c-card-2:{p['card2']};--c-rule:{p['rule']};"
         f"--f-display:'{_css_name(display)}',{FALLBACKS.get(display, 'serif')};"
         f"--f-body:'{_css_name(body)}',{FALLBACKS.get(body, 'sans-serif')};"
+        f"--sh:{shadow};"
         "--gap:20px;--pad:18px;--radius:18px;"
     )
 

@@ -240,6 +240,12 @@ export const workspaceAPI = {
   signageTemplates: (params?: { industry?: string; kind?: string; orientation?: string }) =>
     api.get('/workspace/signage-templates', { params }),
   signageIndustries: () => api.get('/workspace/signage-industries'),
+  // El HTML de la miniatura se trae y se pinta con `srcDoc`: el render se sirve
+  // con `X-Frame-Options: DENY`, así que un iframe apuntado a la URL queda en
+  // blanco.
+  templatePreviewHtml: (templateId: string) =>
+    api.get(`/signage-templates/${templateId}/preview`,
+            { transformResponse: (raw: string) => raw }),
   designs: () => api.get('/workspace/designs'),
   createDesign: (templateId: string, name?: string) =>
     api.post('/workspace/designs', { template_id: templateId, name }),
@@ -262,6 +268,9 @@ export const workspaceAPI = {
     api.post(`/workspace/designs/${designId}/logo`, data, { timeout: 120000 }),
   addDesignProduct: (designId: string, categoryIndex: number) =>
     api.post(`/workspace/designs/${designId}/categories/${categoryIndex}/products`, {}),
+  reorderDesignProducts: (designId: string, categoryIndex: number, productIds: string[]) =>
+    api.put(`/workspace/designs/${designId}/categories/${categoryIndex}/order`,
+            { product_ids: productIds }),
   deleteDesignProduct: (designId: string, productId: string) =>
     api.delete(`/workspace/designs/${designId}/products/${encodeURIComponent(productId)}`),
   deleteDesign: (designId: string) => api.delete(`/workspace/designs/${designId}`),

@@ -1,0 +1,197 @@
+[
+  {
+    "id": "fastfood-combos-16x9",
+    "kind": "menu_board",
+    "industry": "fast_food",
+    "name": "Combos — Tablero claro",
+    "tagline": "Tres combos gigantes arriba y los extras a la vista",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 40,
+    "capacity": { "products": 14, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFF7E6", "bg2": "#FFEFD0", "ink": "#1A1110", "muted": "#6B5B52",
+        "accent": "#E0102A", "accent2": "#A8001A", "accent_ink": "#FFFFFF",
+        "price": "#0F7B3C", "card": "#FFFFFF", "card2": "#FFF1DA", "rule": "#E2CDB0"
+      },
+      "fonts": { "display": "Archivo Black", "body": "Manrope" },
+      "mood": "bright-fast-food"
+    },
+    "background": [
+      { "type": "color", "value": "#FFF7E6" },
+      { "type": "gradient", "shape": "radial", "at": "50% -8%", "from": "#E0102A1F", "to": "#00000000" },
+      { "type": "texture", "asset": "gloss" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [40, 32, 700, 94], "size": 66 },
+      { "type": "text", "rect": [40, 132, 700, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
+      { "type": "ticker", "rect": [1160, 38, 720, 78], "size": 28 },
+
+      { "type": "category", "rect": [40, 190, 1840, 56], "binds": "categories[0]", "size": 44 },
+      { "type": "product_grid", "rect": [40, 262, 1840, 520], "cols": 3, "rows": 1, "gap": 26,
+        "binds": "categories[0]",
+        "name_size": 46, "price_size": 56, "desc_size": 22, "show_desc": true, "anim": "pop" },
+
+      { "type": "category", "rect": [40, 812, 880, 46], "binds": "categories[1]", "size": 30 },
+      { "type": "product_list", "rect": [40, 866, 880, 174], "binds": "categories[1]",
+        "size": 32, "gap": 8, "anim": "fade" },
+
+      { "type": "category", "rect": [968, 812, 480, 46], "binds": "categories[2]", "size": 30 },
+      { "type": "product_list", "rect": [968, 866, 480, 174], "binds": "categories[2]",
+        "size": 32, "gap": 8, "anim": "fade" },
+
+      { "type": "promo", "rect": [1490, 812, 390, 228], "size": 38 }
+    ],
+    "motion": { "preset": "pop-in" },
+    "sample": {
+      "business_name": "Burger Station",
+      "tagline": "Pedí en caja · listo en 5 minutos",
+      "ticker": "Combo del día: papas grandes gratis",
+      "promo_kicker": "Solo hoy",
+      "promo_title": "2 hamburguesas dobles",
+      "promo_price": "$13.99",
+      "categories": [
+        { "name": "Combos", "products": [
+          { "key": "combo_doble", "name": "Doble Bacon", "description": "Dos medallones, tocino, cheddar, papas y refresco.", "price": 10.99, "badge": "Más vendido" },
+          { "key": "combo_pollo", "name": "Pollo Crispy", "description": "Pechuga empanizada, papas y refresco grande.", "price": 9.49 },
+          { "key": "combo_familiar", "name": "Familiar para 4", "description": "4 hamburguesas, 4 papas y 4 refrescos.", "price": 32.99 }
+        ]},
+        { "name": "Para acompañar", "products": [
+          { "key": "papas", "name": "Papas fritas grandes", "price": 3.29 },
+          { "key": "aros", "name": "Aros de cebolla", "price": 3.99 },
+          { "key": "nuggets", "name": "Nuggets x8", "price": 4.49 },
+          { "key": "ensalada", "name": "Ensalada fresca", "price": 4.99 }
+        ]},
+        { "name": "Bebidas", "products": [
+          { "key": "refresco", "name": "Refresco grande", "price": 2.29 },
+          { "key": "malteada", "name": "Malteada", "price": 3.99 },
+          { "key": "cafe", "name": "Café", "price": 1.79 },
+          { "key": "agua", "name": "Agua", "price": 1.49 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "fastfood-totem-9x16",
+    "kind": "menu_board",
+    "industry": "fast_food",
+    "name": "Combos — Tótem de caja",
+    "tagline": "Vertical para la fila de la caja",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 36,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#141210", "bg2": "#221D19", "ink": "#FFFDF7", "muted": "#C9BCAE",
+        "accent": "#FFC400", "accent2": "#E0102A", "accent_ink": "#1A1110",
+        "price": "#FFC400", "card": "#221D19", "card2": "#2E2721", "rule": "#4A4038"
+      },
+      "fonts": { "display": "Archivo Black", "body": "Manrope" },
+      "mood": "night-drive-thru"
+    },
+    "background": [
+      { "type": "color", "value": "#141210" },
+      { "type": "gradient", "shape": "radial", "at": "50% 2%", "from": "#FFC40033", "to": "#00000000" },
+      { "type": "texture", "asset": "tile" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [36, 40, 1008, 96], "size": 72 },
+      { "type": "text", "rect": [36, 146, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+
+      { "type": "hero", "rect": [36, 200, 1008, 520], "binds": "categories[0]",
+        "name_size": 86, "price_size": 92, "ken": true },
+
+      { "type": "category", "rect": [36, 752, 1008, 52], "binds": "categories[0]", "size": 36 },
+      { "type": "product_grid", "rect": [36, 818, 1008, 560], "cols": 2, "rows": 2, "gap": 20,
+        "binds": "categories[0]", "name_size": 42, "price_size": 48, "anim": "pop" },
+
+      { "type": "category", "rect": [36, 1408, 1008, 46], "binds": "categories[1]", "size": 30 },
+      { "type": "product_list", "rect": [36, 1462, 1008, 176], "binds": "categories[1]",
+        "size": 34, "gap": 8, "anim": "fade" },
+
+      { "type": "promo", "rect": [36, 1664, 1008, 220], "size": 44 }
+    ],
+    "motion": { "preset": "pop-in" },
+    "sample_from": "fastfood-combos-16x9"
+  },
+  {
+    "id": "fastfood-pricelist-16x9",
+    "kind": "menu_board",
+    "industry": "fast_food",
+    "name": "Lista de precios — Dos columnas",
+    "tagline": "Mucho producto y precios enormes, sin fotos grandes",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 40,
+    "capacity": { "products": 18, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0E1512", "bg2": "#16211C", "ink": "#F2FFF9", "muted": "#A9C4B6",
+        "accent": "#FFC400", "accent2": "#0F7B3C", "accent_ink": "#101A14",
+        "price": "#FFC400", "card": "#16211C", "card2": "#1D2B24", "rule": "#3A5247"
+      },
+      "fonts": { "display": "Bebas Neue", "body": "Manrope" },
+      "mood": "board-classic"
+    },
+    "background": [
+      { "type": "color", "value": "#0E1512" },
+      { "type": "texture", "asset": "linen" },
+      { "type": "gradient", "angle": 180, "from": "#00000000", "to": "#000000A6" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [40, 34, 620, 92], "size": 76 },
+      { "type": "text", "rect": [40, 130, 620, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
+      { "type": "promo", "rect": [1140, 34, 740, 128], "size": 40 },
+
+      { "type": "category", "rect": [40, 200, 900, 58], "binds": "categories[0]", "size": 50 },
+      { "type": "product_list", "rect": [40, 272, 900, 520], "binds": "categories[0]",
+        "size": 40, "gap": 10, "thumbs": true, "anim": "fade" },
+
+      { "type": "category", "rect": [990, 200, 890, 58], "binds": "categories[1]", "size": 50 },
+      { "type": "product_list", "rect": [990, 272, 890, 240], "binds": "categories[1]",
+        "size": 38, "gap": 8, "anim": "fade" },
+
+      { "type": "category", "rect": [990, 540, 890, 52], "binds": "categories[2]", "size": 44 },
+      { "type": "product_list", "rect": [990, 606, 890, 186], "binds": "categories[2]",
+        "size": 36, "gap": 8, "anim": "fade" },
+
+      { "type": "ticker", "rect": [40, 830, 1450, 82], "size": 32 },
+      { "type": "qr", "rect": [1540, 812, 340, 228], "size": 16 },
+      { "type": "text", "rect": [40, 944, 1450, 96], "field": "hours", "size": 30 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Burger Station",
+      "tagline": "Abierto todos los días",
+      "ticker": "Delivery propio · pedidos por WhatsApp",
+      "hours": "Lun a Jue 11:00 a 23:00 · Vie y Sáb hasta la 1:00",
+      "promo_kicker": "Combo del día",
+      "promo_title": "Doble + papas + refresco",
+      "promo_price": "$8.99",
+      "qr_url": "https://burgerstation.com/pedidos",
+      "qr_label": "Pedí por el celular",
+      "categories": [
+        { "name": "Hamburguesas", "products": [
+          { "key": "combo_doble", "name": "Doble Bacon", "price": 8.99 },
+          { "key": "combo_pollo", "name": "Pollo Crispy", "price": 7.49 },
+          { "key": "clasica", "name": "Clásica con queso", "price": 5.99 },
+          { "key": "veggie", "name": "Veggie de garbanzo", "price": 6.49 },
+          { "key": "picante", "name": "Picante jalapeño", "price": 7.99 },
+          { "key": "bbq", "name": "BBQ con aros", "price": 8.49 }
+        ]},
+        { "name": "Para acompañar", "products": [
+          { "key": "papas", "name": "Papas fritas grandes", "price": 3.29 },
+          { "key": "aros", "name": "Aros de cebolla", "price": 3.99 },
+          { "key": "nuggets", "name": "Nuggets x8", "price": 4.49 }
+        ]},
+        { "name": "Bebidas", "products": [
+          { "key": "refresco", "name": "Refresco grande", "price": 2.29 },
+          { "key": "malteada", "name": "Malteada", "price": 3.99 },
+          { "key": "agua", "name": "Agua", "price": 1.49 }
+        ]}
+      ]
+    }
+  }
+]

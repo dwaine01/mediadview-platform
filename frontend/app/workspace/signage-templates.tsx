@@ -15,8 +15,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
 import AppDialog, { type DialogState } from '../../src/components/AppDialog';
+import HtmlPreview from '../../src/components/HtmlPreview';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+
+// Alto de la miniatura: igual para horizontales y verticales, así la galería
+// queda prolija con plantillas de las dos formas mezcladas.
+const THUMB_HEIGHT = 190;
 
 const INDUSTRY_LABEL: Record<string, string> = {
   pizzeria: 'Pizzería',
@@ -63,6 +68,26 @@ export default function SignageTemplates() {
 
   useEffect(() => { load(); }, [load]);
 
+  // Miniaturas: el mismo render que ve el TV, traído una vez por plantilla y de
+  // a una para no pedirle 20 tableros de golpe al servidor.
+  const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      for (const template of templates) {
+        if (!alive) return;
+        if (thumbs[template.id]) continue;
+        try {
+          const res = await workspaceAPI.templatePreviewHtml(template.id);
+          if (!alive) return;
+          setThumbs(prev => ({ ...prev, [template.id]: res.data }));
+        } catch { /* una miniatura que falla no rompe el catálogo */ }
+      }
+    })();
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates]);
+
   const applyTemplate = async (template: Template) => {
     setUsingId(template.id);
     try {
@@ -83,53 +108,51 @@ export default function SignageTemplates() {
 
   const renderItem = ({ item }: { item: Template }) => {
     const portrait = item.orientation === 'portrait';
-    const frameHeight = portrait ? cardWidth * 1.1 : cardWidth * (9 / 16);
+    // Miniatura del render real, con el contenido de muestra: el cliente
+    // reconoce la plantilla de un vistazo en vez de leer un cuadro vacío.
     return (
-      <View style={st.card}>
-        <TouchableOpacity
-          style={[st.frame, { height: frameHeight }]}
-          onPress={() => openPreview(item)}
-          activeOpacity={0.9}
-          testID={`preview-${item.id}`}
-        >
-          {/* En web el iframe no existe en RN, así que mostramos el marco con la
-              info y el preview real se abre a pantalla completa. */}
-          <Ionicons name={portrait ? 'phone-portrait-outline' : 'tv-outline'} size={30} color="#7C3AED" />
-          <Text style={st.frameTitle}>{item.name}</Text>
-          {!!item.tagline && <Text style={st.frameSub}>{item.tagline}</Text>}
-          <View style={st.frameBtn}>
-            <Ionicons name="expand-outline" size={14} color="#7C3AED" />
-            <Text style={st.frameBtnText}>Ver a pantalla completa</Text>
-          </View>
-        </TouchableOpacity>
-
-        <View style={st.chips}>
-          <View style={st.chip}><Text style={st.chipText}>
-            {INDUSTRY_LABEL[item.industry] || item.industry}
-          </Text></View>
-          <View style={st.chip}><Text style={st.chipText}>
-            {portrait ? 'Vertical' : 'Horizontal'}
-          </Text></View>
-          {!!item.products && <View style={st.chip}><Text style={st.chipText}>
-            {item.products} productos
-          </Text></View>}
-          {item.animated && <View style={st.chip}><Text style={st.chipText}>Animada</Text></View>}
+      <TouchableOpacity
+        style={st.card}
+        onPress={() => applyTemplate(item)}
+        activeOpacity={0.9}
+        disabled={usingId === item.id}
+        testID={`use-${item.id}`}
+      >
+        <View style={st.thumbBox}>
+          <HtmlPreview
+            html={thumbs[item.id] || null}
+            canvasW={portrait ? 1080 : 1920}
+            canvasH={portrait ? 1920 : 1080}
+            maxWidth={cardWidth - 28}
+            maxHeight={THUMB_HEIGHT}
+            loading={!thumbs[item.id]}
+            testID={`thumb-${item.id}`}
+          />
+          {usingId === item.id && (
+            <View style={st.thumbBusy}><ActivityIndicator color="#fff" /></View>
+          )}
         </View>
 
-        <TouchableOpacity
-          style={[st.useBtn, usingId === item.id && { opacity: 0.6 }]}
-          onPress={() => applyTemplate(item)}
-          disabled={usingId === item.id}
-          testID={`use-${item.id}`}
-        >
-          {usingId === item.id
-            ? <ActivityIndicator size={15} color="#fff" />
-            : <>
-                <Ionicons name="color-wand-outline" size={17} color="#fff" />
-                <Text style={st.useBtnText}>Usar esta plantilla</Text>
-              </>}
-        </TouchableOpacity>
-      </View>
+        <View style={st.cardBody}>
+          <View style={{ flex: 1 }}>
+            <Text style={st.cardName} numberOfLines={1}>{item.name}</Text>
+            <Text style={st.cardMeta} numberOfLines={1}>
+              {[INDUSTRY_LABEL[item.industry] || item.industry,
+                portrait ? 'Vertical' : 'Horizontal',
+                item.products ? `${item.products} productos` : ''].filter(Boolean).join(' · ')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={st.frameBtn}
+            onPress={() => openPreview(item)}
+            hitSlop={8}
+            testID={`preview-${item.id}`}
+          >
+            <Ionicons name="expand-outline" size={14} color="#6D28D9" />
+            <Text style={st.frameBtnText}>Ver grande</Text>
+          </TouchableOpacity>
+        </View>
+      </TouchableOpacity>
     );
   };
 
@@ -234,19 +257,14 @@ const st = StyleSheet.create({
   fChipTextOn: { color: '#6D28D9' },
 
   list: { padding: 16, gap: 16 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden', paddingBottom: 14 },
-  frame: { backgroundColor: '#0F0A09', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 20 },
-  frameTitle: { fontSize: 17, fontWeight: '800', color: '#FFF6E8', textAlign: 'center' },
-  frameSub: { fontSize: 12, color: '#BFA894', textAlign: 'center' },
-  frameBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, paddingHorizontal: 12, minHeight: 36, borderRadius: 999, backgroundColor: '#FFFFFF14', borderWidth: 1, borderColor: '#7C3AED', justifyContent: 'center' },
-  frameBtnText: { fontSize: 12, fontWeight: '700', color: '#C4B5FD' },
-
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, paddingHorizontal: 14, paddingTop: 12 },
-  chip: { paddingHorizontal: 9, paddingVertical: 4, borderRadius: 7, backgroundColor: '#F1F5F9' },
-  chipText: { fontSize: 11, fontWeight: '600', color: '#475569' },
-
-  useBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: '#7C3AED', marginHorizontal: 14, marginTop: 12, minHeight: 46, borderRadius: 12 },
-  useBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 16, borderWidth: 1, borderColor: '#E2E8F0', overflow: 'hidden' },
+  thumbBox: { backgroundColor: '#0B0908', paddingVertical: 14, paddingHorizontal: 14, alignItems: 'center' },
+  thumbBusy: { position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(15,23,42,0.55)' },
+  cardBody: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
+  cardName: { fontSize: 15, fontWeight: '800', color: '#0F172A' },
+  cardMeta: { fontSize: 11.5, color: '#64748B', fontWeight: '600', marginTop: 2 },
+  frameBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 11, minHeight: 40, borderRadius: 999, backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE', justifyContent: 'center' },
+  frameBtnText: { fontSize: 12, fontWeight: '800', color: '#6D28D9' },
 
   empty: { alignItems: 'center', gap: 10, paddingTop: 50 },
   emptyText: { fontSize: 13, color: '#64748B' },

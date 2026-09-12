@@ -32,7 +32,53 @@ STYLE = ("professional food photography for a digital menu board, camera at a fi
          "shallow depth of field, rich warm tones, appetizing, no props, no cutlery, "
          "no napkins, no hands, no people, no text, no watermark, square crop")
 
+# Cada rubro tiene su propio «set fotográfico»: la luz y el ángulo de una
+# hamburguesería no son los de un restaurante de autor, y eso es justamente lo
+# que hace que cada plantilla se vea de su rubro.
+SET_BY_INDUSTRY = {
+    "fast_food": ("bright commercial fast food photography, clean light grey seamless "
+                  "background, bright even studio light, slight top-down 30 degree angle, "
+                  "vivid saturated colors, product centered and filling the frame, "
+                  "no props, no hands, no people, no text, no watermark, square crop"),
+    "restaurant": ("fine dining plated dish photography, dark slate table, single soft "
+                   "window light from the left, 35 degree angle, elegant minimal plating, "
+                   "moody and refined, shallow depth of field, no cutlery in frame, "
+                   "no hands, no people, no text, no watermark, square crop"),
+}
+
 PROMPTS = {
+    "fast_food": {
+        "combo_doble": "a double bacon cheeseburger combo with a large box of french fries and a paper cup of soda",
+        "combo_pollo": "a crispy fried chicken sandwich combo with french fries and a soda cup",
+        "combo_familiar": "four burgers, four fry boxes and four soda cups arranged as a family meal",
+        "clasica": "a classic cheeseburger with melted cheddar",
+        "veggie": "a chickpea veggie burger with lettuce and tomato",
+        "picante": "a spicy jalapeno burger with red sauce dripping",
+        "bbq": "a bbq burger topped with onion rings",
+        "papas": "a large box of golden french fries",
+        "aros": "a pile of crispy golden onion rings",
+        "nuggets": "eight golden chicken nuggets with a dipping sauce cup",
+        "ensalada": "a fresh green side salad in a clear bowl",
+        "refresco": "a large paper cup of cola with a straw and condensation",
+        "malteada": "a tall chocolate milkshake with whipped cream",
+        "cafe": "a paper cup of hot coffee with a lid",
+        "agua": "a clear plastic bottle of water with condensation",
+    },
+    "restaurant": {
+        "burrata": "burrata cheese with confit cherry tomatoes and basil oil on a ceramic plate",
+        "vieiras": "three seared scallops with cauliflower puree on a dark plate",
+        "tartar": "beef tartare quenelle with capers and egg yolk on a slate plate",
+        "sopa": "a bowl of roasted pumpkin cream soup with olive oil drizzle",
+        "ensalada": "a seasonal green salad with pear slices and walnuts",
+        "cordero": "slow cooked lamb shank with smoked potato puree and rosemary jus",
+        "lubina": "a whole sea bass baked in a salt crust, opened, on a ceramic platter",
+        "risotto": "creamy wild mushroom risotto with parmesan shavings",
+        "pato": "sliced duck magret with cherry sauce, fanned on a plate",
+        "ravioles": "ricotta ravioli with brown butter and sage leaves",
+        "tarta": "a warm chocolate tart slice with a molten center",
+        "helado": "a scoop of vanilla bean ice cream in a small glass bowl",
+        "citricos": "a citrus and meringue dessert with torched meringue peaks",
+    },
     "pizzeria": {
         "pepperoni": "a whole pepperoni pizza, crispy cupped pepperoni, bubbling mozzarella, wood fired crust",
         "margherita": "a whole margherita pizza with san marzano tomato, fresh mozzarella and basil leaves",
@@ -77,7 +123,7 @@ async def generate(industry: str) -> None:
         ).with_model("gemini", IMAGE_MODEL).with_params(modalities=["image", "text"])
         try:
             _text, images = await chat.send_message_multimodal_response(
-                UserMessage(text=f"{subject}. {STYLE}"))
+                UserMessage(text=f"{subject}. {SET_BY_INDUSTRY.get(industry, STYLE)}"))
         except Exception as exc:
             print(f"  ! {key_name}: {exc}")
             continue

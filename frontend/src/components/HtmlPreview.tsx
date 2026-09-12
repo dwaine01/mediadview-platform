@@ -11,7 +11,9 @@ import { View, Text, StyleSheet, ActivityIndicator, Platform } from 'react-nativ
 import { WebView } from 'react-native-webview';
 
 type Props = {
-  html: string | null;
+  html?: string | null;
+  /** Alternativa al HTML: la URL del render (el catálogo la usa así). */
+  url?: string | null;
   /** Lienzo de la plantilla, para respetar la proporción del TV. */
   canvasW: number;
   canvasH: number;
@@ -22,27 +24,34 @@ type Props = {
 };
 
 export default function HtmlPreview({
-  html, canvasW, canvasH, maxWidth, maxHeight, loading, testID,
+  html, url, canvasW, canvasH, maxWidth, maxHeight, loading, testID,
 }: Props) {
   const ratio = canvasW > 0 && canvasH > 0 ? canvasW / canvasH : 16 / 9;
   const width = Math.min(maxWidth, maxHeight * ratio);
   const height = width / ratio;
+  const ready = !!(html || url);
 
   return (
     <View style={[hp.box, { width, height }]} testID={testID}>
-      {html
+      {ready
         ? (Platform.OS === 'web'
             ? React.createElement('iframe', {
-                srcDoc: html,
+                ...(url ? { src: url } : { srcDoc: html }),
                 // El render es nuestro y necesita su script de escalado.
                 sandbox: 'allow-scripts allow-same-origin',
-                style: { width: '100%', height: '100%', border: 0, display: 'block' },
+                scrolling: 'no',
+                style: {
+                  width: '100%', height: '100%', border: 0, display: 'block',
+                  // En el catálogo la miniatura es una foto, no algo que se toca.
+                  pointerEvents: url ? 'none' : 'auto',
+                },
                 title: 'Vista previa',
               })
             : <WebView
-                source={{ html }}
+                source={url ? { uri: url } : { html: html || '' }}
                 style={hp.web}
                 scrollEnabled={false}
+                pointerEvents={url ? 'none' : 'auto'}
                 originWhitelist={['*']}
                 javaScriptEnabled
               />)

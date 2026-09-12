@@ -381,6 +381,33 @@ def create_designs_routes(db, get_current_user, bump_playlist_version=None):
                 await bump_playlist_version(screen_id, reason="design product added")
         return product
 
+    @router.put("/workspace/designs/{design_id}/categories/{index}/order",
+                summary="Reordenar los productos de una sección")
+    async def reorder_design_products(design_id: str, index: int, payload: dict,
+                                      current_user: dict = Depends(get_current_user)):
+        """Sólo acepta una permutación de los mismos ids.
+
+        Si el panel manda una lista vieja (porque alguien agregó un producto
+        desde otro dispositivo), preferimos rechazarla antes que perder un
+        producto de la cartelera.
+        """
+        org_id = _org(current_user)
+        design = await _owned_design(design_id, org_id)
+        categories = list((design.get("bindings") or {}).get("categories") or [])
+        if index < 0 or index >= len(categories):
+            raise HTTPException(404, "Esa sección no existe en este diseño")
+        current = [str(pid) for pid in (categories[index].get("product_ids") or [])]
+        wanted = [str(pid) for pid in (payload.get("product_ids") or [])]
+        if sorted(wanted) != sorted(current):
+            raise HTTPException(400, "La lista no coincide con la sección. Recargá y probá de nuevo.")
+        categories[index]["product_ids"] = wanted
+        await db.designs.update_one({"id": design_id}, {"$set": {
+            "bindings.categories": categories, "updated_at": datetime.utcnow()}})
+        if bump_playlist_version:
+            for screen_id in design.get("screen_ids") or []:
+                await bump_playlist_version(screen_id, reason="design products reordered")
+        return {"product_ids": wanted}
+
     @router.delete("/workspace/designs/{design_id}/products/{product_id}",
                    summary="Quitar un producto del diseño")
     async def delete_design_product(design_id: str, product_id: str,
