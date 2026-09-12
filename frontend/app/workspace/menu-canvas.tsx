@@ -22,7 +22,7 @@ import { workspaceAPI } from '../../src/services/api';
 import AppDialog, { type DialogState } from '../../src/components/AppDialog';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
-const MAX_BYTES = 20 * 1024 * 1024;
+const MAX_BYTES = 30 * 1024 * 1024;  // en web lo reducimos antes de subirlo
 
 type Field = {
   id: string;
@@ -43,21 +43,54 @@ type Canvas = { background_url: string; width: number; height: number; fields: F
 /**
  * Base64 del archivo elegido, sin depender de la API vieja de expo-file-system
  * (`readAsStringAsync` quedó deprecada en SDK 54 y tira error en el panel web).
- * En web el picker ya nos da un File del navegador; en nativo usamos la clase
- * File nueva del filesystem.
+ *
+ * En web además reducimos la imagen antes de subirla: un JPG de cámara de 40
+ * megapixeles se convierte en un JSON de ~30 MB que tumba al worker con 502.
+ * A 2200 px de lado largo la IA sigue leyendo la letra chica y el diseño se ve
+ * perfecto en un TV 4K.
  */
-async function readBase64(asset: DocumentPicker.DocumentPickerAsset): Promise<string> {
-  if (Platform.OS === 'web') {
-    const blob = asset.file ?? (await (await fetch(asset.uri)).blob());
-    const dataUrl: string = await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(new Error('No pudimos leer el archivo.'));
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.readAsDataURL(blob);
-    });
-    return dataUrl.split(',')[1] || '';
+const UPLOAD_MAX_SIDE = 2200;
+
+async function readUpload(
+  asset: DocumentPicker.DocumentPickerAsset,
+): Promise<{ base64: string; mime: string }> {
+  const mime = (asset.mimeType || 'image/jpeg').toLowerCase();
+  if (Platform.OS !== 'web') {
+    return { base64: await new FsFile(asset.uri).base64(), mime };
   }
-  return new FsFile(asset.uri).base64();
+  const blob = asset.file ?? (await (await fetch(asset.uri)).blob());
+  const asDataUrl = (source: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('No pudimos leer el archivo.'));
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.readAsDataURL(source);
+  });
+
+  if (mime.includes('pdf')) {
+    return { base64: (await asDataUrl(blob)).split(',')[1] || '', mime };
+  }
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const ratio = Math.min(1, UPLOAD_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    if (ratio === 1 && blob.size < 3 * 1024 * 1024) {
+      bitmap.close?.();
+      return { base64: (await asDataUrl(blob)).split(',')[1] || '', mime };
+    }
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * ratio));
+    canvas.height = Math.max(1, Math.round(bitmap.height * ratio));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('sin canvas');
+    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close?.();
+    return {
+      base64: canvas.toDataURL('image/jpeg', 0.92).split(',')[1] || '',
+      mime: 'image/jpeg',
+    };
+  } catch {
+    // Si el navegador no colabora, mandamos el original y que decida el backend.
+    return { base64: (await asDataUrl(blob)).split(',')[1] || '', mime };
+  }
 }
 
 const KIND_COLOR: Record<Field['kind'], string> = {
@@ -236,16 +269,16 @@ export default function MenuCanvas() {
     if (picked.canceled || !picked.assets?.length) return;
     const asset = picked.assets[0];
     if (asset.size && asset.size > MAX_BYTES) {
-      setDialog({ title: 'Archivo muy grande', message: 'Usá un archivo de menos de 20 MB.' });
+      setDialog({ title: 'Archivo muy grande', message: 'Usá un archivo de menos de 30 MB.' });
       return;
     }
     setImporting(true);
     try {
-      const base64 = await readBase64(asset);
-      if (!base64) throw new Error('El archivo llegó vacío. Elegilo de nuevo.');
+      const upload = await readUpload(asset);
+      if (!upload.base64) throw new Error('El archivo llegó vacío. Elegilo de nuevo.');
       const res = await workspaceAPI.importCanvas(menuId, {
-        file_base64: base64,
-        content_type: asset.mimeType || 'image/jpeg',
+        file_base64: upload.base64,
+        content_type: upload.mime,
       });
       setCanvas(res.data.canvas);
       setDirty(false);
@@ -258,9 +291,13 @@ export default function MenuCanvas() {
           : 'Probá con una imagen más nítida y de frente, o subí el PDF original.',
       });
     } catch (e: any) {
+      const status = e.response?.status;
       setDialog({
         title: 'No pudimos procesar tu diseño',
-        message: e.response?.data?.detail || e.message || 'Intentá de nuevo en un momento.',
+        message: status === 502 || status === 504
+          ? 'El archivo era demasiado pesado para procesarlo de una. Exportá tu menú como JPG '
+            + '(o bajale la resolución) y probá de nuevo.'
+          : e.response?.data?.detail || e.message || 'Intentá de nuevo en un momento.',
       });
     } finally { setImporting(false); }
   }, [menuId]);
@@ -393,7 +430,7 @@ export default function MenuCanvas() {
               : <><Ionicons name="cloud-upload-outline" size={18} color="#fff" />
                   <Text style={st.primaryBtnText}>Subir mi menú</Text></>}
           </TouchableOpacity>
-          <Text style={st.emptyHint}>Hasta 20 MB · del PDF usamos la primera página</Text>
+          <Text style={st.emptyHint}>JPG, PNG o PDF · del PDF usamos la primera página</Text>
         </ScrollView>
       ) : (
         <>

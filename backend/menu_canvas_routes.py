@@ -27,9 +27,9 @@ import logging
 import os
 import re
 import uuid as _uuid
-from collections import Counter
 from datetime import datetime
 
+import numpy as np
 from dotenv import load_dotenv
 from fastapi import APIRouter, Depends, HTTPException
 from PIL import Image, ImageFont
@@ -46,8 +46,12 @@ LAYOUT_PROVIDER = "gemini"
 LAYOUT_MODEL = "gemini-3.1-pro-preview"
 MEDIA_DIR = os.environ.get("MEDIA_DIR", os.path.join(os.path.dirname(os.path.abspath(__file__)), "media"))
 
-MAX_UPLOAD_BYTES = 20 * 1024 * 1024
+MAX_UPLOAD_BYTES = 15 * 1024 * 1024
 MAX_PHOTO_BYTES = 10 * 1024 * 1024
+# El plan del servicio tiene 512 MB para 2 workers de uvicorn, así que un
+# decodificado de 100 megapixeles mata el proceso y el proxy devuelve 502.
+# 25 megapixeles (unos 75 MB en RGB) es lo máximo que entra con margen.
+Image.MAX_IMAGE_PIXELS = 25_000_000
 # Downscale before sending to the model: big enough to read small print, small
 # enough to keep the request fast. Coordinates come back normalised so the
 # resize is invisible to the caller.
@@ -143,8 +147,13 @@ def _pdf_first_page_to_png(data: bytes) -> bytes:
             if not doc.page_count:
                 raise HTTPException(400, "El PDF está vacío.")
             page = doc.load_page(0)
-            # 2x zoom so small print survives the OCR pass.
-            pixmap = page.get_pixmap(matrix=pymupdf.Matrix(2, 2), alpha=False)
+            # El zoom se calcula para caer justo en el tamaño del escenario. Un
+            # 2x ciego sobre un PDF de imprenta genera un pixmap de 100+
+            # megapixeles (300 MB) y el worker muere con 502 antes de
+            # contestar. Nunca bajamos de 1x para no perder letra chica.
+            longest = max(page.rect.width, page.rect.height) or 1
+            zoom = max(1.0, min(2.0, MAX_STAGE_SIDE / longest))
+            pixmap = page.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom), alpha=False)
             return pixmap.tobytes("png")
     except HTTPException:
         raise
@@ -159,7 +168,15 @@ def _normalise_background(data: bytes, content_type: str) -> tuple[bytes, int, i
         data = _pdf_first_page_to_png(data)
     try:
         image = Image.open(io.BytesIO(data))
+        # draft() le pide al decodificador JPEG que entregue la imagen ya
+        # reducida: decodificar un JPG de 50 megapixeles a tamaño completo para
+        # después achicarlo es lo que hacía explotar la memoria del worker.
+        image.draft("RGB", (MAX_STAGE_SIDE, MAX_STAGE_SIDE))
         image.load()
+    except Image.DecompressionBombError:
+        raise HTTPException(413, "Esa imagen es enorme. Exportá tu menú a un tamaño más chico.")
+    except HTTPException:
+        raise
     except Exception:
         raise HTTPException(400, "No pudimos abrir esa imagen. Probá con un JPG o PNG.")
     image = image.convert("RGB")
@@ -267,31 +284,28 @@ def _sample_background(image: Image.Image, x: int, y: int, w: int, h: int) -> st
     This is what paints over the price already printed in the design, so
     guessing it with the model is not good enough — we read the actual pixels
     from a thin ring just outside the box and take the dominant colour.
+    Vectorised with numpy: the per-pixel Python loop took seconds per field and
+    a real menu has over a hundred.
     """
     pad = max(2, round(min(w, h) * 0.25))
     left, top = max(0, x - pad), max(0, y - pad)
     right, bottom = min(image.width, x + w + pad), min(image.height, y + h + pad)
     if right <= left or bottom <= top:
         return "#ffffff"
-    ring = image.crop((left, top, right, bottom))
-    pixels: list[tuple[int, int, int]] = []
-    rw, rh = ring.size
+    ring = np.asarray(image.crop((left, top, right, bottom)), dtype=np.uint8)
     band = max(1, pad // 2)
-    for ry in range(rh):
-        inside_v = band <= ry < rh - band
-        for rx in range(rw):
-            if inside_v and band <= rx < rw - band:
-                continue  # skip the glyphs themselves
-            pixels.append(ring.getpixel((rx, ry)))
-    if not pixels:
+    mask = np.ones(ring.shape[:2], dtype=bool)
+    if ring.shape[0] > 2 * band and ring.shape[1] > 2 * band:
+        mask[band:-band, band:-band] = False  # skip the glyphs themselves
+    pixels = ring[mask]
+    if not pixels.size:
         return "#ffffff"
-    # Quantise so antialiasing noise collapses into one bucket.
-    buckets = Counter((r // 12, g // 12, b // 12) for r, g, b in pixels)
-    (qr, qg, qb), _ = buckets.most_common(1)[0]
-    members = [p for p in pixels if (p[0] // 12, p[1] // 12, p[2] // 12) == (qr, qg, qb)]
-    r = sum(p[0] for p in members) // len(members)
-    g = sum(p[1] for p in members) // len(members)
-    b = sum(p[2] for p in members) // len(members)
+    # Quantise so antialiasing noise collapses into one bucket, then average
+    # the winning bucket for a colour that matches the paper exactly.
+    buckets = pixels // 12
+    keys = buckets[:, 0].astype(np.int32) * 10000 + buckets[:, 1] * 100 + buckets[:, 2]
+    winner = np.bincount(keys).argmax()
+    r, g, b = pixels[keys == winner].mean(axis=0).round().astype(int)
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
