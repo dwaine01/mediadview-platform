@@ -36,6 +36,21 @@ STYLE = ("professional food photography for a digital menu board, camera at a fi
 # hamburguesería no son los de un restaurante de autor, y eso es justamente lo
 # que hace que cada plantilla se vea de su rubro.
 SET_BY_INDUSTRY = {
+    "ice_cream": ("bright playful ice cream shop photography, pastel mint coloured seamless "
+                  "background, soft even light, slight 25 degree angle, crisp and cold, "
+                  "vivid pastel colours, no hands, no people, no text, no watermark, "
+                  "square crop"),
+    "seafood": ("fresh seafood restaurant photography, wet dark slate with crushed ice, "
+                "cool daylight from the left, 35 degree angle, lemon and fresh herbs, "
+                "no hands, no people, no text, no watermark, square crop"),
+    "tires": ("professional tire shop product photography, clean dark grey concrete garage "
+              "floor, bright overhead workshop light, three quarter angle, single product "
+              "centered, industrial and sharp, no hands, no people, no text, no logos, "
+              "no watermark, square crop"),
+    "pharmacy": ("clean pharmacy product photography, pure white seamless background, "
+                 "bright even soft light, straight on angle, single product centered, "
+                 "clinical and tidy, no hands, no people, no text, no brand names, "
+                 "no watermark, square crop"),
     "latin_honduras": ("authentic Honduran home cooking photography, rustic dark wood table "
                        "with a woven palm mat, warm afternoon daylight from the right, "
                        "40 degree angle, glazed terracotta plate, no hands, no people, "
@@ -66,6 +81,50 @@ SET_BY_INDUSTRY = {
 }
 
 PROMPTS = {
+    "ice_cream": {
+        "cono_doble": "a waffle cone with two scoops of strawberry and vanilla ice cream",
+        "copa_sundae": "a tall glass sundae with chocolate sauce, whipped cream and a cherry",
+        "banana_split": "a banana split with three scoops, chocolate syrup and nuts",
+        "paleta_frutilla": "a strawberry ice cream popsicle on a stick",
+        "malteada": "a tall chocolate milkshake with whipped cream and a straw",
+        "waffle_helado": "a warm waffle topped with two scoops of ice cream and berries",
+        "granizado": "a colourful shaved ice cup with blue and red syrup",
+        "torta_helada": "a slice of ice cream cake with layers of chocolate and vanilla",
+        "helado_kilo": "a tub of assorted ice cream with a scoop resting on top",
+    },
+    "seafood": {
+        "ceviche": "a bowl of fresh fish ceviche with red onion, cilantro and lime",
+        "camarones_ajillo": "a skillet of garlic shrimp with parsley and lemon",
+        "pescado_frito": "a whole fried red snapper with fried plantains and salad",
+        "sopa_marinera": "a bowl of seafood soup with mussels, shrimp and fish",
+        "pulpo": "grilled octopus tentacle with paprika and olive oil on a plate",
+        "coctel_camaron": "a shrimp cocktail in a tall glass with tomato sauce and avocado",
+        "langosta": "a grilled lobster tail with butter and lemon",
+        "tostones": "a plate of fried green plantain tostones with garlic dip",
+        "paella": "a paella pan with shrimp, mussels and saffron rice",
+    },
+    "tires": {
+        "llanta_auto": "a single new passenger car tire standing upright",
+        "llanta_camioneta": "a single new all terrain truck tire standing upright",
+        "llanta_moto": "a single new motorcycle tire standing upright",
+        "llanta_carga": "a single new heavy duty truck tire standing upright",
+        "rin_deportivo": "a single black and silver sport alloy wheel rim",
+        "rin_cromado": "a single chrome alloy wheel rim",
+        "alineacion": "a car wheel on a wheel alignment machine in a workshop",
+        "balanceo": "a tire mounted on a wheel balancing machine",
+        "bateria": "a single car battery on a workshop floor",
+    },
+    "pharmacy": {
+        "vitaminas": "a plain white bottle of vitamin supplements with no label text",
+        "analgesico": "a blister pack of white round pills next to a plain white box",
+        "alcohol": "a plain bottle of rubbing alcohol with no label text",
+        "mascarillas": "a stack of disposable face masks",
+        "termometro": "a digital thermometer on a white surface",
+        "panales": "a plain pack of baby diapers with no label text",
+        "jarabe": "a plain bottle of cough syrup with a dosing cup",
+        "curitas": "a plain box of adhesive bandages with a few loose bandages",
+        "presion": "a digital blood pressure monitor with its cuff",
+    },
     "latin_honduras": {
         "plato_tipico": "a Honduran plato tipico with grilled carne asada, refried beans, fried plantain slices, chismol salsa, white cheese and a corn tortilla",
         "baleada_sencilla": "a Honduran baleada, a folded thick flour tortilla filled with refried beans, cream and crumbled white cheese",

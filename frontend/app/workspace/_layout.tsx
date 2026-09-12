@@ -25,6 +25,10 @@ const WS_NAV = [
   { key: 'settings', label: 'Ajustes', icon: 'settings' as const, path: '/workspace/settings' },
 ];
 
+// En el celular sólo caben cinco accesos abajo. Estos son los cinco del día a
+// día del dueño —Playlists incluido— y el resto sale del menú de arriba.
+const MOBILE_TABS = ['index', 'screens', 'menus', 'playlists', 'content'];
+
 export default function WorkspaceLayout() {
   const router = useRouter();
   const pathname = usePathname();
@@ -41,6 +45,7 @@ export default function WorkspaceLayout() {
   // The customer's own branding in the corner of their panel.
   const [orgLogo, setOrgLogo] = useState<string | null>(null);
   const [orgName, setOrgName] = useState<string>('');
+  const [menuOpen, setMenuOpen] = useState(false);
   useEffect(() => {
     if (!token) { setOrgLogo(null); setOrgName(''); return; }
     workspaceAPI.context()
@@ -153,10 +158,42 @@ export default function WorkspaceLayout() {
             <Text style={ws.brandSub}>Panel del Cliente</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={ws.logoutBtn}>
-          <Ionicons name="log-out-outline" size={22} color="#64748B" />
+        <TouchableOpacity onPress={() => setMenuOpen(true)} style={ws.logoutBtn} testID="open-nav-menu">
+          <Ionicons name="menu" size={26} color="#0F172A" />
         </TouchableOpacity>
       </View>
+
+      {/* Menú completo: baja desde arriba y deja el resto de las secciones a
+          mano sin sacarle lugar a los cinco accesos de abajo. */}
+      {menuOpen && (
+        <>
+          <TouchableOpacity style={ws.navOverlay} activeOpacity={1}
+                            onPress={() => setMenuOpen(false)} testID="close-nav-menu" />
+          <View style={[ws.navSheet, { top: insets.top + 60 }]}>
+            <ScrollView style={{ maxHeight: 420 }}>
+              {NAV.map(item => {
+                const active = activeKey === item.key;
+                return (
+                  <TouchableOpacity
+                    key={item.key}
+                    style={[ws.navItem, active && ws.navItemActive]}
+                    onPress={() => { setMenuOpen(false); router.push(item.path as any); }}
+                    testID={`nav-${item.key}`}
+                  >
+                    <Ionicons name={(item.icon + (active ? '' : '-outline')) as any} size={20}
+                              color={active ? '#0891B2' : '#64748B'} />
+                    <Text style={[ws.navLabel, active && ws.navLabelActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+              <TouchableOpacity style={ws.navItem} onPress={handleLogout} testID="nav-logout">
+                <Ionicons name="log-out-outline" size={20} color="#DC2626" />
+                <Text style={[ws.navLabel, { color: '#DC2626' }]}>Cerrar sesión</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </>
+      )}
 
       {/* Content */}
       <View style={{ flex: 1 }}>
@@ -165,7 +202,7 @@ export default function WorkspaceLayout() {
 
       {/* Bottom Nav */}
       <View style={[ws.bottomNav, { paddingBottom: insets.bottom }]}>
-        {NAV.slice(0, 5).map(item => {
+        {MOBILE_TABS.map(key => NAV.find(item => item.key === key)).filter(Boolean).map((item: any) => {
           const active = activeKey === item.key;
           return (
             <TouchableOpacity
@@ -173,6 +210,7 @@ export default function WorkspaceLayout() {
               style={ws.bottomNavItem}
               onPress={() => router.push(item.path as any)}
               activeOpacity={0.7}
+              testID={`tab-${item.key}`}
             >
               <Ionicons
                 name={(item.icon + (active ? '' : '-outline')) as any}
@@ -227,6 +265,18 @@ const ws = StyleSheet.create({
   main: { flex: 1, overflow: 'hidden' },
 
   // Mobile
+  navOverlay: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(15,23,42,0.35)', zIndex: 20,
+  },
+  navSheet: {
+    position: 'absolute', left: 12, right: 12, zIndex: 21,
+    backgroundColor: '#FFFFFF', borderRadius: 16, paddingVertical: 8,
+    borderWidth: 1, borderColor: '#E2E8F0',
+    shadowColor: '#0F172A', shadowOpacity: 0.18, shadowRadius: 24,
+    shadowOffset: { width: 0, height: 12 }, elevation: 12,
+  },
+
   mobileHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingBottom: 12,

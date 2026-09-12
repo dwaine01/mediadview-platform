@@ -27,7 +27,7 @@ import os
 import re
 import secrets
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import bcrypt
@@ -309,9 +309,43 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
     return []
 
 
+def _item_moment(value) -> datetime | None:
+    """Lee `starts_at`/`ends_at` de un ítem, venga como texto ISO o datetime."""
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value.replace(tzinfo=None) if value.tzinfo is None else value.astimezone(
+            timezone.utc).replace(tzinfo=None)
+    try:
+        moment = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return moment.astimezone(timezone.utc).replace(tzinfo=None) if moment.tzinfo else moment
+
+
+def _item_in_window(item: dict, now: datetime) -> bool:
+    """¿Este ítem tiene que estar al aire en este momento?
+
+    Sin fechas, siempre. Con fechas, sólo dentro de la ventana: así el dueño
+    programa la promo del fin de semana y se apaga sola el lunes.
+    """
+    starts_at = _item_moment(item.get("starts_at"))
+    if starts_at and now < starts_at:
+        return False
+    ends_at = _item_moment(item.get("ends_at"))
+    if ends_at and now >= ends_at:
+        return False
+    return True
+
+
 async def _render_playlist_items(winner: dict) -> list:
     rendered = []
+    now = datetime.utcnow()
     for item in sorted(winner.get("items") or [], key=lambda value: value.get("order", 0)):
+        # Cada foto o video puede tener su propia ventana: fuera de ella no se
+        # manda al TV y el reproductor no necesita saber nada de fechas.
+        if not _item_in_window(item, now):
+            continue
         item_type = item.get("type")
         ref_id = item.get("ref_id")
         base = {

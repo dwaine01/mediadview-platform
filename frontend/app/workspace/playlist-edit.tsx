@@ -1,18 +1,21 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, ActivityIndicator, TouchableOpacity,
-  TextInput, Image, Platform,
+  TextInput, Image, Platform, Modal, KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import { workspaceAPI } from '../../src/services/api';
 import AppDialog, { type DialogState } from '../../src/components/AppDialog';
+import { formatWhen, inDays, parseWhen, windowLabel } from '../../src/utils/whenText';
 
 const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 type Item = {
   id: string; type: 'media' | 'menu'; ref_id: string; title: string; duration: number;
+  // Ventana propia de este elemento. Vacío = sale siempre.
+  starts_at?: string | null; ends_at?: string | null;
 };
 
 type LibraryEntry = { id: string; title: string; kind: 'media' | 'menu'; thumb?: string | null };
@@ -90,6 +93,7 @@ export default function PlaylistEdit() {
       setItems((pl.items || []).map((it: any) => ({
         id: it.id, type: it.type, ref_id: it.ref_id,
         title: it.title || 'Contenido', duration: Number(it.duration) || 15,
+        starts_at: it.starts_at || null, ends_at: it.ends_at || null,
       })));
       setLibrary([
         ...(menusRes.data || []).map((m: any) => ({ id: m.id, title: m.name || 'Menú', kind: 'menu' as const, thumb: null })),
@@ -138,8 +142,43 @@ export default function PlaylistEdit() {
   const thumbFor = (it: Item) =>
     it.type === 'media' ? `${API_URL}/api/player/media/${it.ref_id}` : null;
 
-  const save = useCallback(async () => {
-    if (!name.trim()) { setDialog({ title: 'Ponle un nombre a la playlist' }); return; }
+  // ── Programación de UN elemento ──────────────────────────────────────────
+  // «Esta foto sale hasta el domingo y se apaga sola»: la ventana es del
+  // elemento, no de la playlist entera.
+  const [scheduling, setScheduling] = useState<number | null>(null);
+  const [fromText, setFromText] = useState('');
+  const [toText, setToText] = useState('');
+
+  const openSchedule = (index: number) => {
+    setFromText(formatWhen(items[index]?.starts_at));
+    setToText(formatWhen(items[index]?.ends_at));
+    setScheduling(index);
+  };
+
+  const applySchedule = (startsAt: string | null, endsAt: string | null) => {
+    if (scheduling === null) return;
+    setItems(prev => prev.map((it, i) =>
+      i === scheduling ? { ...it, starts_at: startsAt, ends_at: endsAt } : it));
+    setDirty(true);
+    setScheduling(null);
+  };
+
+  const saveSchedule = () => {
+    const startsAt = fromText.trim() ? parseWhen(fromText) : null;
+    const endsAt = toText.trim() ? parseWhen(toText) : null;
+    if ((fromText.trim() && !startsAt) || (toText.trim() && !endsAt)) {
+      setDialog({ title: 'Fecha inválida',
+                  message: 'Escribila así: 24/12/2026 18:00' });
+      return;
+    }
+    if (startsAt && endsAt && endsAt <= startsAt) {
+      setDialog({ title: 'Revisá las fechas', message: 'El fin tiene que ser después del inicio.' });
+      return;
+    }
+    applySchedule(startsAt, endsAt);
+  };
+
+  const save = useCallback(async () => {    if (!name.trim()) { setDialog({ title: 'Ponle un nombre a la playlist' }); return; }
     if (items.some(it => it.duration < 3)) {
       setDialog({ title: 'Duración muy corta', message: 'Cada elemento debe durar al menos 3 segundos.' });
       return;
@@ -158,7 +197,10 @@ export default function PlaylistEdit() {
     try {
       await workspaceAPI.updatePlaylist(String(id), {
         name: name.trim(),
-        items: items.map(it => ({ type: it.type, ref_id: it.ref_id, title: it.title, duration: it.duration })),
+        items: items.map(it => ({
+          type: it.type, ref_id: it.ref_id, title: it.title, duration: it.duration,
+          starts_at: it.starts_at || null, ends_at: it.ends_at || null,
+        })),
         schedule,
         priority,
       });
@@ -233,6 +275,21 @@ export default function PlaylistEdit() {
                       />
                       <Text style={pe.durUnit}>segundos</Text>
                     </View>
+                    <TouchableOpacity
+                      style={pe.whenRow}
+                      onPress={() => openSchedule(i)}
+                      testID={`schedule-item-${i}`}
+                    >
+                      <Ionicons
+                        name={it.starts_at || it.ends_at ? 'alarm' : 'alarm-outline'}
+                        size={14}
+                        color={it.starts_at || it.ends_at ? '#B45309' : '#94A3B8'}
+                      />
+                      <Text style={[pe.whenText, (it.starts_at || it.ends_at) && pe.whenTextOn]}
+                            numberOfLines={1}>
+                        {windowLabel(it.starts_at, it.ends_at)}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
                   <View style={pe.itemActions}>
                     <TouchableOpacity onPress={() => move(i, -1)} disabled={i === 0} style={pe.iconBtn}>
@@ -389,6 +446,63 @@ export default function PlaylistEdit() {
         )}
       </ScrollView>
 
+      {/* Programación de un elemento */}
+      <Modal visible={scheduling !== null} transparent animationType="slide"
+             onRequestClose={() => setScheduling(null)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={pe.schedOverlay}
+        >
+          <View style={pe.schedSheet}>
+            <View style={pe.schedHead}>
+              <Text style={pe.schedTitle} numberOfLines={1}>
+                {scheduling !== null ? items[scheduling]?.title : ''}
+              </Text>
+              <TouchableOpacity onPress={() => setScheduling(null)} hitSlop={12}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+            <Text style={pe.schedHint}>
+              Dejá las fechas vacías para que salga siempre.
+            </Text>
+
+            <Text style={pe.label}>Empieza a salir</Text>
+            <TextInput
+              style={pe.input} value={fromText} onChangeText={setFromText}
+              placeholder="24/12/2026 18:00" placeholderTextColor="#CBD5E1"
+              testID="sched-from"
+            />
+            <Text style={[pe.label, { marginTop: 14 }]}>Deja de salir</Text>
+            <TextInput
+              style={pe.input} value={toText} onChangeText={setToText}
+              placeholder="26/12/2026 23:59" placeholderTextColor="#CBD5E1"
+              testID="sched-to"
+            />
+
+            <View style={pe.chipRow}>
+              {[['Hoy', 0], ['3 días', 2], ['1 semana', 6]].map(([label, days]) => (
+                <TouchableOpacity
+                  key={String(label)}
+                  style={pe.chip}
+                  onPress={() => setToText(formatWhen(inDays(Number(days))))}
+                  testID={`sched-quick-${days}`}
+                >
+                  <Text style={pe.chipText}>Hasta {String(label).toLowerCase()}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <TouchableOpacity style={pe.saveBtn} onPress={saveSchedule} testID="sched-save">
+              <Text style={pe.saveText}>Guardar programación</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={pe.schedClear} onPress={() => applySchedule(null, null)}
+                              testID="sched-clear">
+              <Text style={pe.schedClearText}>Quitar programación (que salga siempre)</Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       <AppDialog state={dialog} onDismiss={() => setDialog(null)} />
     </View>
   );
@@ -480,5 +594,24 @@ const pe = StyleSheet.create({
   stepBtn: { width: 34, height: 34, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   prioValue: { fontSize: 14, fontWeight: '800', color: '#0F172A', minWidth: 26, textAlign: 'center' },
   saveBtn: { backgroundColor: '#0891B2', borderRadius: 14, paddingVertical: 16, alignItems: 'center', marginTop: 18 },
+  whenRow: { flexDirection: 'row', alignItems: 'center', gap: 5, minHeight: 34, marginTop: 2 },
+  whenText: { fontSize: 12, fontWeight: '700', color: '#94A3B8' },
+  whenTextOn: { color: '#B45309' },
+  schedOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.45)' },
+  schedSheet: {
+    backgroundColor: '#FFFFFF', borderTopLeftRadius: 22, borderTopRightRadius: 22,
+    padding: 20, paddingBottom: 34, gap: 4,
+  },
+  schedHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4 },
+  schedTitle: { flex: 1, fontSize: 16, fontWeight: '800', color: '#0F172A' },
+  schedHint: { fontSize: 12.5, color: '#64748B', marginBottom: 12 },
+  chipRow: { flexDirection: 'row', gap: 8, marginTop: 14, flexWrap: 'wrap' },
+  chip: {
+    paddingHorizontal: 12, minHeight: 40, justifyContent: 'center', borderRadius: 999,
+    backgroundColor: '#F1F5F9', borderWidth: 1, borderColor: '#E2E8F0',
+  },
+  chipText: { fontSize: 12.5, fontWeight: '700', color: '#0F172A' },
+  schedClear: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 6 },
+  schedClearText: { fontSize: 13, fontWeight: '700', color: '#DC2626' },
   saveText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
 });

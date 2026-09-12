@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 import time as _time
 import uuid as _uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -358,6 +358,23 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         playlists = await db.playlists.find(query).sort("created_at", -1).to_list(500)
         return _ser(playlists)
 
+    def _item_moment(value) -> str | None:
+        """Guarda la fecha del ítem en ISO UTC, o nada si no la programaron.
+
+        El panel manda ISO (`2026-12-24T18:00:00Z`). Se guarda como texto para
+        que el contrato del reproductor siga siendo JSON plano.
+        """
+        if value in (None, "", "null"):
+            return None
+        text = str(value).strip().replace("Z", "+00:00")
+        try:
+            moment = datetime.fromisoformat(text)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Fecha inválida: {value}")
+        if moment.tzinfo:
+            moment = moment.astimezone(timezone.utc).replace(tzinfo=None)
+        return moment.isoformat(timespec="seconds")
+
     async def _build_playlist_items(raw_items, org_id: str) -> list[dict]:
         """Validates every item belongs to this org and normalises it for the player."""
         if raw_items is None:
@@ -393,6 +410,10 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 "duration": max(3, min(duration, 86_400)),
                 "transition": "fade",
                 "display_mode": str((raw or {}).get("display_mode") or "cover"),
+                # Ventana propia de esta foto o video: la promo de Navidad deja
+                # de salir el 26 sin que nadie tenga que entrar a borrarla.
+                "starts_at": _item_moment((raw or {}).get("starts_at")),
+                "ends_at": _item_moment((raw or {}).get("ends_at")),
                 "order": index,
             })
         return items
