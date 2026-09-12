@@ -1,0 +1,123 @@
+[
+  {
+    "id": "salvador-pupusas-16x9",
+    "kind": "menu_board",
+    "industry": "latin_salvador",
+    "name": "Pupusería — Grilla de pupusas",
+    "tagline": "Seis pupusas con foto, antojitos y bebidas de un lado",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 40,
+    "capacity": { "products": 14, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#13100F", "bg2": "#1E1917", "ink": "#FFF3DC", "muted": "#CBB9A4",
+        "accent": "#2447A8", "accent2": "#14295F", "accent_ink": "#FFFFFF",
+        "price": "#F2B705", "card": "#1E1917", "card2": "#28211E", "rule": "#4A3F3A"
+      },
+      "fonts": { "display": "Oswald", "body": "Nunito" },
+      "mood": "pupuseria-comal"
+    },
+    "background": [
+      { "type": "color", "value": "#13100F" },
+      { "type": "texture", "asset": "chalk" },
+      { "type": "gradient", "angle": 200, "from": "#2447A82E", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [40, 30, 800, 92], "size": 70 },
+      { "type": "text", "rect": [40, 128, 800, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
+      { "type": "promo", "rect": [1210, 26, 670, 140], "size": 36 },
+
+      { "type": "category", "rect": [40, 188, 1300, 52], "binds": "categories[0]", "size": 40 },
+      { "type": "product_grid", "rect": [40, 252, 1300, 556], "cols": 3, "rows": 2, "gap": 20,
+        "binds": "categories[0]", "name_size": 38, "price_size": 44, "desc_size": 18,
+        "show_desc": true, "anim": "fade" },
+
+      { "type": "category", "rect": [1380, 188, 500, 48], "binds": "categories[1]", "size": 30 },
+      { "type": "product_list", "rect": [1380, 246, 500, 292], "binds": "categories[1]",
+        "size": 32, "gap": 8, "anim": "fade" },
+
+      { "type": "category", "rect": [1380, 558, 500, 44], "binds": "categories[2]", "size": 28 },
+      { "type": "product_list", "rect": [1380, 610, 500, 198], "binds": "categories[2]",
+        "size": 32, "gap": 8, "anim": "fade" },
+
+      { "type": "ticker", "rect": [40, 836, 1840, 84], "size": 32 },
+      { "type": "text", "rect": [40, 940, 1840, 100], "field": "hours", "size": 30, "align": "center" }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Pupusería Doña Tere",
+      "tagline": "Pupusas hechas a mano al comal",
+      "ticker": "Curtido y salsa de la casa, sin límite",
+      "hours": "Todos los días de 7:00 a 21:00 · pedidos para llevar",
+      "hero_kicker": "La más pedida",
+      "promo_kicker": "Combo del comal",
+      "promo_title": "3 pupusas + bebida",
+      "promo_price": "$4.50",
+      "categories": [
+        { "name": "Pupusas", "products": [
+          { "key": "pupusa_revuelta", "name": "Revuelta", "description": "Chicharrón, frijol y queso.", "price": 1.25, "badge": "La clásica" },
+          { "key": "pupusa_queso", "name": "Queso con loroco", "description": "Queso fresco y loroco tierno.", "price": 1.35 },
+          { "key": "pupusa_frijol", "name": "Frijol con queso", "description": "Frijol molido y queso.", "price": 1.15 },
+          { "key": "platanos_crema", "name": "Plátanos con crema", "description": "Fritos, con crema y frijol.", "price": 3.25 },
+          { "key": "yuca_frita", "name": "Yuca con chicharrón", "description": "Yuca frita, chicharrón y curtido.", "price": 4.5 },
+          { "key": "tamal_elote", "name": "Tamal de elote", "description": "Dulce, con crema.", "price": 2 }
+        ]},
+        { "name": "Para llevar", "products": [
+          { "key": "pan_pollo", "name": "Pan con pollo", "price": 3.75 },
+          { "key": "curtido", "name": "Curtido extra", "price": 0.75 },
+          { "key": "frijoles", "name": "Frijoles fritos", "price": 1.5 }
+        ]},
+        { "name": "Bebidas", "products": [
+          { "key": "horchata_salv", "name": "Horchata de morro", "price": 1.5 },
+          { "key": "atol_elote", "name": "Atol de elote", "price": 1.5 },
+          { "key": "gaseosa", "name": "Gaseosa", "price": 1.25 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "salvador-totem-9x16",
+    "kind": "menu_board",
+    "industry": "latin_salvador",
+    "name": "Pupusería — Tótem de la fila",
+    "tagline": "Una pupusa gigante arriba y el resto abajo",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 36,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0F1A2E", "bg2": "#16253F", "ink": "#FFF8E8", "muted": "#BCC9DC",
+        "accent": "#F2B705", "accent2": "#C08C00", "accent_ink": "#1A1406",
+        "price": "#F2B705", "card": "#16253F", "card2": "#1D2F4E", "rule": "#3A4D6E"
+      },
+      "fonts": { "display": "Oswald", "body": "Nunito" },
+      "mood": "pupuseria-azul"
+    },
+    "background": [
+      { "type": "color", "value": "#0F1A2E" },
+      { "type": "texture", "asset": "tile" },
+      { "type": "gradient", "shape": "radial", "at": "50% 2%", "from": "#F2B70526", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [36, 40, 1008, 96], "size": 74 },
+      { "type": "text", "rect": [36, 146, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+
+      { "type": "hero", "rect": [36, 200, 1008, 520], "binds": "categories[0]",
+        "name_size": 88, "price_size": 76, "ken": true },
+
+      { "type": "category", "rect": [36, 752, 1008, 52], "binds": "categories[0]", "size": 38 },
+      { "type": "product_grid", "rect": [36, 818, 1008, 560], "cols": 2, "rows": 2, "gap": 20,
+        "binds": "categories[0]", "name_size": 44, "price_size": 48, "anim": "fade" },
+
+      { "type": "category", "rect": [36, 1408, 1008, 46], "binds": "categories[2]", "size": 30 },
+      { "type": "product_list", "rect": [36, 1462, 1008, 176], "binds": "categories[2]",
+        "size": 34, "gap": 8, "anim": "fade" },
+
+      { "type": "promo", "rect": [36, 1664, 1008, 220], "size": 44 }
+    ],
+    "motion": { "preset": "pop-in" },
+    "sample_from": "salvador-pupusas-16x9"
+  }
+]

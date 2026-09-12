@@ -36,6 +36,25 @@ STYLE = ("professional food photography for a digital menu board, camera at a fi
 # hamburguesería no son los de un restaurante de autor, y eso es justamente lo
 # que hace que cada plantilla se vea de su rubro.
 SET_BY_INDUSTRY = {
+    "latin_honduras": ("authentic Honduran home cooking photography, rustic dark wood table "
+                       "with a woven palm mat, warm afternoon daylight from the right, "
+                       "40 degree angle, glazed terracotta plate, no hands, no people, "
+                       "no text, no watermark, square crop"),
+    "latin_salvador": ("authentic Salvadoran comedor photography, dark volcanic stone slab, "
+                       "soft warm overhead light, 35 degree angle, food served on a simple "
+                       "white enamel plate, no hands, no people, no text, no watermark, "
+                       "square crop"),
+    "latin_panama": ("authentic Panamanian food photography, pale sand coloured wooden table, "
+                     "bright tropical daylight, 30 degree angle, white ceramic plate with a "
+                     "blue rim, fresh and colourful, no hands, no people, no text, "
+                     "no watermark, square crop"),
+    "latin_venezuela": ("authentic Venezuelan street food photography, dark charcoal slate "
+                        "board, warm dramatic side light, 40 degree angle, generous rustic "
+                        "serving, no hands, no people, no text, no watermark, square crop"),
+    "mexican": ("authentic Mexican taqueria photography, warm terracotta tiled surface, "
+                "bright warm light from the upper left, 35 degree angle, served on a small "
+                "colourful talavera plate, lime wedges and salsa in tiny bowls, no hands, "
+                "no people, no text, no watermark, square crop"),
     "fast_food": ("bright commercial fast food photography, clean light grey seamless "
                   "background, bright even studio light, slight top-down 30 degree angle, "
                   "vivid saturated colors, product centered and filling the frame, "
@@ -47,6 +66,65 @@ SET_BY_INDUSTRY = {
 }
 
 PROMPTS = {
+    "latin_honduras": {
+        "plato_tipico": "a Honduran plato tipico with grilled carne asada, refried beans, fried plantain slices, chismol salsa, white cheese and a corn tortilla",
+        "baleada_sencilla": "a Honduran baleada, a folded thick flour tortilla filled with refried beans, cream and crumbled white cheese",
+        "baleada_especial": "a Honduran baleada especial, folded flour tortilla filled with beans, cream, cheese, scrambled egg and avocado",
+        "pollo_tajadas": "Honduran pollo con tajadas, fried chicken over green plantain chips with cabbage salad and red sauce",
+        "sopa_caracol": "Honduran conch soup in a clay bowl, creamy coconut broth with yuca and plantain",
+        "pastelitos": "three Honduran pastelitos de carne, fried corn turnovers with cabbage salad and tomato sauce on top",
+        "nacatamal": "a Honduran tamal wrapped in banana leaf, opened to show the corn dough with pork and vegetables",
+        "horchata": "a tall glass of Honduran horchata with ice, creamy rice drink with cinnamon",
+        "tres_leches": "a slice of tres leches cake with a cherry on top",
+    },
+    "latin_salvador": {
+        "pupusa_revuelta": "two Salvadoran pupusas revueltas with curtido cabbage slaw and tomato salsa on the side",
+        "pupusa_queso": "two Salvadoran cheese and loroco pupusas, one torn open showing melted cheese",
+        "pupusa_frijol": "two Salvadoran bean and cheese pupusas stacked with curtido",
+        "yuca_frita": "Salvadoran fried yuca with chicharron and curtido cabbage slaw",
+        "pan_pollo": "a Salvadoran pan con pollo sandwich, french bread with stewed chicken, salad and relish",
+        "tamal_elote": "a Salvadoran sweet corn tamal in its husk with a spoon of cream",
+        "platanos_crema": "Salvadoran fried sweet plantains with sour cream and refried beans",
+        "atol_elote": "a mug of Salvadoran atol de elote, warm sweet corn drink",
+        "horchata_salv": "a tall glass of Salvadoran morro seed horchata with ice",
+    },
+    "latin_panama": {
+        "sancocho": "Panamanian sancocho de gallina, chicken and yam soup with culantro in a deep bowl with white rice on the side",
+        "ropa_vieja": "Panamanian ropa vieja, shredded beef in tomato sauce with white rice and fried plantain",
+        "arroz_pollo": "Panamanian arroz con pollo with peas, carrot and olives",
+        "carimanolas": "three Panamanian carimanolas, fried yuca fritters stuffed with seasoned beef",
+        "hojaldras": "two Panamanian hojaldras, golden fried flat dough, with white cheese",
+        "pescado_patacones": "a whole fried red snapper with patacones and lime",
+        "tamal_panameno": "a Panamanian tamal wrapped in banana leaf, opened to show corn dough with chicken and olives",
+        "chicheme": "a tall glass of Panamanian chicheme, sweet corn and milk drink with cinnamon",
+        "raspado": "a Panamanian raspado, shaved ice cone with red syrup and condensed milk",
+    },
+    "latin_venezuela": {
+        "arepa_reina": "a Venezuelan arepa reina pepiada, split corn arepa stuffed with chicken and avocado salad",
+        "arepa_pelua": "a Venezuelan arepa pelua stuffed with shredded beef and yellow cheese",
+        "cachapa": "a Venezuelan cachapa, sweet corn pancake folded over melted queso de mano",
+        "pepito": "a Venezuelan pepito, long bread sandwich with grilled beef, cheese and potato sticks",
+        "tequenos": "five Venezuelan tequenos, cheese sticks wrapped in fried dough, with a dipping sauce",
+        "empanadas": "three Venezuelan fried corn empanadas, one broken open showing shredded beef",
+        "pabellon": "Venezuelan pabellon criollo with shredded beef, black beans, white rice and fried plantain",
+        "papelon": "a tall glass of Venezuelan papelon con limon with ice",
+        "yuca_frita": "Venezuelan fried yuca sticks with a garlic dipping sauce",
+        "tajadas": "Venezuelan fried sweet plantain slices topped with grated white cheese",
+        "quesillo": "a slice of Venezuelan quesillo caramel flan on a plate",
+    },
+    "mexican": {
+        "taco_pastor": "three Mexican tacos al pastor with pineapple, onion and cilantro on corn tortillas",
+        "taco_asada": "three Mexican carne asada tacos with onion, cilantro and lime",
+        "taco_birria": "three Mexican birria tacos, crispy and red, with a small cup of consome",
+        "quesadilla": "a Mexican cheese quesadilla cut in halves with melted cheese stretching",
+        "burrito": "a large Mexican burrito cut in half showing beans, rice and carne asada",
+        "sopes": "three Mexican sopes with beans, lettuce, cream and crumbled cheese",
+        "elote": "a Mexican elote, grilled corn on the cob with mayonnaise, cheese and chili powder",
+        "guacamole": "a bowl of fresh guacamole with tortilla chips around it",
+        "horchata_mx": "a tall glass of Mexican horchata with ice and cinnamon",
+        "churros": "three Mexican churros with sugar and a cup of chocolate sauce",
+        "jamaica": "a tall glass of Mexican hibiscus agua de jamaica with ice",
+    },
     "fast_food": {
         "combo_doble": "a double bacon cheeseburger combo with a large box of french fries and a paper cup of soda",
         "combo_pollo": "a crispy fried chicken sandwich combo with french fries and a soda cup",

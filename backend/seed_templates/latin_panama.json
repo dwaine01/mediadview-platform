@@ -1,0 +1,122 @@
+[
+  {
+    "id": "panama-fonda-16x9",
+    "kind": "menu_board",
+    "industry": "latin_panama",
+    "name": "Fonda — Tres columnas",
+    "tagline": "Mucho plato criollo, claro y ordenado en tres columnas",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 44,
+    "capacity": { "products": 16, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFF9EF", "bg2": "#F3E8D2", "ink": "#10243F", "muted": "#5B6B7C",
+        "accent": "#D21034", "accent2": "#0B3DA0", "accent_ink": "#FFFFFF",
+        "price": "#0B3DA0", "card": "#FFFFFF", "card2": "#F2F6FF", "rule": "#C9D6E8"
+      },
+      "fonts": { "display": "Baloo 2", "body": "Manrope" },
+      "mood": "fonda-tropical"
+    },
+    "background": [
+      { "type": "color", "value": "#FFF9EF" },
+      { "type": "texture", "asset": "tile" },
+      { "type": "gradient", "shape": "radial", "at": "88% 6%", "from": "#0B3DA01F", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [44, 32, 900, 96], "size": 70 },
+      { "type": "text", "rect": [44, 136, 900, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+      { "type": "qr", "rect": [1690, 32, 186, 150], "size": 14 },
+
+      { "type": "category", "rect": [44, 200, 580, 54], "binds": "categories[0]", "size": 38 },
+      { "type": "product_list", "rect": [44, 266, 580, 556], "binds": "categories[0]",
+        "size": 34, "gap": 10, "thumbs": true, "anim": "fade" },
+
+      { "type": "category", "rect": [668, 200, 560, 54], "binds": "categories[1]", "size": 38 },
+      { "type": "product_list", "rect": [668, 266, 560, 556], "binds": "categories[1]",
+        "size": 34, "gap": 10, "anim": "fade" },
+
+      { "type": "category", "rect": [1272, 200, 604, 54], "binds": "categories[2]", "size": 38 },
+      { "type": "product_list", "rect": [1272, 266, 604, 556], "binds": "categories[2]",
+        "size": 34, "gap": 10, "anim": "fade" },
+
+      { "type": "promo", "rect": [44, 856, 1160, 184], "size": 42 },
+      { "type": "text", "rect": [1250, 856, 626, 184], "field": "hours", "size": 30 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Fonda El Istmo",
+      "tagline": "Comida criolla panameña · desayuno y almuerzo",
+      "hours": "Lun a Sáb de 6:30 a 16:00 · Domingo cerrado",
+      "hero_kicker": "Recomendado de hoy",
+      "promo_kicker": "Almuerzo del día",
+      "promo_title": "Plato criollo con chicheme",
+      "promo_price": "B/ 6.50",
+      "qr_url": "https://fondaelistmo.com/menu",
+      "qr_label": "Menú completo",
+      "categories": [
+        { "name": "Platos criollos", "products": [
+          { "key": "sancocho", "name": "Sancocho de gallina", "price": 6.5, "badge": "De la casa" },
+          { "key": "ropa_vieja", "name": "Ropa vieja", "price": 6 },
+          { "key": "arroz_pollo", "name": "Arroz con pollo", "price": 5.5 },
+          { "key": "pescado_patacones", "name": "Pescado frito con patacones", "price": 9.5 },
+          { "key": "tamal_panameno", "name": "Tamal panameño", "price": 3.5 }
+        ]},
+        { "name": "Fritos y hojaldras", "products": [
+          { "key": "carimanolas", "name": "Carimañolas", "price": 1.75 },
+          { "key": "hojaldras", "name": "Hojaldras con queso", "price": 1.5 },
+          { "key": "empanada", "name": "Empanada de carne", "price": 1.5 },
+          { "key": "patacones", "name": "Patacones", "price": 2.5 },
+          { "key": "yuca", "name": "Yuca frita", "price": 2.25 }
+        ]},
+        { "name": "Bebidas y raspados", "products": [
+          { "key": "chicheme", "name": "Chicheme", "price": 2 },
+          { "key": "raspado", "name": "Raspado", "price": 1.5 },
+          { "key": "chicha", "name": "Chicha de piña", "price": 1.75 },
+          { "key": "cafe", "name": "Café", "price": 1 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "panama-totem-9x16",
+    "kind": "menu_board",
+    "industry": "latin_panama",
+    "name": "Fonda — Tótem con fotos",
+    "tagline": "Seis platos con foto, para la vidriera",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 36,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#08203C", "bg2": "#0E2E53", "ink": "#FFFDF6", "muted": "#B7CBE2",
+        "accent": "#D21034", "accent2": "#8E0A22", "accent_ink": "#FFFFFF",
+        "price": "#FFD34E", "card": "#0E2E53", "card2": "#143A66", "rule": "#2D577F"
+      },
+      "fonts": { "display": "Baloo 2", "body": "Manrope" },
+      "mood": "fonda-caribe"
+    },
+    "background": [
+      { "type": "color", "value": "#08203C" },
+      { "type": "texture", "asset": "tile" },
+      { "type": "gradient", "shape": "radial", "at": "50% 100%", "from": "#D2103426", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [36, 40, 1008, 98], "size": 72 },
+      { "type": "text", "rect": [36, 148, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+
+      { "type": "category", "rect": [36, 206, 1008, 54], "binds": "categories[0]", "size": 40 },
+      { "type": "product_grid", "rect": [36, 272, 1008, 1020], "cols": 2, "rows": 3, "gap": 20,
+        "binds": "categories[0]", "name_size": 40, "price_size": 44, "anim": "fade" },
+
+      { "type": "category", "rect": [36, 1322, 1008, 48], "binds": "categories[2]", "size": 32 },
+      { "type": "product_list", "rect": [36, 1380, 1008, 250], "binds": "categories[2]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "promo", "rect": [36, 1666, 1008, 218], "size": 44 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample_from": "panama-fonda-16x9"
+  }
+]

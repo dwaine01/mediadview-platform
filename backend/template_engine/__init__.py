@@ -203,9 +203,9 @@ _BASE_CSS = """
 .hero-body{position:relative;z-index:2;align-self:flex-end;padding:calc(var(--pad) * 2)}
 .hero-kicker{font-family:var(--f-body);font-weight:900;color:var(--c-accent);
   text-transform:uppercase;letter-spacing:.2em;margin-bottom:.5em}
-.hero-name{font-family:var(--f-display);font-weight:900;color:var(--c-ink);line-height:.98;
+.hero-name{font-family:var(--f-display);font-weight:900;color:var(--c-photo-ink);line-height:.98;
   letter-spacing:-.02em;text-shadow:0 4px 30px rgba(0,0,0,.65)}
-.hero-price{font-family:var(--f-body);font-weight:900;color:var(--c-price);line-height:1;
+.hero-price{font-family:var(--f-body);font-weight:900;color:var(--c-photo-price);line-height:1;
   margin-top:.3em}
 
 .promo{display:flex;flex-direction:column;justify-content:center;

@@ -1,0 +1,116 @@
+[
+  {
+    "id": "honduras-comedor-16x9",
+    "kind": "menu_board",
+    "industry": "latin_honduras",
+    "name": "Comedor — Plato típico",
+    "tagline": "El plato del día en grande y las baleadas al costado",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 40,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#FFF7E8", "bg2": "#FBE7C6", "ink": "#23160E", "muted": "#6D5748",
+        "accent": "#0E7C86", "accent2": "#0A5A61", "accent_ink": "#FFFFFF",
+        "price": "#B42318", "card": "#FFFFFF", "card2": "#FFF1DA", "rule": "#E0C9A8"
+      },
+      "fonts": { "display": "Fraunces", "body": "Nunito" },
+      "mood": "comedor-catracho"
+    },
+    "background": [
+      { "type": "color", "value": "#FFF7E8" },
+      { "type": "texture", "asset": "paper-warm" },
+      { "type": "gradient", "shape": "radial", "at": "12% 4%", "from": "#0E7C8624", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [40, 30, 760, 94], "size": 66 },
+      { "type": "text", "rect": [40, 130, 760, 34], "field": "tagline", "size": 24, "upper": true, "accent": true },
+      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
+
+      { "type": "hero", "rect": [40, 190, 880, 850], "binds": "categories[0]",
+        "name_size": 74, "price_size": 62, "ken": true },
+
+      { "type": "category", "rect": [960, 190, 920, 54], "binds": "categories[1]", "size": 38 },
+      { "type": "product_grid", "rect": [960, 258, 920, 496], "cols": 2, "rows": 2, "gap": 20,
+        "binds": "categories[1]", "name_size": 40, "price_size": 44, "desc_size": 19,
+        "show_desc": true, "anim": "fade" },
+
+      { "type": "category", "rect": [960, 776, 920, 48], "binds": "categories[2]", "size": 32 },
+      { "type": "product_list", "rect": [960, 834, 920, 206], "binds": "categories[2]",
+        "size": 34, "gap": 8, "anim": "fade" }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Comedor La Catracha",
+      "tagline": "Comida casera hondureña · todos los días",
+      "ticker": "Almuerzo ejecutivo con bebida incluida",
+      "hero_kicker": "Plato del día",
+      "promo_kicker": "Almuerzo ejecutivo",
+      "promo_title": "Plato típico con bebida",
+      "promo_price": "L 145",
+      "categories": [
+        { "name": "Platos del día", "products": [
+          { "key": "plato_tipico", "name": "Plato típico", "description": "Carne asada, frijoles, tajadas, chismol, queso y tortillas.", "price": 165, "badge": "El favorito" },
+          { "key": "pollo_tajadas", "name": "Pollo con tajadas", "description": "Pollo frito sobre tajadas verdes con repollo y salsa.", "price": 140 },
+          { "key": "sopa_caracol", "name": "Sopa de caracol", "description": "Caldo de coco con yuca y plátano.", "price": 195 }
+        ]},
+        { "name": "Baleadas y antojitos", "products": [
+          { "key": "baleada_sencilla", "name": "Baleada sencilla", "description": "Frijoles, mantequilla y queso.", "price": 35 },
+          { "key": "baleada_especial", "name": "Baleada especial", "description": "Frijoles, crema, queso, huevo y aguacate.", "price": 60 },
+          { "key": "pastelitos", "name": "Pastelitos de carne", "description": "Tres, con repollo y salsa.", "price": 55 },
+          { "key": "nacatamal", "name": "Tamal", "description": "De maíz, con cerdo y verduras.", "price": 70 }
+        ]},
+        { "name": "Bebidas y postres", "products": [
+          { "key": "horchata", "name": "Horchata", "price": 30 },
+          { "key": "tres_leches", "name": "Tres leches", "price": 55 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "honduras-totem-9x16",
+    "kind": "menu_board",
+    "industry": "latin_honduras",
+    "name": "Comedor — Tótem de pared",
+    "tagline": "Todo el menú en vertical, con foto chica en cada línea",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 36,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#1B1108", "bg2": "#2A1C10", "ink": "#FFF3DE", "muted": "#D3BCA4",
+        "accent": "#12A3A3", "accent2": "#0A6C6C", "accent_ink": "#10201F",
+        "price": "#FFC94A", "card": "#2A1C10", "card2": "#352415", "rule": "#5A4228"
+      },
+      "fonts": { "display": "Fraunces", "body": "Nunito" },
+      "mood": "comedor-noche"
+    },
+    "background": [
+      { "type": "color", "value": "#1B1108" },
+      { "type": "texture", "asset": "linen" },
+      { "type": "gradient", "shape": "radial", "at": "50% 0%", "from": "#12A3A32E", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [36, 40, 1008, 98], "size": 72 },
+      { "type": "text", "rect": [36, 148, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+
+      { "type": "category", "rect": [36, 204, 1008, 54], "binds": "categories[0]", "size": 40 },
+      { "type": "product_list", "rect": [36, 270, 1008, 430], "binds": "categories[0]",
+        "size": 40, "gap": 12, "thumbs": true, "anim": "fade" },
+
+      { "type": "category", "rect": [36, 730, 1008, 54], "binds": "categories[1]", "size": 40 },
+      { "type": "product_list", "rect": [36, 796, 1008, 520], "binds": "categories[1]",
+        "size": 40, "gap": 12, "thumbs": true, "anim": "fade" },
+
+      { "type": "category", "rect": [36, 1346, 1008, 48], "binds": "categories[2]", "size": 32 },
+      { "type": "product_list", "rect": [36, 1404, 1008, 224], "binds": "categories[2]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "promo", "rect": [36, 1664, 1008, 220], "size": 44 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample_from": "honduras-comedor-16x9"
+  }
+]

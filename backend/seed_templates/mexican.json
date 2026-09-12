@@ -1,0 +1,125 @@
+[
+  {
+    "id": "mexican-taqueria-16x9",
+    "kind": "menu_board",
+    "industry": "mexican",
+    "name": "Taquería — Tacos y antojitos",
+    "tagline": "Los tacos con foto, antojitos y aguas frescas",
+    "canvas": { "w": 1920, "h": 1080, "orientation": "landscape" },
+    "safe_zone": 40,
+    "capacity": { "products": 14, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#0E2B1B", "bg2": "#15412A", "ink": "#FFF6E0", "muted": "#C3D6C2",
+        "accent": "#E4572E", "accent2": "#A62F16", "accent_ink": "#FFFFFF",
+        "price": "#F2C14E", "card": "#15412A", "card2": "#1C5033", "rule": "#37694A"
+      },
+      "fonts": { "display": "Baloo 2", "body": "Nunito" },
+      "mood": "taqueria-verde"
+    },
+    "background": [
+      { "type": "color", "value": "#0E2B1B" },
+      { "type": "texture", "asset": "tile" },
+      { "type": "gradient", "angle": 170, "from": "#E4572E24", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [40, 30, 820, 94], "size": 70 },
+      { "type": "text", "rect": [40, 132, 820, 32], "field": "tagline", "size": 24, "upper": true, "accent": true },
+      { "type": "ticker", "rect": [1180, 34, 700, 78], "size": 28 },
+
+      { "type": "category", "rect": [40, 190, 1240, 54], "binds": "categories[0]", "size": 42 },
+      { "type": "product_grid", "rect": [40, 258, 1240, 520], "cols": 3, "rows": 2, "gap": 20,
+        "binds": "categories[0]", "name_size": 38, "price_size": 42, "desc_size": 18,
+        "show_desc": true, "anim": "fade" },
+
+      { "type": "category", "rect": [40, 798, 1240, 48], "binds": "categories[1]", "size": 32 },
+      { "type": "product_list", "rect": [40, 856, 1240, 184], "binds": "categories[1]",
+        "size": 34, "gap": 8, "anim": "fade" },
+
+      { "type": "category", "rect": [1320, 190, 560, 48], "binds": "categories[2]", "size": 32 },
+      { "type": "product_list", "rect": [1320, 250, 560, 300], "binds": "categories[2]",
+        "size": 32, "gap": 10, "thumbs": true, "anim": "fade" },
+
+      { "type": "promo", "rect": [1320, 576, 560, 250], "size": 40 },
+      { "type": "qr", "rect": [1320, 850, 560, 190], "size": 16 }
+    ],
+    "motion": { "preset": "subtle-fade" },
+    "sample": {
+      "business_name": "Taquería El Güero",
+      "tagline": "Al carbón, con salsas de la casa",
+      "ticker": "Martes de tacos: 3 por el precio de 2",
+      "hero_kicker": "El más pedido",
+      "promo_kicker": "Orden del día",
+      "promo_title": "5 tacos de pastor + agua fresca",
+      "promo_price": "$9.90",
+      "qr_url": "https://elguero.mx/pedidos",
+      "qr_label": "Pedí y pasá por la ventanilla",
+      "categories": [
+        { "name": "Tacos y burritos", "products": [
+          { "key": "taco_pastor", "name": "Pastor", "description": "Con piña, cebolla y cilantro.", "price": 2.2, "badge": "El de siempre" },
+          { "key": "taco_asada", "name": "Carne asada", "description": "Res a la parrilla, cebolla y limón.", "price": 2.5 },
+          { "key": "taco_birria", "name": "Birria dorada", "description": "Con su consomé para remojar.", "price": 2.9 },
+          { "key": "quesadilla", "name": "Quesadilla", "description": "Tortilla de maíz con queso Oaxaca.", "price": 3.5 },
+          { "key": "burrito", "name": "Burrito de asada", "description": "Frijol, arroz, carne y salsa.", "price": 8.5 },
+          { "key": "sopes", "name": "Sopes", "description": "Tres, con frijol, crema y queso.", "price": 6.5 }
+        ]},
+        { "name": "Antojitos", "products": [
+          { "key": "elote", "name": "Elote preparado", "price": 3 },
+          { "key": "guacamole", "name": "Guacamole con totopos", "price": 5.5 },
+          { "key": "frijoles", "name": "Frijoles charros", "price": 3.25 }
+        ]},
+        { "name": "Aguas frescas y postres", "products": [
+          { "key": "horchata_mx", "name": "Horchata", "price": 2.25 },
+          { "key": "churros", "name": "Churros con chocolate", "price": 4 },
+          { "key": "jamaica", "name": "Agua de jamaica", "price": 2.25 }
+        ]}
+      ]
+    }
+  },
+  {
+    "id": "mexican-totem-9x16",
+    "kind": "menu_board",
+    "industry": "mexican",
+    "name": "Taquería — Tótem de la esquina",
+    "tagline": "Vertical, con los cuatro tacos de la casa",
+    "canvas": { "w": 1080, "h": 1920, "orientation": "portrait" },
+    "safe_zone": 36,
+    "capacity": { "products": 12, "categories": 3 },
+    "animated": true,
+    "theme": {
+      "palette": {
+        "bg": "#2B0F12", "bg2": "#3D161A", "ink": "#FFF3E2", "muted": "#E0BFB2",
+        "accent": "#F2C14E", "accent2": "#C9931F", "accent_ink": "#2B0F12",
+        "price": "#F2C14E", "card": "#3D161A", "card2": "#4A1C21", "rule": "#6E3129"
+      },
+      "fonts": { "display": "Baloo 2", "body": "Nunito" },
+      "mood": "taqueria-rojo"
+    },
+    "background": [
+      { "type": "color", "value": "#2B0F12" },
+      { "type": "texture", "asset": "chalk" },
+      { "type": "gradient", "shape": "radial", "at": "50% 0%", "from": "#F2C14E26", "to": "#00000000" }
+    ],
+    "blocks": [
+      { "type": "brand", "rect": [36, 40, 1008, 96], "size": 74 },
+      { "type": "text", "rect": [36, 146, 1008, 34], "field": "tagline", "size": 25, "upper": true, "accent": true },
+
+      { "type": "category", "rect": [36, 204, 1008, 54], "binds": "categories[0]", "size": 40 },
+      { "type": "product_grid", "rect": [36, 270, 1008, 700], "cols": 2, "rows": 2, "gap": 20,
+        "binds": "categories[0]", "name_size": 46, "price_size": 50, "anim": "pop" },
+
+      { "type": "category", "rect": [36, 998, 1008, 48], "binds": "categories[1]", "size": 32 },
+      { "type": "product_list", "rect": [36, 1056, 1008, 224], "binds": "categories[1]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "category", "rect": [36, 1310, 1008, 48], "binds": "categories[2]", "size": 32 },
+      { "type": "product_list", "rect": [36, 1368, 1008, 224], "binds": "categories[2]",
+        "size": 36, "gap": 10, "anim": "fade" },
+
+      { "type": "promo", "rect": [36, 1626, 1008, 258], "size": 46 }
+    ],
+    "motion": { "preset": "pop-in" },
+    "sample_from": "mexican-taqueria-16x9"
+  }
+]

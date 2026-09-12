@@ -95,13 +95,17 @@ def palette_vars(theme: dict) -> str:
     # deja un halo sucio alrededor de cada letra.
     shadow = ("0 2px 12px rgba(0,0,0,.55)" if _luminance(p["bg"]) < 0.5
               else "0 1px 0 rgba(255,255,255,.5)")
+    # El texto del hero va SIEMPRE sobre una foto con velo oscuro, así que no
+    # puede heredar el color de texto de la plantilla: en una paleta clara
+    # (un comedor, una hamburguesería) quedaba tinta oscura sobre foto oscura.
+    photo_price = p["price"] if _luminance(p["bg"]) < 0.5 else "#FFD84D"
     return (
         f"--c-bg:{p['bg']};--c-bg-2:{p['bg2']};--c-ink:{p['ink']};--c-muted:{p['muted']};"
         f"--c-accent:{p['accent']};--c-accent-2:{p['accent2']};--c-accent-ink:{p['accent_ink']};"
         f"--c-price:{p['price']};--c-card:{p['card']};--c-card-2:{p['card2']};--c-rule:{p['rule']};"
         f"--f-display:'{_css_name(display)}',{FALLBACKS.get(display, 'serif')};"
         f"--f-body:'{_css_name(body)}',{FALLBACKS.get(body, 'sans-serif')};"
-        f"--sh:{shadow};"
+        f"--sh:{shadow};--c-photo-ink:#FFF8EE;--c-photo-price:{photo_price};"
         "--gap:20px;--pad:18px;--radius:18px;"
     )
 
