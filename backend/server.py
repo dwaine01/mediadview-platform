@@ -291,9 +291,25 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
         },
         {"_id": 0},
     ).to_list(200)
-    winner = select_winning_playlist(playlists)
-    if not winner:
-        return []
+    # Try the winner first, then the runners-up. A playlist can win the
+    # priority tie-break and still render nothing (a deleted menu, media that
+    # vanished), and leaving the screen black in that case is worse than
+    # falling through to the next contender.
+    remaining = list(playlists)
+    while remaining:
+        winner = select_winning_playlist(remaining)
+        if not winner:
+            return []
+        rendered = await _render_playlist_items(winner)
+        if rendered:
+            return rendered
+        logger.warning("Playlist %s renders nothing for screen %s, falling through",
+                       winner.get("id"), screen_id)
+        remaining = [p for p in remaining if p.get("id") != winner.get("id")]
+    return []
+
+
+async def _render_playlist_items(winner: dict) -> list:
     rendered = []
     for item in sorted(winner.get("items") or [], key=lambda value: value.get("order", 0)):
         item_type = item.get("type")
@@ -314,14 +330,29 @@ async def _build_owned_playlist_items(screen_id: str) -> list:
             # Draft menus are excluded so the render endpoint stays properly gated.
             menu = await db.menus.find_one(
                 {"id": ref_id, "status": {"$in": ["published", "active"]}},
-                {"_id": 0, "name": 1}
+                {"_id": 0, "name": 1, "updated_at": 1, "canvas.updated_at": 1}
             )
             if not menu:
                 continue
+            # A menu lives behind a URL, so editing a price changes NOTHING in
+            # this JSON — and the player only reloads when the playlist
+            # signature (media_id:checksum:duration:rotation:display_mode)
+            # changes. Stamping the menu's last edit into `checksum` (a real
+            # 64-hex sha256, which is what the player accepts) is what makes
+            # «cambié el precio y no aparece en la tele» actually appear. The
+            # query param does the same for the WebView's own HTTP cache.
+            stamps = [s for s in (menu.get("updated_at"),
+                                  (menu.get("canvas") or {}).get("updated_at")) if s]
+            edited_at = max(stamps) if stamps else None
             url = f"/api/menus/{ref_id}/render"
+            if edited_at:
+                url += f"?v={int(edited_at.timestamp() * 1000)}"
             rendered.append({
                 **base, "media_id": f"menu:{ref_id}", "filename": menu.get("name", "Menu"),
                 "content_type": "widget", "media_url": url, "download_url": url,
+                "checksum": hashlib.sha256(
+                    f"menu:{ref_id}:{edited_at.isoformat() if edited_at else ''}".encode()
+                ).hexdigest(),
             })
         elif item_type == "webpage":
             rendered.append({
@@ -1702,7 +1733,7 @@ from promo_routes import create_promo_routes
 from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
 app.include_router(create_workspace_team_routes(db, get_current_user))
-app.include_router(create_menu_ai_routes(db, get_current_user))
+app.include_router(create_menu_ai_routes(db, get_current_user, bump_playlist_version))
 app.include_router(create_menu_canvas_routes(db, get_current_user, bump_playlist_version))
 # -- Fase 2B-1: /menus/* (see docs/REFACTOR_FASE2_PLAN.md) --
 app.include_router(create_menus_routes(gen_id, serialize_doc, _is_platform_admin,

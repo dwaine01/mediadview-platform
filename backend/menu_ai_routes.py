@@ -91,7 +91,7 @@ def _clean_price(value) -> float:
         return 0.0
 
 
-def create_menu_ai_routes(db, get_current_user):
+def create_menu_ai_routes(db, get_current_user, bump_playlist_version=None):
     router = APIRouter(prefix="/api/workspace", tags=["Workspace — Menú con IA"])
 
     @router.post("/menus/ai-import", summary="Extract menu items from a photo (preview only)")
@@ -245,6 +245,15 @@ def create_menu_ai_routes(db, get_current_user):
                 "updated_at": datetime.utcnow(),
             }},
         )
+        # Una foto nueva sólo sirve si llega al TV: el player recarga cuando la
+        # versión de la playlist cambia.
+        if bump_playlist_version:
+            affected = await db.playlists.find(
+                {"org_id": org_id, "items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
+                {"_id": 0, "screen_ids": 1},
+            ).to_list(200)
+            for screen_id in {sid for pl in affected for sid in (pl.get("screen_ids") or [])}:
+                await bump_playlist_version(screen_id, reason="menu item photo changed")
         await _audit(
             db, "menu_item.ai_photo",
             user_id=current_user["id"], user_email=current_user.get("email"),

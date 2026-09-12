@@ -79,7 +79,7 @@ def test_owned_playlist_publish_player_and_public_approval(client, mongo_db):
         matching = [item for item in player.json()["items"] if item.get("playlist_id") == playlist_id]
         assert matching
         assert matching[0]["content_type"] == "widget"
-        assert matching[0]["download_url"] == f"/api/menus/{menu_id}/render"
+        assert matching[0]["download_url"].startswith(f"/api/menus/{menu_id}/render")
         version = client.get(f"{BASE_URL}/api/player/{screen_id}/version", timeout=20)
         assert version.status_code == 200
         assert version.json()["playlist_version"] == player.json()["playlist_version"]

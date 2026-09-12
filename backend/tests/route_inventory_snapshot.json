@@ -3057,6 +3057,41 @@
   {
     "kind": "APIRoute",
     "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/canvas"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/canvas"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/canvas"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/canvas/fields/{field_id}/photo"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/canvas/import"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
       "POST"
     ],
     "path": "/api/workspace/menus/{menu_id}/items"
@@ -3081,6 +3116,13 @@
       "POST"
     ],
     "path": "/api/workspace/menus/{menu_id}/items/{item_id}/ai-photo"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/menus/{menu_id}/preview"
   },
   {
     "kind": "APIRoute",
@@ -3207,6 +3249,13 @@
       "PATCH"
     ],
     "path": "/api/workspace/screens/{screen_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/screens/{screen_id}/now-playing"
   },
   {
     "kind": "APIRoute",

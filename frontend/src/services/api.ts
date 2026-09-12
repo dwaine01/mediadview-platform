@@ -180,6 +180,8 @@ export const workspaceAPI = {
   publishMenu: (menuId: string, data?: { screen_ids?: string[] }) =>
     api.post(`/workspace/menus/${menuId}/publish`, data || {}),
   menuPreviewUrl: (menuId: string) => api.get(`/workspace/menus/${menuId}/preview`),
+  nowPlaying: (screenId: string) =>
+    api.get(`/workspace/screens/${screenId}/now-playing`, { timeout: 30000 }),
   // Billing
   billing: () => api.get('/workspace/billing'),
   screenCostPreview: (additionalScreens: number) =>

@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
+import { File as FsFile } from 'expo-file-system';
 import { workspaceAPI } from '../../src/services/api';
 import AppDialog, { type DialogState } from '../../src/components/AppDialog';
 
@@ -39,6 +39,26 @@ type Field = {
   media_id?: string | null;
 };
 type Canvas = { background_url: string; width: number; height: number; fields: Field[] };
+
+/**
+ * Base64 del archivo elegido, sin depender de la API vieja de expo-file-system
+ * (`readAsStringAsync` quedó deprecada en SDK 54 y tira error en el panel web).
+ * En web el picker ya nos da un File del navegador; en nativo usamos la clase
+ * File nueva del filesystem.
+ */
+async function readBase64(asset: DocumentPicker.DocumentPickerAsset): Promise<string> {
+  if (Platform.OS === 'web') {
+    const blob = asset.file ?? (await (await fetch(asset.uri)).blob());
+    const dataUrl: string = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('No pudimos leer el archivo.'));
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.readAsDataURL(blob);
+    });
+    return dataUrl.split(',')[1] || '';
+  }
+  return new FsFile(asset.uri).base64();
+}
 
 const KIND_COLOR: Record<Field['kind'], string> = {
   name: '#0891B2',
@@ -221,7 +241,8 @@ export default function MenuCanvas() {
     }
     setImporting(true);
     try {
-      const base64 = await FileSystem.readAsStringAsync(asset.uri, { encoding: 'base64' });
+      const base64 = await readBase64(asset);
+      if (!base64) throw new Error('El archivo llegó vacío. Elegilo de nuevo.');
       const res = await workspaceAPI.importCanvas(menuId, {
         file_base64: base64,
         content_type: asset.mimeType || 'image/jpeg',

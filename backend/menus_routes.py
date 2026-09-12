@@ -137,6 +137,7 @@ def _render_canvas(menu: dict) -> str:
        1080p, 4K or the phone preview.
     """
     canvas = menu.get("canvas") or {}
+    menu_id = _ce(menu.get("id") or "")
     width = max(1, int(canvas.get("width") or 1920))
     height = max(1, int(canvas.get("height") or 1080))
     background = _safe_src(canvas.get("background_url") or "", allow_data=False)
@@ -224,6 +225,27 @@ function shrink(){{
 window.addEventListener('resize',fit);
 fit();
 if(document.fonts&&document.fonts.ready){{document.fonts.ready.then(shrink);}}else{{shrink();}}
+// Cambio de precio en el celular -> la tele se actualiza sola, sin esperar el
+// siguiente poll del player. El reload cada 5 min es el paracaidas si el
+// socket se muere.
+setTimeout(function(){{location.reload();}},300000);
+(function(){{
+  var proto=location.protocol==='https:'?'wss:':'ws:';
+  var url=proto+'//'+location.host+'/api/ws/menu/{menu_id}';
+  var ws,retry=0,keepalive;
+  function connect(){{
+    try{{ws=new WebSocket(url);}}catch(e){{schedule();return;}}
+    ws.onopen=function(){{retry=0;keepalive=setInterval(function(){{try{{ws.send('ping');}}catch(e){{}}}},30000);}};
+    ws.onmessage=function(ev){{
+      var m;try{{m=JSON.parse(ev.data);}}catch(e){{return;}}
+      if(m.type==='menu'&&(m.event==='updated'||m.event==='reload')){{location.reload();}}
+    }};
+    ws.onclose=function(){{clearInterval(keepalive);schedule();}};
+    ws.onerror=function(){{try{{ws.close();}}catch(e){{}}}};
+  }}
+  function schedule(){{retry=Math.min(retry+1,6);setTimeout(connect,Math.pow(2,retry)*1000);}}
+  connect();
+}})();
 </script></body></html>"""
 
 
@@ -882,7 +904,8 @@ def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_pla
         # servimos su imagen y encima sólo los campos editables. Así el TV
         # muestra exactamente su diseño, con los precios de hoy.
         if menu.get("layout_mode") == "canvas" and menu.get("canvas"):
-            return HTMLResponse(_render_canvas(menu))
+            return HTMLResponse(_render_canvas(menu),
+                                headers={"Cache-Control": "no-store, must-revalidate"})
 
         template_id = menu.get("template_id", "classic")
         restaurant = menu.get("restaurant_name") or menu.get("name") or "Restaurant"
@@ -1269,6 +1292,7 @@ def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_pla
     </script>"""
 
         html += '</body></html>'
-        return HTMLResponse(content=html)
+        return HTMLResponse(content=html,
+                            headers={"Cache-Control": "no-store, must-revalidate"})
 
     return router

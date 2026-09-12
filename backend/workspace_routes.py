@@ -5,6 +5,7 @@ All data is strictly scoped to user.organization_id — NO cross-tenant leakage.
 """
 from __future__ import annotations
 
+import logging
 import time as _time
 import uuid as _uuid
 from datetime import datetime, timedelta
@@ -17,6 +18,8 @@ from menus_routes import sign_menu_preview_token
 from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
 from playlist_domain import normalize_schedule, schedule_is_active, select_winning_playlist
 from rbac import Role, get_effective_role
+
+logger = logging.getLogger(__name__)
 
 _WORKSPACE_ROLES = frozenset({
     Role.SELF_SERVICE_OWNER,
@@ -495,6 +498,88 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 await bump_playlist_version(sid, reason="workspace playlist deleted")
         return {"message": "Playlist eliminada", "playlist_id": playlist_id}
 
+    @router.get("/screens/{screen_id}/now-playing",
+                summary="Qué está mostrando esta pantalla y por qué")
+    async def workspace_now_playing(screen_id: str, current_user: dict = Depends(require_workspace_user)):
+        """Diagnóstico honesto de una pantalla, en el idioma del cliente.
+
+        Existe porque «publiqué y no aparece» puede ser cinco cosas distintas
+        (una promo con más prioridad, un horario fuera de ventana, el equipo
+        desconectado, el menú en borrador) y adivinar cuesta días.
+        """
+        org_id = current_user["organization_id"]
+        screen = await db.screens.find_one({"id": screen_id, "organization_id": org_id})
+        if not screen:
+            raise HTTPException(status_code=404, detail="Pantalla no encontrada")
+
+        playlists = await db.playlists.find(
+            {"org_id": org_id, "screen_ids": screen_id}, {"_id": 0},
+        ).to_list(200)
+        # Same expiry rule the player applies, otherwise an expired instant
+        # promo shows up here as the winner while the TV correctly ignores it.
+        now = datetime.utcnow()
+        published = [
+            p for p in playlists
+            if p.get("status") == "published"
+            and (p.get("expires_at") is None or p.get("expires_at") > now)
+        ]
+        winner = select_winning_playlist(published)
+
+        competing = sorted(
+            [{
+                "id": p["id"],
+                "name": p.get("name"),
+                "priority": p.get("priority", 10),
+                "items_count": len(p.get("items") or []),
+                "in_window": schedule_is_active(normalize_schedule(p.get("schedule"))),
+                "is_menu": bool(p.get("source_menu_id")),
+                "winning": bool(winner and winner["id"] == p["id"]),
+            } for p in published],
+            key=lambda row: (-row["priority"], not row["winning"]),
+        )
+
+        items = await build_screen_items(screen_id) if build_screen_items else []
+        device = await db.devices.find_one(
+            {"screen_id": screen_id}, {"_id": 0, "id": 1, "status": 1, "last_heartbeat": 1, "last_sync": 1},
+            sort=[("last_heartbeat", -1)],
+        )
+        online = bool(device and connectivity_from_heartbeat(device.get("last_heartbeat")) == "online")
+
+        drafts = [p.get("name") for p in playlists if p.get("status") != "published"]
+        blocked_by = next((row for row in competing
+                           if row["winning"] and not row["is_menu"] and row["priority"] > 10), None)
+
+        if not device:
+            verdict = "Esta pantalla todavía no tiene un equipo enlazado."
+        elif not items:
+            verdict = "La pantalla no tiene nada para mostrar. Publicá un menú o una playlist."
+        elif blocked_by:
+            verdict = (f"«{blocked_by['name']}» le está ganando por prioridad "
+                       f"({blocked_by['priority']}). Quitala o bajale la prioridad para que se vea el menú.")
+        elif not online:
+            verdict = ("El contenido ya está listo, pero el equipo está desconectado: "
+                       "va a entrar cuando vuelva a prender.")
+        elif winner:
+            verdict = f"Ahora mismo la pantalla muestra «{winner.get('name')}»."
+        else:
+            verdict = "Hay contenido publicado pero ningún horario está activo en este momento."
+
+        return {
+            "screen": {"id": screen_id, "name": screen.get("name"),
+                       "playlist_version": screen.get("playlist_version", 0),
+                       "active_menu_id": screen.get("active_menu_id")},
+            "device": {"linked": bool(device), "online": online,
+                       "last_heartbeat": (device or {}).get("last_heartbeat"),
+                       "last_sync": (device or {}).get("last_sync")},
+            "winner": {"id": winner["id"], "name": winner.get("name"),
+                       "priority": winner.get("priority", 10)} if winner else None,
+            "competing": competing,
+            "drafts": drafts,
+            "items": [{"title": i.get("filename"), "type": i.get("content_type"),
+                       "duration": i.get("duration")} for i in items],
+            "verdict": verdict,
+        }
+
     @router.get("/schedules", summary="List org-scoped campaigns/schedules")
     async def workspace_schedules(current_user: dict = Depends(require_workspace_user)):
         """Dayparting view: every playlist with its time window and who is live now."""
@@ -881,6 +966,29 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                    {"name": name, "items": len(items), "source": menu["source"]})
         return _ser(menu)
 
+    async def _refresh_menu_screens(menu_id: str, org_id: str, reason: str) -> None:
+        """Toda edición de un menú publicado tiene que llegar al TV.
+
+        El player sólo recarga cuando la versión de la playlist cambia, así que
+        cambiar un precio sin tocar esto dejaba la tele mostrando el precio
+        viejo para siempre. Antes esto sólo se hacía al marcar «agotado».
+        """
+        if not bump_playlist_version:
+            return
+        affected = await db.playlists.find(
+            {"org_id": org_id, "items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
+            {"_id": 0, "screen_ids": 1},
+        ).to_list(200)
+        for screen_id in {sid for pl in affected for sid in (pl.get("screen_ids") or [])}:
+            await bump_playlist_version(screen_id, reason=reason)
+        # Las pantallas que ya tienen el menú abierto en el WebView escuchan
+        # este evento y recargan al instante, sin esperar el próximo poll.
+        try:
+            from realtime import manager as realtime_manager
+            await realtime_manager.broadcast_menu(menu_id, "updated")
+        except Exception as event_error:
+            logger.warning("menu realtime event failed for %s: %s", menu_id, event_error)
+
     @router.get("/menus/{menu_id}", summary="Get a single menu with items")
     async def workspace_get_menu(menu_id: str, current_user: dict = Depends(require_workspace_user)):
         org_id = current_user["organization_id"]
@@ -904,6 +1012,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         await db.menus.update_one({"id": menu_id}, {"$set": update})
         await _log(current_user, "menu.updated", "menu", menu_id,
                    {"name": update.get("name", menu.get("name"))})
+        await _refresh_menu_screens(menu_id, org_id, "menu renamed")
         return _ser({**menu, **update})
 
     @router.delete("/menus/{menu_id}", summary="Delete a menu")
@@ -913,6 +1022,12 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
         if not menu:
             raise HTTPException(status_code=404, detail="Menu not found")
         await db.menus.delete_one({"id": menu_id})
+        # El playlist que creamos al publicar este menú tiene que irse con él:
+        # si queda publicado, gana el desempate por prioridad y no renderiza
+        # nada, o sea pantalla en negro. El bump va ANTES del delete, porque
+        # busca las pantallas a través de ese mismo playlist.
+        await _refresh_menu_screens(menu_id, org_id, "menu deleted")
+        await db.playlists.delete_many({"org_id": org_id, "source_menu_id": menu_id})
         await _log(current_user, "menu.deleted", "menu", menu_id, {"name": menu.get("name")})
         return {"message": "Menu deleted", "menu_id": menu_id}
 
@@ -940,6 +1055,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"id": menu_id},
             {"$push": {"items": item}, "$set": {"updated_at": now}},
         )
+        await _refresh_menu_screens(menu_id, org_id, "menu item added")
         await _log(current_user, "menu_item.added", "menu", menu_id,
                    {"menu_name": menu.get("name"), "item": item["name"], "price": item["price"]})
         return _ser(item)
@@ -967,14 +1083,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             sold_out = not bool(data["available"])
             await _log(current_user, "menu_item.sold_out" if sold_out else "menu_item.restored",
                        "menu", menu_id, {"menu_name": menu.get("name"), "item": previous.get("name")})
-            # Refresh every screen currently showing a playlist with this menu
-            if bump_playlist_version:
-                affected = await db.playlists.find(
-                    {"org_id": org_id, "items": {"$elemMatch": {"type": "menu", "ref_id": menu_id}}},
-                    {"_id": 0, "screen_ids": 1},
-                ).to_list(200)
-                for sid in {sid for pl in affected for sid in (pl.get("screen_ids") or [])}:
-                    await bump_playlist_version(sid, reason="menu item availability changed")
+        await _refresh_menu_screens(menu_id, org_id, "menu item edited")
         if "price" in data and float(data["price"]) != float(previous.get("price") or 0):
             details["price_from"] = previous.get("price")
             details["price_to"] = data["price"]
@@ -997,6 +1106,7 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
             {"$pull": {"items": {"id": item_id}}, "$set": {"updated_at": now}},
         )
         removed = next((i for i in (menu.get("items") or []) if i.get("id") == item_id), {})
+        await _refresh_menu_screens(menu_id, org_id, "menu item removed")
         await _log(current_user, "menu_item.deleted", "menu", menu_id,
                    {"menu_name": menu.get("name"), "item": removed.get("name")})
         return {"message": "Item removed", "item_id": item_id}

@@ -280,11 +280,28 @@ export default function MenuEditor() {
       setShowScreenPicker(false);
       const n = pickedScreens.length;
       const removed = res.data?.removed_from || 0;
+
+      // Publicar no garantiza que se vea: una promo con más prioridad, un
+      // equipo apagado o un horario fuera de ventana lo tapan. Preguntamos a
+      // la pantalla qué va a mostrar y lo decimos de una, en vez de dejar al
+      // usuario mirando un TV que no cambia.
+      let diagnosis = '';
+      try {
+        const checks = await Promise.all(
+          pickedScreens.slice(0, 4).map(id =>
+            workspaceAPI.nowPlaying(id).then(r => ({ name: r.data.screen?.name, verdict: r.data.verdict }))
+              .catch(() => null)),
+        );
+        diagnosis = checks.filter(Boolean)
+          .map(c => `• ${c!.name}: ${c!.verdict}`).join('\n');
+      } catch { /* el diagnóstico es un extra, nunca bloquea el publish */ }
+
       setDialog({
         title: '¡Publicado!',
         icon: 'checkmark-circle-outline',
         message: `Tu menú ya está en vivo en ${n} pantalla${n === 1 ? '' : 's'}.`
-          + (removed ? ` Se quitó de ${removed} pantalla${removed === 1 ? '' : 's'} donde estaba antes.` : ''),
+          + (removed ? ` Se quitó de ${removed} pantalla${removed === 1 ? '' : 's'} donde estaba antes.` : '')
+          + (diagnosis ? `\n\n${diagnosis}` : ''),
         options: [{ label: 'Volver a Menús', primary: true, onPress: () => router.push('/workspace/menus') },
                   { label: 'Seguir editando' }],
       });
