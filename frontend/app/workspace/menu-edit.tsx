@@ -19,6 +19,7 @@ type MenuItem = {
 type Menu = {
   id: string; name: string; description?: string;
   items: MenuItem[]; status: string; screen_ids?: string[];
+  layout_mode?: string;
 };
 
 function ItemCard({
@@ -247,8 +248,12 @@ export default function MenuEditor() {
     });
   };
 
+  // Un menú sobre diseño propio no tiene lista de productos: lo que se publica
+  // es la imagen con sus recuadros editados.
+  const hasContent = !!menu?.items?.length || menu?.layout_mode === 'canvas';
+
   const publishMenu = () => {
-    if (!menu?.items?.length) {
+    if (!hasContent) {
       setDialog({ title: 'Sin productos', message: 'Agrega al menos un producto antes de publicar.' });
       return;
     }
@@ -293,7 +298,7 @@ export default function MenuEditor() {
   // completa. Para menús en borrador el backend firma un token corto porque el
   // render público sólo sirve menús publicados.
   const openPreview = async () => {
-    if (!menu?.items?.length) {
+    if (!hasContent) {
       setDialog({ title: 'Sin productos', message: 'Agrega al menos un producto para ver la vista previa.' });
       return;
     }
@@ -421,6 +426,25 @@ export default function MenuEditor() {
           </TouchableOpacity>
         )}
 
+        {/* Mi propio diseño */}
+        <TouchableOpacity
+          style={ed.designBanner}
+          onPress={() => router.push(`/workspace/menu-canvas?id=${menuId}`)}
+          activeOpacity={0.85}
+          testID="own-design"
+        >
+          <View style={ed.designIcon}>
+            <Ionicons name="color-palette-outline" size={18} color="#7C3AED" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={ed.designTitle}>Usar mi propio diseño</Text>
+            <Text style={ed.designText}>
+              Subí tu menú en JPG, PNG o PDF y cambiá precios y fotos sin tocar el diseño.
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="#7C3AED" />
+        </TouchableOpacity>
+
         {/* Add item button */}
         <TouchableOpacity style={ed.addItemBtn} onPress={openAddItem}>
           <Ionicons name="add-circle-outline" size={20} color="#0891B2" />
@@ -431,7 +455,9 @@ export default function MenuEditor() {
       {/* Sticky publish bar */}
       <View style={[ed.publishBar, { paddingBottom: insets.bottom + 12 }]}>
         <View style={ed.publishInfo}>
-          <Text style={ed.publishCount}>{menu?.items?.length || 0} items</Text>
+          <Text style={ed.publishCount}>
+            {menu?.layout_mode === 'canvas' ? 'Mi diseño' : `${menu?.items?.length || 0} items`}
+          </Text>
           <Text style={ed.publishHint}>
             {menu?.status === 'published' ? 'En vivo en tus pantallas' : 'Todavía sin publicar'}
           </Text>
@@ -682,6 +708,10 @@ const ed = StyleSheet.create({
   iconBtn: { padding: 6 },
   addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderColor: '#E2E8F0', borderStyle: 'dashed', borderRadius: 12, padding: 16, marginTop: 4 },
   addItemBtnText: { fontSize: 14, fontWeight: '600', color: '#0891B2' },
+  designBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#F5F3FF', borderWidth: 1, borderColor: '#DDD6FE', borderRadius: 14, padding: 14, marginTop: 12 },
+  designIcon: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#EDE9FE', justifyContent: 'center', alignItems: 'center' },
+  designTitle: { fontSize: 14, fontWeight: '700', color: '#4C1D95' },
+  designText: { fontSize: 11, color: '#6D28D9', lineHeight: 16 },
   publishBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
   publishInfo: { gap: 2 },
   publishCount: { fontSize: 15, fontWeight: '700', color: '#0F172A' },

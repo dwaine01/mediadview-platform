@@ -212,6 +212,16 @@ export const workspaceAPI = {
     api.post(`/workspace/menus/${menuId}/items/${itemId}/ai-photo`, {}, { timeout: 180000 }),
   aiImportMenu: (data: { image_base64: string; content_type: string }) =>
     api.post('/workspace/menus/ai-import', data, { timeout: 180000 }),
+  // «Mi propio diseño»: el menú diseñado del cliente se vuelve editable
+  importCanvas: (menuId: string, data: { file_base64: string; content_type: string }) =>
+    api.post(`/workspace/menus/${menuId}/canvas/import`, data, { timeout: 240000 }),
+  getCanvas: (menuId: string) => api.get(`/workspace/menus/${menuId}/canvas`),
+  saveCanvas: (menuId: string, fields: any[]) =>
+    api.put(`/workspace/menus/${menuId}/canvas`, { fields }, { timeout: 60000 }),
+  replaceCanvasPhoto: (menuId: string, fieldId: string,
+                       data: { image_base64: string; content_type: string }) =>
+    api.post(`/workspace/menus/${menuId}/canvas/fields/${fieldId}/photo`, data, { timeout: 120000 }),
+  deleteCanvas: (menuId: string) => api.delete(`/workspace/menus/${menuId}/canvas`),
   schedules: () => api.get('/workspace/schedules'),
   users: () => api.get('/workspace/users'),
 };

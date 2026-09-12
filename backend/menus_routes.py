@@ -108,6 +108,125 @@ def _safe_src(v: str, *, allow_data: bool = True) -> str:
     return ""   # rejected
 
 
+def _ce(value) -> str:
+    """Escape for the canvas renderer (module level; `_esc` is factory-scoped)."""
+    return html_lib.escape(str(value or ""), quote=True)
+
+
+_CANVAS_FONTS = {
+    # Liberation (used server-side to measure) is metric-compatible with Arial
+    # and Times New Roman, so asking the browser for those keeps the measured
+    # size honest.
+    "sans": "Arial,Helvetica,'Liberation Sans',sans-serif",
+    "serif": "'Times New Roman',Times,'Liberation Serif',serif",
+    "script": "'Brush Script MT','Segoe Script',cursive",
+}
+_CANVAS_ALIGN = {"left": "flex-start", "center": "center", "right": "flex-end"}
+
+
+def _render_canvas(menu: dict) -> str:
+    """Full-screen page: the restaurant's own artwork plus editable overlays.
+
+    Two rules make this look like the original design instead of a knock-off:
+
+    1. A field is only painted when its text actually changed. An untouched
+       name is already perfect in the uploaded artwork, so we leave those
+       pixels alone and never risk a mismatched font or a visible patch.
+    2. Coordinates are plain pixels of the uploaded design and the whole stage
+       is scaled by one CSS transform, so the output is pixel-identical on
+       1080p, 4K or the phone preview.
+    """
+    canvas = menu.get("canvas") or {}
+    width = max(1, int(canvas.get("width") or 1920))
+    height = max(1, int(canvas.get("height") or 1080))
+    background = _safe_src(canvas.get("background_url") or "", allow_data=False)
+
+    blocks = []
+    for field in canvas.get("fields") or []:
+        if not isinstance(field, dict):
+            continue
+        x, y = int(field.get("x") or 0), int(field.get("y") or 0)
+        w, h = max(1, int(field.get("w") or 1)), max(1, int(field.get("h") or 1))
+        geometry = f"left:{x}px;top:{y}px;width:{w}px;height:{h}px"
+        if field.get("kind") == "photo":
+            src = _safe_src(field.get("image_url") or "", allow_data=False)
+            if not src:
+                continue  # sin reemplazo: se ve la foto original del diseno
+            radius = max(0, min(50, int(field.get("radius") or 0)))
+            blocks.append(
+                f'<div class="ph" style="{geometry};border-radius:{radius}%">'
+                f'<img src="{src}" alt=""></div>'
+            )
+            continue
+        text = str(field.get("text") or "")
+        if not text.strip():
+            continue
+        if text == str(field.get("original_text") or ""):
+            continue  # sin editar: el diseno original ya lo muestra mejor
+        font_size = max(6, int(field.get("font_size") or round(h * 1.1)))
+        family = _CANVAS_FONTS.get(str(field.get("font_family") or "sans"), _CANVAS_FONTS["sans"])
+        bg = _ce(field.get("bg_color") or "#ffffff")
+        # The detected box hugs the glyphs, so a descender of the old text can
+        # poke out from under the patch. Bleed the fill a few pixels with a
+        # spread shadow — grows the painted area without moving the text.
+        bleed = max(2, round(h * 0.14))
+        style = ";".join([
+            geometry,
+            f"background:{bg}",
+            f"box-shadow:0 0 0 {bleed}px {bg}",
+            f"color:{_ce(field.get('color') or '#111111')}",
+            f"font-family:{family}",
+            f"font-weight:{700 if int(field.get('font_weight') or 400) >= 600 else 400}",
+            f"font-style:{'italic' if field.get('italic') else 'normal'}",
+            f"text-transform:{'uppercase' if field.get('uppercase') else 'none'}",
+            f"justify-content:{_CANVAS_ALIGN.get(str(field.get('align') or 'left'), 'flex-start')}",
+        ])
+        blocks.append(
+            f'<div class="f" style="{style}" data-fs="{font_size}">'
+            f'<span style="font-size:{font_size}px">{_ce(text)}</span></div>'
+        )
+
+    return f"""<!DOCTYPE html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{_ce(menu.get('name') or 'Menu')}</title>
+<style>
+html,body{{margin:0;padding:0;height:100%;background:#000;overflow:hidden}}
+#wrap{{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}}
+#stage{{position:relative;flex:0 0 auto;width:{width}px;height:{height}px;transform-origin:center center}}
+#bg{{position:absolute;inset:0;width:100%;height:100%;display:block}}
+.f{{position:absolute;display:flex;align-items:center;overflow:hidden;line-height:1;white-space:nowrap}}
+.f>span{{display:block;line-height:1}}
+.ph{{position:absolute;overflow:hidden}}
+.ph>img{{width:100%;height:100%;object-fit:cover;display:block}}
+</style></head><body>
+<div id="wrap"><div id="stage">
+<img id="bg" src="{background}" alt="">
+{''.join(blocks)}
+</div></div>
+<script>
+var W={width},H={height};
+function fit(){{
+  var s=document.getElementById('stage');
+  var k=Math.min(window.innerWidth/W,window.innerHeight/H);
+  s.style.transform='scale('+k+')';
+}}
+function shrink(){{
+  var boxes=document.querySelectorAll('.f');
+  for(var i=0;i<boxes.length;i++){{
+    var box=boxes[i],span=box.firstElementChild;
+    var size=parseFloat(box.getAttribute('data-fs'))||14;
+    var guard=0;
+    while(span.scrollWidth>box.clientWidth+1&&size>6&&guard<120){{
+      size-=Math.max(0.5,size*0.03);span.style.fontSize=size+'px';guard++;
+    }}
+  }}
+}}
+window.addEventListener('resize',fit);
+fit();
+if(document.fonts&&document.fonts.ready){{document.fonts.ready.then(shrink);}}else{{shrink();}}
+</script></body></html>"""
+
+
 def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_playlist,
                          _bump_playlist_screens, _esc):
     router = APIRouter(prefix="/api", tags=["Menus"])
@@ -757,6 +876,13 @@ def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_pla
                     pass
             if not _allowed:
                 raise HTTPException(status_code=404, detail="Menu not found")
+
+        # ── «Mi propio diseño»: el fondo del restaurante manda ─────────────────
+        # Cuando el usuario sube su menú ya diseñado, no lo volvemos a dibujar:
+        # servimos su imagen y encima sólo los campos editables. Así el TV
+        # muestra exactamente su diseño, con los precios de hoy.
+        if menu.get("layout_mode") == "canvas" and menu.get("canvas"):
+            return HTMLResponse(_render_canvas(menu))
 
         template_id = menu.get("template_id", "classic")
         restaurant = menu.get("restaurant_name") or menu.get("name") or "Restaurant"

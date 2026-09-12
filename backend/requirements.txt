@@ -111,6 +111,7 @@ pathspec==1.0.4
 pdfkit==1.0.0
 pexpect==4.9.0
 pillow==12.1.1
+pymupdf==1.28.2
 platformdirs==4.9.2
 playwright==1.62.0
 pluggy==1.6.0

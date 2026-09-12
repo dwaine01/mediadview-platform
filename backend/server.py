@@ -1682,6 +1682,7 @@ from workspace_routes import create_workspace_routes
 from signup_routes import create_signup_routes
 from workspace_team_routes import create_workspace_team_routes
 from menu_ai_routes import create_menu_ai_routes
+from menu_canvas_routes import create_menu_canvas_routes
 from menus_routes import create_menus_routes
 from media_routes import create_media_routes
 from screens_routes import create_screens_routes
@@ -1702,6 +1703,7 @@ from workspace_reports_routes import create_workspace_reports_routes
 app.include_router(create_plans_routes(db, get_current_user, require_admin))
 app.include_router(create_workspace_team_routes(db, get_current_user))
 app.include_router(create_menu_ai_routes(db, get_current_user))
+app.include_router(create_menu_canvas_routes(db, get_current_user, bump_playlist_version))
 # -- Fase 2B-1: /menus/* (see docs/REFACTOR_FASE2_PLAN.md) --
 app.include_router(create_menus_routes(gen_id, serialize_doc, _is_platform_admin,
                                         _can_view_playlist, _bump_playlist_screens, _esc))

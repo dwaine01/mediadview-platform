@@ -65,10 +65,14 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PORT=8001
 
 # libjpeg/zlib runtime libs (used by Pillow); tini for proper signal handling.
+# fonts-liberation: métricamente compatibles con Arial y Times New Roman. Se
+# usan para medir el tamaño de letra de cada campo del «menú sobre tu diseño»
+# (backend/menu_canvas_routes.py); sin ellas el cálculo cae a una estimación.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libjpeg62-turbo \
     zlib1g \
     libfreetype6 \
+    fonts-liberation \
     tini \
     curl \
     ca-certificates \
