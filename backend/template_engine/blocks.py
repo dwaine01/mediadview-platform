@@ -158,7 +158,11 @@ def _product_grid(block, design, theme, products) -> str:
     cols = max(1, int(block.get("cols") or 3))
     rows = max(1, int(block.get("rows") or 3))
     gap = int(block.get("gap") or 24)
-    cards = "".join(_card(item, block, i) for i, item in enumerate(items[:cols * rows]))
+    # `skip` deja afuera los primeros productos: sirve cuando el estrella ya
+    # está enorme arriba y la grilla tiene que mostrar los que siguen.
+    skip = max(0, int(block.get("skip") or 0))
+    visible = items[skip:] or items
+    cards = "".join(_card(item, block, i) for i, item in enumerate(visible[:cols * rows]))
     return (f'<div class="blk grid" style="{_rect(block)};gap:{gap}px;'
             f'grid-template-columns:repeat({cols},1fr);'
             f'grid-template-rows:repeat({rows},1fr)">{cards}</div>')

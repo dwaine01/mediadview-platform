@@ -32,7 +32,7 @@
 
       { "type": "category", "rect": [60, 700, 1090, 48], "binds": "categories[0]", "size": 32 },
       { "type": "product_grid", "rect": [60, 756, 1090, 268], "cols": 3, "rows": 1, "gap": 28,
-        "binds": "categories[0]", "card": "bare",
+        "binds": "categories[0]", "card": "bare", "skip": 1,
         "name_size": 30, "price_size": 38, "anim": "fade" },
 
       { "type": "category", "rect": [1210, 196, 650, 50], "binds": "categories[1]", "size": 32 },
@@ -125,7 +125,7 @@
 
       { "type": "category", "rect": [56, 214, 900, 52], "binds": "categories[0]", "size": 36 },
       { "type": "product_grid", "rect": [56, 278, 900, 640], "cols": 2, "rows": 2, "gap": 24,
-        "binds": "categories[0]", "name_size": 34, "price_size": 40,
+        "binds": "categories[0]", "skip": 1, "name_size": 34, "price_size": 40,
         "desc_size": 18, "show_desc": true, "anim": "fade" },
 
       { "type": "category", "rect": [1000, 512, 864, 48], "binds": "categories[1]", "size": 32 },

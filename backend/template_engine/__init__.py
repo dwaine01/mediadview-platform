@@ -235,7 +235,8 @@ _BASE_CSS = """
   transform:rotate(-9deg);box-shadow:0 20px 46px rgba(0,0,0,.45);z-index:3}
 /* La tarjeta «desnuda»: foto redonda y texto centrado, sin caja. */
 .card-bare{background:none;box-shadow:none;border:0;align-items:center;text-align:center}
-.card-bare .card-photo{flex:0 0 auto;height:62%;width:auto;aspect-ratio:1;border-radius:50%;
+.card-bare .card-name{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}
+.card-bare .card-photo{flex:0 0 auto;height:58%;width:auto;aspect-ratio:1;border-radius:50%;
   align-self:center;box-shadow:0 18px 40px rgba(0,0,0,.38)}
 .card-bare .badge,.card-bare .card-photo::after{display:none}
 .card-bare .card-body{padding:calc(var(--pad) * .7) 0 0;align-items:center;text-align:center}
