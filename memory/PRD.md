@@ -808,3 +808,34 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - `backend/tests/test_iter47_menu_templates.py` (13 tests). E2E del panel validado por el agente
   de testing (iteration_44.json): la subida responde al instante, el polling detecta `ready` en
   ~9 s y la plantilla aparece sola en la lista. Cero 502.
+
+## Feature (2026-06) — F1 Plantillas profesionales de cartelería (Pizzería), validado E2E
+- Pedido: poder elegir plantillas de calidad de agencia por rubro y sólo reemplazar contenido. Se
+  acordó validar primero UN rubro (Pizzería, horizontal y vertical) antes de construir los demás.
+- Arquitectura: el CATÁLOGO es de MediaView y vive versionado en `backend/seed_templates/*.json`
+  (se siembra en cada arranque, idempotente); el DISEÑO es la instancia del cliente (`designs`);
+  el render lo hace un único motor (`backend/template_engine`). Una plantilla nueva = un JSON
+  nuevo, nunca código nuevo.
+- Camino al TV: el diseño viaja dentro de un playlist como `content_type: "widget"` con
+  `media_url = /api/designs/{id}/render?v=<ts>` y un `checksum` sha256 que cambia con cada
+  edición. El APK Kotlin no se tocó. NO cambiar este contrato.
+- Panel: `signage-templates.tsx` (catálogo + filtros + vista previa a pantalla completa),
+  `design-edit.tsx` (reemplazar nombre/precio/foto y publicar), `designs.tsx` («Mis diseños»).
+  Acceso desde la acción rápida «Plantillas Pro» del dashboard y desde Menús.
+- Ajustes de legibilidad pedidos por el usuario (regla de signage): nombres, precios y listas más
+  grandes y con más contraste; la descripción se corta a dos renglones para no robarle altura a la
+  foto; promo ancha con el precio al costado. Fotos del rubro regeneradas con un único «set
+  fotográfico» (mismo ángulo y misma luz) y optimizadas a 1024 px (~200 KB cada una).
+- BUGS DE MOTOR QUE NO SE PUEDEN REINTRODUCIR:
+  1. `.hero` y `.promo` tenían `position:relative` y por orden de cascada pisaban el
+     `position:absolute` de `.blk`: el bloque volvía al flujo y empujaba a los siguientes (la
+     promo del tótem vertical terminaba fuera del lienzo). Los bloques ya son absolutos, ninguna
+     clase de bloque declara `position`.
+  2. `fitText` medía contra `clientWidth`, que incluye el padding, y cortaba el ticker.
+  3. `api.ts` tenía DOS claves `nowPlaying` en `workspaceAPI` y la segunda pisaba la primera. La
+     de una pantalla puntual ahora se llama `screenNowPlaying`.
+- Pruebas: `backend/tests/test_iter_signage_templates.py` (19 tests, incluye el contrato del
+  reproductor y el cambio de checksum al editar un precio) + E2E de panel validado por el agente
+  de testing (`test_reports/iteration_45.json`).
+- Pendiente: subir fotos propias desde el editor (el endpoint ya existe) y el resto de los rubros
+  (comida rápida, heladería, mexicano, mariscos, farmacia, ofertas flash).
