@@ -772,3 +772,39 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   imprenta y exige que el backend conteste y siga vivo (`/api/livez`).
 - Nota de producto: el diseño subido queda guardado en el menú y funciona como la plantilla del
   cliente; no hay (todavía) una biblioteca de plantillas reutilizables entre menús.
+
+## Fix P0 definitivo (2026-06) — el 502 al subir el diseño era un TIMEOUT, no memoria
+- Los arreglos de memoria ayudaron pero no eran la causa final: el modelo de visión tarda entre 15
+  y 90 segundos y el proxy de adelante corta la conexión mucho antes. Cualquier ajuste dentro de
+  una request síncrona iba a seguir fallando de a ratos.
+- Fix estructural: `POST /workspace/menus/{id}/canvas/import` ahora **responde 202 en ~1.3 s**.
+  Guarda el fondo (que el cliente ya puede ver) y lanza el análisis en un `BackgroundTask`. El
+  panel hace polling a `GET /workspace/menus/{id}/canvas` y lee
+  `analysis.status` (`analyzing` | `ready` | `failed`) más `analysis.error` textual.
+- El fondo pasó de PNG a JPEG q92, y la imagen que se usa para muestrear el color del papel se
+  decodifica DESDE ese JPEG: muestrear del original y servir el comprimido dejaba parches que no
+  matcheaban.
+- Si el worker se reinicia a mitad del análisis, el GET marca `failed` después de 6 minutos en vez
+  de dejar el panel girando para siempre.
+- `backend/tests/test_iter43_menu_canvas.py::TestTheAnalysisRunsInTheBackground` (4 tests) exige
+  que la subida conteste en menos de 10 s y que el fondo ya sea visible antes de que la IA termine.
+
+## Feature (2026-06) — Biblioteca de plantillas del cliente
+- Pedido textual: «debe crear la plantilla inmediatamente que la IA reconozca toda la estructura y
+  ponerla en una lista de plantillas a usar donde se pueda cambiar la foto del artículo, precio y
+  nombre».
+- Cuando el análisis termina bien, el backend guarda solo el layout en la colección
+  `menu_templates` (`save_canvas_as_template`). Volver a subir el diseño del mismo menú actualiza
+  la misma plantilla en vez de duplicarla.
+- `GET /workspace/menu-templates`, `POST /workspace/menu-templates/{id}/use`,
+  `PUT` (renombrar), `DELETE`. Tope de 60 plantillas por organización.
+- DECISIÓN QUE NO SE PUEDE ROMPER: la plantilla y el menú NO comparten documento, y al usar una
+  plantilla los recuadros se copian **con ids nuevos**. Si compartieran ids, cambiar un precio en
+  un local se metería en todos los menús armados con el mismo diseño. Borrar una plantilla tampoco
+  toca los menús ya armados.
+- Panel: `frontend/app/workspace/menu-templates.tsx` (lista con preview del diseño, conteo de
+  textos y fotos, «Usar esta plantilla», borrar) + botón «Plantillas» en el encabezado de Menús y
+  una vía «Desde mi propio diseño» en el modal de crear menú.
+- `backend/tests/test_iter47_menu_templates.py` (13 tests). E2E del panel validado por el agente
+  de testing (iteration_44.json): la subida responde al instante, el polling detecta `ready` en
+  ~9 s y la plantilla aparece sola en la lista. Cero 502.

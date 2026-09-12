@@ -1324,4 +1324,21 @@ Diferencias comprobadas contra el backend vivo (`https://mediadview.com`):
   verdes.
 - Estado: CERRADA — desplegada y verificada (`/api/livez` = `c367b47`).
 
+### 2026-06 — E1 — Import del diseño en segundo plano + biblioteca de plantillas
+- Rama: `trunk` → `production` (commits `09d01e1`, `87e67b0`).
+- Archivos: `backend/menu_canvas_routes.py`, `backend/menu_templates_routes.py` (nuevo),
+  `backend/server.py` (2 líneas de registro), `backend/tests/route_inventory_snapshot.json`,
+  `frontend/app/workspace/menu-templates.tsx` (nuevo), `frontend/app/workspace/menu-canvas.tsx`,
+  `frontend/app/workspace/menus.tsx`, `frontend/src/services/api.ts`.
+- CAMBIO DE CONTRATO (interno, no afecta al APK): `POST /api/workspace/menus/{id}/canvas/import`
+  devuelve **202** con `canvas.analysis.status = "analyzing"`. El análisis de visión corre en un
+  `BackgroundTask` y el panel hace polling a `GET /api/workspace/menus/{id}/canvas`. Si alguien lo
+  vuelve a hacer síncrono, el proxy lo corta con 502/504 en producción: el modelo tarda 15-90 s.
+- Nueva colección `menu_templates` (por organización, tope 60). Al usar una plantilla los campos
+  se copian con ids nuevos — NO compartir ids ni documentos entre plantilla y menú.
+- Nada de `/api/devices/*` ni `/api/player/*` fue tocado.
+- Validación: `test_iter47_menu_templates.py` (13), `test_iter43_menu_canvas.py` (22),
+  `test_iter46_big_uploads.py` (6) + E2E del panel (iteration_44.json, 9/9 flujos).
+- Estado: CERRADA — desplegada y verificada (`/api/livez` = `87e67b0`).
+
 <!-- Nuevas entradas ARRIBA de esta línea, más recientes primero. -->
