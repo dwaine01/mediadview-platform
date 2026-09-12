@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from device_security import connectivity_from_heartbeat, progress_is_fresh
 from managed_portal_routes import create_audit_log as _audit
+from menus_routes import sign_menu_preview_token
 from org_branding_routes import OrgLogoUpload, delete_org_logo, save_org_logo
 from playlist_domain import normalize_schedule, schedule_is_active, select_winning_playlist
 from rbac import Role, get_effective_role
@@ -1000,6 +1001,78 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                    {"menu_name": menu.get("name"), "item": removed.get("name")})
         return {"message": "Item removed", "item_id": item_id}
 
+    async def _sync_menu_playlist(menu: dict, org_id: str, screen_ids: list[str],
+                                  current_user: dict, now: datetime) -> str:
+        """Create-or-update the playlist that actually delivers this menu to TVs.
+
+        One playlist per menu (`source_menu_id`), published to exactly the
+        screens the user picked. Bumping `published_at` also makes it win the
+        schedule tie-break in select_winning_playlist, so the freshly published
+        menu is what the screen shows.
+        """
+        menu_id = menu["id"]
+        item = {
+            "id": str(_uuid.uuid4()),
+            "type": "menu",
+            "ref_id": menu_id,
+            "title": (menu.get("name") or "Menú")[:160],
+            "duration": 60,
+            "transition": "fade",
+            "display_mode": "cover",
+            "order": 0,
+        }
+        existing = await db.playlists.find_one({"org_id": org_id, "source_menu_id": menu_id})
+        org_screen_ids = await _org_screen_ids(org_id)
+        if existing:
+            item["id"] = ((existing.get("items") or [{}])[0] or {}).get("id") or item["id"]
+            await db.playlists.update_one({"id": existing["id"]}, {"$set": {
+                "name": f"{menu.get('name') or 'Menú'} — pantalla",
+                "items": [item],
+                "screen_ids": screen_ids,
+                "allowed_screen_ids": org_screen_ids,
+                "status": "published" if screen_ids else "draft",
+                "published_at": now,
+                "published_by_user_id": current_user["id"],
+                "updated_at": now,
+                "version": int(existing.get("version") or 0) + 1,
+            }})
+            return existing["id"]
+        playlist = {
+            "id": str(_uuid.uuid4()),
+            "org_id": org_id,
+            "source_menu_id": menu_id,
+            "name": f"{menu.get('name') or 'Menú'} — pantalla",
+            "description": "Playlist generada al publicar el menú",
+            "created_by_user_id": current_user["id"],
+            "owner_user_id": current_user["id"],
+            "client_user_id": current_user["id"],
+            "management_mode": "client",
+            "allow_client_publish": True,
+            "allowed_screen_ids": org_screen_ids,
+            "screen_ids": screen_ids,
+            "items": [item],
+            "schedule": normalize_schedule(None),
+            "priority": 10,
+            "status": "published" if screen_ids else "draft",
+            "version": 1,
+            "pending_items": [],
+            "published_at": now,
+            "published_by_user_id": current_user["id"],
+            "created_at": now,
+            "updated_at": now,
+        }
+        await db.playlists.insert_one(playlist)
+        return playlist["id"]
+
+    @router.get("/menus/{menu_id}/preview", summary="Signed URL to preview a menu as the TV shows it")
+    async def workspace_menu_preview(menu_id: str, current_user: dict = Depends(require_workspace_user)):
+        org_id = current_user["organization_id"]
+        menu = await db.menus.find_one({"id": menu_id, "org_id": org_id}, {"_id": 0, "id": 1})
+        if not menu:
+            raise HTTPException(status_code=404, detail="Menu not found")
+        token = sign_menu_preview_token(menu_id)
+        return {"url": f"/api/menus/{menu_id}/render?preview={token}", "expires_in": 3600}
+
     @router.post("/menus/{menu_id}/publish", summary="Publish menu to screens")
     async def workspace_publish_menu(menu_id: str, data: dict, current_user: dict = Depends(require_workspace_user)):
         org_id = current_user["organization_id"]
@@ -1040,6 +1113,14 @@ def create_workspace_routes(db, get_current_user, require_admin, bump_playlist_v
                 {"id": {"$in": screen_ids}, "organization_id": org_id},
                 {"$set": {"active_menu_id": menu_id, "updated_at": now}},
             )
+        # The player never reads `active_menu_id` — it builds its playlist from
+        # published `playlists` docs that target the screen. Publishing a menu
+        # therefore has to own a playlist, otherwise the TV keeps showing
+        # whatever it had and the user sees «publiqué y no llegó a la pantalla».
+        await _sync_menu_playlist(menu, org_id, screen_ids, current_user, now)
+        if bump_playlist_version:
+            for sid in set((menu.get("screen_ids") or []) + screen_ids):
+                await bump_playlist_version(sid, reason="menu published")
         await _log(current_user, "menu.published", "menu", menu_id,
                    {"name": menu.get("name"), "screens": len(screen_ids),
                     "removed_from": removed.modified_count})

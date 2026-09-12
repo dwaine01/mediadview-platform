@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, StyleSheet, TouchableOpacity, TextInput,
-  ActivityIndicator, Modal, Switch, KeyboardAvoidingView, Platform, Image
+  ActivityIndicator, Modal, Switch, KeyboardAvoidingView, Platform, Image, Linking
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -127,6 +127,7 @@ export default function MenuEditor() {
   const [generatingId, setGeneratingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [bulkProgress, setBulkProgress] = useState('');
+  const [previewing, setPreviewing] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -288,8 +289,27 @@ export default function MenuEditor() {
     } finally { setPublishing(false); }
   };
 
-  const missingPhotos = (menu?.items || []).filter(i => !i.image_url).length;
+  // «Vista previa» — abre exactamente la página que el TV renderiza, a pantalla
+  // completa. Para menús en borrador el backend firma un token corto porque el
+  // render público sólo sirve menús publicados.
+  const openPreview = async () => {
+    if (!menu?.items?.length) {
+      setDialog({ title: 'Sin productos', message: 'Agrega al menos un producto para ver la vista previa.' });
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const res = await workspaceAPI.menuPreviewUrl(menuId);
+      await Linking.openURL(`${API_URL}${res.data.url}`);
+    } catch (e: any) {
+      setDialog({
+        title: 'No se pudo abrir la vista previa',
+        message: e.response?.data?.detail || e.message || 'Intentá de nuevo en un momento.',
+      });
+    } finally { setPreviewing(false); }
+  };
 
+  const missingPhotos = (menu?.items || []).filter(i => !i.image_url).length;
   // Group items by category
   const grouped = (menu?.items || []).reduce<Record<string, MenuItem[]>>((acc, item) => {
     const cat = item.category || 'Other';
@@ -416,21 +436,37 @@ export default function MenuEditor() {
             {menu?.status === 'published' ? 'En vivo en tus pantallas' : 'Todavía sin publicar'}
           </Text>
         </View>
-        <TouchableOpacity
-          style={[ed.publishBtn, publishing && { opacity: 0.6 }]}
-          onPress={publishMenu}
-          disabled={publishing}
-        >
-          {publishing
-            ? <ActivityIndicator color="#fff" size={16} />
-            : <>
-                <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
-                <Text style={ed.publishBtnText}>
-                  {menu?.status === 'published' ? 'Update Live' : 'Publicar en Pantallas'}
-                </Text>
-              </>
-          }
-        </TouchableOpacity>
+        <View style={ed.publishActions}>
+          <TouchableOpacity
+            style={[ed.previewBtn, previewing && { opacity: 0.6 }]}
+            onPress={openPreview}
+            disabled={previewing}
+            testID="preview-menu"
+          >
+            {previewing
+              ? <ActivityIndicator color="#0E7490" size={16} />
+              : <>
+                  <Ionicons name="tv-outline" size={18} color="#0E7490" />
+                  <Text style={ed.previewBtnText}>Vista previa</Text>
+                </>
+            }
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[ed.publishBtn, publishing && { opacity: 0.6 }]}
+            onPress={publishMenu}
+            disabled={publishing}
+          >
+            {publishing
+              ? <ActivityIndicator color="#fff" size={16} />
+              : <>
+                  <Ionicons name="cloud-upload-outline" size={18} color="#fff" />
+                  <Text style={ed.publishBtnText}>
+                    {menu?.status === 'published' ? 'Update Live' : 'Publicar'}
+                  </Text>
+                </>
+            }
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Add/Edit Item Modal */}
@@ -646,11 +682,14 @@ const ed = StyleSheet.create({
   iconBtn: { padding: 6 },
   addItemBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 2, borderColor: '#E2E8F0', borderStyle: 'dashed', borderRadius: 12, padding: 16, marginTop: 4 },
   addItemBtnText: { fontSize: 14, fontWeight: '600', color: '#0891B2' },
-  publishBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 12 },
+  publishBar: { position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#FFFFFF', borderTopWidth: 1, borderTopColor: '#E2E8F0', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 12 },
   publishInfo: { gap: 2 },
   publishCount: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
   publishHint: { fontSize: 11, color: '#64748B' },
-  publishBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#059669', paddingHorizontal: 18, paddingVertical: 12, borderRadius: 12 },
+  publishActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  previewBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#ECFEFF', borderWidth: 1, borderColor: '#A5F3FC', paddingHorizontal: 12, paddingVertical: 11, borderRadius: 12, minHeight: 44 },
+  previewBtnText: { color: '#0E7490', fontSize: 13, fontWeight: '700' },
+  publishBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#059669', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, minHeight: 44 },
   publishBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(15,23,42,0.45)' },
   modal: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 36, maxHeight: '90%' },

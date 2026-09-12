@@ -29,10 +29,15 @@ _notify_menu_change and _safe_src were used ONLY by these 15 routes and
 nothing else in server.py, so both moved here verbatim alongside the
 routes they serve, instead of being threaded in as parameters.
 """
+import base64
+import hashlib
+import hmac
 import html as html_lib
+import json
 import logging
 import os
 import re
+import time as _time
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -43,6 +48,48 @@ from deps import get_current_user
 from playlist_domain import normalize_playlist_items, normalize_schedule
 
 logger = logging.getLogger(__name__)
+
+# ── Menu preview tokens ───────────────────────────────────────────────────
+# The render endpoint is gated to published menus (H3). To let an owner see
+# «how it will look on the TV» BEFORE publishing, we hand them a short-lived
+# HMAC token instead of loosening the gate or leaking a bearer token into a
+# URL. Same pattern as checkout_service quotes.
+PREVIEW_TOKEN_TTL_SECONDS = 3600
+
+
+def _b64u(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def _b64u_decode(value: str) -> bytes:
+    return base64.urlsafe_b64decode(value + "=" * (-len(value) % 4))
+
+
+def _preview_secret() -> bytes:
+    key = os.environ.get("JWT_SECRET", "")
+    if not key:
+        raise RuntimeError("JWT_SECRET not set")
+    return key.encode()
+
+
+def sign_menu_preview_token(menu_id: str, ttl: int = PREVIEW_TOKEN_TTL_SECONDS) -> str:
+    payload = {"m": menu_id, "exp": int(_time.time()) + ttl}
+    body = _b64u(json.dumps(payload, separators=(",", ":"), sort_keys=True).encode())
+    sig = _b64u(hmac.new(_preview_secret(), body.encode(), hashlib.sha256).digest())
+    return f"{body}.{sig}"
+
+
+def verify_menu_preview_token(token: str, menu_id: str) -> bool:
+    """Boolean predicate — never raises on adversarial input."""
+    try:
+        body, sig = token.split(".", 1)
+        expected = _b64u(hmac.new(_preview_secret(), body.encode(), hashlib.sha256).digest())
+        if not hmac.compare_digest(sig, expected):
+            return False
+        payload = json.loads(_b64u_decode(body))
+        return payload.get("m") == menu_id and payload.get("exp", 0) > _time.time()
+    except Exception:
+        return False
 
 
 def _safe_src(v: str, *, allow_data: bool = True) -> str:
@@ -676,10 +723,11 @@ def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_pla
         return {"message": "Promo media deleted"}
 
     @router.get("/menus/{menu_id}/render", response_class=HTMLResponse)
-    async def render_menu(menu_id: str, request: Request):
+    async def render_menu(menu_id: str, request: Request, preview: str = ""):
         """Render a menu as a full-screen HTML page optimized for landscape LED displays.
         Features: 3-column max per slide, auto-slideshow, always-visible food images.
-        H3: Only published menus render publicly. Drafts require owner/admin auth."""
+        H3: Only published menus render publicly. Drafts require owner/admin auth
+        or a short-lived signed ?preview= token minted for the owner."""
         menu = await db.menus.find_one({"id": menu_id})
         if not menu:
             raise HTTPException(status_code=404, detail="Menu not found")
@@ -689,7 +737,7 @@ def create_menus_routes(gen_id, serialize_doc, _is_platform_admin, _can_view_pla
         if menu_status not in ("published", "active"):
             # Draft/private menus require authenticated owner or admin for preview
             auth_header = request.headers.get("Authorization", "")
-            _allowed = False
+            _allowed = bool(preview) and verify_menu_preview_token(preview, menu_id)
             if auth_header.startswith("Bearer "):
                 _token = auth_header[7:]
                 try:

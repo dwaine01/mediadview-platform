@@ -179,6 +179,7 @@ export const workspaceAPI = {
     api.delete(`/workspace/menus/${menuId}/items/${itemId}`),
   publishMenu: (menuId: string, data?: { screen_ids?: string[] }) =>
     api.post(`/workspace/menus/${menuId}/publish`, data || {}),
+  menuPreviewUrl: (menuId: string) => api.get(`/workspace/menus/${menuId}/preview`),
   // Billing
   billing: () => api.get('/workspace/billing'),
   screenCostPreview: (additionalScreens: number) =>
