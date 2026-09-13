@@ -80,6 +80,17 @@ function setMobileSidebar(open){const sb=document.querySelector('.sb'),bd=docume
 window.addEventListener('resize',()=>{if(innerWidth>900)setMobileSidebar(false)});
 // Inject spinner keyframes once (no external CSS dependency)
 (function(){if(document.getElementById('mv-spin-css'))return;const s=document.createElement('style');s.id='mv-spin-css';s.textContent='@keyframes mvSpin{to{transform:rotate(360deg)}}';document.head.appendChild(s)})();
+// Mostrar una pagina ya renderizada, sin volver a cargarla: el editor de
+// pantallas escribe en #pg-admin y necesita que esa pagina se vea, no que se
+// regenere encima de lo que acaba de escribir.
+function showPage(p){
+  document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
+  document.getElementById('pg-'+p)?.classList.add('on');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  document.querySelector('[data-p="'+p+'"]')?.classList.add('on');
+  setMobileSidebar(false);
+}
+
 function go(p){
   document.querySelectorAll('.pg').forEach(x=>x.classList.remove('on'));
   const _pgEl=document.getElementById('pg-'+p);
@@ -190,7 +201,41 @@ const loaders={
     }catch(e){el.innerHTML=`<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M5.07 19h13.86a2 2 0 001.74-2.97l-6.93-12a2 2 0 00-3.48 0l-6.93 12A2 2 0 005.07 19z"/></svg></div><h3>Unable to load dashboard</h3><p>${e.message}</p></div>`}
   },
 
-  async screens(){const el=document.getElementById('pg-screens');try{const d=await api('/screens');el.innerHTML=`<div class="ph"><div><h1>Screens Marketplace</h1><p>${d.length} LED displays available to advertise on</p></div></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">${d.map((s,i)=>`<div class="sc card-i"><div class="hd" style="background:${SG[i%SG.length]}"><div class="city">${s.location?.city||''}${s.location?.state?', '+s.location.state:''}</div></div><div class="ct"><div class="nm">${s.name}</div><div class="ad">${s.location?.address||''}</div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--t-4)">${s.specs?.size||''} · ${s.specs?.resolution||''}</span><div class="pr">$${s.pricing?.per_hour||0}<span>/hr</span></div></div></div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
+  // La pagina Screens del menu: para el dueño es donde administra sus
+  // pantallas (foto real, si esta en el mapa y que le falta para venderse),
+  // no una galeria de rectangulos de colores.
+  async screens(){
+    const el=document.getElementById('pg-screens');
+    const isAdm=user?.role==='admin'||user?.role==='superadmin'||ADV_RBAC.indexOf(user?.rbac_role)>-1;
+    try{
+      const d=await api('/screens');
+      const sinPin=d.filter(s=>s.location?.lat==null).length;
+      el.innerHTML='<div class="ph"><div><h1>Pantallas</h1><p>'+d.length+' pantallas · '
+        +(sinPin?sinPin+' sin ubicacion en el mapa':'todas ubicadas en el mapa')+'</p></div>'
+        +(isAdm?'<div style="display:flex;gap:8px"><button class="btn-s" onclick="geocodeMissing(this)">📍 Ubicar en el mapa</button></div>':'')
+        +'</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px">'
+        +d.map(function(s,i){
+          var pub=s.operation_type==='PUBLIC_ADVERTISING';
+          var foto=s.advertising&&s.advertising.photo_base64
+            ? '<img src="/api/screens/'+s.id+'/venue-photo" style="width:100%;height:100%;object-fit:cover">' : '';
+          var mapa=s.location?.lat!=null
+            ? '<span style="font-size:10px;font-weight:700;color:#059669;background:rgba(16,185,129,.12);padding:3px 8px;border-radius:999px">📍 En el mapa</span>'
+            : '<span style="font-size:10px;font-weight:700;color:#b45309;background:rgba(245,158,11,.14);padding:3px 8px;border-radius:999px">Sin ubicacion</span>';
+          return '<div class="sc card-i">'
+            +'<div class="hd" style="position:relative;background:'+SG[i%SG.length]+';overflow:hidden">'+foto
+            +'<div class="city" style="position:absolute;left:10px;bottom:10px">'+((s.location?.city||'')+(s.location?.state?', '+s.location.state:''))+'</div></div>'
+            +'<div class="ct"><div class="nm">'+s.name+'</div>'
+            +'<div class="ad">'+((s.location?.address||'')+(s.location?.postal_code?' · '+s.location.postal_code:''))+'</div>'
+            +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">'+mapa
+            +(pub?'<span style="font-size:10px;font-weight:700;color:#4338ca;background:rgba(99,102,241,.12);padding:3px 8px;border-radius:999px">Publicidad</span>':'')+'</div>'
+            +'<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--t-4)">'+((s.specs?.size||'')+' · '+(s.specs?.resolution||''))+'</span>'
+            +'<div class="pr">$'+(s.pricing?.per_month||0)+'<span>/mes</span></div></div>'
+            +(isAdm?'<button class="btn-s" style="width:100%;margin-top:10px;padding:8px;font-size:12px" onclick="editAdminScreen(\''+s.id+'\')">Editar ficha y ubicacion</button>':'')
+            +'</div></div>';
+        }).join('')+'</div>';
+    }catch(e){el.innerHTML='<p style="color:var(--red)">'+e.message+'</p>'}
+  },
 
   async campaigns(){const el=document.getElementById('pg-campaigns');try{const isA=user?.role==='admin'||user?.role==='superadmin';const d=isA?await api('/admin/campaigns'):await api('/campaigns');el.innerHTML=`<div class="ph"><div><h1>Campaigns</h1><p>${d.length} ${d.length===1?'campaign':'campaigns'} total</p></div><button class="btn-p" onclick="go('create')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New Campaign</button></div><div style="display:flex;flex-direction:column;gap:8px">${d.length===0?'<div class="empty"><div class="empty-ico"><svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6"/></svg></div><h3>No campaigns yet</h3><p>Launch your first advertising campaign to start reaching audiences</p><button class="btn-p" onclick="go(\'create\')">+ Create Campaign</button></div>':d.map(c=>`<div class="card card-i" style="display:flex;align-items:center;gap:14px;padding:18px;cursor:pointer"><div style="width:4px;align-self:stretch;border-radius:3px;background:${dot(c.status)};flex-shrink:0"></div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700;color:var(--t-1)">${c.name}</div><div style="font-size:12px;color:var(--t-4);margin-top:3px">${c.user?.name||c.screen?.name||''}${c.schedule?.start_date?' · '+c.schedule.start_date+' → '+(c.schedule.end_date||''):''}</div></div>${badge(c.status)}<div style="font-size:20px;font-weight:800;color:var(--cyan);min-width:110px;text-align:right;font-variant-numeric:tabular-nums">$${(c.pricing?.total||0).toLocaleString()}</div></div>`).join('')}</div>`}catch(e){el.innerHTML=`<p style="color:var(--red)">${e.message}</p>`}},
 
@@ -366,10 +411,12 @@ const loaders={
 
       // ===== SCREENS TAB =====
       if(window._adminTab==='screens'){
-        el.innerHTML='<div class="ph"><div><h1>Screens</h1><p>Manage your screens and playlists</p></div><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div>'+tabHtml+
+        el.innerHTML='<div class="ph"><div><h1>Screens</h1><p>Manage your screens and playlists</p></div><div style="display:flex;gap:8px"><button class="btn-s" onclick="geocodeMissing(this)" title="Ubica en el mapa las pantallas que tienen direccion pero todavia no tienen pin">📍 Ubicar en el mapa</button><button class="btn-p" onclick="document.getElementById(\'add-screen-form\').style.display=document.getElementById(\'add-screen-form\').style.display===\'none\'?\'block\':\'none\'">+ Add Screen</button></div></div>'+tabHtml+
         '<div id="add-screen-form" style="display:none;margin-bottom:16px"><div class="card" style="padding:20px"><div style="font-size:15px;font-weight:700;margin-bottom:14px">Add New Screen</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="ns-name" placeholder="Downtown LED Display"></div><div><div class="lbl">City</div><input class="inp" id="ns-city" placeholder="New York"></div></div>'
-        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="123 Main St"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="NY"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="20ft x 10ft"></div></div>'
+        +'<div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:10px;margin-bottom:10px"><div><div class="lbl">Address</div><input class="inp" id="ns-addr" placeholder="Av. Cervantes, Barrio La Plazuela"></div><div><div class="lbl">State</div><input class="inp" id="ns-state" placeholder="Francisco Morazan"></div><div><div class="lbl">Size</div><input class="inp" id="ns-size" placeholder="55 pulgadas"></div></div>'
+        +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:4px"><div><div class="lbl">Postal code</div><input class="inp" id="ns-zip" placeholder="11101"></div><div><div class="lbl">Country (2 letters)</div><input class="inp" id="ns-country" value="HN" maxlength="2"></div></div>'
+        +'<div style="font-size:11px;color:var(--t-4);margin-bottom:10px">Con la direccion y el codigo postal ubicamos la pantalla en el mapa del anunciante automaticamente.</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:14px"><div><div class="lbl">Price/Month ($)</div><input class="inp" id="ns-pm" type="number" placeholder="5000"></div><div><div class="lbl">Resolution</div><input class="inp" id="ns-res" value="1920x1080"></div><div><div class="lbl">Orientation</div><select class="inp" id="ns-orient"><option value="landscape">Landscape</option><option value="portrait">Portrait</option></select></div></div>'
         +'<div style="margin-bottom:14px"><div class="lbl" style="margin-bottom:8px">Screen Operation Type</div>'
         +'<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">'
@@ -729,7 +776,7 @@ function selectOpType(type) {
   }
 }
 async function addScreen(){
-  var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value;
+  var name=document.getElementById('ns-name')?.value,city=document.getElementById('ns-city')?.value,addr=document.getElementById('ns-addr')?.value,state=document.getElementById('ns-state')?.value,size=document.getElementById('ns-size')?.value,pm=document.getElementById('ns-pm')?.value,res=document.getElementById('ns-res')?.value,zip=document.getElementById('ns-zip')?.value||'',country=(document.getElementById('ns-country')?.value||'HN').toUpperCase();
   var opType=document.querySelector('input[name="op_type"]:checked')?.value||'SELF_SERVICE';
   var msg=document.getElementById('ns-msg');msg.style.display='none';
   if(!name||!city||!pm){msg.textContent='Name, city and monthly price are required';msg.style.color='var(--red)';msg.style.display='block';return}
@@ -742,7 +789,7 @@ async function addScreen(){
 
   if(opType==='PUBLIC_ADVERTISING'&&(!pw&&!pm2&&!py)){msg.textContent='Al menos un precio publicitario es requerido para pantallas PUBLIC_ADVERTISING';msg.style.color='var(--red)';msg.style.display='block';return}
 
-  var body={name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',country:'US'},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',operation_type:opType,max_ad_slots:maxSlots};
+  var body={name:name,description:name+' in '+city,location:{city:city,address:addr||city,state:state||'',postal_code:zip,country:country},pricing:{per_month:parseFloat(pm)||5000,per_day:Math.round((parseFloat(pm)||5000)/30),per_hour:Math.round((parseFloat(pm)||5000)/30/14),per_slot:Math.round((parseFloat(pm)||5000)/30/14/10),currency:'USD'},specs:{size:size||'20ft x 10ft',type:'LED',resolution:res||'1920x1080',orientation:document.getElementById('ns-orient')?.value||'landscape'},status:'active',operation_type:opType,max_ad_slots:maxSlots};
 
   if(opType==='PUBLIC_ADVERTISING'){
     if(pw!=null)body.price_per_week=pw;
@@ -751,14 +798,18 @@ async function addScreen(){
   }
 
   try{
-    await api('/admin/screens',{method:'POST',body:JSON.stringify(body)});
-    msg.textContent='Screen created ('+opType.replace(/_/g,' ')+')!';msg.style.color='var(--green)';msg.style.display='block';
+    var created=await api('/admin/screens',{method:'POST',body:JSON.stringify(body)});
+    var located=created&&created.location&&created.location.lat!=null;
+    msg.textContent='Screen created ('+opType.replace(/_/g,' ')+')'+(located?' — ubicada en el mapa':' — no pudimos ubicar la direccion en el mapa, revisala');
+    msg.style.color=located?'var(--green)':'var(--amber)';msg.style.display='block';
     setTimeout(()=>loaders.admin(),800);
   }catch(e){msg.textContent=e.message;msg.style.color='var(--red)';msg.style.display='block'}
 }
 async function editAdminScreen(id){
   var s=null;try{s=await api('/screens/'+id)}catch(e){alert('Error');return}
   var el=document.getElementById('pg-admin');
+  showPage('admin');
+  window.scrollTo(0,0);
   var orient=s.specs?.orientation||s.orientation||'landscape';
   // saveScreen() reads window._editOrient, so seed it with the stored value:
   // otherwise editing any other field silently reset the screen to landscape.
@@ -767,7 +818,9 @@ async function editAdminScreen(id){
   '<div style="display:flex;gap:20px;margin-bottom:20px"><div id="es-preview" style="width:200px;height:'+(orient==='portrait'?'300':'130')+'px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';border-radius:12px;display:flex;align-items:center;justify-content:center;flex-shrink:0;border:2px solid #e2e8f0;transition:all .3s"><span style="font-size:12px;color:rgba(255,255,255,.5)">'+orient.toUpperCase()+'</span></div>'+
   '<div style="flex:1"><div class="row2" style="margin-bottom:10px"><div><div class="lbl">Screen Name</div><input class="inp" id="es-name" value="'+s.name+'"></div><div><div class="lbl">Location Code <span style="color:var(--green);font-size:8px">(auto-generated, permanent)</span></div><div style="padding:10px 12px;background:var(--bg-1);border:1px solid var(--border);border-radius:8px;font-size:16px;font-weight:700;color:var(--cyan);letter-spacing:1px">'+(s.location_code||'—')+'</div></div></div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">City</div><input class="inp" id="es-city" value="'+(s.location?.city||'')+'"></div><div><div class="lbl">Address</div><input class="inp" id="es-addr" value="'+(s.location?.address||'')+'"></div></div>'+
-  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">State</div><input class="inp" id="es-state" value="'+(s.location?.state||'')+'"></div><div><div class="lbl">Price per Month ($)</div><input class="inp" id="es-pm" type="number" value="'+(s.pricing?.per_month||0)+'"></div></div>'+
+  '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">State</div><input class="inp" id="es-state" value="'+(s.location?.state||'')+'"></div><div><div class="lbl">Postal code</div><input class="inp" id="es-zip" value="'+(s.location?.postal_code||'')+'" placeholder="e.g. 11101"></div></div>'+
+  '<div class="row2" style="margin-bottom:6px"><div><div class="lbl">Country (2 letters)</div><input class="inp" id="es-country" value="'+(s.location?.country||'HN')+'" maxlength="2" placeholder="HN"></div><div><div class="lbl">Price per Month ($)</div><input class="inp" id="es-pm" type="number" value="'+(s.pricing?.per_month||0)+'"></div></div>'+
+  '<div style="font-size:11px;margin-bottom:12px;color:'+((s.location?.lat!=null)?'var(--green,#059669)':'var(--t-4)')+'">'+((s.location?.lat!=null)?('📍 Ubicada en el mapa ('+Number(s.location.lat).toFixed(4)+', '+Number(s.location.lng).toFixed(4)+')'):'Sin ubicación en el mapa todavía: guardá la dirección y el código postal y la buscamos sola.')+'</div>'+
   '<div class="row2" style="margin-bottom:10px"><div><div class="lbl">Size</div><input class="inp" id="es-size" value="'+(s.specs?.size||'')+'"></div><div><div class="lbl">Resolution</div><input class="inp" id="es-res" value="'+(s.specs?.resolution||'')+'"></div></div>'+
   '<div style="margin-bottom:16px"><div class="lbl">Orientation</div><div style="display:flex;gap:8px"><button onclick="setOrientPreview(\'landscape\')" id="es-oland" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='landscape'?'var(--cyan)':'var(--border)')+';background:'+(orient==='landscape'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='landscape'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↔ Landscape</button><button onclick="setOrientPreview(\'portrait\')" id="es-oport" style="flex:1;padding:12px;border-radius:8px;border:2px solid '+(orient==='portrait'?'var(--cyan)':'var(--border)')+';background:'+(orient==='portrait'?'rgba(34,211,238,.08)':'var(--bg-1)')+';color:'+(orient==='portrait'?'var(--cyan)':'var(--t-4)')+';font-size:13px;font-weight:600;cursor:pointer">↕ Portrait</button></div></div>'+
   '</div></div>'+
@@ -795,8 +848,11 @@ async function editAdminScreen(id){
     '<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">'+
       '<svg width="22" height="22" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3z"/><path d="M8 12l3 3 5-6"/></svg>'+
       '<div style="flex:1"><div style="font-size:14px;font-weight:700;color:var(--brand-l)">Public marketplace (QR / walk-in customers)</div>'+
-      '<div style="font-size:11px;color:var(--t-4)">These settings drive the /portal customer catalog and the QR landing page.</div></div>'+
+      '<div style="font-size:11px;color:var(--t-4)">These settings drive the /marketplace customer catalog and the QR landing page.</div></div>'+
     '</div>'+
+    // Que le falta a esta pantalla para estar lista para vender. Una ficha a
+    // medias no se vende: el anunciante no compra lo que no puede evaluar.
+    advReadiness(s)+
     // Photo
     '<div style="margin-bottom:14px"><div class="lbl">Photo of this screen (base64 stored, ~300 KB max)</div>'+
       '<div id="adv-photo-preview-'+id+'" style="width:100%;aspect-ratio:16/9;background:var(--bg-1);border:1.5px dashed var(--border);border-radius:10px;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:8px">'+
@@ -906,12 +962,41 @@ function setOrientPreview(o){
 }
 
 async function saveScreen(id){
-  var nm=document.getElementById('es-name').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape';
-  try{await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location:{city:city,address:addr,state:state,country:'US'},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});loaders.admin()}catch(e){alert(e.message)}}
+  var nm=document.getElementById('es-name').value,city=document.getElementById('es-city').value,addr=document.getElementById('es-addr').value,state=document.getElementById('es-state').value,pm=document.getElementById('es-pm').value,size=document.getElementById('es-size').value,res=document.getElementById('es-res').value,orient=window._editOrient||'landscape',zip=(document.getElementById('es-zip')||{}).value||'',country=((document.getElementById('es-country')||{}).value||'HN').toUpperCase();
+  try{var saved=await api('/admin/screens/'+id,{method:'PUT',body:JSON.stringify({name:nm,location:{city:city,address:addr,state:state,postal_code:zip,country:country},pricing:{per_month:parseFloat(pm),per_day:Math.round(parseFloat(pm)/30),per_hour:Math.round(parseFloat(pm)/30/14),per_slot:Math.round(parseFloat(pm)/30/14/10),currency:'USD'},specs:{size:size,type:'LED',resolution:res,orientation:orient}})});if(saved&&saved.location&&saved.location.lat!=null){toast&&toast('Pantalla ubicada en el mapa');}else{alert('Guardado, pero no pudimos ubicar esa dirección en el mapa. Revisá la calle y el código postal, o cargá las coordenadas a mano en la tarjeta Public marketplace.');}loaders.admin()}catch(e){alert(e.message)}}
 
 // ===== Public marketplace helpers (photo, price, is_public) =====
 window._advPhotoData = window._advPhotoData || {};   // { screen_id: base64 dataURL }
 window._advPhotoDirty = window._advPhotoDirty || {}; // { screen_id: 'set' | 'clear' }
+
+// Que le falta a una pantalla publica para poder venderse sola.
+// Un boton para las pantallas que ya estaban cargadas antes de que el sistema
+// buscara el pin solo: de a tandas, porque el buscador admite una por segundo.
+async function geocodeMissing(btn){
+  var label=btn.textContent;btn.disabled=true;btn.textContent='Ubicando…';
+  try{
+    var r=await api('/admin/screens/geocode-missing?limit=25',{method:'POST'});
+    var msg='Ubicadas '+r.located+' de '+r.reviewed+' pantallas.';
+    if(r.remaining) msg+=' Quedan '+r.remaining+' sin pin: volve a tocar el boton.';
+    if(r.not_found&&r.not_found.length) msg+='\n\nNo se pudo ubicar: '+r.not_found.join(', ')+'. Revisa la direccion y el codigo postal de esas pantallas.';
+    if(r.without_address) msg+='\n'+r.without_address+' sin direccion cargada.';
+    alert(msg);loaders.admin();
+  }catch(e){alert(e.message)}
+  btn.disabled=false;btn.textContent=label;
+}
+
+function advReadiness(s){
+  var miss=[];
+  if(!s.advertising?.photo_base64) miss.push('foto del local');
+  if(!s.advertising?.establishment_name) miss.push('nombre del establecimiento');
+  if(s.advertising?.audience_min==null&&s.advertising?.audience_max==null) miss.push('gente por dia');
+  if(!s.advertising?.open_from||!s.advertising?.open_to) miss.push('horario de atencion');
+  if(s.location?.lat==null) miss.push('ubicacion en el mapa (direccion + codigo postal)');
+  if(!miss.length) return '<div style="display:flex;gap:8px;align-items:center;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:10px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#059669;font-weight:600">✓ Ficha completa: esta pantalla ya se puede vender y aparece en el mapa</div>';
+  return '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.3);border-radius:10px;padding:10px 12px;margin-bottom:14px">'
+    +'<div style="font-size:12px;font-weight:700;color:var(--amber)">Falta para que el anunciante pueda evaluarla:</div>'
+    +'<div style="font-size:12px;color:var(--t-3);margin-top:4px">'+miss.join(' · ')+'</div></div>';
+}
 
 function advPickPhoto(id, input){
   var f = input.files && input.files[0];

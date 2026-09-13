@@ -102,3 +102,21 @@ Las dos notas ya están portadas a la tienda pública real:
 
 Regla para el futuro: antes de implementar algo del recorrido del anunciante, confirmar si va en
 `customer.html` (cliente de la calle) o en `advertising.js` (panel del dueño).
+
+---
+
+## Nota #3 — El pin del mapa sale de la dirección
+
+Pedido del dueño (textual): «TIENES QUE USAR LA DIRECION DONDE ESTA INSTALADA LA PANTALLA PARA
+OFRESER EL PIN DEL LOCATION. CADA VES QUE AGREGUEMOS UNA PANTALLA NOS PIDE LA DIRECION Y CODIGO
+POSTAL Y DE AHI TOMAS LA LOCACION Y LO SENALIZA EN EL MAPA».
+
+Estado: **IMPLEMENTADA** (2026-06).
+
+- El formulario de alta y el de edición piden **dirección, código postal y país**; el sistema
+  busca las coordenadas solo (OpenStreetMap/Nominatim, gratis) y avisa si la ubicó o no.
+- Si el dueño corrige el pin a mano, manda lo manual. Si la pantalla se muda, el pin se mueve.
+- Si la dirección no se encuentra, la pantalla se guarda igual: queda en el listado sin pin y el
+  panel dice qué falta.
+- Botón **«📍 Ubicar en el mapa»** en Screens para ubicar de una sola vez las pantallas viejas.
+- Semáforo por pantalla: foto / establecimiento / gente por día / horario / ubicación.

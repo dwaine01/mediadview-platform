@@ -954,3 +954,36 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - La tienda pública ahora lee `GET /api/marketplace/screens?here=CODE` (antes `/api/screens`,
   que devolvía TODAS las pantallas activas, incluidas las privadas de clientes y las de prueba).
 - El QR y la landing `advertise.html` ahora mandan a `/marketplace?code=MV-ADV-XXXX`, no al panel.
+
+## Del domicilio al pin: geocodificación automática (2026-06)
+- Nadie que instala una pantalla sabe su latitud. Al crear o editar una pantalla se carga
+  **dirección + código postal + país (2 letras)** y el sistema busca el punto solo con
+  **Nominatim (OpenStreetMap)**: gratis, sin llave. `backend/geocoding.py`.
+- `location.postal_code` es campo nuevo. El pin queda en `location.lat/lng` junto con
+  `geocoded_from` y `geocoded_at` (qué dirección produjo ese punto).
+- Reglas: si el dueño escribe coordenadas a mano, **ganan las manuales**. Si la dirección
+  cambia, el pin se vuelve a buscar (una pantalla que se mudó y sigue marcada en la esquina
+  vieja es peor que una sin pin). Si no se encuentra, **la pantalla se guarda igual** y queda
+  en el listado sin pin.
+- NUNCA cachear un error de red como «esa dirección no existe»: dejaría la pantalla sin pin
+  para siempre. `geocode_cache` guarda sólo respuestas reales; los errores se reintentan.
+- Se respeta el límite de Nominatim: un `User-Agent` propio y una consulta por segundo.
+- Para las pantallas viejas: botón **«📍 Ubicar en el mapa»** en la sección Screens del panel
+  (`POST /api/admin/screens/geocode-missing?limit=25`, de a tandas) y el script
+  `scripts/backfill_screen_coords.py`.
+- En la tarjeta «Public marketplace» de cada pantalla hay un semáforo (`advReadiness`) que dice
+  qué falta para poder venderla: foto, establecimiento, gente por día, horario o ubicación.
+- Tests: `tests/test_screen_geocoding.py` (5).
+
+## La página «Screens» del panel ahora sirve para administrar (2026-06)
+- Era una galería de rectángulos de colores (`loaders.screens`) sin fotos y SIN forma de llegar al
+  editor: el editor (`editAdminScreen`, con foto, ficha, horario y código postal) vivía sólo en
+  `loaders.admin()`, que no tiene entrada en el menú. Por eso el dueño «no veía la locación»:
+  desde su propio panel no había camino hasta esos campos.
+- Ahora cada tarjeta muestra la **foto real** del local, ciudad, dirección + código postal, el
+  chip «📍 En el mapa» / «Sin ubicacion», si es de publicidad, el precio mensual y un botón
+  **«Editar ficha y ubicacion»**. En la cabecera, **«📍 Ubicar en el mapa»**.
+- `editAdminScreen` ahora llama a `showPage('admin')`: antes escribía en `#pg-admin` sin mostrar
+  esa página, así que desde cualquier otro lugar el editor se renderizaba invisible.
+- `showPage(p)` muestra una página ya renderizada sin volver a llamar a su loader (`go(p)` sí lo
+  llama y pisaría lo que se acaba de escribir).

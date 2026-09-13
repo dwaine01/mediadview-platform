@@ -58,6 +58,7 @@ import os
 from datetime import datetime
 from typing import Optional
 
+from geocoding import address_key, geocode_location
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel
 
@@ -78,10 +79,25 @@ from rbac import (
 logger = logging.getLogger(__name__)
 
 
+async def _located(db, location: dict) -> dict:
+    """La dirección con su pin. Si no se puede ubicar, la pantalla se guarda igual."""
+    if location.get("lat") is not None and location.get("lng") is not None:
+        return location
+    found = await geocode_location(db, location)
+    if found:
+        location = {**location, "lat": found["lat"], "lng": found["lng"],
+                    "geocoded_from": address_key(location),
+                    "geocoded_at": datetime.utcnow()}
+    return location
+
+
 class ScreenLocation(BaseModel):
     city: str
     address: str
     state: Optional[str] = None
+    # El código postal es lo que convierte una dirección escrita a mano en un
+    # pin exacto en el mapa: con él el buscador no confunde ciudades homónimas.
+    postal_code: Optional[str] = None
     country: str = "US"
     lat: Optional[float] = None
     lng: Optional[float] = None
@@ -269,6 +285,44 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
         await db.screens.update_one({"id": screen_id}, {"$set": update})
         return {"screen_id": screen_id, "advertising": current}
 
+    @router.post("/admin/screens/geocode-missing")
+    async def geocode_missing_screens(limit: int = 25, admin: dict = Depends(require_admin)):
+        """Ubica en el mapa las pantallas que ya estaban cargadas sin coordenadas.
+
+        Las pantallas creadas antes de que el sistema buscara el pin solo se
+        quedaron fuera del mapa del anunciante. Esto las ubica desde su
+        dirección, de a tandas, porque el buscador admite una consulta por
+        segundo y una tanda grande dejaría la pantalla del panel colgada."""
+        screens = await db.screens.find({
+            "status": "active",
+            "$or": [{"location.lat": None}, {"location.lat": {"$exists": False}}],
+        }).to_list(max(1, min(int(limit), 40)))
+
+        located, failed, no_address = 0, [], 0
+        for screen in screens:
+            location = screen.get("location") or {}
+            if not address_key(location):
+                no_address += 1
+                continue
+            found = await geocode_location(db, location)
+            if not found:
+                failed.append(screen.get("name"))
+                continue
+            await db.screens.update_one({"id": screen["id"]}, {"$set": {
+                "location.lat": found["lat"], "location.lng": found["lng"],
+                "location.geocoded_from": address_key(location),
+                "location.geocoded_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+            }})
+            located += 1
+        remaining = await db.screens.count_documents({
+            "status": "active",
+            "$or": [{"location.lat": None}, {"location.lat": {"$exists": False}}],
+        })
+        return {"reviewed": len(screens), "located": located,
+                "without_address": no_address, "not_found": failed[:10],
+                "remaining": remaining}
+
     @router.get("/screens/{screen_id}/venue-photo")
     async def screen_venue_photo(screen_id: str, response: Response):
         """La foto real de la pantalla instalada en el local.
@@ -333,7 +387,7 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
 
         screen = {
             "id": gen_id(), "name": data.name, "description": data.description,
-            "location": data.location.dict(), "pricing": data.pricing.dict(),
+            "location": await _located(db, data.location.dict()), "pricing": data.pricing.dict(),
             "specs": data.specs.dict(), "preview_image": data.preview_image,
             "status": data.status, "location_code": location_code,
             "pairing_code": pairing_code, "pairing_secret": pairing_secret,
@@ -413,6 +467,23 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
         update = {k: v for k, v in data.dict(exclude_none=True).items()}
         # location_code is permanent - cannot be changed
         update.pop("location_code", None)
+        # Si cambió la dirección, el pin del mapa se vuelve a buscar solo: una
+        # pantalla que se mudó y sigue marcada en la esquina vieja es peor que
+        # una sin pin.
+        if "location" in update:
+            new_location = dict(update["location"])
+            previous = screen.get("location") or {}
+            same_address = address_key(new_location) == address_key(previous)
+            manual = (new_location.get("lat") is not None
+                      and (new_location.get("lat"), new_location.get("lng"))
+                      != (previous.get("lat"), previous.get("lng")))
+            if same_address and new_location.get("lat") is None:
+                new_location["lat"], new_location["lng"] = previous.get("lat"), previous.get("lng")
+            elif not manual:
+                new_location.pop("lat", None)
+                new_location.pop("lng", None)
+                new_location = await _located(db, new_location)
+            update["location"] = new_location
         # If operation_type is being changed, validate it
         if "operation_type" in update:
             new_op = update["operation_type"].upper()
@@ -480,7 +551,7 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
         location_code = await get_unique_location_code()
         screen = {
             "id": gen_id(), "name": data.name, "description": data.description,
-            "location": data.location.dict(), "pricing": data.pricing.dict(),
+            "location": await _located(db, data.location.dict()), "pricing": data.pricing.dict(),
             "specs": data.specs.dict(), "preview_image": data.preview_image,
             "status": "active", "location_code": location_code,
             "pairing_code": pairing_code, "pairing_secret": gen_pairing_secret(),
