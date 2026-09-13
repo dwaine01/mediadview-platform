@@ -32,7 +32,8 @@ PHOTOS = ROOT / "static" / "venue-photos"
 VENUES = [
     {
         "name": "Supermercado La Colonia — Caja central",
-        "photo": "supermercado.jpg",
+        "photo": "supermercado.jpg", "lat": 14.0998, "lng": -87.2043,
+        "open_from": "07:00", "open_to": "21:00",
         "establishment_name": "Supermercado La Colonia",
         "location_reference": "Frente al parque central, entrando por la calle peatonal",
         "audience_min": 800, "audience_max": 1200,
@@ -44,7 +45,8 @@ VENUES = [
     },
     {
         "name": "Farmacia San Rafael — Mostrador",
-        "photo": "farmacia.jpg",
+        "photo": "farmacia.jpg", "lat": 15.5045, "lng": -88.0250,
+        "open_from": "07:00", "open_to": "22:00",
         "establishment_name": "Farmacia San Rafael",
         "location_reference": "A media cuadra del Hospital Mario Rivas, sobre la 3ª avenida",
         "audience_min": 400, "audience_max": 600,
@@ -56,7 +58,8 @@ VENUES = [
     },
     {
         "name": "Gimnasio Fuerza Fit — Zona de cardio",
-        "photo": "gimnasio.jpg",
+        "photo": "gimnasio.jpg", "lat": 14.0770, "lng": -87.1780,
+        "open_from": "05:00", "open_to": "22:00",
         "establishment_name": "Gimnasio Fuerza Fit",
         "location_reference": "Dentro del Mall Multiplaza, nivel 2, al lado de la escalera",
         "audience_min": 300, "audience_max": 500,
@@ -68,7 +71,8 @@ VENUES = [
     },
     {
         "name": "Llantera El Camino — Sala de espera",
-        "photo": "gomeria.jpg",
+        "photo": "gomeria.jpg", "lat": 14.1225, "lng": -87.1100,
+        "open_from": "07:00", "open_to": "17:00",
         "establishment_name": "Llantera El Camino",
         "location_reference": "Salida a Olancho, km 12, antes del puente",
         "audience_min": 180, "audience_max": 260,
@@ -119,6 +123,8 @@ async def main() -> None:
             "audience_min": venue["audience_min"],
             "audience_max": venue["audience_max"],
             "audience_note": venue["audience_note"],
+            "open_from": venue["open_from"],
+            "open_to": venue["open_to"],
         }
         photo = photo_data_url(venue["photo"])
         if photo:
@@ -127,7 +133,7 @@ async def main() -> None:
         doc = {
             "name": venue["name"],
             "description": venue["description"],
-            "location": venue["location"],
+            "location": {**venue["location"], "lat": venue["lat"], "lng": venue["lng"]},
             "specs": {"size": "55\"", "type": "LED", "resolution": "1920x1080",
                       "orientation": "landscape"},
             "status": "active",

@@ -922,3 +922,19 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   aire una pantalla alquilada por contrato, y con eso mismo se quitaron 528 pantallas de prueba
   que ensuciaban el marketplace (no se borró ninguna).
 - El cuaderno de ideas del dueño vive en `/app/memory/NOTAS_MEJORAS.md`.
+
+## Mapa por zona y alcance estimado (2026-06)
+- El anunciante elige en mapa (Leaflet + OpenStreetMap, sin llave ni costo) o en listado. Pin
+  verde = la pantalla que escaneó, rojo = llena, índigo = libre. El mapa abre centrado en la
+  pantalla del QR.
+- `POST /api/marketplace/screens/{id}/reach` responde a cuánta gente le llega según días,
+  franja horaria y duración. Fórmula deliberadamente simple y visible en pantalla:
+  tráfico diario del local × (horas elegidas / horas de atención) × días de campaña.
+  La franja se RECORTA al horario del local. Sin `audience_min/max` cargados devuelve 400:
+  no se inventa audiencia.
+- `advertising.open_from` / `open_to` (horario del local) y `location.lat` / `lng` se editan en
+  el panel admin, tarjeta «Public marketplace». `venue.hours_are_default` avisa cuando el
+  horario mostrado es el genérico 08:00–20:00 y no el real.
+- Esto NO cambió el contrato de campañas ni del APK: es una calculadora de evaluación previa a
+  la compra. Si algún día la campaña tiene franja horaria real, el player y el scheduler tendrán
+  que enterarse — hoy no la tienen.

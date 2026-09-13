@@ -824,6 +824,15 @@ async function editAdminScreen(id){
         '<div><div class="lbl">Busiest hours (optional)</div>'+
           '<input class="inp" id="adv-aud-note-'+id+'" value="'+((s.advertising?.audience_note||'').replace(/"/g,'&quot;'))+'" placeholder="e.g. Busiest 5–8 pm"></div>'+
       '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px;margin-top:10px">'+
+        '<div><div class="lbl">Open from</div>'+
+          '<input class="inp" id="adv-open-from-'+id+'" value="'+(s.advertising?.open_from||'')+'" placeholder="07:00"></div>'+
+        '<div><div class="lbl">Open to</div>'+
+          '<input class="inp" id="adv-open-to-'+id+'" value="'+(s.advertising?.open_to||'')+'" placeholder="21:00"></div>'+
+        '<div><div class="lbl">Map coordinates (lat, lng)</div>'+
+          '<input class="inp" id="adv-coords-'+id+'" value="'+((s.location?.lat!=null&&s.location?.lng!=null)?(s.location.lat+', '+s.location.lng):'')+'" placeholder="14.0998, -87.2043"></div>'+
+      '</div>'+
+      '<div style="font-size:10px;color:var(--t-4);margin-top:6px">Opening hours drive the reach calculator; coordinates put the screen on the advertiser map.</div>'+
     '</div>'+
     // Price and public toggle
     '<div class="row2" style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
@@ -960,6 +969,20 @@ async function saveAdvertising(id){
   if(noteInp)  body.audience_note       = noteInp.value.trim();
   if(minInp && minInp.value !== '') body.audience_min = parseInt(minInp.value, 10);
   if(maxInp && maxInp.value !== '') body.audience_max = parseInt(maxInp.value, 10);
+  var fromInp = document.getElementById('adv-open-from-'+id);
+  var toInp   = document.getElementById('adv-open-to-'+id);
+  var coordsInp = document.getElementById('adv-coords-'+id);
+  if(fromInp && fromInp.value.trim()) body.open_from = fromInp.value.trim();
+  if(toInp && toInp.value.trim())     body.open_to   = toInp.value.trim();
+  if(coordsInp && coordsInp.value.trim()){
+    var parts = coordsInp.value.split(',');
+    var lat = parseFloat(parts[0]), lng = parseFloat(parts[1]);
+    if(isNaN(lat) || isNaN(lng)){
+      msg.textContent = 'Coordinates must be "lat, lng" — e.g. 14.0998, -87.2043';
+      msg.style.color = 'var(--red)'; msg.style.display = 'block'; return;
+    }
+    body.lat = lat; body.lng = lng;
+  }
   if(window._advPhotoDirty[id] === 'set')   body.photo_base64 = window._advPhotoData[id];
   if(window._advPhotoDirty[id] === 'clear') body.photo_base64 = null;
   try{

@@ -124,10 +124,118 @@ async function renderMarketplace(el) {
       </select>
       <span style="font-size:13px;color:var(--t-4)">${screens.length} pantalla${screens.length !== 1 ? 's' : ''} disponible${screens.length !== 1 ? 's' : ''}</span>
       <span style="font-size:12px;color:var(--t-5);margin-left:auto">Toca una pantalla para ver la ubicación antes de comprar</span>
+      <div style="display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <button class="tab-btn" id="mkt-view-list" onclick="switchMktView('list')"
+          style="padding:8px 14px;font-size:12px;border:0;border-radius:0;${_mktView === 'list' ? 'background:var(--brand-l);color:#fff' : ''}">☰ Listado</button>
+        <button class="tab-btn" id="mkt-view-map" onclick="switchMktView('map')"
+          style="padding:8px 14px;font-size:12px;border:0;border-radius:0;${_mktView === 'map' ? 'background:var(--brand-l);color:#fff' : ''}">🗺 Mapa</button>
+      </div>
     </div>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
+    <div id="mkt-map-wrap" style="display:${_mktView === 'map' ? 'block' : 'none'}">
+      <div id="mkt-map" style="height:520px;border-radius:14px;overflow:hidden;border:1px solid var(--border)"></div>
+      <div id="mkt-map-note" style="font-size:12px;color:var(--t-4);margin-top:8px"></div>
+    </div>
+    <div id="mkt-grid" style="display:${_mktView === 'map' ? 'none' : 'grid'};grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
       ${screens.length === 0 ? '<div class="empty"><h3>Sin pantallas disponibles</h3><p>No hay pantallas de publicidad activas por el momento</p></div>' : screens.map(s => renderScreenCard(s)).join('')}
     </div>`;
+  window._mktScreens = screens;
+  if (_mktView === 'map') renderMktMap();
+}
+
+// ── Mapa: el anunciante elige por zona, no leyendo direcciones ──────────────
+var _mktView = 'list';
+
+function switchMktView(view) {
+  _mktView = view;
+  const grid = document.getElementById('mkt-grid');
+  const map = document.getElementById('mkt-map-wrap');
+  if (!grid || !map) return;
+  grid.style.display = view === 'map' ? 'none' : 'grid';
+  map.style.display = view === 'map' ? 'block' : 'none';
+  document.getElementById('mkt-view-list').style.cssText +=
+    view === 'list' ? ';background:var(--brand-l);color:#fff' : ';background:transparent;color:var(--t-3)';
+  document.getElementById('mkt-view-map').style.cssText +=
+    view === 'map' ? ';background:var(--brand-l);color:#fff' : ';background:transparent;color:var(--t-3)';
+  if (view === 'map') renderMktMap();
+}
+
+// Leaflet + OpenStreetMap: sin llave de API y sin costo por vista.
+function ensureLeaflet() {
+  if (window.L) return Promise.resolve();
+  if (window._leafletLoading) return window._leafletLoading;
+  window._leafletLoading = new Promise((resolve, reject) => {
+    const css = document.createElement('link');
+    css.rel = 'stylesheet';
+    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    document.head.appendChild(css);
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('No se pudo cargar el mapa'));
+    document.head.appendChild(script);
+  });
+  return window._leafletLoading;
+}
+
+async function renderMktMap() {
+  const box = document.getElementById('mkt-map');
+  const note = document.getElementById('mkt-map-note');
+  const screens = window._mktScreens || [];
+  try {
+    await ensureLeaflet();
+  } catch (e) {
+    note.textContent = 'No se pudo cargar el mapa. Usá el listado.';
+    return;
+  }
+  const located = screens.filter(s => s.venue?.lat != null && s.venue?.lng != null);
+  const missing = screens.length - located.length;
+  note.textContent = missing
+    ? `${missing} pantalla${missing !== 1 ? 's' : ''} todavía sin ubicación en el mapa: están en el listado.`
+    : 'Toca un punto para ver la ficha de esa ubicación.';
+  if (!located.length) {
+    box.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--t-4);font-size:13px">Ninguna pantalla tiene ubicación cargada todavía</div>';
+    return;
+  }
+
+  if (window._mktMap) { window._mktMap.remove(); window._mktMap = null; }
+  box.innerHTML = '';
+  const map = L.map(box).setView([located[0].venue.lat, located[0].venue.lng], 12);
+  window._mktMap = map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '© OpenStreetMap',
+  }).addTo(map);
+
+  located.forEach(s => {
+    const v = s.venue;
+    const color = s.is_here ? '#10b981' : s.is_full ? '#ef4444' : '#6366f1';
+    const marker = L.marker([v.lat, v.lng], {
+      icon: L.divIcon({
+        className: '',
+        html: `<div style="width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:${color};border:2px solid #fff;box-shadow:0 3px 8px rgba(2,6,18,.4)"></div>`,
+        iconSize: [30, 30], iconAnchor: [15, 30], popupAnchor: [0, -28],
+      }),
+    }).addTo(map);
+    marker.bindPopup(`
+      <div style="min-width:200px;font-family:inherit">
+        ${v.photo_url ? `<img src="${v.photo_url}" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ''}
+        <div style="font-size:13px;font-weight:700;color:#0f172a">${v.establishment_name}</div>
+        <div style="font-size:11px;color:#64748b;margin-top:2px">${[v.city, v.reference].filter(Boolean).join(' · ')}</div>
+        ${v.audience?.label ? `<div style="font-size:11px;color:#4f46e5;font-weight:600;margin-top:6px">👥 ${v.audience.label}</div>` : ''}
+        <div style="font-size:11px;color:${s.is_full ? '#ef4444' : '#059669'};font-weight:600;margin-top:4px">${s.is_full ? 'Lleno' : s.available_slots + ' espacios libres'}</div>
+        <button onclick="openVenueSheet('${s.id}')" style="width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Ver esta ubicación</button>
+      </div>`);
+    if (s.is_here) marker.openPopup();
+  });
+
+  const bounds = L.latLngBounds(located.map(s => [s.venue.lat, s.venue.lng]));
+  const here = located.find(s => s.is_here);
+  if (here) {
+    // Si escaneó un QR, el mapa abre donde está parado: lo demás lo explora él.
+    map.setView([here.venue.lat, here.venue.lng], 13);
+  } else {
+    map.fitBounds(bounds.pad(0.25), { maxZoom: 15 });
+  }
+  setTimeout(() => map.invalidateSize(), 120);
 }
 
 function venuePhoto(s, height) {
@@ -256,6 +364,8 @@ async function openVenueSheet(screenId) {
               </div>`).join('')}
           </div>` : '<div style="font-size:12px;color:var(--t-4);margin-top:14px">Consultá el precio con el equipo MediaView</div>'}
 
+        ${reachBlock(s)}
+
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
           ${s.is_full
             ? `<button class="btn-s" style="padding:13px;font-size:14px;color:var(--amber);border-color:rgba(245,158,11,.35)" onclick="closeVenueSheet();joinWaitlist('${s.id}','${(v.establishment_name || s.name || '').replace(/'/g, "\\'")}')">📋 Avisarme cuando se libere un espacio</button>`
@@ -267,6 +377,88 @@ async function openVenueSheet(screenId) {
         </div>
       </div>
     </div>`;
+  if (document.getElementById('reach-result')) recalcReach(s.id);
+}
+
+// ── Alcance estimado: a cuánta gente le llega según días y horario ──────────
+// El anunciante no compara pantallas por el precio, las compara por la gente
+// que va a ver su anuncio. La cuenta se muestra completa para que pueda
+// rehacerla: tráfico del local × la parte del día que eligió × días.
+function reachBlock(s) {
+  const v = s.venue || {};
+  if (!v.audience?.label) return '';
+  const openFrom = parseInt((v.open_from || '08:00').split(':')[0], 10);
+  const openTo = parseInt((v.open_to || '20:00').split(':')[0], 10);
+  const hours = [];
+  for (let h = openFrom; h <= openTo; h++) hours.push(String(h).padStart(2, '0') + ':00');
+  const opt = (list, value) => list.map(o =>
+    `<option value="${o.v !== undefined ? o.v : o}" ${String(o.v !== undefined ? o.v : o) === String(value) ? 'selected' : ''}>${o.t || o}</option>`).join('');
+
+  return `
+    <div style="margin-top:18px;border:1px solid var(--border);border-radius:14px;padding:16px">
+      <div style="font-size:13px;font-weight:700;color:var(--t-1)">¿A cuánta gente le va a llegar?</div>
+      <div style="font-size:11px;color:var(--t-4);margin-top:2px">El local atiende de ${v.hours_label}${v.hours_are_default ? ' (horario estimado)' : ''}.</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-top:12px">
+        <div><div style="font-size:11px;color:var(--t-4);margin-bottom:4px">Días</div>
+          <select class="inp" id="reach-days" onchange="recalcReach('${s.id}')" style="padding:8px;font-size:12px">
+            ${opt([{ v: 7, t: 'Todos los días' }, { v: 5, t: 'Lunes a viernes' }, { v: 2, t: 'Fin de semana' }], 7)}
+          </select></div>
+        <div><div style="font-size:11px;color:var(--t-4);margin-bottom:4px">Desde</div>
+          <select class="inp" id="reach-from" onchange="recalcReach('${s.id}')" style="padding:8px;font-size:12px">${opt(hours, v.open_from)}</select></div>
+        <div><div style="font-size:11px;color:var(--t-4);margin-bottom:4px">Hasta</div>
+          <select class="inp" id="reach-to" onchange="recalcReach('${s.id}')" style="padding:8px;font-size:12px">${opt(hours, v.open_to)}</select></div>
+        <div><div style="font-size:11px;color:var(--t-4);margin-bottom:4px">Duración</div>
+          <select class="inp" id="reach-weeks" onchange="recalcReach('${s.id}')" style="padding:8px;font-size:12px">
+            ${opt([{ v: 1, t: '1 semana' }, { v: 4, t: '1 mes' }, { v: 12, t: '3 meses' }, { v: 52, t: '1 año' }], 4)}
+          </select></div>
+      </div>
+      <div id="reach-result" style="margin-top:14px"></div>
+    </div>`;
+}
+
+async function recalcReach(screenId) {
+  const box = document.getElementById('reach-result');
+  if (!box) return;
+  box.innerHTML = '<div style="font-size:12px;color:var(--t-4)">Calculando…</div>';
+  try {
+    const r = await api('/marketplace/screens/' + screenId + '/reach', {
+      method: 'POST',
+      body: JSON.stringify({
+        start_time: document.getElementById('reach-from').value,
+        end_time: document.getElementById('reach-to').value,
+        days_per_week: parseInt(document.getElementById('reach-days').value, 10),
+        weeks: parseInt(document.getElementById('reach-weeks').value, 10),
+        slot_seconds: 30,
+      }),
+    });
+    if (r.hours_selected <= 0) {
+      box.innerHTML = '<div style="font-size:12px;color:var(--amber)">Elegí una franja dentro del horario del local.</div>';
+      return;
+    }
+    const n = x => Number(x).toLocaleString('es-HN');
+    box.innerHTML = `
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.22);border-radius:12px;padding:12px">
+          <div style="font-size:11px;color:var(--t-4);font-weight:600">POR DÍA</div>
+          <div style="font-size:22px;font-weight:800;color:#059669">${n(r.reach_per_day)}</div>
+          <div style="font-size:11px;color:var(--t-4)">personas frente a la pantalla</div>
+        </div>
+        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.22);border-radius:12px;padding:12px">
+          <div style="font-size:11px;color:var(--t-4);font-weight:600">EN TODA LA CAMPAÑA</div>
+          <div style="font-size:22px;font-weight:800;color:#4f46e5">${n(r.reach_total)}</div>
+          <div style="font-size:11px;color:var(--t-4)">${r.days_total} días al aire</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--t-3);margin-top:10px;line-height:1.6">
+        Tu anuncio sale <strong>${n(r.plays_per_hour)} veces por hora</strong>
+        (${n(r.plays_per_day)} por día, ${n(r.plays_total)} en total), compartiendo el bucle con
+        ${r.ads_in_loop - 1 === 0 ? 'ningún otro anuncio' : (r.ads_in_loop - 1) + ' anuncio' + (r.ads_in_loop - 1 !== 1 ? 's' : '')}.<br>
+        Cuenta: ${n(r.people_per_day_venue)} personas/día × ${r.hours_selected} h de las ${r.hours_open} h que abre el local × ${r.days_total} días.
+      </div>
+      <div style="font-size:11px;color:var(--t-5);margin-top:8px">${r.note}</div>`;
+  } catch (e) {
+    box.innerHTML = `<div style="font-size:12px;color:var(--red)">${e.message}</div>`;
+  }
 }
 
 function closeVenueSheet() {

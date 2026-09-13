@@ -70,6 +70,8 @@ def _venue(screen: dict) -> dict:
     tiene que decir exactamente lo mismo en los tres."""
     adv = screen.get("advertising") or {}
     location = screen.get("location") or {}
+    open_from = adv.get("open_from") or DEFAULT_OPEN[0]
+    open_to = adv.get("open_to") or DEFAULT_OPEN[1]
     return {
         "establishment_name": adv.get("establishment_name") or screen.get("name"),
         "address": location.get("address"),
@@ -83,7 +85,27 @@ def _venue(screen: dict) -> dict:
         "photo_url": (f"/api/screens/{screen['id']}/venue-photo"
                       if adv.get("photo_base64") else None),
         "has_photo": bool(adv.get("photo_base64")),
+        # Para el mapa: el anunciante elige por zona, no leyendo direcciones.
+        "lat": location.get("lat"),
+        "lng": location.get("lng"),
+        "open_from": open_from,
+        "open_to": open_to,
+        "hours_label": f"{open_from} a {open_to}",
+        "hours_are_default": not (adv.get("open_from") and adv.get("open_to")),
     }
+
+
+DEFAULT_OPEN = ("08:00", "20:00")
+
+
+def _minutes(value: str, fallback: str) -> int:
+    try:
+        hour, minute = str(value).split(":")
+        return max(0, min(24 * 60, int(hour) * 60 + int(minute)))
+    except (ValueError, AttributeError):
+        hour, minute = fallback.split(":")
+        return int(hour) * 60 + int(minute)
+
 
 
 
@@ -169,6 +191,15 @@ class AdCampaignReject(BaseModel):
 class WaitlistJoin(BaseModel):
     screen_id: str
     notes: Optional[str] = None
+
+
+class ReachEstimate(BaseModel):
+    """Lo que el anunciante elige para saber a cuánta gente va a llegar."""
+    start_time: str = "08:00"
+    end_time: str = "20:00"
+    days_per_week: int = 7
+    weeks: int = 4
+    slot_seconds: int = 30
 
 class ProofOfPlayCreate(BaseModel):
     screen_id: str
@@ -291,6 +322,86 @@ def create_advertising_routes(db, get_current_user, require_admin):
              "advertising.is_public": {"$ne": False}},
         )
         return sorted(cities)
+
+    @router.post("/marketplace/screens/{screen_id}/reach")
+    async def estimate_reach(
+        screen_id: str,
+        payload: ReachEstimate,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """A cuánta gente le va a llegar el anuncio con los días y el horario elegidos.
+
+        La cuenta es deliberadamente simple y explicable, porque el anunciante
+        tiene que poder rehacerla de cabeza: el tráfico diario del local se
+        reparte por sus horas de atención, se toma la parte que cae dentro de
+        la franja elegida y se multiplica por los días de campaña. Es una
+        estimación, no una promesa, y así se rotula."""
+        screen = await db.screens.find_one({
+            "id": screen_id, "operation_type": "PUBLIC_ADVERTISING", "status": "active",
+        })
+        if not screen:
+            raise HTTPException(404, "Pantalla no encontrada o no disponible para publicidad")
+
+        adv = screen.get("advertising") or {}
+        audience = _audience(adv)
+        if not audience or audience.get("min") is None and audience.get("max") is None:
+            raise HTTPException(400, "Esta pantalla todavía no tiene tráfico estimado cargado")
+        low = audience.get("min")
+        high = audience.get("max")
+        people_day = round(((low or high) + (high or low)) / 2)
+
+        days_per_week = max(1, min(7, int(payload.days_per_week)))
+        weeks = max(1, min(104, int(payload.weeks)))
+        slot_seconds = max(5, min(120, int(payload.slot_seconds)))
+
+        open_from = _minutes(adv.get("open_from") or DEFAULT_OPEN[0], DEFAULT_OPEN[0])
+        open_to = _minutes(adv.get("open_to") or DEFAULT_OPEN[1], DEFAULT_OPEN[1])
+        if open_to <= open_from:
+            open_to = open_from + 60
+        window_from = max(open_from, _minutes(payload.start_time, DEFAULT_OPEN[0]))
+        window_to = min(open_to, _minutes(payload.end_time, DEFAULT_OPEN[1]))
+        window_minutes = max(0, window_to - window_from)
+        open_minutes = open_to - open_from
+        share = window_minutes / open_minutes if open_minutes else 0
+
+        reach_day = round(people_day * share)
+        days_total = days_per_week * weeks
+        reach_total = reach_day * days_total
+
+        # Cuántas veces sale el anuncio: el bucle lo comparten los anunciantes
+        # que ya están al aire más el que entra.
+        occupied = await db.ad_campaigns.count_documents({
+            "selected_screens": screen_id,
+            "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
+        })
+        ads_in_loop = max(1, occupied + 1)
+        loop_seconds = ads_in_loop * slot_seconds
+        plays_hour = max(1, round(3600 / loop_seconds))
+        plays_day = round(plays_hour * window_minutes / 60)
+
+        return {
+            "people_per_day_venue": people_day,
+            "hours_open": round(open_minutes / 60, 1),
+            "hours_selected": round(window_minutes / 60, 1),
+            "share_of_day": round(share, 3),
+            "reach_per_day": reach_day,
+            "days_total": days_total,
+            "days_per_week": days_per_week,
+            "weeks": weeks,
+            "reach_total": reach_total,
+            "plays_per_hour": plays_hour,
+            "plays_per_day": plays_day,
+            "plays_total": plays_day * days_total,
+            "ads_in_loop": ads_in_loop,
+            "slot_seconds": slot_seconds,
+            "window": {"from": payload.start_time, "to": payload.end_time,
+                       "clipped": window_minutes < (_minutes(payload.end_time, DEFAULT_OPEN[1])
+                                                    - _minutes(payload.start_time, DEFAULT_OPEN[0]))},
+            "venue_hours": {"from": adv.get("open_from") or DEFAULT_OPEN[0],
+                            "to": adv.get("open_to") or DEFAULT_OPEN[1]},
+            "note": ("Estimación basada en el tráfico declarado del local repartido en su "
+                     "horario de atención. No es una garantía de audiencia."),
+        }
 
     # ── Checkout / Cotización (backend-only pricing) ─────────────────────────
 

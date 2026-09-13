@@ -52,3 +52,32 @@ Cómo quedó:
 - Demo: 4 locales con ficha completa (`scripts/seed_public_ad_screens.py`) y 528 pantallas de
   prueba sacadas del catálogo público sin borrarlas.
 - Test: `tests/test_nota1_venue_detail.py` (6 casos).
+
+---
+
+## Nota #2 — Mapa por zona y alcance estimado
+
+Pedido del dueño (dos ítems de la lista de próximos pasos):
+- «Mostrá las pantallas en un mapa para que el anunciante elija por zona».
+- «Calculá cuánta gente vería el anuncio según los días y el horario que elija».
+
+Estado: **IMPLEMENTADA** (2026-06).
+
+Cómo quedó:
+- Marketplace del anunciante con dos vistas: **☰ Listado** y **🗺 Mapa** (Leaflet + OpenStreetMap,
+  sin llave de API ni costo por vista). Un pin por pantalla: verde la que escaneó, rojo la que
+  está llena, índigo las demás. El globo trae foto, establecimiento, ciudad, referencia,
+  personas/día, espacios libres y el botón que abre la ficha. Si escaneó un QR el mapa abre
+  centrado ahí; si no, encuadra todo el catálogo. Las pantallas sin coordenadas no se esconden:
+  se avisa cuántas quedaron sólo en el listado.
+- **Alcance estimado** dentro de la ficha: elige días (todos / lunes a viernes / fin de semana),
+  franja horaria y duración (1 semana a 1 año) y ve a cuánta gente le llega por día y en toda la
+  campaña, más cuántas veces sale su anuncio por hora. `POST /api/marketplace/screens/{id}/reach`.
+  La cuenta se muestra escrita («1.000 personas/día × 3 h de las 14 h que abre el local × 20
+  días») para que el anunciante pueda rehacerla, y va rotulada como estimación, no como garantía.
+  La franja se recorta al horario del local: pedir 00:00–23:00 no inventa gente.
+- Campos nuevos en el panel (tarjeta «Public marketplace» de cada pantalla): **Open from / Open
+  to** (mueven la calculadora) y **Map coordinates (lat, lng)** (ponen el pin en el mapa).
+- Sin tráfico cargado la calculadora NO estima: devuelve 400. Preferimos no dar un número antes
+  que dar uno inventado.
+- Tests: `tests/test_reach_and_map.py` (7) + `tests/test_iter53_reach_map_edges.py` (12).

@@ -152,6 +152,13 @@ class ScreenAdvertisingUpdate(BaseModel):
     audience_min: Optional[int] = None         # personas por día (desde)
     audience_max: Optional[int] = None         # personas por día (hasta)
     audience_note: Optional[str] = None        # «Mayor tráfico de 5 a 8 pm»
+    # Horario del local: sin esto no se puede estimar cuánta gente ve el
+    # anuncio en la franja que el anunciante elige.
+    open_from: Optional[str] = None            # "07:00"
+    open_to: Optional[str] = None              # "22:00"
+    # Coordenadas para el mapa del anunciante (elige por zona, no por lista).
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 
 class SelfServiceScreenUpdate(BaseModel):
@@ -238,7 +245,28 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
         low, high = current.get("audience_min"), current.get("audience_max")
         if low is not None and high is not None and low > high:
             raise HTTPException(400, "La audiencia mínima no puede ser mayor que la máxima")
-        await db.screens.update_one({"id": screen_id}, {"$set": {"advertising": current, "updated_at": datetime.utcnow()}})
+        for field in ("open_from", "open_to"):
+            value = getattr(payload, field)
+            if value is None:
+                continue
+            text = str(value).strip()
+            parts = text.split(":")
+            if (len(parts) != 2 or not all(p.isdigit() for p in parts)
+                    or not 0 <= int(parts[0]) <= 23 or not 0 <= int(parts[1]) <= 59):
+                raise HTTPException(400, "El horario va en formato HH:MM (ej. 07:00)")
+            current[field] = f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+        update = {"advertising": current, "updated_at": datetime.utcnow()}
+        # Las coordenadas son de la ubicación, no de la configuración publicitaria:
+        # el mapa del anunciante y el resto del sistema leen `location`.
+        if payload.lat is not None:
+            if not -90 <= payload.lat <= 90:
+                raise HTTPException(400, "Latitud fuera de rango")
+            update["location.lat"] = float(payload.lat)
+        if payload.lng is not None:
+            if not -180 <= payload.lng <= 180:
+                raise HTTPException(400, "Longitud fuera de rango")
+            update["location.lng"] = float(payload.lng)
+        await db.screens.update_one({"id": screen_id}, {"$set": update})
         return {"screen_id": screen_id, "advertising": current}
 
     @router.get("/screens/{screen_id}/venue-photo")
