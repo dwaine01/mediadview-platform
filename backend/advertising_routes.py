@@ -45,6 +45,48 @@ AD_SLOT_OCCUPYING_STATUSES = {
 PERIOD_DAYS = {"weekly": 7, "monthly": 30, "yearly": 365}
 
 
+def _audience(adv: dict) -> Optional[dict]:
+    """Tráfico estimado del local, listo para mostrar («500–700 personas/día»).
+
+    Es el dato que decide la compra: el anunciante no paga por una pantalla,
+    paga por la gente que pasa delante de ella."""
+    low, high = adv.get("audience_min"), adv.get("audience_max")
+    note = adv.get("audience_note")
+    if low is None and high is None:
+        return {"label": None, "min": None, "max": None, "note": note} if note else None
+    if low is not None and high is not None and high != low:
+        label = f"{low:,}–{high:,} personas/día".replace(",", ".")
+    else:
+        single = low if low is not None else high
+        label = f"{single:,} personas/día".replace(",", ".")
+    return {"label": label, "min": low, "max": high, "note": note}
+
+
+def _venue(screen: dict) -> dict:
+    """Ficha comercial de la ubicación: qué negocio, dónde y cuánta gente pasa.
+
+    Se arma en un solo lugar porque la ve el anunciante en tres momentos —
+    la landing del QR, el listado del marketplace y la ficha detallada — y
+    tiene que decir exactamente lo mismo en los tres."""
+    adv = screen.get("advertising") or {}
+    location = screen.get("location") or {}
+    return {
+        "establishment_name": adv.get("establishment_name") or screen.get("name"),
+        "address": location.get("address"),
+        "city": location.get("city"),
+        "state": location.get("state"),
+        "country": location.get("country"),
+        "reference": adv.get("location_reference"),
+        "audience": _audience(adv),
+        # La foto real de la pantalla instalada, servida como imagen (el base64
+        # crudo pesa cientos de KB y el listado muestra varias a la vez).
+        "photo_url": (f"/api/screens/{screen['id']}/venue-photo"
+                      if adv.get("photo_base64") else None),
+        "has_photo": bool(adv.get("photo_base64")),
+    }
+
+
+
 # ── Helpers ────────────────────────────────────────────────────────────────────
 def _gen_id() -> str:
     return str(uuid.uuid4())
@@ -141,6 +183,36 @@ class ProofOfPlayCreate(BaseModel):
 def create_advertising_routes(db, get_current_user, require_admin):
     router = APIRouter(prefix="/api")
 
+    async def _commercial_view(screen: dict) -> dict:
+        """Lo que el anunciante ve de una pantalla: ubicación, gente y precios.
+
+        Nunca datos técnicos internos ni el costo de MediaView."""
+        occupied = await db.ad_campaigns.count_documents({
+            "selected_screens": screen["id"],
+            "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
+        })
+        max_slots = screen.get("max_ad_slots", 4)
+        ap = screen.get("advertising_pricing") or {}
+        return {
+            "id": screen["id"],
+            "name": screen.get("name"),
+            "description": screen.get("description"),
+            "location": screen.get("location"),
+            "specs": screen.get("specs"),
+            "public_screen_code": screen.get("public_screen_code"),
+            "venue": _venue(screen),
+            "max_ad_slots": max_slots,
+            "available_slots": max(0, max_slots - occupied),
+            "occupied_slots": occupied,
+            "is_full": occupied >= max_slots,
+            "pricing": {
+                "price_per_week": ap.get("price_per_week"),
+                "price_per_month": ap.get("price_per_month"),
+                "price_per_year": ap.get("price_per_year"),
+                "currency": "USD",
+            },
+        }
+
     # ── Pantallas Públicas (sin auth) ─────────────────────────────────────────
 
     @router.get("/advertise/{screen_code}")
@@ -154,80 +226,69 @@ def create_advertising_routes(db, get_current_user, require_admin):
         })
         if not screen:
             raise HTTPException(status_code=404, detail="Pantalla no encontrada o no disponible para publicidad")
-
-        # Contar slots ocupados actualmente
-        occupied = await db.ad_campaigns.count_documents({
-            "selected_screens": screen["id"],
-            "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
-        })
-        max_slots = screen.get("max_ad_slots", 4)
-        ap = screen.get("advertising_pricing") or {}
-
-        return {
-            "id": screen["id"],
-            "name": screen.get("name"),
-            "description": screen.get("description"),
-            "location": screen.get("location"),
-            "specs": screen.get("specs"),
-            "public_screen_code": screen.get("public_screen_code"),
-            "max_ad_slots": max_slots,
-            "available_slots": max(0, max_slots - occupied),
-            "occupied_slots": occupied,
-            "is_full": occupied >= max_slots,
-            "pricing": {
-                "price_per_week": ap.get("price_per_week"),
-                "price_per_month": ap.get("price_per_month"),
-                "price_per_year": ap.get("price_per_year"),
-                "currency": "USD",
-            },
-        }
+        return await _commercial_view(screen)
 
     # ── Marketplace (requiere auth) ───────────────────────────────────────────
 
     @router.get("/marketplace/screens")
     async def list_marketplace_screens(
         city: Optional[str] = None,
+        here: Optional[str] = None,
         current_user: dict = Depends(get_current_user),
     ):
-        """Lista todas las pantallas PUBLIC_ADVERTISING disponibles con capacidad y precios."""
-        query = {"operation_type": "PUBLIC_ADVERTISING", "status": "active"}
+        """Lista todas las pantallas PUBLIC_ADVERTISING disponibles con capacidad y precios.
+
+        `here` es el código de la pantalla cuyo QR escaneó el anunciante: esa
+        pantalla se marca (`is_here`) y va primera en la lista, porque es la
+        que tiene delante y la razón por la que entró."""
+        query = {"operation_type": "PUBLIC_ADVERTISING", "status": "active",
+                 # El interruptor «mostrar en el catálogo público» del panel:
+                 # una pantalla alquilada por contrato no se ofrece de nuevo.
+                 "advertising.is_public": {"$ne": False}}
         if city:
             query["location.city"] = {"$regex": city, "$options": "i"}
         screens = await db.screens.find(query).to_list(200)
+        code = (here or "").strip().upper()
         result = []
         for s in screens:
-            occupied = await db.ad_campaigns.count_documents({
-                "selected_screens": s["id"],
-                "status": {"$in": list(AD_SLOT_OCCUPYING_STATUSES)},
-            })
-            max_slots = s.get("max_ad_slots", 4)
-            ap = s.get("advertising_pricing") or {}
-            result.append({
-                "id": s["id"],
-                "name": s.get("name"),
-                "description": s.get("description"),
-                "location": s.get("location"),
-                "specs": s.get("specs"),
-                "public_screen_code": s.get("public_screen_code"),
-                "max_ad_slots": max_slots,
-                "available_slots": max(0, max_slots - occupied),
-                "occupied_slots": occupied,
-                "is_full": occupied >= max_slots,
-                "pricing": {
-                    "price_per_week": ap.get("price_per_week"),
-                    "price_per_month": ap.get("price_per_month"),
-                    "price_per_year": ap.get("price_per_year"),
-                    "currency": "USD",
-                },
-            })
+            row = await _commercial_view(s)
+            row["is_here"] = bool(code) and str(s.get("public_screen_code") or "").upper() == code
+            result.append(row)
+        result.sort(key=lambda row: (not row["is_here"], row["is_full"],
+                                     (row["venue"]["establishment_name"] or "").lower()))
         return result
+
+    @router.get("/marketplace/screens/{screen_id}")
+    async def marketplace_screen_detail(
+        screen_id: str,
+        here: Optional[str] = None,
+        current_user: dict = Depends(get_current_user),
+    ):
+        """Ficha detallada de la ubicación, ANTES de cualquier pago.
+
+        El anunciante tiene que poder evaluar dónde va a aparecer su publicidad
+        —qué negocio, en qué calle, cómo se llega, cuánta gente pasa y cómo se
+        ve la pantalla instalada— antes de poner un peso."""
+        screen = await db.screens.find_one({
+            "id": screen_id,
+            "operation_type": "PUBLIC_ADVERTISING",
+            "status": "active",
+        })
+        if not screen:
+            raise HTTPException(404, "Pantalla no encontrada o no disponible para publicidad")
+        detail = await _commercial_view(screen)
+        code = (here or "").strip().upper()
+        detail["is_here"] = bool(code) and str(screen.get("public_screen_code") or "").upper() == code
+        return detail
+
 
     @router.get("/marketplace/cities")
     async def marketplace_cities(current_user: dict = Depends(get_current_user)):
         """Lista de ciudades con pantallas PUBLIC_ADVERTISING activas."""
         cities = await db.screens.distinct(
             "location.city",
-            {"operation_type": "PUBLIC_ADVERTISING", "status": "active"},
+            {"operation_type": "PUBLIC_ADVERTISING", "status": "active",
+             "advertising.is_public": {"$ne": False}},
         )
         return sorted(cities)
 

@@ -78,6 +78,8 @@
         <!-- Descripción -->
         <div class="card">
           <div class="card-title">Sobre Esta Pantalla</div>
+          <div id="screen-photo" style="margin-bottom:14px"></div>
+          <div id="screen-venue" style="margin-bottom:14px"></div>
           <div id="screen-description" style="font-size:14px;color:#94a3b8;line-height:1.6"></div>
           <div id="screen-tags" style="margin-top:12px"></div>
         </div>
@@ -172,8 +174,24 @@ function renderScreen(s) {
   document.getElementById('screen-title').textContent = s.name;
 
   const loc = s.location || {};
+  const v = s.venue || {};
   const locStr = [loc.address, loc.city, loc.state].filter(Boolean).join(', ');
   document.getElementById('screen-location').textContent = locStr;
+
+  // La foto real de la pantalla instalada: el anunciante tiene que ver dónde
+  // va a salir su publicidad antes de pagar.
+  document.getElementById('screen-photo').innerHTML = v.photo_url
+    ? `<img src="${v.photo_url}" alt="Pantalla instalada" style="width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:12px">`
+    : '';
+
+  const venueRows = [
+    ['Establecimiento', v.establishment_name],
+    ['Cómo llegar', v.reference],
+    ['Gente que pasa', v.audience && v.audience.label],
+    ['Mejor horario', v.audience && v.audience.note],
+  ].filter(r => r[1]);
+  document.getElementById('screen-venue').innerHTML = venueRows.map(r => `
+    <div class="info-row"><div class="info-label">${r[0]}</div><div class="info-value">${r[1]}</div></div>`).join('');
 
   document.getElementById('screen-description').textContent = s.description || 'Pantalla de publicidad digital premium con alta visibilidad.';
 

@@ -84,12 +84,21 @@ async function loadAdTabContent() {
 }
 
 // ── Marketplace ──────────────────────────────────────────────────────────────
+// La pantalla desde la que el anunciante escaneó el QR. Viene en la URL
+// (?screen=MV-ADV-XXXX) o en la sesión que dejó la landing del QR. Se marca en
+// el listado porque es la pantalla que tiene delante y la razón por la que entró.
+function hereScreenCode() {
+  const fromUrl = new URLSearchParams(window.location.search).get('screen');
+  return (fromUrl || sessionStorage.getItem('advertise_screen_code') || '').trim();
+}
+
 async function renderMarketplace(el) {
   let screens = [];
   let cities = [];
+  const here = hereScreenCode();
   try {
     [screens, cities] = await Promise.all([
-      api('/marketplace/screens'),
+      api('/marketplace/screens' + (here ? '?here=' + encodeURIComponent(here) : '')),
       api('/marketplace/cities'),
     ]);
   } catch (e) {
@@ -98,68 +107,194 @@ async function renderMarketplace(el) {
   }
 
   const cityFilter = document.getElementById('mkt-city-filter')?.value || '';
+  const hereScreen = screens.find(s => s.is_here);
 
   el.innerHTML = `
+    ${hereScreen ? `
+      <div style="display:flex;align-items:center;gap:10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:12px 14px;margin-bottom:16px">
+        <span style="font-size:18px">📍</span>
+        <div style="font-size:13px;color:#34d399;font-weight:600">Esta es la pantalla donde estás ahora:
+          <span style="color:var(--t-1)">${hereScreen.venue.establishment_name}</span>
+        </div>
+      </div>` : ''}
     <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
       <select id="mkt-city-filter" class="inp" style="max-width:200px" onchange="switchAdTab('marketplace')">
         <option value="">Todas las ciudades</option>
         ${cities.map(c => `<option value="${c}" ${c === cityFilter ? 'selected' : ''}>${c}</option>`).join('')}
       </select>
-      <span style="font-size:13px;color:#64748b">${screens.length} pantalla${screens.length !== 1 ? 's' : ''} disponible${screens.length !== 1 ? 's' : ''}</span>
+      <span style="font-size:13px;color:var(--t-4)">${screens.length} pantalla${screens.length !== 1 ? 's' : ''} disponible${screens.length !== 1 ? 's' : ''}</span>
+      <span style="font-size:12px;color:var(--t-5);margin-left:auto">Toca una pantalla para ver la ubicación antes de comprar</span>
     </div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
       ${screens.length === 0 ? '<div class="empty"><h3>Sin pantallas disponibles</h3><p>No hay pantallas de publicidad activas por el momento</p></div>' : screens.map(s => renderScreenCard(s)).join('')}
     </div>`;
 }
 
+function venuePhoto(s, height) {
+  if (s.venue?.photo_url) {
+    return `<img src="${s.venue.photo_url}" alt="Pantalla instalada en ${(s.venue.establishment_name || '').replace(/"/g, '')}"
+      style="width:100%;height:${height}px;object-fit:cover;display:block">`;
+  }
+  return `<div style="width:100%;height:${height}px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--bg-1);color:var(--t-5)">
+      <span style="font-size:26px">📺</span>
+      <span style="font-size:11px">Foto en camino</span>
+    </div>`;
+}
+
 function renderScreenCard(s) {
+  const v = s.venue || {};
   const ap = s.pricing || {};
   const prices = [
-    ap.price_per_week ? `<span>Sem: ${fmtPrice(ap.price_per_week)}</span>` : '',
-    ap.price_per_month ? `<span>Mes: ${fmtPrice(ap.price_per_month)}</span>` : '',
-    ap.price_per_year ? `<span>Año: ${fmtPrice(ap.price_per_year)}</span>` : '',
+    ap.price_per_week ? `Sem: ${fmtPrice(ap.price_per_week)}` : '',
+    ap.price_per_month ? `Mes: ${fmtPrice(ap.price_per_month)}` : '',
+    ap.price_per_year ? `Año: ${fmtPrice(ap.price_per_year)}` : '',
   ].filter(Boolean).join(' · ');
 
   const slotsColor = s.is_full ? '#ef4444' : s.available_slots <= 1 ? '#f59e0b' : '#10b981';
   const slotsText = s.is_full ? '🔴 Lleno' : `🟢 ${s.available_slots} libre${s.available_slots !== 1 ? 's' : ''}`;
+  const selected = !!(window._selectedScreens || {})[s.id];
 
   return `
-    <div class="card card-i" style="padding:20px;cursor:pointer" onclick="selectScreenForCampaign('${s.id}','${(s.name || '').replace(/'/g, "\\'")}')">
-      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-        <div>
-          <div style="font-size:15px;font-weight:700;color:#e2e8f0;margin-bottom:4px">${s.name}</div>
-          <div style="font-size:12px;color:#64748b">${s.location?.city || ''}, ${s.location?.state || ''}</div>
-        </div>
-        <span style="font-size:11px;font-weight:600;color:${slotsColor};background:${slotsColor}22;padding:3px 8px;border-radius:6px;border:1px solid ${slotsColor}44">${slotsText}</span>
+    <div class="card card-i" style="padding:0;overflow:hidden;cursor:pointer;${s.is_here ? 'border:1.5px solid rgba(16,185,129,.55);box-shadow:0 0 0 3px rgba(16,185,129,.10)' : ''}"
+         onclick="openVenueSheet('${s.id}')">
+      <div style="position:relative">
+        ${venuePhoto(s, 168)}
+        ${s.is_here ? '<span style="position:absolute;top:10px;left:10px;background:#10b981;color:#04140f;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap">📍&#8202;Estás acá</span>' : ''}
+        <span style="position:absolute;top:10px;right:10px;font-size:11px;font-weight:600;color:${slotsColor};background:rgba(2,6,18,.78);padding:4px 9px;border-radius:999px;border:1px solid ${slotsColor}55">${slotsText}</span>
+        ${selected ? '<span style="position:absolute;bottom:10px;right:10px;background:#6366f1;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px">✓ Elegida</span>' : ''}
       </div>
-      <div style="font-size:12px;color:#94a3b8;margin-bottom:12px;line-height:1.5">${(s.description || '').substring(0, 80)}${(s.description || '').length > 80 ? '…' : ''}</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        ${s.specs?.type ? `<span class="tag">${s.specs.type}</span>` : ''}
-        ${s.specs?.resolution ? `<span class="tag">${s.specs.resolution}</span>` : ''}
-        ${s.specs?.size ? `<span class="tag">${s.specs.size}</span>` : ''}
-      </div>
-      <div style="font-size:12px;color:#6366f1;font-weight:600;border-top:1px solid rgba(255,255,255,.06);padding-top:10px">${prices || 'Consultar precio'}</div>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        ${s.is_full
-          ? `<button class="btn-s" style="flex:1;font-size:12px;color:var(--amber);border-color:rgba(245,158,11,.3)" onclick="event.stopPropagation();joinWaitlist('${s.id}','${(s.name||'').replace(/'/g,"\\'")}')">📋 Lista de espera</button>`
-          : `<button class="btn-p" style="flex:1;font-size:12px;padding:8px" onclick="event.stopPropagation();selectScreenForCampaign('${s.id}','${(s.name||'').replace(/'/g,"\\'")}')">✨ Anunciarme aquí</button>`}
+      <div style="padding:16px">
+        <div style="font-size:15px;font-weight:700;color:var(--t-1)">${v.establishment_name || s.name}</div>
+        <div style="font-size:12px;color:var(--t-4);margin-top:3px">${[v.city, v.state].filter(Boolean).join(', ')}</div>
+        ${v.reference ? `<div style="font-size:12px;color:var(--t-3);margin-top:6px">📍 ${v.reference}</div>` : ''}
+        ${v.audience?.label ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#a5b4fc;font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px">👥 ${v.audience.label}</div>` : ''}
+        <div style="font-size:12px;color:#6366f1;font-weight:600;border-top:1px solid var(--border);padding-top:10px;margin-top:12px">${prices || 'Consultar precio'}</div>
+        <button class="btn-s" style="width:100%;margin-top:10px;padding:9px;font-size:12px" onclick="event.stopPropagation();openVenueSheet('${s.id}')">👁 Ver esta ubicación</button>
       </div>
     </div>`;
 }
 
-function selectScreenForCampaign(screenId, screenName) {
+// ── Ficha detallada de la ubicación (antes de cualquier pago) ────────────────
+// Nadie compra publicidad a ciegas: primero ve el negocio, la calle, la
+// referencia, cuánta gente pasa y cómo se ve la pantalla instalada.
+async function openVenueSheet(screenId) {
+  document.getElementById('venue-sheet')?.remove();
+  document.body.insertAdjacentHTML('beforeend', `
+    <div id="venue-sheet" style="position:fixed;inset:0;background:rgba(2,6,18,.92);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px">
+      <div style="color:var(--t-4);font-size:13px">Cargando la ubicación…</div>
+    </div>`);
+  let s;
+  try {
+    const here = hereScreenCode();
+    s = await api('/marketplace/screens/' + screenId + (here ? '?here=' + encodeURIComponent(here) : ''));
+  } catch (e) {
+    document.getElementById('venue-sheet').innerHTML =
+      `<div class="card" style="padding:24px;max-width:420px;text-align:center">
+         <div style="color:var(--red);font-size:13px;margin-bottom:14px">${e.message}</div>
+         <button class="btn-s" onclick="closeVenueSheet()">Volver al listado</button>
+       </div>`;
+    return;
+  }
+
+  const v = s.venue || {};
+  const p = s.pricing || {};
+  const specs = s.specs || {};
+  const selected = !!(window._selectedScreens || {})[s.id];
+  const rows = [
+    ['Establecimiento', v.establishment_name || s.name],
+    ['Dirección', v.address],
+    ['Ciudad', [v.city, v.state].filter(Boolean).join(', ')],
+    ['Cómo llegar', v.reference],
+    ['Gente que pasa', v.audience?.label],
+    ['Mejor horario', v.audience?.note],
+  ].filter(r => r[1]);
+  const priceItems = [
+    { label: 'Semana', amount: p.price_per_week },
+    { label: 'Mes', amount: p.price_per_month },
+    { label: 'Año', amount: p.price_per_year },
+  ].filter(i => i.amount);
+
+  document.getElementById('venue-sheet').innerHTML = `
+    <div class="card" style="padding:0;max-width:620px;width:100%;max-height:92vh;overflow:auto;border-radius:20px">
+      <div style="position:relative">
+        ${venuePhoto(s, 260)}
+        ${s.is_here ? '<span style="position:absolute;top:14px;left:14px;background:#10b981;color:#04140f;font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;white-space:nowrap">📍&#8202;Estás acá ahora</span>' : ''}
+        <button class="btn-s" style="position:absolute;top:12px;right:12px;padding:6px 12px;font-size:14px;background:rgba(2,6,18,.82);color:#fff;border-color:rgba(255,255,255,.25)" onclick="closeVenueSheet()">✕</button>
+      </div>
+      <div style="padding:22px">
+        <div style="font-size:20px;font-weight:800;color:var(--t-1)">${v.establishment_name || s.name}</div>
+        <div style="font-size:13px;color:var(--t-4);margin-top:4px">${[v.address, v.city].filter(Boolean).join(' · ') || 'Ubicación a confirmar'}</div>
+        ${s.description ? `<div style="font-size:13px;color:var(--t-3);line-height:1.6;margin-top:12px">${s.description}</div>` : ''}
+
+        <div style="margin-top:18px;border:1px solid var(--border);border-radius:14px;overflow:hidden">
+          ${rows.map((r, i) => `
+            <div style="display:flex;gap:12px;padding:11px 14px;${i ? 'border-top:1px solid var(--border-l)' : ''}">
+              <div style="font-size:12px;color:var(--t-4);width:130px;flex-shrink:0">${r[0]}</div>
+              <div style="font-size:13px;color:var(--t-1);font-weight:500">${r[1]}</div>
+            </div>`).join('')}
+        </div>
+
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:14px">
+          ${specs.type ? `<span class="tag">📺 ${specs.type}</span>` : ''}
+          ${specs.resolution ? `<span class="tag">🖥 ${specs.resolution}</span>` : ''}
+          ${specs.size ? `<span class="tag">📐 ${specs.size}</span>` : ''}
+          ${specs.orientation ? `<span class="tag">${specs.orientation === 'portrait' ? '↕ Vertical' : '↔ Horizontal'}</span>` : ''}
+        </div>
+
+        <div style="margin-top:16px;font-size:12px;color:${s.is_full ? '#f87171' : '#34d399'};font-weight:600">
+          ${s.is_full
+            ? '🔴 Esta pantalla está a capacidad máxima'
+            : `🟢 ${s.available_slots} de ${s.max_ad_slots} espacios publicitarios libres`}
+        </div>
+
+        ${priceItems.length ? `
+          <div style="display:grid;grid-template-columns:repeat(${priceItems.length},1fr);gap:10px;margin-top:14px">
+            ${priceItems.map(i => `
+              <div style="background:rgba(8,145,178,.07);border:1px solid rgba(8,145,178,.18);border-radius:12px;padding:12px;text-align:center">
+                <div style="font-size:11px;color:var(--t-4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${i.label}</div>
+                <div style="font-size:19px;font-weight:800;color:#22d3ee;margin-top:2px">${fmtPrice(i.amount)}</div>
+              </div>`).join('')}
+          </div>` : '<div style="font-size:12px;color:var(--t-4);margin-top:14px">Consultá el precio con el equipo MediaView</div>'}
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
+          ${s.is_full
+            ? `<button class="btn-s" style="padding:13px;font-size:14px;color:var(--amber);border-color:rgba(245,158,11,.35)" onclick="closeVenueSheet();joinWaitlist('${s.id}','${(v.establishment_name || s.name || '').replace(/'/g, "\\'")}')">📋 Avisarme cuando se libere un espacio</button>`
+            : `<button class="btn-p" style="padding:14px;font-size:14px;justify-content:center" onclick="chooseVenue('${s.id}','${(v.establishment_name || s.name || '').replace(/'/g, "\\'")}')">${selected ? '✓ Ya la elegí — quitarla de mi selección' : '✨ Quiero anunciarme en esta pantalla'}</button>`}
+          <div style="display:flex;gap:8px">
+            <button class="btn-s" style="flex:1;padding:11px;font-size:13px" onclick="closeVenueSheet()">Seguir eligiendo pantallas</button>
+            <button class="btn-s" style="flex:1;padding:11px;font-size:13px" onclick="closeVenueSheet()">Volver al listado</button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeVenueSheet() {
+  document.getElementById('venue-sheet')?.remove();
+  if (_adTab === 'marketplace') loadAdTabContent();  // refresca el estado «Elegida»
+}
+
+// Elegir la pantalla NO es pagar: queda guardada en la selección y el
+// anunciante decide si sigue eligiendo o pasa a armar la campaña.
+function chooseVenue(screenId, screenName) {
   if (!window._selectedScreens) window._selectedScreens = {};
-  if (window._selectedScreens[screenId]) {
-    delete window._selectedScreens[screenId];
-  } else {
-    window._selectedScreens[screenId] = screenName;
+  const already = !!window._selectedScreens[screenId];
+  if (already) delete window._selectedScreens[screenId];
+  else window._selectedScreens[screenId] = screenName;
+  document.getElementById('venue-sheet')?.remove();
+  if (already) {
+    loadAdTabContent();
+    return;
   }
   _adTab = 'create-ad';
-  // Update tabs
   document.querySelectorAll('#pg-advertiser .tab-btn').forEach(b => {
     b.classList.toggle('on', b.getAttribute('onclick').includes("'create-ad'"));
   });
   loadAdTabContent();
+}
+
+function selectScreenForCampaign(screenId, screenName) {
+  chooseVenue(screenId, screenName);
 }
 
 // ── Crear Campaña ─────────────────────────────────────────────────────────────

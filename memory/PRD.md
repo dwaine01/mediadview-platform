@@ -904,3 +904,21 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   verde menta suave con sombra (sobre blanco puro un producto blanco desaparecía).
 - Scripts de esta iteración: `scripts/fix_offer_layouts.py` (composición de las 3 ofertas que
   usan foto de fondo) y `scripts/fix_pharmacy_sample.py`.
+
+## Nota #1 — La ficha de la ubicación, antes del pago (2026-06)
+- Regla de negocio: **nadie compra publicidad a ciegas**. Al tocar una pantalla en el portal del
+  anunciante NO se va al pago: se abre la ficha del local con nombre del establecimiento,
+  dirección, ciudad, cómo llegar, tráfico estimado («800–1.200 personas/día») y la **foto real
+  de la pantalla instalada**. Desde ahí decide: anunciarse, seguir eligiendo o volver.
+- La pantalla cuyo QR escaneó viene marcada («Esta es la pantalla donde estás ahora») y primera
+  en la lista: es la que tiene delante y la razón por la que entró. El código viaja en
+  `?screen=MV-ADV-XXXX` (lo deja la landing del QR) → `GET /api/marketplace/screens?here=...`.
+- La foto vive en `advertising.photo_base64` pero se sirve como imagen en
+  `GET /api/screens/{id}/venue-photo`. NUNCA devolver el base64 dentro del JSON del catálogo.
+- Campos nuevos en `advertising`: `establishment_name`, `location_reference`, `audience_min`,
+  `audience_max`, `audience_note`. Se editan en el panel admin, en la tarjeta «Public
+  marketplace» de cada pantalla.
+- El catálogo del anunciante respeta el interruptor `advertising.is_public`: con eso se saca del
+  aire una pantalla alquilada por contrato, y con eso mismo se quitaron 528 pantallas de prueba
+  que ensuciaban el marketplace (no se borró ninguna).
+- El cuaderno de ideas del dueño vive en `/app/memory/NOTAS_MEJORAS.md`.

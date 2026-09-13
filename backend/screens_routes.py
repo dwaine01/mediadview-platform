@@ -143,6 +143,15 @@ class ScreenAdvertisingUpdate(BaseModel):
     price_per_ad_per_month: Optional[float] = None
     is_public: Optional[bool] = None
     photo_base64: Optional[str] = None   # data URL or raw base64
+    # ── Ficha comercial que ve el anunciante antes de pagar ───────────────
+    # El anunciante necesita saber DÓNDE va a aparecer su publicidad: en qué
+    # negocio, cómo se llega y cuánta gente pasa. Sin esto la pantalla es un
+    # nombre y un precio, y nadie compra a ciegas.
+    establishment_name: Optional[str] = None   # «Supermercado La Colonia»
+    location_reference: Optional[str] = None   # «Frente al parque central»
+    audience_min: Optional[int] = None         # personas por día (desde)
+    audience_max: Optional[int] = None         # personas por día (hasta)
+    audience_note: Optional[str] = None        # «Mayor tráfico de 5 a 8 pm»
 
 
 class SelfServiceScreenUpdate(BaseModel):
@@ -216,8 +225,45 @@ def create_screens_routes(gen_id, serialize_doc, CampaignSchedule, calculate_cam
         if payload.photo_base64 is not None:
             # accept both data URLs and raw base64
             current["photo_base64"] = payload.photo_base64
+        for field in ("establishment_name", "location_reference", "audience_note"):
+            value = getattr(payload, field)
+            if value is not None:
+                current[field] = str(value).strip()[:160] or None
+        for field in ("audience_min", "audience_max"):
+            value = getattr(payload, field)
+            if value is not None:
+                if value < 0:
+                    raise HTTPException(400, "La audiencia no puede ser negativa")
+                current[field] = int(value)
+        low, high = current.get("audience_min"), current.get("audience_max")
+        if low is not None and high is not None and low > high:
+            raise HTTPException(400, "La audiencia mínima no puede ser mayor que la máxima")
         await db.screens.update_one({"id": screen_id}, {"$set": {"advertising": current, "updated_at": datetime.utcnow()}})
         return {"screen_id": screen_id, "advertising": current}
+
+    @router.get("/screens/{screen_id}/venue-photo")
+    async def screen_venue_photo(screen_id: str, response: Response):
+        """La foto real de la pantalla instalada en el local.
+
+        Se sirve como imagen y no dentro del JSON: el base64 pesa cientos de
+        kilobytes y el catálogo muestra varias pantallas a la vez."""
+        import base64 as _b64
+
+        screen = await db.screens.find_one({"id": screen_id},
+                                           {"_id": 0, "advertising.photo_base64": 1})
+        raw = ((screen or {}).get("advertising") or {}).get("photo_base64")
+        if not raw:
+            raise HTTPException(404, "Esta pantalla todavía no tiene foto")
+        media_type = "image/jpeg"
+        if raw.startswith("data:"):
+            header, _, raw = raw.partition(",")
+            media_type = header[5:].split(";")[0] or media_type
+        try:
+            data = _b64.b64decode(raw + "=" * (-len(raw) % 4))
+        except Exception:
+            raise HTTPException(404, "La foto de esta pantalla está dañada")
+        return Response(content=data, media_type=media_type,
+                        headers={"Cache-Control": "public, max-age=3600"})
 
     @router.post("/admin/screens")
     async def admin_create_screen(data: ScreenCreate, admin: dict = Depends(require_admin)):

@@ -806,6 +806,25 @@ async function editAdminScreen(id){
       '<div style="display:flex;gap:8px"><button class="btn-s" onclick="document.getElementById(\'adv-photo-file-'+id+'\').click()" style="flex:1;padding:8px;font-size:12px">📷 '+(s.advertising?.photo_base64?'Replace photo':'Upload photo')+'</button>'+
       (s.advertising?.photo_base64 ? '<button class="btn-s" onclick="advClearPhoto(\''+id+'\')" style="padding:8px 12px;font-size:12px;color:var(--red);border-color:rgba(239,68,68,.35)">Remove</button>' : '')+'</div>'+
     '</div>'+
+    // Ficha comercial: lo que el anunciante evalúa antes de pagar
+    '<div style="margin-bottom:14px;padding:14px;background:var(--bg-1);border:1px solid var(--border);border-radius:10px">'+
+      '<div style="font-size:12px;font-weight:700;color:var(--brand-l);margin-bottom:2px">Venue details shown to advertisers</div>'+
+      '<div style="font-size:10px;color:var(--t-4);margin-bottom:12px">Advertisers see this BEFORE paying: which business, how to find it and how many people walk by.</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
+        '<div><div class="lbl">Establishment name</div>'+
+          '<input class="inp" id="adv-venue-'+id+'" value="'+((s.advertising?.establishment_name||'').replace(/"/g,'&quot;'))+'" placeholder="e.g. Supermercado La Colonia"></div>'+
+        '<div><div class="lbl">How to find it (reference)</div>'+
+          '<input class="inp" id="adv-ref-'+id+'" value="'+((s.advertising?.location_reference||'').replace(/"/g,'&quot;'))+'" placeholder="e.g. In front of the main park"></div>'+
+      '</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 2fr;gap:10px;margin-top:10px">'+
+        '<div><div class="lbl">People/day from</div>'+
+          '<input class="inp" id="adv-aud-min-'+id+'" type="number" min="0" step="10" value="'+(s.advertising?.audience_min ?? '')+'" placeholder="500"></div>'+
+        '<div><div class="lbl">to</div>'+
+          '<input class="inp" id="adv-aud-max-'+id+'" type="number" min="0" step="10" value="'+(s.advertising?.audience_max ?? '')+'" placeholder="700"></div>'+
+        '<div><div class="lbl">Busiest hours (optional)</div>'+
+          '<input class="inp" id="adv-aud-note-'+id+'" value="'+((s.advertising?.audience_note||'').replace(/"/g,'&quot;'))+'" placeholder="e.g. Busiest 5–8 pm"></div>'+
+      '</div>'+
+    '</div>'+
     // Price and public toggle
     '<div class="row2" style="margin-bottom:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px">'+
       '<div><div class="lbl">Price per ad / month (USD)</div>'+
@@ -930,6 +949,17 @@ async function saveAdvertising(id){
     is_public: !!pubInp.checked,
   };
   if(priceInp.value !== '') body.price_per_ad_per_month = parseFloat(priceInp.value);
+  // Ficha comercial de la ubicación (la ve el anunciante antes de pagar)
+  var venueInp = document.getElementById('adv-venue-'+id);
+  var refInp   = document.getElementById('adv-ref-'+id);
+  var minInp   = document.getElementById('adv-aud-min-'+id);
+  var maxInp   = document.getElementById('adv-aud-max-'+id);
+  var noteInp  = document.getElementById('adv-aud-note-'+id);
+  if(venueInp) body.establishment_name  = venueInp.value.trim();
+  if(refInp)   body.location_reference  = refInp.value.trim();
+  if(noteInp)  body.audience_note       = noteInp.value.trim();
+  if(minInp && minInp.value !== '') body.audience_min = parseInt(minInp.value, 10);
+  if(maxInp && maxInp.value !== '') body.audience_max = parseInt(maxInp.value, 10);
   if(window._advPhotoDirty[id] === 'set')   body.photo_base64 = window._advPhotoData[id];
   if(window._advPhotoDirty[id] === 'clear') body.photo_base64 = null;
   try{
