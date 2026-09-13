@@ -129,8 +129,20 @@
     const c = document.getElementById('f-content');
     const s = await api(FAPI + '/settings/email');
     const enabled = s.enabled;
+    // La contrasena guardada puede existir y no poder leerse (se cifro con una
+    // llave del servidor que despues cambio). Sin este aviso el dueno solo veia
+    // «authentication failed» y lo buscaba en su proveedor de correo.
+    const pwdBroken = s.password_set && s.password_readable === false;
     c.innerHTML = `
       <div style="max-width:720px">
+        ${pwdBroken ? `<div class="card" style="padding:18px;margin-bottom:18px;background:var(--red-tint,#fef2f2);border-color:#fecaca">
+          <div style="display:flex;gap:10px;align-items:flex-start">
+            <div style="font-size:20px">🔑</div>
+            <div><div style="font-size:14px;font-weight:700;color:#b91c1c">Hay que volver a escribir la contrasena del correo</div>
+            <div style="font-size:12px;color:#7f1d1d;line-height:1.6;margin-top:2px">${s.password_warning || 'La contrasena guardada no se puede leer.'}</div>
+            <div style="font-size:12px;color:#7f1d1d;margin-top:6px">Mientras no se reescriba, las facturas por correo no salen.</div></div>
+          </div>
+        </div>` : ''}
         <div class="card" style="padding:20px;margin-bottom:18px;background:${enabled?'var(--green-tint)':'var(--amber-tint)'};border-color:${enabled?'#a7f3d0':'#fde68a'}">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:20px">${enabled?'✅':'⚠️'}</div>

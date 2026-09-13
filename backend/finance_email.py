@@ -18,7 +18,7 @@ from typing import List, Optional
 
 import aiosmtplib
 import openpyxl
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, MultiFernet
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from finance_pdf import (
@@ -33,15 +33,37 @@ from pydantic import BaseModel, EmailStr
 ext_router = APIRouter(prefix="/api/finance")
 
 # ============ ENCRYPTION (for SMTP password) ============
-def _get_fernet():
-    key = os.environ.get("FERNET_KEY")
-    if not key:
-        # Derive from JWT secret for stability across restarts
-        secret = os.environ.get("JWT_SECRET", "fallback-secret-key-mediadview")
-        key = base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
-    elif isinstance(key, str):
-        key = key.encode()
-    return Fernet(key)
+# La contraseña SMTP se guarda cifrada. La llave se derivaba SÓLO del
+# `JWT_SECRET`: cuando ese secreto cambia (un redespliegue, una rotación de
+# credenciales) la contraseña guardada deja de poder leerse y el envío de
+# facturas falla con un «535 authentication failed» que no dice nada. Pasó:
+# la contraseña cargada el 03/06/2026 quedó ilegible.
+#
+# Ahora se prueban varias llaves al descifrar (`MultiFernet`) y se cifra con la
+# primera. Poniendo `FERNET_KEY` en el entorno, la contraseña sobrevive a
+# cualquier cambio futuro del `JWT_SECRET`.
+def _derive(secret: str) -> bytes:
+    return base64.urlsafe_b64encode(hashlib.sha256(secret.encode()).digest())
+
+
+def _fernet_keys() -> List[bytes]:
+    keys, seen = [], set()
+    explicit = os.environ.get("FERNET_KEY")
+    if explicit:
+        keys.append(explicit.encode() if isinstance(explicit, str) else explicit)
+    for secret in (os.environ.get("JWT_SECRET"), "fallback-secret-key-mediadview"):
+        if secret:
+            keys.append(_derive(secret))
+    unique = []
+    for key in keys:
+        if key not in seen:
+            seen.add(key)
+            unique.append(key)
+    return unique
+
+
+def _get_fernet() -> MultiFernet:
+    return MultiFernet([Fernet(k) for k in _fernet_keys()])
 
 def encrypt_password(plain: str) -> str:
     if not plain:
@@ -55,6 +77,22 @@ def decrypt_password(token: str) -> str:
         return _get_fernet().decrypt(token.encode()).decode()
     except Exception:
         return ""
+
+
+def password_is_readable(token: str) -> bool:
+    """Si hay contraseña guardada pero no se puede descifrar, hay que avisarlo.
+
+    Devolver una contraseña vacía y dejar que el servidor de correo conteste
+    «authentication failed» esconde el problema real: la contraseña está ahí,
+    pero cifrada con una llave que ya no existe. Hay que volver a escribirla."""
+    return bool(token) and bool(decrypt_password(token))
+
+
+SMTP_PASSWORD_UNREADABLE = (
+    "No se puede leer la contraseña SMTP guardada: fue cifrada con una llave "
+    "del servidor que ya cambió. Volvé a escribirla en Finance & CRM → Email "
+    "Settings y guardá para que los correos salgan de nuevo."
+)
 
 
 # ============ MODELS ============
@@ -202,10 +240,15 @@ def create_finance_extensions(db, get_current_user):
         s.pop("_id", None)
         # Don't return the encrypted password
         if s.get("smtp_password"):
+            readable = password_is_readable(s["smtp_password"])
             s["smtp_password"] = "********"  # placeholder showing it's set
             s["password_set"] = True
+            s["password_readable"] = readable
+            if not readable:
+                s["password_warning"] = SMTP_PASSWORD_UNREADABLE
         else:
             s["password_set"] = False
+            s["password_readable"] = False
         return s
 
     @ext_router.put("/settings/email")
@@ -246,11 +289,17 @@ def create_finance_extensions(db, get_current_user):
             )
             await _send_email_async(s, msg, to_addr)
             return {"ok": True, "message": f"Test email sent to {to_addr}"}
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(500, f"SMTP error: {str(e)}")
 
     async def _send_email_async(s, msg, to_addr):
         pwd = decrypt_password(s.get("smtp_password", ""))
+        if s.get("smtp_password") and not pwd:
+            # Intentar el envío con la contraseña vacía sólo produce un 535 que
+            # manda al dueño a buscar el problema en su proveedor de correo.
+            raise HTTPException(400, SMTP_PASSWORD_UNREADABLE)
         port = int(s.get("smtp_port", 587))
         use_tls = port == 465
         start_tls = not use_tls
@@ -369,6 +418,8 @@ def create_finance_extensions(db, get_current_user):
 
         try:
             await _send_email_async(s, msg, to_addr)
+        except HTTPException:
+            raise
         except Exception as e:
             raise HTTPException(500, f"Failed to send: {str(e)}")
 

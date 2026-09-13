@@ -49,14 +49,28 @@ export default function HtmlPreview({
                 },
                 title: 'Vista previa',
               })
-            : <WebView
-                source={url ? { uri: url } : { html: html || '' }}
-                style={hp.web}
-                scrollEnabled={false}
-                pointerEvents={url || noInput ? 'none' : 'auto'}
-                originWhitelist={['*']}
-                javaScriptEnabled
-              />)
+            : (
+              // En el celular el toque lo maneja la tarjeta, no la cartelera:
+              // `pointerEvents` va en la caja, no en el WebView (ahí no existe).
+              <View style={hp.web} pointerEvents={url || noInput ? 'none' : 'auto'}>
+                <WebView
+                  source={url ? { uri: url } : { html: html || '' }}
+                  style={hp.web}
+                  scrollEnabled={false}
+                  originWhitelist={['*']}
+                  javaScriptEnabled
+                  // Sin esto, en Android varias carteleras a la vez salen en
+                  // negro: el acelerador de video no alcanza para todas.
+                  androidLayerType="software"
+                  // Mientras carga se ve el fondo de la caja, no un rectangulo
+                  // negro sin explicacion.
+                  renderLoading={() => (
+                    <View style={hp.empty}><ActivityIndicator color="#A78BFA" /></View>
+                  )}
+                  startInLoadingState
+                />
+              </View>
+            ))
         : (
           <View style={hp.empty}>
             {loading

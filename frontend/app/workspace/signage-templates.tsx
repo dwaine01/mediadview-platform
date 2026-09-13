@@ -5,10 +5,10 @@
  * (la misma página que va a mostrar el TV, no una maqueta) y arma su diseño en
  * un toque. Después reemplaza los productos de muestra por los suyos.
  */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, Linking,
-  RefreshControl, useWindowDimensions,
+  RefreshControl, useWindowDimensions, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,6 +21,9 @@ const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
 
 // Alto de la miniatura: igual para horizontales y verticales, así la galería
 // queda prolija con plantillas de las dos formas mezcladas.
+// Cuántas carteleras se dibujan a la vez. Cada una es un navegador
+// incrustado: en un teléfono, más de tres se pelean por la memoria.
+const MOUNTED_THUMBS = 4;
 const THUMB_HEIGHT = 190;
 
 const INDUSTRY_LABEL: Record<string, string> = {
@@ -74,25 +77,65 @@ export default function SignageTemplates() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Miniaturas: el mismo render que ve el TV, traído una vez por plantilla y de
-  // a una para no pedirle 20 tableros de golpe al servidor.
+  // Miniaturas: el mismo render que ve el TV. Cada una es un navegador
+  // incrustado (WebView en el celular), así que SÓLO se monta la de las
+  // tarjetas que están a la vista: con el catálogo entero montado a la vez el
+  // teléfono se queda sin memoria y las tarjetas salen en negro.
   const [thumbs, setThumbs] = useState<Record<string, string>>({});
+  const [visible, setVisible] = useState<string[]>([]);
+  // Las últimas cuatro que estuvieron a la vista siguen dibujadas: al volver
+  // sobre los pasos, las tarjetas no se vacían de golpe.
+  const [mountedIds, setMountedIds] = useState<string[]>([]);
+  const pending = useRef<Set<string>>(new Set());
+
+  const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
+    setVisible(viewableItems.map((v: any) => v.item?.id).filter(Boolean));
+  }).current;
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 10 }).current;
+
+  useEffect(() => {
+    // Las primeras tarjetas se ven antes de que el listado avise qué es
+    // visible: sin esto la pantalla arranca vacía.
+    if (templates.length && !visible.length) {
+      setVisible(templates.slice(0, MOUNTED_THUMBS).map(t => t.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templates]);
+
+  useEffect(() => { setThumbs({}); pending.current.clear(); setMountedIds([]); }, [templates]);
+
+  useEffect(() => {
+    if (!visible.length) return;
+    setMountedIds(prev => {
+      const next = [...visible, ...prev.filter(id => !visible.includes(id))]
+        .slice(0, MOUNTED_THUMBS);
+      return next.join() === prev.join() ? prev : next;
+    });
+  }, [visible]);
+
   useEffect(() => {
     let alive = true;
+    // Se pide el HTML de lo que está a la vista y de las dos tarjetas
+    // siguientes: así la cartelera ya está lista cuando el dedo llega,
+    // aunque sólo se dibujen las visibles.
+    const last = templates.findIndex(t => t.id === visible[visible.length - 1]);
+    const ahead = last >= 0 ? templates.slice(last + 1, last + 3).map(t => t.id) : [];
     (async () => {
-      for (const template of templates) {
+      for (const id of [...visible.slice(0, MOUNTED_THUMBS), ...ahead]) {
         if (!alive) return;
-        if (thumbs[template.id]) continue;
+        if (thumbs[id] || pending.current.has(id)) continue;
+        pending.current.add(id);
         try {
-          const res = await workspaceAPI.templatePreviewHtml(template.id);
+          const res = await workspaceAPI.templatePreviewHtml(id);
           if (!alive) return;
-          setThumbs(prev => ({ ...prev, [template.id]: res.data }));
-        } catch { /* una miniatura que falla no rompe el catálogo */ }
+          setThumbs(prev => ({ ...prev, [id]: res.data }));
+        } catch {
+          pending.current.delete(id);   // se reintenta si vuelve a la vista
+        }
       }
     })();
     return () => { alive = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templates]);
+  }, [visible, thumbs, templates]);
 
   const applyTemplate = async (template: Template) => {
     setUsingId(template.id);
@@ -114,6 +157,8 @@ export default function SignageTemplates() {
 
   const renderItem = ({ item }: { item: Template }) => {
     const portrait = item.orientation === 'portrait';
+    // Sólo las tarjetas a la vista dibujan la cartelera de verdad.
+    const mounted = mountedIds.includes(item.id);
     // Miniatura del render real, con el contenido de muestra: el cliente
     // reconoce la plantilla de un vistazo en vez de leer un cuadro vacío.
     return (
@@ -126,12 +171,12 @@ export default function SignageTemplates() {
       >
         <View style={st.thumbBox}>
           <HtmlPreview
-            html={thumbs[item.id] || null}
+            html={mounted ? (thumbs[item.id] || null) : null}
             canvasW={portrait ? 1080 : 1920}
             canvasH={portrait ? 1920 : 1080}
             maxWidth={cardWidth - 28}
             maxHeight={THUMB_HEIGHT}
-            loading={!thumbs[item.id]}
+            loading={mounted && !thumbs[item.id]}
             noInput
             testID={`thumb-${item.id}`}
           />
@@ -225,6 +270,12 @@ export default function SignageTemplates() {
           keyExtractor={item => item.id}
           renderItem={renderItem}
           ListHeaderComponent={Filters}
+          onViewableItemsChanged={onViewableItemsChanged}
+          viewabilityConfig={viewabilityConfig}
+          initialNumToRender={3}
+          maxToRenderPerBatch={3}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'android'}
           contentContainerStyle={[st.list, { paddingBottom: insets.bottom + 32 }]}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />

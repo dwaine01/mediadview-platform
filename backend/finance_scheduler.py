@@ -167,6 +167,12 @@ async def _send_invoice_email(db, inv: dict):
     msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=pdf_filename)
 
     pwd = decrypt_password(s.get("smtp_password", ""))
+    if s.get("smtp_password") and not pwd:
+        # La contraseña está guardada pero cifrada con una llave que ya cambió.
+        # Sin esto el envío mensual fallaba todos los meses con un «535
+        # authentication failed» y nadie sabía que sólo había que reescribirla.
+        from finance_email import SMTP_PASSWORD_UNREADABLE
+        raise RuntimeError(SMTP_PASSWORD_UNREADABLE)
     port = int(s.get("smtp_port", 587))
     use_tls = port == 465
     await aiosmtplib.send(

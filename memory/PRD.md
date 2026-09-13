@@ -1016,3 +1016,20 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - REGLA: en este proyecto **no se cargan librerías desde CDN** salvo jsdelivr, que es el único
   dominio permitido por el CSP. Ante cualquier cosa que «funciona en preview y no en
   producción», revisar primero los headers de `security_headers.py`.
+
+## El catálogo de plantillas en negro en el celular (2026-06)
+- Síntoma: en `/workspace/signage-templates`, desde el celular, las tarjetas salían negras o la
+  pantalla parecía colgada.
+- Causa: el catálogo pedía el HTML de TODAS las plantillas (39) y montaba una vista previa por
+  tarjeta. Cada vista previa es un navegador incrustado (iframe en web, **WebView en el
+  celular**): con 24+ montados a la vez el teléfono se queda sin memoria y el WebView pinta
+  negro. En el navegador de escritorio no se notaba.
+- Arreglo: sólo se dibujan las vistas previas de las tarjetas **a la vista** (máximo 4, con
+  memoria de las últimas para que no se vacíen al volver sobre los pasos), se **precarga el
+  HTML** de las 2 siguientes, `removeClippedSubviews` sólo en Android y en el WebView
+  `androidLayerType="software"` + indicador de carga. Verificado: 2 vistas previas montadas en
+  vez de 24.
+- REGLA: **nunca montar más de 4 WebViews a la vez** en una lista. Si una pantalla necesita
+  muchas miniaturas de cartelera, se montan por visibilidad, no todas juntas.
+- En `HtmlPreview`, `pointerEvents` va en la `View` que envuelve al WebView: en el WebView ese
+  prop no existe.
