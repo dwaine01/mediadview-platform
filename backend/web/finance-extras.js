@@ -138,8 +138,8 @@
         ${pwdBroken ? `<div class="card" style="padding:18px;margin-bottom:18px;background:var(--red-tint,#fef2f2);border-color:#fecaca">
           <div style="display:flex;gap:10px;align-items:flex-start">
             <div style="font-size:20px">🔑</div>
-            <div><div style="font-size:14px;font-weight:700;color:#b91c1c">Hay que volver a escribir la contrasena del correo</div>
-            <div style="font-size:12px;color:#7f1d1d;line-height:1.6;margin-top:2px">${s.password_warning || 'La contrasena guardada no se puede leer.'}</div>
+            <div><div style="font-size:14px;font-weight:700;color:#b91c1c">Hay que volver a escribir la contraseña del correo</div>
+            <div style="font-size:12px;color:#7f1d1d;line-height:1.6;margin-top:2px">${s.password_warning || 'La contraseña guardada no se puede leer.'}</div>
             <div style="font-size:12px;color:#7f1d1d;margin-top:6px">Mientras no se reescriba, las facturas por correo no salen.</div></div>
           </div>
         </div>` : ''}
@@ -196,7 +196,7 @@
   }
   window.renderEmailSettings = renderEmailSettings;
 
-  window.saveEmailSettings = async function(){
+  window.saveEmailSettings = async function(keepScreen){
     const msg = document.getElementById('es-msg');
     msg.style.display = 'none';
     const pwd = val('es-pwd');
@@ -216,7 +216,9 @@
       msg.textContent = '✓ Settings saved';
       msg.style.color = 'var(--green)';
       msg.style.display = 'block';
-      setTimeout(()=>renderEmailSettings(), 800);
+      // Si viene del correo de prueba NO se re-dibuja: el re-dibujado borra
+      // este mismo cartel y el dueno se queda sin saber que paso.
+      if (!keepScreen) setTimeout(()=>renderEmailSettings(), 800);
     } catch(e){
       msg.textContent = '✕ ' + e.message;
       msg.style.color = 'var(--red)';
@@ -228,19 +230,20 @@
     const to = prompt('Send test email to:', user.email);
     if (!to) return;
     const msg = document.getElementById('es-msg');
-    msg.textContent = 'Sending test email...';
-    msg.style.color = 'var(--t-3)';
-    msg.style.display = 'block';
+    const show = (text, color) => {
+      // El cartel se busca de nuevo cada vez: si la pantalla se re-dibujo,
+      // el elemento viejo ya no esta en la pagina y el mensaje se perderia.
+      const box = document.getElementById('es-msg') || msg;
+      box.textContent = text; box.style.color = color; box.style.display = 'block';
+    };
+    show('Sending test email to ' + to + '…', 'var(--t-3)');
     try {
-      // First save current settings if password changed
-      await window.saveEmailSettings();
-      await new Promise(r=>setTimeout(r,500));
+      await window.saveEmailSettings(true);   // guarda sin re-dibujar
+      await new Promise(r=>setTimeout(r,400));
       const r = await api(FAPI + '/settings/email/test', {method:'POST', body:JSON.stringify({to})});
-      msg.textContent = '✓ ' + (r.message || 'Test email sent');
-      msg.style.color = 'var(--green)';
+      show('✓ ' + (r.message || 'Test email sent to ' + to), 'var(--green)');
     } catch(e){
-      msg.textContent = '✕ ' + e.message;
-      msg.style.color = 'var(--red)';
+      show('✕ ' + e.message, 'var(--red)');
     }
   };
 
