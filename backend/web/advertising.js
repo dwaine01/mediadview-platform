@@ -159,17 +159,19 @@ function switchMktView(view) {
   if (view === 'map') renderMktMap();
 }
 
-// Leaflet + OpenStreetMap: sin llave de API y sin costo por vista.
+// Leaflet servido por nosotros, no por un CDN: el Content-Security-Policy de
+// producción sólo permite scripts de 'self' y de jsdelivr, así que desde unpkg
+// el mapa quedaba en blanco sin un solo error visible para el usuario.
 function ensureLeaflet() {
   if (window.L) return Promise.resolve();
   if (window._leafletLoading) return window._leafletLoading;
   window._leafletLoading = new Promise((resolve, reject) => {
     const css = document.createElement('link');
     css.rel = 'stylesheet';
-    css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+    css.href = '/api/web/vendor/leaflet/leaflet.css';
     document.head.appendChild(css);
     const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    script.src = '/api/web/vendor/leaflet/leaflet.js';
     script.onload = resolve;
     script.onerror = () => reject(new Error('No se pudo cargar el mapa'));
     document.head.appendChild(script);

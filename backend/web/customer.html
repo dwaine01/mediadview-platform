@@ -584,13 +584,15 @@ function setMktView(v){
   bm.style.background=v==='map'?'#4f46e5':'#fff';bm.style.color=v==='map'?'#fff':'#64748b';
   if(v==='map')drawMktMap();
 }
+// Leaflet servido por nosotros: el CSP de produccion bloquea unpkg y el mapa
+// quedaba en blanco.
 function ensureLeaflet(){
   if(window.L)return Promise.resolve();
   if(window._leafletLoading)return window._leafletLoading;
   window._leafletLoading=new Promise(function(res,rej){
     var css=document.createElement('link');css.rel='stylesheet';
-    css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
-    var sc=document.createElement('script');sc.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    css.href='/api/web/vendor/leaflet/leaflet.css';document.head.appendChild(css);
+    var sc=document.createElement('script');sc.src='/api/web/vendor/leaflet/leaflet.js';
     sc.onload=res;sc.onerror=function(){rej(new Error('mapa'))};document.head.appendChild(sc);
   });
   return window._leafletLoading;
@@ -617,7 +619,9 @@ async function drawMktMap(){
       +'<div style="font-size:11px;color:#64748b">'+[v.city,v.reference].filter(Boolean).join(' · ')+'</div>'
       +(v.audience&&v.audience.label?'<div style="font-size:11px;color:#4338ca;font-weight:700;margin-top:4px">👥 '+v.audience.label+'</div>':'')
       +'<button onclick="openVenue(\''+s.id+'\')" style="width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-size:12px;font-weight:700">Ver esta ubicacion</button></div>',{maxWidth:250});
-    if(s.is_here)mk.openPopup();
+    // En el celular el globo abierto tapa media pantalla: el pin verde ya
+    // dice cual es la pantalla donde esta parado.
+    if(s.is_here&&window.innerWidth>520)mk.openPopup();
   });
   var here=loc.find(function(s){return s.is_here});
   if(here)map.setView([here.venue.lat,here.venue.lng],13);

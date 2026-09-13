@@ -1002,3 +1002,17 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Datos de producción al 13/06/2026: 7 pantallas públicas; Miami y New York (duplicadas) tienen
   coordenadas, «anuncio publico» (Galloway, 6052 jolliff st) no tiene ni pin ni foto ni tráfico.
   Para que aparezca hay que tocar «📍 Ubicar en el mapa» en el panel y completar su ficha.
+
+## El mapa en blanco en producción: era el CSP (2026-06)
+- Síntoma: en producción el botón «🗺 Mapa» aparecía pero el mapa salía **en blanco, sin pines
+  y sin un solo error visible**. En preview funcionaba.
+- Causa: `security_headers.py` manda `Content-Security-Policy` **enforce** en producción y
+  **Report-Only** en preview. La política permite scripts sólo de `'self'` y de
+  `cdn.jsdelivr.net`, y estilos de `'self'` + fonts.googleapis. Leaflet se cargaba desde
+  **unpkg.com** → script y CSS bloqueados → contenedor vacío.
+- Arreglo: Leaflet 1.9.4 **servido por nosotros** en `backend/web/vendor/leaflet/`
+  (`/api/web/vendor/leaflet/leaflet.js` y `.css`, más `images/`). Sin CDN: funciona igual en
+  preview, en producción y sin internet de terceros.
+- REGLA: en este proyecto **no se cargan librerías desde CDN** salvo jsdelivr, que es el único
+  dominio permitido por el CSP. Ante cualquier cosa que «funciona en preview y no en
+  producción», revisar primero los headers de `security_headers.py`.
