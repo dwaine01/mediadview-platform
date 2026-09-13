@@ -938,3 +938,19 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
 - Esto NO cambió el contrato de campañas ni del APK: es una calculadora de evaluación previa a
   la compra. Si algún día la campaña tiene franja horaria real, el player y el scheduler tendrán
   que enterarse — hoy no la tienen.
+
+## DÓNDE VIVE LA TIENDA PÚBLICA (error a no repetir, 2026-06)
+- La tienda que ve el cliente de la calle —el que escanea el QR de «Promociónate aquí»— es
+  **`backend/web/customer.html`**, servida en **`/marketplace`** (y `/api/marketplace`,
+  `/screen`, `/portal`, `/login`). Es la página que el dueño revisa en mediaview.com/marketplace.
+- `backend/web/advertising.js` es el portal del anunciante **dentro del panel de administración**
+  (`/api/dashboard#advertiser`). Sirve para el dueño y su equipo, NO es lo que ve el cliente.
+- Se implementó la Nota #1 primero en el lugar equivocado (el panel) y el dueño no vio ningún
+  cambio en producción. Antes de tocar algo del recorrido del anunciante: confirmar en qué
+  archivo está la pantalla que el usuario está mirando.
+- OJO en preview: `/marketplace` lo atiende Expo (puerto 3000) y da «Unmatched Route». Para
+  probar la tienda en preview hay que usar **`/api/marketplace`**. En producción (Render,
+  FastAPI sirve todo) `/marketplace` funciona.
+- La tienda pública ahora lee `GET /api/marketplace/screens?here=CODE` (antes `/api/screens`,
+  que devolvía TODAS las pantallas activas, incluidas las privadas de clientes y las de prueba).
+- El QR y la landing `advertise.html` ahora mandan a `/marketplace?code=MV-ADV-XXXX`, no al panel.

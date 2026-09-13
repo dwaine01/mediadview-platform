@@ -81,3 +81,24 @@ Cómo quedó:
 - Sin tráfico cargado la calculadora NO estima: devuelve 400. Preferimos no dar un número antes
   que dar uno inventado.
 - Tests: `tests/test_reach_and_map.py` (7) + `tests/test_iter53_reach_map_edges.py` (12).
+
+---
+
+## Corrección importante (2026-06)
+
+Las Notas #1 y #2 se construyeron primero en el **portal del anunciante del panel**
+(`web/advertising.js`, `/api/dashboard#advertiser`) y el dueño no vio nada en producción,
+porque la tienda que él revisa —y la que ve el cliente que escanea el QR— es
+**`web/customer.html`** en **`/marketplace`**.
+
+Las dos notas ya están portadas a la tienda pública real:
+- Tarjetas con la foto del local, establecimiento, ciudad, referencia y personas/día, con el
+  banner «Esta es la pantalla donde esta ahora» y la pantalla escaneada primera.
+- Vista **☰ Listado / 🗺 Mapa** (Leaflet + OpenStreetMap) con pin verde en la pantalla escaneada.
+- **Ficha de la ubicación** (vista `v-venue`) con todos los datos, la calculadora de **alcance
+  estimado** y los botones «Quiero anunciarme en esta pantalla» / «Seguir eligiendo pantallas».
+  Recién ahí se pasa a los planes y al pago.
+- El QR (`advertise.html`) ahora lleva a `/marketplace?code=MV-ADV-XXXX`, no al panel.
+
+Regla para el futuro: antes de implementar algo del recorrido del anunciante, confirmar si va en
+`customer.html` (cliente de la calle) o en `advertising.js` (panel del dueño).

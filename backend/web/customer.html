@@ -432,7 +432,21 @@ img{max-width:100%}
 <div id="v-marketplace" class="view"><div class="c" style="padding-top:16px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px"><div><h2 style="font-size:20px;font-weight:800">Pantallas disponibles</h2><p style="font-size:12px;color:#94a3b8" id="user-greeting"></p></div><button style="padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid #e2e8f0;background:#fff;color:#64748b" onclick="doLogout()">Salir</button></div>
   <div class="tabs" id="city-tabs"></div>
+  <div style="display:flex;gap:0;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;margin-bottom:14px;width:fit-content">
+    <button id="mv-btn-list" onclick="setMktView('list')" style="padding:8px 16px;font-size:12px;font-weight:700;border:0;background:#4f46e5;color:#fff">☰ Listado</button>
+    <button id="mv-btn-map" onclick="setMktView('map')" style="padding:8px 16px;font-size:12px;font-weight:700;border:0;background:#fff;color:#64748b">🗺 Mapa</button>
+  </div>
+  <div id="mkt-map-wrap" style="display:none;margin-bottom:16px">
+    <div id="mkt-map" style="height:420px;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0"></div>
+    <p id="mkt-map-note" style="font-size:11px;color:#94a3b8;margin-top:8px"></p>
+  </div>
   <div id="screen-list"></div>
+</div></div>
+
+<!-- ==================== FICHA DE LA UBICACION ==================== -->
+<div id="v-venue" class="view"><div class="c" style="padding-top:12px">
+  <button class="back" onclick="showView('v-marketplace')">← Pantallas</button>
+  <div id="venue-detail"></div>
 </div></div>
 
 <!-- ==================== PLANS ==================== -->
@@ -500,10 +514,204 @@ function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;t.
 async function doRegister(){const n=document.getElementById('r-name').value,e=document.getElementById('r-email').value,p=document.getElementById('r-pwd').value,c=document.getElementById('r-company').value,err=document.getElementById('r-err');err.style.display='none';if(!n||!e||!p){err.textContent='Complete todos los campos';err.style.display='block';return}try{const d=await apiFetch('/auth/register',{method:'POST',body:JSON.stringify({name:n,email:e,password:p,company_name:c||null})});token=d.access_token;user=d.user;saveSession();toast('Cuenta creada',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
 async function doLogin(){const e=document.getElementById('l-email').value,p=document.getElementById('l-pwd').value,err=document.getElementById('l-err');err.style.display='none';try{const d=await apiFetch('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;saveSession();toast('Bienvenido',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
 function doLogout(){token=null;user=null;clearSession();showView('v-landing')}
-async function loadMkt(){selectedScreens=[];showView('v-marketplace');document.getElementById('user-greeting').textContent=(user?.company_name||user?.name||'');screens=await apiFetch('/screens');const cities=[...new Set(screens.map(s=>s.location?.city))].sort();document.getElementById('city-tabs').innerHTML='<div class="tab on" onclick="fCity(\'\',this)">Todas</div>'+cities.map(c=>'<div class="tab" onclick="fCity(\''+c+'\',this)">'+c+'</div>').join('');rScreens(screens)}
-function fCity(c,el){document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el?.classList.add('on');rScreens(c?screens.filter(s=>s.location?.city===c):screens)}
-function rScreens(l){document.getElementById('screen-list').innerHTML=l.map((s,i)=>{const cd=s.location_code||'MV-'+s.id.substring(0,4).toUpperCase();return'<div class="scr-i" onclick="selScr(\''+s.id+'\')"><div style="width:44px;height:30px;border-radius:8px;background:'+SG[i%SG.length]+';flex-shrink:0"></div><div style="flex:1"><div style="font-size:14px;font-weight:700">'+s.name+'</div><div style="font-size:11px;color:#94a3b8">'+s.location?.city+', '+(s.location?.state||'')+' · <span style="color:#4f46e5;font-weight:600">'+cd+'</span></div></div><div style="text-align:right"><div style="font-size:17px;font-weight:800">$'+(s.pricing?.per_day||0)+'</div><div style="font-size:9px;color:#94a3b8">/dia</div></div></div>'}).join('')}
-function selScr(id){selScreen=screens.find(s=>s.id===id);if(!selScreen)return;selPlan=null;showView('v-plans');const cd=selScreen.location_code||'';document.getElementById('plan-screen-info').innerHTML='<div style="font-size:20px;font-weight:800">'+selScreen.name+'</div><div style="font-size:14px;color:#4f46e5;font-weight:700;letter-spacing:2px;margin-top:4px">'+cd+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">'+selScreen.location?.city+', '+(selScreen.location?.state||'')+'</div>';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);document.getElementById('plan-list').innerHTML=PLANS.map((p,i)=>{const pr=Math.round(mb*(1-p.off/100));return'<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr.toLocaleString()+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2])}
+// ── La tienda publica: primero la ubicacion, despues el plan ────────────────
+// El cliente que escanea el QR no compra una "pantalla": compra estar en la
+// pared de ese negocio. Por eso ve la foto del local, como llegar y cuanta
+// gente pasa ANTES de que se le hable de precios.
+function hereCode(){
+  try{
+    var qs=new URLSearchParams(location.search);
+    var c=qs.get('code')||qs.get('screen')||'';
+    if(c){sessionStorage.setItem('mv_here_code',c.trim().toUpperCase());return c.trim().toUpperCase()}
+    return (sessionStorage.getItem('mv_here_code')||'').toUpperCase();
+  }catch(e){return ''}
+}
+
+async function loadMkt(){
+  selectedScreens=[];showView('v-marketplace');
+  document.getElementById('user-greeting').textContent=(user?.company_name||user?.name||'');
+  var here=hereCode();
+  screens=await apiFetch('/marketplace/screens'+(here?'?here='+encodeURIComponent(here):''));
+  const cities=[...new Set(screens.map(s=>s.venue?.city).filter(Boolean))].sort();
+  document.getElementById('city-tabs').innerHTML='<div class="tab on" onclick="fCity(\'\',this)">Todas</div>'+cities.map(c=>'<div class="tab" onclick="fCity(\''+c+'\',this)">'+c+'</div>').join('');
+  rScreens(screens);
+}
+
+function fCity(c,el){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));el?.classList.add('on');
+  rScreens(c?screens.filter(s=>s.venue?.city===c):screens);
+}
+
+function venuePhotoTag(s,h){
+  var v=s.venue||{};
+  if(v.photo_url) return '<img src="'+v.photo_url+'" alt="Pantalla instalada" style="width:100%;height:'+h+'px;object-fit:cover;display:block">';
+  return '<div style="width:100%;height:'+h+'px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:#f1f5f9;color:#94a3b8"><span style="font-size:24px">📺</span><span style="font-size:11px">Foto en camino</span></div>';
+}
+
+function rScreens(l){
+  window._mktShown=l;
+  if(!l.length){document.getElementById('screen-list').innerHTML='<p style="text-align:center;color:#94a3b8;font-size:13px;padding:30px 0">No hay pantallas disponibles en esta zona.</p>';return}
+  var here=l.find(s=>s.is_here);
+  var banner=here?'<div style="display:flex;gap:8px;align-items:center;background:#ecfdf5;border:1px solid #a7f3d0;border-radius:12px;padding:10px 12px;margin-bottom:14px"><span style="font-size:16px">📍</span><span style="font-size:12px;color:#047857;font-weight:600">Esta es la pantalla donde esta ahora: <span style="color:#0f172a">'+here.venue.establishment_name+'</span></span></div>':'';
+  document.getElementById('screen-list').innerHTML=banner+l.map(function(s){
+    var v=s.venue||{};
+    var slots=s.is_full?'<span style="font-size:11px;font-weight:700;color:#dc2626">Lleno</span>':'<span style="font-size:11px;font-weight:700;color:#059669">'+s.available_slots+' espacios libres</span>';
+    return '<div style="background:#fff;border:1px solid '+(s.is_here?'#6ee7b7':'#f1f5f9')+';border-radius:16px;overflow:hidden;margin-bottom:14px;cursor:pointer;box-shadow:0 1px 3px rgba(15,23,42,.05)" onclick="openVenue(\''+s.id+'\')">'
+      +'<div style="position:relative">'+venuePhotoTag(s,170)
+      +(s.is_here?'<span style="position:absolute;top:10px;left:10px;background:#059669;color:#fff;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px">📍 Esta aca</span>':'')
+      +'</div>'
+      +'<div style="padding:14px">'
+      +'<div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start">'
+      +'<div style="flex:1"><div style="font-size:15px;font-weight:800">'+(v.establishment_name||s.name)+'</div>'
+      +'<div style="font-size:11px;color:#94a3b8;margin-top:2px">'+[v.city,v.state].filter(Boolean).join(', ')+'</div></div>'
+      +'<div style="text-align:right"><div style="font-size:17px;font-weight:800">$'+(s.daily_price||0)+'</div><div style="font-size:9px;color:#94a3b8">/dia</div></div></div>'
+      +(v.reference?'<div style="font-size:12px;color:#64748b;margin-top:8px">📍 '+v.reference+'</div>':'')
+      +(v.audience&&v.audience.label?'<div style="display:inline-block;margin-top:8px;background:#eef2ff;color:#4338ca;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px">👥 '+v.audience.label+'</div>':'')
+      +'<div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid #f1f5f9;margin-top:12px;padding-top:10px">'+slots
+      +'<span style="font-size:12px;font-weight:700;color:#4f46e5">Ver esta ubicacion →</span></div>'
+      +'</div></div>';
+  }).join('');
+}
+
+// ── Mapa: elegir por zona, no leyendo direcciones ───────────────────────────
+var _mktView='list';
+function setMktView(v){
+  _mktView=v;
+  document.getElementById('screen-list').style.display=v==='map'?'none':'block';
+  document.getElementById('mkt-map-wrap').style.display=v==='map'?'block':'none';
+  var bl=document.getElementById('mv-btn-list'),bm=document.getElementById('mv-btn-map');
+  bl.style.background=v==='list'?'#4f46e5':'#fff';bl.style.color=v==='list'?'#fff':'#64748b';
+  bm.style.background=v==='map'?'#4f46e5':'#fff';bm.style.color=v==='map'?'#fff':'#64748b';
+  if(v==='map')drawMktMap();
+}
+function ensureLeaflet(){
+  if(window.L)return Promise.resolve();
+  if(window._leafletLoading)return window._leafletLoading;
+  window._leafletLoading=new Promise(function(res,rej){
+    var css=document.createElement('link');css.rel='stylesheet';
+    css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
+    var sc=document.createElement('script');sc.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+    sc.onload=res;sc.onerror=function(){rej(new Error('mapa'))};document.head.appendChild(sc);
+  });
+  return window._leafletLoading;
+}
+async function drawMktMap(){
+  var box=document.getElementById('mkt-map'),note=document.getElementById('mkt-map-note');
+  var list=window._mktShown||[];
+  try{await ensureLeaflet()}catch(e){note.textContent='No se pudo cargar el mapa. Use el listado.';return}
+  var loc=list.filter(function(s){return s.venue&&s.venue.lat!=null&&s.venue.lng!=null});
+  var missing=list.length-loc.length;
+  note.textContent=missing?(missing+' pantalla'+(missing!==1?'s':'')+' sin ubicacion en el mapa: estan en el listado.'):'Toque un punto para ver la ficha de esa ubicacion.';
+  if(!loc.length){box.innerHTML='<div style="height:100%;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:13px">Ninguna pantalla tiene ubicacion cargada</div>';return}
+  if(window._mktMap){window._mktMap.remove();window._mktMap=null}
+  box.innerHTML='';
+  var map=L.map(box).setView([loc[0].venue.lat,loc[0].venue.lng],12);window._mktMap=map;
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+  loc.forEach(function(s){
+    var v=s.venue,color=s.is_here?'#059669':(s.is_full?'#dc2626':'#4f46e5');
+    var mk=L.marker([v.lat,v.lng],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,28],popupAnchor:[0,-26],
+      html:'<div style="width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:'+color+';border:2px solid #fff;box-shadow:0 3px 8px rgba(15,23,42,.35)"></div>'})}).addTo(map);
+    mk.bindPopup('<div style="min-width:190px">'
+      +(v.photo_url?'<img src="'+v.photo_url+'" style="width:100%;height:90px;object-fit:cover;border-radius:8px;margin-bottom:6px">':'')
+      +'<div style="font-size:13px;font-weight:800">'+v.establishment_name+'</div>'
+      +'<div style="font-size:11px;color:#64748b">'+[v.city,v.reference].filter(Boolean).join(' · ')+'</div>'
+      +(v.audience&&v.audience.label?'<div style="font-size:11px;color:#4338ca;font-weight:700;margin-top:4px">👥 '+v.audience.label+'</div>':'')
+      +'<button onclick="openVenue(\''+s.id+'\')" style="width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-size:12px;font-weight:700">Ver esta ubicacion</button></div>',{maxWidth:250});
+    if(s.is_here)mk.openPopup();
+  });
+  var here=loc.find(function(s){return s.is_here});
+  if(here)map.setView([here.venue.lat,here.venue.lng],13);
+  else map.fitBounds(L.latLngBounds(loc.map(function(s){return [s.venue.lat,s.venue.lng]})).pad(0.25),{maxZoom:15});
+  setTimeout(function(){map.invalidateSize()},120);
+}
+
+// ── Ficha detallada: evaluar la ubicacion antes de pagar ────────────────────
+async function openVenue(id){
+  showView('v-venue');
+  var box=document.getElementById('venue-detail');
+  box.innerHTML='<p style="color:#94a3b8;font-size:13px;padding:20px 0">Cargando la ubicacion…</p>';
+  var s;
+  try{
+    var here=hereCode();
+    s=await apiFetch('/marketplace/screens/'+id+(here?'?here='+encodeURIComponent(here):''));
+  }catch(e){box.innerHTML='<p style="color:#dc2626;font-size:13px">'+e.message+'</p>';return}
+  window._venue=s;
+  var v=s.venue||{},sp=s.specs||{};
+  var rows=[['Establecimiento',v.establishment_name||s.name],['Direccion',v.address],
+            ['Ciudad',[v.city,v.state].filter(Boolean).join(', ')],['Como llegar',v.reference],
+            ['Gente que pasa',v.audience&&v.audience.label],['Mejor horario',v.audience&&v.audience.note],
+            ['Atiende de',v.hours_label]].filter(function(r){return r[1]});
+  box.innerHTML='<div style="background:#fff;border:1px solid #f1f5f9;border-radius:16px;overflow:hidden">'
+    +'<div style="position:relative">'+venuePhotoTag(s,220)
+    +(s.is_here?'<span style="position:absolute;top:12px;left:12px;background:#059669;color:#fff;font-size:11px;font-weight:800;padding:5px 12px;border-radius:999px">📍 Esta aca ahora</span>':'')+'</div>'
+    +'<div style="padding:18px">'
+    +'<div style="font-size:20px;font-weight:800">'+(v.establishment_name||s.name)+'</div>'
+    +(s.description?'<p style="font-size:13px;color:#64748b;line-height:1.6;margin-top:8px">'+s.description+'</p>':'')
+    +'<div style="border:1px solid #f1f5f9;border-radius:12px;margin-top:14px">'
+    +rows.map(function(r,i){return '<div style="display:flex;gap:10px;padding:10px 12px;'+(i?'border-top:1px solid #f8fafc':'')+'">'
+      +'<div style="font-size:12px;color:#94a3b8;width:120px;flex-shrink:0">'+r[0]+'</div>'
+      +'<div style="font-size:13px;font-weight:600">'+r[1]+'</div></div>'}).join('')
+    +'</div>'
+    +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px">'
+    +(sp.size?'<span style="font-size:11px;background:#f1f5f9;color:#475569;padding:4px 9px;border-radius:999px">📐 '+sp.size+'</span>':'')
+    +(sp.resolution?'<span style="font-size:11px;background:#f1f5f9;color:#475569;padding:4px 9px;border-radius:999px">🖥 '+sp.resolution+'</span>':'')
+    +'<span style="font-size:11px;background:#f1f5f9;color:#475569;padding:4px 9px;border-radius:999px">'+(sp.orientation==='portrait'?'↕ Vertical':'↔ Horizontal')+'</span>'
+    +'</div>'
+    +'<div style="font-size:12px;font-weight:700;margin-top:12px;color:'+(s.is_full?'#dc2626':'#059669')+'">'
+    +(s.is_full?'Esta pantalla esta a capacidad maxima':s.available_slots+' de '+s.max_ad_slots+' espacios publicitarios libres')+'</div>'
+    +reachBlockHtml(s)
+    +'<button class="btn btn-p" style="margin-top:18px" onclick="'+(s.is_full?'toast(\'Pantalla llena — elija otra ubicacion\',false)':'chooseVenue()')+'">'
+    +(s.is_full?'Sin espacio disponible':'Quiero anunciarme en esta pantalla')+'</button>'
+    +'<button class="btn btn-o" style="margin-top:8px" onclick="showView(\'v-marketplace\')">Seguir eligiendo pantallas</button>'
+    +'</div></div>';
+  if(document.getElementById('reach-result'))recalcReach(s.id);
+}
+
+function chooseVenue(){
+  var s=window._venue;if(!s)return;
+  // La ficha no cobra: solo pasa al paso de planes con esta pantalla elegida.
+  selScr(s.id,s);
+}
+
+// ── Alcance estimado: cuanta gente veria el anuncio ─────────────────────────
+function reachBlockHtml(s){
+  var v=s.venue||{};
+  if(!(v.audience&&v.audience.label))return '';
+  var f=parseInt((v.open_from||'08:00').split(':')[0],10),t=parseInt((v.open_to||'20:00').split(':')[0],10),hs=[];
+  for(var h=f;h<=t;h++)hs.push(('0'+h).slice(-2)+':00');
+  function opt(list,sel){return list.map(function(o){var val=(o.v!==undefined?o.v:o),tx=(o.t||o);
+    return '<option value="'+val+'"'+(String(val)===String(sel)?' selected':'')+'>'+tx+'</option>'}).join('')}
+  return '<div style="border:1px solid #f1f5f9;border-radius:12px;padding:14px;margin-top:16px;background:#fafbff">'
+    +'<div style="font-size:13px;font-weight:800">A cuanta gente le va a llegar?</div>'
+    +'<div style="font-size:11px;color:#94a3b8;margin-top:2px">El local atiende de '+v.hours_label+(v.hours_are_default?' (horario estimado)':'')+'.</div>'
+    +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">'
+    +'<div><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Dias</div><select class="inp" id="reach-days" onchange="recalcReach(\''+s.id+'\')" style="padding:9px;font-size:13px">'+opt([{v:7,t:'Todos los dias'},{v:5,t:'Lunes a viernes'},{v:2,t:'Fin de semana'}],7)+'</select></div>'
+    +'<div><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Duracion</div><select class="inp" id="reach-weeks" onchange="recalcReach(\''+s.id+'\')" style="padding:9px;font-size:13px">'+opt([{v:1,t:'1 semana'},{v:4,t:'1 mes'},{v:12,t:'3 meses'},{v:52,t:'1 año'}],4)+'</select></div>'
+    +'<div><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Desde</div><select class="inp" id="reach-from" onchange="recalcReach(\''+s.id+'\')" style="padding:9px;font-size:13px">'+opt(hs,v.open_from)+'</select></div>'
+    +'<div><div style="font-size:11px;color:#94a3b8;margin-bottom:3px">Hasta</div><select class="inp" id="reach-to" onchange="recalcReach(\''+s.id+'\')" style="padding:9px;font-size:13px">'+opt(hs,v.open_to)+'</select></div>'
+    +'</div><div id="reach-result" style="margin-top:12px"></div></div>';
+}
+
+async function recalcReach(id){
+  var box=document.getElementById('reach-result');if(!box)return;
+  box.innerHTML='<p style="font-size:12px;color:#94a3b8">Calculando…</p>';
+  try{
+    var r=await apiFetch('/marketplace/screens/'+id+'/reach',{method:'POST',body:JSON.stringify({
+      start_time:document.getElementById('reach-from').value,
+      end_time:document.getElementById('reach-to').value,
+      days_per_week:parseInt(document.getElementById('reach-days').value,10),
+      weeks:parseInt(document.getElementById('reach-weeks').value,10),slot_seconds:30})});
+    if(r.hours_selected<=0){box.innerHTML='<p style="font-size:12px;color:#b45309">Elija una franja dentro del horario del local.</p>';return}
+    var n=function(x){return Number(x).toLocaleString('es-HN')};
+    box.innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">'
+      +'<div style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b;font-weight:700">POR DIA</div><div style="font-size:20px;font-weight:900;color:#047857">'+n(r.reach_per_day)+'</div><div style="font-size:10px;color:#94a3b8">personas</div></div>'
+      +'<div style="background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px"><div style="font-size:10px;color:#64748b;font-weight:700">TODA LA CAMPANA</div><div style="font-size:20px;font-weight:900;color:#4338ca">'+n(r.reach_total)+'</div><div style="font-size:10px;color:#94a3b8">'+r.days_total+' dias al aire</div></div></div>'
+      +'<p style="font-size:12px;color:#64748b;margin-top:8px;line-height:1.6">Su anuncio sale <strong>'+n(r.plays_per_hour)+' veces por hora</strong> ('+n(r.plays_total)+' en total).<br>Cuenta: '+n(r.people_per_day_venue)+' personas/dia × '+r.hours_selected+' h de las '+r.hours_open+' h que abre el local × '+r.days_total+' dias.</p>'
+      +'<p style="font-size:10px;color:#94a3b8;margin-top:6px">'+r.note+'</p>';
+  }catch(e){box.innerHTML='<p style="font-size:12px;color:#dc2626">'+e.message+'</p>'}
+}
+
+function selScr(id,preloaded){selScreen=preloaded||screens.find(s=>s.id===id);if(!selScreen)return;selPlan=null;showView('v-plans');const v=selScreen.venue||{};const cd=scrCode(selScreen);document.getElementById('plan-screen-info').innerHTML=(v.photo_url?'<img src="'+v.photo_url+'" style="width:100%;height:120px;object-fit:cover;border-radius:10px;margin-bottom:10px">':'')+'<div style="font-size:20px;font-weight:800">'+(v.establishment_name||selScreen.name)+'</div><div style="font-size:14px;color:#4f46e5;font-weight:700;letter-spacing:2px;margin-top:4px">'+cd+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">'+[v.city,v.state].filter(Boolean).join(', ')+'</div>'+(v.audience&&v.audience.label?'<div style="font-size:12px;color:#4338ca;font-weight:700;margin-top:6px">👥 '+v.audience.label+'</div>':'');const bp=selScreen.daily_price||selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);document.getElementById('plan-list').innerHTML=PLANS.map((p,i)=>{const pr=Math.round(mb*(1-p.off/100));return'<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr.toLocaleString()+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2])}
 function selP(id,el){selPlan=PLANS.find(p=>p.id===id);document.querySelectorAll('.plan-o').forEach(p=>{p.classList.remove('sel');p.classList.remove('pop')});el?.classList.add('sel');const b=document.getElementById('btn-continue');b.disabled=false;b.style.opacity='1';b.textContent='Continuar'}
 function goToUpload(){
   // Check if this is a republish
@@ -518,7 +726,7 @@ function goToUpload(){
     }).catch(function(e){toast(e.message,false)});
     return;
   }
-if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=selScreen.location_code||'';document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+selScreen.name+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
+if(!selPlan||!selScreen)return;showView('v-upload');mediaId=null;document.getElementById('upload-preview').style.display='none';document.getElementById('upload-area').style.display='block';var _uh=document.getElementById('upload-hint');if(_uh)_uh.textContent='JPG, PNG o MP4 — debe ser '+orLabel(scrOrientation(selScreen));const b=document.getElementById('btn-submit');b.disabled=true;b.style.opacity='.4';b.textContent='Cargue su contenido primero';const bp=selScreen.daily_price||selScreen.pricing?.per_day||5;const mb=Math.round(bp*30);const pr=Math.round(mb*(1-selPlan.off/100));const cd=scrCode(selScreen);document.getElementById('order-summary').innerHTML='<div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Pantalla</span><span style="font-weight:600;font-size:13px">'+scrName(selScreen)+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Codigo</span><span style="font-weight:700;color:#4f46e5;letter-spacing:1px">'+cd+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Orientacion</span><span style="font-weight:700;color:#4f46e5;text-transform:capitalize">'+orLabel(scrOrientation(selScreen))+'</span></div><div style="display:flex;justify-content:space-between;margin-bottom:10px"><span style="color:#64748b;font-size:13px">Plan</span><span style="font-weight:600;font-size:13px">'+selPlan.name+'</span></div><div style="height:1px;background:#f1f5f9;margin:12px 0"></div><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:15px;font-weight:700">Total mensual</span><span style="font-size:26px;font-weight:900">$'+pr.toLocaleString()+'</span></div>'}
 
 // Una copia vieja de esta pagina en el cache del telefono deja al cliente con un
 // subidor obsoleto: comprobamos el build del servidor y recargamos una sola vez.
@@ -614,6 +822,10 @@ function uploadProgressHtml(pct){
 }
 
 // ── Orientación: preview con la forma real de la pantalla ────────────────────
+// El codigo que el cliente ve y dicta por telefono: unas pantallas tienen
+// codigo de ubicacion, las publicas tienen el codigo del QR. Nunca vacio.
+function scrCode(s){return (s&&(s.location_code||s.public_screen_code))||''}
+function scrName(s){return (s&&((s.venue&&s.venue.establishment_name)||s.name))||'Pantalla'}
 function scrOrientation(s){return (s&&s.specs&&s.specs.orientation)||'landscape'}
 function orLabel(o){return o==='portrait'?'vertical':'horizontal'}
 function measureFile(f){
@@ -738,7 +950,7 @@ async function loadPortal(){
     document.getElementById('p-total').textContent=camps.length;
     function campCard(c,isExp){
       var scr=screens.find(function(s){return s.id===c.screen_id});
-      var sn=scr?scr.name:'Pantalla';var sc=scr?(scr.location_code||''):'';var st=c.status;
+      var sn=scr?scrName(scr):'Pantalla';var sc=scr?scrCode(scr):'';var st=c.status;
       var stc=st==='approved'||st==='active'?'#059669':st==='pending'?'#d97706':st==='expired'?'#64748b':'#94a3b8';
       var stl=st==='approved'?'Activa':st==='active'?'Activa':st==='pending'?'Pendiente':st==='expired'?'Finalizada':st;
       var ed=c.schedule?c.schedule.end_date:'';
@@ -820,7 +1032,7 @@ function goToMultiPlans(){
   selPlan=null;showView('v-plans');
   var disc=multiDiscount(selectedScreens.length);
   document.getElementById('plan-screen-info').innerHTML='<div style="font-size:18px;font-weight:800">'+selectedScreens.length+' pantalla'+(selectedScreens.length>1?'s':'')+'</div><div style="font-size:12px;color:#94a3b8;margin-top:4px">Publicacion en multiples ubicaciones</div>'+(disc>0?'<div style="margin-top:6px;padding:3px 10px;border-radius:20px;background:#ecfdf5;color:#059669;font-size:11px;font-weight:700;display:inline-block">-'+disc+'% descuento por volumen</div>':'');
-  var totalDaily=0;selectedScreens.forEach(function(id){var s=screens.find(function(x){return x.id===id});if(s)totalDaily+=(s.pricing?.per_day||5)});
+  var totalDaily=0;selectedScreens.forEach(function(id){var s=screens.find(function(x){return x.id===id});if(s)totalDaily+=(s.daily_price||s.pricing?.per_day||5)});
   var mb=Math.round(totalDaily*30*(1-disc/100));
   document.getElementById('plan-list').innerHTML=PLANS.map(function(p,i){var pr=Math.round(mb*(1-p.off/100));return'<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');
   if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2]);
@@ -832,9 +1044,9 @@ function republishCampaign(cid){
     window._republishCampId=cid;
     window._republishMediaIds=camp.media_ids;
     selPlan=null;showView('v-plans');
-    var cd=selScreen.location_code||'';
+    var cd=scrCode(selScreen);
     document.getElementById('plan-screen-info').innerHTML='<div style="font-size:20px;font-weight:800">'+selScreen.name+'</div><div style="font-size:14px;color:#4f46e5;font-weight:700;letter-spacing:2px;margin-top:4px">'+cd+'</div><div style="font-size:12px;color:#94a3b8;margin-top:2px">Republicar campana</div>';
-    var bp=selScreen.pricing?.per_day||5;var mb=Math.round(bp*30);
+    var bp=selScreen.daily_price||selScreen.pricing?.per_day||5;var mb=Math.round(bp*30);
     document.getElementById('plan-list').innerHTML=PLANS.map(function(p,i){var pr=Math.round(mb*(1-p.off/100));return '<div class="plan-o'+(i===2?' sel pop':'')+'" onclick="selP(\''+p.id+'\',this)"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:15px;font-weight:700">'+p.name+'</div><div style="font-size:11px;color:#94a3b8;margin-top:2px">'+p.desc+'</div></div>'+(p.off?'<span style="padding:3px 8px;border-radius:6px;background:#ecfdf5;color:#059669;font-size:10px;font-weight:700">-'+p.off+'%</span>':'')+'</div><div style="font-size:24px;font-weight:800;margin-top:6px">$'+pr+' <span style="font-size:12px;font-weight:400;color:#94a3b8">/mes</span></div></div>'}).join('');
     if(PLANS[2])selP('s',document.querySelectorAll('.plan-o')[2]);
   }).catch(function(e){toast(e.message,false)});
@@ -853,7 +1065,7 @@ async function editCampaign(cid){
     var camp=await apiFetch('/campaigns/'+cid);
     var scr=screens.find(function(s){return s.id===camp.screen_id});
     var sn=scr?scr.name:'Pantalla';
-    var sc=scr?(scr.location_code||''):'';
+    var sc=scr?scrCode(scr):'';
     var st=camp.status;
     var stc=st==='approved'||st==='active'?'#059669':st==='pending'?'#d97706':'#94a3b8';
     var stl=st==='approved'?'Activa':st==='active'?'Activa':st==='pending'?'Pendiente':st;

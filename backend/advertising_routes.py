@@ -231,6 +231,14 @@ def create_advertising_routes(db, get_current_user, require_admin):
             "location": screen.get("location"),
             "specs": screen.get("specs"),
             "public_screen_code": screen.get("public_screen_code"),
+            # El código corto que el cliente ve en el resumen de su compra y la
+            # tarifa diaria con la que la tienda pública arma los planes.
+            "location_code": screen.get("location_code"),
+            # Algunas pantallas viejas tienen per_day en 0 pero sí tarifa
+            # mensual: mostrar «$0/día» en la tienda haría perder la venta.
+            "daily_price": ((screen.get("pricing") or {}).get("per_day")
+                            or (round(ap.get("price_per_month") / 30, 2)
+                                if ap.get("price_per_month") else None)),
             "venue": _venue(screen),
             "max_ad_slots": max_slots,
             "available_slots": max(0, max_slots - occupied),

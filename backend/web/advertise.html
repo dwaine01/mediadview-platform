@@ -126,7 +126,7 @@
     <div class="err-ico">📺</div>
     <h2 style="margin-bottom:8px">Pantalla no encontrada</h2>
     <p style="color:#64748b;font-size:13px">Esta pantalla no está disponible para publicidad o el código ha cambiado.</p>
-    <button onclick="window.location.href='/marketplace'" class="btn-primary" style="margin-top:20px;max-width:220px;font-size:13px">Ver Marketplace</button>
+    <button onclick="window.location.href='/marketplace?code='+encodeURIComponent(screenCode)" class="btn-primary" style="margin-top:20px;max-width:220px;font-size:13px">Ver Marketplace</button>
   </div>
 </div>
 
@@ -258,15 +258,10 @@ function handleCTA() {
   sessionStorage.setItem('advertise_redirect', redirectUrl);
   sessionStorage.setItem('advertise_screen_code', screenCode);
 
-  // Verificar si ya está logueado
-  const token = localStorage.getItem('mv_token') || sessionStorage.getItem('mv_token');
-  if (token) {
-    // Ir directamente al portal del anunciante con la pantalla pre-seleccionada
-    window.location.href = '/api/dashboard#advertiser?screen=' + encodeURIComponent(screenCode);
-  } else {
-    // Ir al login con redirect de vuelta
-    window.location.href = '/api/dashboard?screen=' + encodeURIComponent(screenCode) + '#advertiser';
-  }
+  // La tienda pública del cliente es /marketplace (customer.html). El panel
+  // /api/dashboard es para el dueño de las pantallas, no para quien escanea.
+  // El código viaja en ?code= para que su pantalla salga marcada y primera.
+  window.location.href = '/marketplace?code=' + encodeURIComponent(screenCode);
 }
 
 loadScreen();
