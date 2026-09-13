@@ -595,13 +595,10 @@ def calculate_campaign_price(screen_pricing: dict, schedule: dict) -> dict:
 async def root():
     return {"message": "MediaView Digital Signage API", "version": "1.0.0"}
 
-@api_router.get("/health")
-async def health():
-    # NOTE: This route is superseded by health.py build_health_router() which provides
-    # the full liveness + readiness implementation. This simple route is kept as a fallback
-    # for code paths that register api_router before health.py is loaded.
-    # The full response (with ok, uptime, etc.) is served by /api/livez.
-    return {"status": "healthy", "service": "MediaView API", "ok": True}
+# /api/health lo sirve health.py (build_health_router) junto con /api/livez: es
+# el mismo payload ampliado (conserva `status: healthy` y `ok: true`, que es lo
+# que pinga el APK Android). Aquí había un stub duplicado que, por orden de
+# registro, le ganaba al real y dejaba fuera uptime/version.
 
 # ============ ROUTES: AUTH ============
 

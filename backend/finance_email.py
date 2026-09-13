@@ -23,8 +23,6 @@ from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from finance_pdf import (
     COMPANY,
-    generate_contract_pdf,
-    generate_deposit_pdf,
     generate_invoice_pdf,
 )
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
@@ -93,6 +91,15 @@ SMTP_PASSWORD_UNREADABLE = (
     "del servidor que ya cambió. Volvé a escribirla en Finance & CRM → Email "
     "Settings y guardá para que los correos salgan de nuevo."
 )
+
+SMTP_PASSWORD_MISSING = (
+    "Falta la contraseña SMTP del correo de facturación. Cargala en "
+    "Finance & CRM → Email Settings y guardá para que los correos salgan."
+)
+
+# Las dos son problemas de configuración del dueño, no fallas del servidor:
+# los endpoints responden 400 con el texto, no 500.
+SMTP_CONFIG_ERRORS = (SMTP_PASSWORD_UNREADABLE, SMTP_PASSWORD_MISSING)
 
 
 # ============ MODELS ============
@@ -296,10 +303,13 @@ def create_finance_extensions(db, get_current_user):
 
     async def _send_email_async(s, msg, to_addr):
         pwd = decrypt_password(s.get("smtp_password", ""))
-        if s.get("smtp_password") and not pwd:
+        if not pwd:
             # Intentar el envío con la contraseña vacía sólo produce un 535 que
             # manda al dueño a buscar el problema en su proveedor de correo.
-            raise HTTPException(400, SMTP_PASSWORD_UNREADABLE)
+            raise HTTPException(
+                400,
+                SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING,
+            )
         port = int(s.get("smtp_port", 587))
         use_tls = port == 465
         start_tls = not use_tls
@@ -314,45 +324,9 @@ def create_finance_extensions(db, get_current_user):
             timeout=30,
         )
 
-    # ============ PDF GENERATION ============
-    @ext_router.get("/invoices/{invoice_id}/pdf")
-    async def invoice_pdf(invoice_id: str, user: dict = Depends(require_finance)):
-        inv = await db.fin_invoices.find_one({"id": invoice_id})
-        if not inv:
-            raise HTTPException(404, "Invoice not found")
-        client = await db.fin_clients.find_one({"id": inv["client_id"]}) or {}
-        pdf_bytes = generate_invoice_pdf(inv, client)
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="Invoice_{inv.get("invoice_number","")}.pdf"'},
-        )
-
-    @ext_router.get("/contracts/{contract_id}/pdf")
-    async def contract_pdf(contract_id: str, user: dict = Depends(require_finance)):
-        ct = await db.fin_contracts.find_one({"id": contract_id})
-        if not ct:
-            raise HTTPException(404, "Contract not found")
-        client = await db.fin_clients.find_one({"id": ct["client_id"]}) or {}
-        pdf_bytes = generate_contract_pdf(ct, client)
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="Contract_{ct.get("contract_number","")}.pdf"'},
-        )
-
-    @ext_router.get("/deposits/{deposit_id}/pdf")
-    async def deposit_pdf(deposit_id: str, user: dict = Depends(require_finance)):
-        dep = await db.fin_deposits.find_one({"id": deposit_id})
-        if not dep:
-            raise HTTPException(404, "Deposit not found")
-        client = await db.fin_clients.find_one({"id": dep["client_id"]}) or {}
-        pdf_bytes = generate_deposit_pdf(dep, client)
-        return Response(
-            content=pdf_bytes,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="Deposit_{dep.get("receipt_number","")}.pdf"'},
-        )
+    # Los 3 endpoints `/{doc}/pdf` vivían también acá, pero finance.py se
+    # registra antes en server.py, así que estas copias nunca se ejecutaban.
+    # Código muerto eliminado: el PDF lo sirve finance.py.
 
     # ============ SEND INVOICE BY EMAIL ============
     @ext_router.post("/invoices/{invoice_id}/send")
@@ -480,21 +454,96 @@ def create_finance_extensions(db, get_current_user):
         return {"summary": summary, "clients": result}
 
     # ============ CONTRACT SIGNATURE ============
-    @ext_router.post("/contracts/{contract_id}/sign")
-    async def sign_contract(contract_id: str, payload: dict = Body(...),
-                            user: dict = Depends(require_finance)):
-        """Save signature(s) on a contract. Payload: {lessor_signature, lessee_signature} (data URLs)."""
-        upd = {}
-        if "lessor_signature" in payload:
-            upd["lessor_signature"] = payload["lessor_signature"]
-        if "lessee_signature" in payload:
-            upd["lessee_signature"] = payload["lessee_signature"]
-        if upd:
-            upd["signed_at"] = datetime.utcnow().strftime("%B %d, %Y")
-            await db.fin_contracts.update_one({"id": contract_id}, {"$set": upd})
-        return {"ok": True, "signed_at": upd.get("signed_at")}
+    # La firma de contratos la sirve finance.py (versión completa: valida
+    # contrato existente, marca `active` al tener las dos firmas). Esta copia
+    # quedaba sombreada por el orden de registro de los routers.
 
     # ============ USER MANAGEMENT ============
+    # ============ COBRANZA: BITÁCORA Y ESTADO ============
+    @ext_router.get("/clients/{client_id}/email-log")
+    async def client_email_log(client_id: str, limit: int = 100,
+                               user: dict = Depends(require_finance)):
+        """Todo lo que se le mandó a este cliente: facturas, recordatorios y recibos.
+
+        Es lo que se abre cuando el cliente dice «a mí nunca me avisaron»."""
+        rows = await db.fin_email_log.find({"client_id": client_id}) \
+            .sort("sent_at", -1).to_list(max(1, min(int(limit), 300)))
+        for row in rows:
+            row.pop("_id", None)
+        return rows
+
+    @ext_router.get("/collections")
+    async def collections_status(user: dict = Depends(require_finance)):
+        """Estado de cobranza: quién debe, cuánto, desde cuándo y qué se le mandó."""
+        from collections_engine import due_date_of, next_reminder_hint
+
+        invoices = await db.fin_invoices.find({
+            "status": {"$in": ["pending", "overdue", "partial"]},
+        }).to_list(500)
+        today = datetime.utcnow().date()
+        rows = []
+        for inv in invoices:
+            balance = float(inv.get("balance") or 0)
+            if balance <= 0.01:
+                continue
+            client = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
+            due = due_date_of(inv)
+            reminders = inv.get("reminders_sent") or []
+            rows.append({
+                "invoice_id": inv["id"],
+                "invoice_number": inv.get("invoice_number"),
+                "client_id": inv.get("client_id"),
+                "client": client.get("business_name") or client.get("name"),
+                "client_email": client.get("email"),
+                "balance": round(balance, 2),
+                "due_date": inv.get("due_date"),
+                "days_late": (today - due.date()).days if due else None,
+                "status": inv.get("status"),
+                "reminders_sent": len(reminders),
+                "last_reminder_stage": inv.get("last_reminder_stage"),
+                "last_reminder_at": inv.get("last_reminder_at"),
+                "next_reminder_on": next_reminder_hint(inv),
+            })
+        rows.sort(key=lambda r: -(r["days_late"] or -999))
+        return {"rows": rows,
+                "total_due": round(sum(r["balance"] for r in rows), 2),
+                "overdue_count": sum(1 for r in rows if (r["days_late"] or 0) > 0)}
+
+    @ext_router.post("/invoices/{invoice_id}/reminder")
+    async def send_reminder_now(invoice_id: str, user: dict = Depends(require_finance)):
+        """Mandar el recordatorio que toque, sin esperar al robot de las 10."""
+        from collections_engine import STAGES, reminder_body, stage_due_today
+        from finance_scheduler import _send_plain_email
+
+        inv = await db.fin_invoices.find_one({"id": invoice_id})
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        if float(inv.get("balance") or 0) <= 0.01:
+            raise HTTPException(400, "Esta factura ya está pagada: no hay nada que recordar")
+        client = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
+        if not (client.get("email") or "").strip():
+            raise HTTPException(400, "Este cliente no tiene correo cargado")
+        stage = stage_due_today(inv, datetime.utcnow()) or STAGES[0]
+        subject, html = reminder_body(inv, client, stage)
+        try:
+            await _send_plain_email(db, client, subject, html,
+                                    kind=f"reminder:{stage[0]}", invoice_id=invoice_id)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            # La contraseña ilegible es un problema de configuración del dueño,
+            # no una falla del servidor: 400 con instrucciones.
+            code = 400 if str(exc) in SMTP_CONFIG_ERRORS else 500
+            raise HTTPException(code, str(exc))
+        await db.fin_invoices.update_one({"id": invoice_id}, {
+            "$set": {"last_reminder_at": datetime.utcnow().isoformat(),
+                     "last_reminder_stage": stage[0]},
+            "$push": {"reminders_sent": {"stage": stage[0],
+                                         "at": datetime.utcnow().isoformat()}},
+        })
+        return {"ok": True, "stage": stage[0], "to": client.get("email"),
+                "subject": subject}
+
     @ext_router.get("/users")
     async def list_users(user: dict = Depends(require_admin)):
         items = await db.users.find({}, {"password_hash": 0}).sort("created_at", -1).to_list(500)

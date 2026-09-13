@@ -429,6 +429,13 @@
     "methods": [
       "POST"
     ],
+    "path": "/api/admin/devices/cleanup-pending"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
     "path": "/api/admin/devices/provision"
   },
   {
@@ -871,6 +878,13 @@
       "POST"
     ],
     "path": "/api/admin/screens"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/admin/screens/geocode-missing"
   },
   {
     "kind": "APIRoute",
@@ -1449,6 +1463,13 @@
   {
     "kind": "APIRoute",
     "methods": [
+      "GET"
+    ],
+    "path": "/api/designs/{design_id}/render"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
       "POST"
     ],
     "path": "/api/devices/pair"
@@ -1554,6 +1575,13 @@
   {
     "kind": "APIRoute",
     "methods": [
+      "GET"
+    ],
+    "path": "/api/finance/clients/{client_id}/email-log"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
       "POST"
     ],
     "path": "/api/finance/clients/{client_id}/locations"
@@ -1633,6 +1661,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/finance/collections"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/finance/contracts"
   },
   {
@@ -1673,13 +1708,6 @@
   {
     "kind": "APIRoute",
     "methods": [
-      "GET"
-    ],
-    "path": "/api/finance/contracts/{contract_id}/pdf"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
       "POST"
     ],
     "path": "/api/finance/contracts/{contract_id}/quick-invoice"
@@ -1690,13 +1718,6 @@
       "GET"
     ],
     "path": "/api/finance/contracts/{contract_id}/render"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
-      "POST"
-    ],
-    "path": "/api/finance/contracts/{contract_id}/sign"
   },
   {
     "kind": "APIRoute",
@@ -1732,13 +1753,6 @@
       "PUT"
     ],
     "path": "/api/finance/deposits/{deposit_id}"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
-      "GET"
-    ],
-    "path": "/api/finance/deposits/{deposit_id}/pdf"
   },
   {
     "kind": "APIRoute",
@@ -1862,9 +1876,9 @@
   {
     "kind": "APIRoute",
     "methods": [
-      "GET"
+      "POST"
     ],
-    "path": "/api/finance/invoices/{invoice_id}/pdf"
+    "path": "/api/finance/invoices/{invoice_id}/reminder"
   },
   {
     "kind": "APIRoute",
@@ -2053,13 +2067,6 @@
     "methods": [
       "GET"
     ],
-    "path": "/api/health"
-  },
-  {
-    "kind": "APIRoute",
-    "methods": [
-      "GET"
-    ],
     "path": "/api/invites/{token}"
   },
   {
@@ -2159,6 +2166,20 @@
       "GET"
     ],
     "path": "/api/marketplace/screens"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/marketplace/screens/{screen_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/marketplace/screens/{screen_id}/reach"
   },
   {
     "kind": "APIRoute",
@@ -2809,6 +2830,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/screens/{screen_id}/venue-photo"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/sign-permits/list"
   },
   {
@@ -2838,6 +2866,18 @@
       "GET"
     ],
     "path": "/api/sign-permits/{permit_id}/pdf"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/signage-templates/{template_id}/preview"
+  },
+  {
+    "kind": "Mount",
+    "methods": [],
+    "path": "/api/static/template-samples"
   },
   {
     "kind": "APIRoute",
@@ -2983,6 +3023,97 @@
       "GET"
     ],
     "path": "/api/workspace/context"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/designs"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspace/designs/{design_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/designs/{design_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/workspace/designs/{design_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/workspace/designs/{design_id}/categories/{index}/order"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs/{design_id}/categories/{index}/products"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs/{design_id}/logo"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs/{design_id}/preview"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/workspace/designs/{design_id}/products/{product_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "PUT"
+    ],
+    "path": "/api/workspace/designs/{design_id}/products/{product_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs/{design_id}/products/{product_id}/photo"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/workspace/designs/{design_id}/publish"
   },
   {
     "kind": "APIRoute",
@@ -3284,6 +3415,20 @@
       "GET"
     ],
     "path": "/api/workspace/screens/{screen_id}/now-playing"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/signage-industries"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/workspace/signage-templates"
   },
   {
     "kind": "APIRoute",

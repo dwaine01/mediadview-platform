@@ -66,7 +66,7 @@ COMPANY = {
     "brand": "MediAd View",
     "tagline": "ADVERTISING SOLUTION",
     "address_line1": "2998 Riat Run Rd",
-    "address_line2": "Grove City Ohio 43123",
+    "address_line2": "Grove City, Ohio 43123",
     "phone_1": "1-877-202-8181",
     "phone_2": "1-614-745-8686",
     "bank_name": "CHASE Bank",
@@ -91,6 +91,15 @@ def _fmt(s):
         return datetime.strptime(s, "%Y-%m-%d").strftime("%m/%d/%y")
     except Exception:
         return s
+
+
+def _line_no(it: dict, index: int) -> str:
+    """Numeración de línea: si la factura se cargó a mano y no trae `line_no`,
+    se usa el orden de la lista. Igual que en la factura online."""
+    raw = str(it.get("line_no") or "").strip()
+    if raw:
+        return raw.zfill(2) if raw.isdigit() else raw
+    return f"{index + 1:02d}"
 
 
 def _styles():
@@ -374,9 +383,17 @@ def _draw_invoice_tail(canvas, inv):
     canvas.saveState()
     # Bottom block lives between Y=0.55in (above the website footer) up to ~3.2in
     base_y = 0.85*inch  # bottom of the totals area
+    # Pagos parciales: si hay algo cobrado se agregan 1-2 renglones abajo del
+    # TOTAL, así que el bloque entero arranca más arriba para no pisar el
+    # "Thank You". La factura online (finance.render_invoice_html) muestra
+    # exactamente los mismos renglones.
+    paid = float(inv.get("amount_paid") or 0)
+    balance = float(inv.get("balance") or 0)
+    extra_rows = (1 if paid > 0 else 0) + (1 if paid > 0 and balance > 0 else 0)
+    top_y = base_y + 1.55*inch + extra_rows*18
     # --- BANK INFO (left)
     x_left = 0.6*inch
-    y = base_y + 1.55*inch
+    y = top_y
     canvas.setFont("Helvetica-Bold", 10.5)
     canvas.setFillColor(DARK)
     canvas.drawString(x_left, y, COMPANY["name"])
@@ -392,14 +409,14 @@ def _draw_invoice_tail(canvas, inv):
     # --- TOTALS (right column)
     x_right_label = PAGE_W - 2.55*inch
     x_right_value = PAGE_W - 0.7*inch
-    y = base_y + 1.55*inch
+    y = top_y
     canvas.setFont("Helvetica-Bold", 10.5)
     canvas.setFillColor(DARK)
     canvas.drawString(x_right_label, y, "Sub-Total")
     canvas.drawRightString(x_right_value, y, f"${fmt_money(inv.get('subtotal',0))}")
     y -= 18
     canvas.drawString(x_right_label, y, "Tax")
-    canvas.drawRightString(x_right_value, y, fmt_money(inv.get("tax",0)))
+    canvas.drawRightString(x_right_value, y, f"${fmt_money(inv.get('tax',0))}")
     # separator line above TOTAL
     y -= 14
     canvas.setStrokeColor(LINE); canvas.setLineWidth(0.7)
@@ -408,6 +425,18 @@ def _draw_invoice_tail(canvas, inv):
     canvas.setFont("Helvetica-Bold", 13)
     canvas.drawString(x_right_label, y, "TOTAL")
     canvas.drawRightString(x_right_value, y, f"${fmt_money(inv.get('total',0))}")
+    if paid > 0:
+        y -= 18
+        canvas.setFont("Helvetica-Bold", 10.5)
+        canvas.setFillColor(DARK)
+        canvas.drawString(x_right_label, y, "Amount Paid")
+        canvas.drawRightString(x_right_value, y, f"-${fmt_money(paid)}")
+        if balance > 0:
+            y -= 18
+            canvas.setFillColor(colors.HexColor("#b91c1c"))
+            canvas.drawString(x_right_label, y, "Balance Due")
+            canvas.drawRightString(x_right_value, y, f"${fmt_money(balance)}")
+            canvas.setFillColor(DARK)
 
     # --- Thank You centered, below the block
     canvas.setFont("Helvetica-Bold", 12.5)
@@ -423,11 +452,14 @@ def _draw_invoice_tail(canvas, inv):
 
 def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
     buf = BytesIO()
-    # Reserve space at the bottom for the totals/bank/thanks block (~2.6in)
+    # Reserve space at the bottom for the totals/bank/thanks block (~2.6in).
+    # Con pagos parciales el bloque crece 1-2 renglones (ver _draw_invoice_tail).
+    _paid = float(inv.get("amount_paid") or 0)
+    _extra = (1 if _paid > 0 else 0) + (1 if _paid > 0 and float(inv.get("balance") or 0) > 0 else 0)
     doc = SimpleDocTemplate(
         buf, pagesize=letter,
         leftMargin=0.6*inch, rightMargin=0.6*inch,
-        topMargin=0.5*inch, bottomMargin=2.7*inch,
+        topMargin=0.5*inch, bottomMargin=2.7*inch + _extra*18,
         title="MediAd View Invoice", author="MediAd View",
     )
     st = _styles()
@@ -450,7 +482,7 @@ def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
 
     # Horizontal strip with the 3 dates side by side, bordered
     story.append(_period_strip(st, [
-        ("PERIOD DATE", f"{_fmt(inv.get('period_start',''))} – {_fmt(inv.get('period_end',''))}"),
+        ("PERIOD DATE", f"{_fmt(inv.get('period_start',''))} – {_fmt(inv.get('period_end',''))}".strip(" –")),
         ("INVOICE DUE", _fmt(inv.get("due_date",""))),
         ("INVOICE #",   inv.get("invoice_number","")),
     ]))
@@ -464,13 +496,13 @@ def generate_invoice_pdf(inv: dict, client: dict) -> bytes:
         Paragraph("DAY", ParagraphStyle("tc", parent=st["th"], alignment=TA_CENTER)),
         Paragraph("TOTAL", ParagraphStyle("tr2", parent=st["th"], alignment=TA_RIGHT)),
     ]]
-    for it in inv.get("items", []):
+    for _idx, it in enumerate(inv.get("items", [])):
         rows.append([
-            Paragraph(str(it.get("line_no","")).zfill(2) if str(it.get("line_no","")).isdigit() else str(it.get("line_no","")), st["td"]),
+            Paragraph(_line_no(it, _idx), st["td"]),
             Paragraph(it.get("description",""), st["td"]),
             Paragraph(f"${fmt_money(it.get('day_price',0))}", st["td_r"]),
-            Paragraph(str(it.get("days",0)), ParagraphStyle("tdc", parent=st["td"], alignment=TA_CENTER)),
-            Paragraph(fmt_money(it.get("total",0)), st["td_r"]),
+            Paragraph(str(it.get("days") or it.get("units") or 1), ParagraphStyle("tdc", parent=st["td"], alignment=TA_CENTER)),
+            Paragraph(f"${fmt_money(it.get('total',0))}", st["td_r"]),
         ])
     items = Table(rows, colWidths=[0.55*inch, 3.5*inch, 1.05*inch, 0.5*inch, 1.2*inch])
     items.setStyle(TableStyle([

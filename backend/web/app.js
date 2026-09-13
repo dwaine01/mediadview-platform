@@ -611,7 +611,7 @@ const loaders={
       const screenMap={};screens.forEach(s=>screenMap[s.id]=s.name);
       const screenOpts=screens.map(s=>`<option value="${s.id}">${s.name} (${s.location?.city})</option>`).join('');
       el.innerHTML=`
-        <div class="ph"><div><h1>Devices</h1><p>${devs.length} registered players</p></div></div>
+        <div class="ph"><div><h1>Devices</h1><p>${devs.length} registered players</p></div>${isAdmin?`<button class="btn-s" onclick="cleanupPendingDevices()">Limpiar pendientes</button>`:''}</div>
 
         <!-- Link Device + Download APK -->
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px">
@@ -932,6 +932,17 @@ async function removeScreen(id){
     }
   }
 }
+async function cleanupPendingDevices(){
+  // Los `pending` sin pantalla y sin señal son instalaciones de la APK que nunca
+  // se enlazaron. Primero se cuenta (dry_run) y se confirma; nunca se borra a ciegas.
+  try{
+    const prev=await api('/admin/devices/cleanup-pending?days=30&dry_run=true',{method:'POST'});
+    if(!prev.matched){alert('No hay dispositivos pendientes huérfanos para limpiar.');return}
+    if(!confirm('Se van a borrar '+prev.matched+' dispositivos pendientes sin pantalla y sin señal desde hace más de 30 días.\n\nLos dispositivos activos no se tocan. ¿Continuar?'))return;
+    const res=await api('/admin/devices/cleanup-pending?days=30&dry_run=false',{method:'POST'});
+    alert('Listo: '+res.deleted+' dispositivos eliminados. Quedan '+res.remaining_pending+' pendientes.');
+    loaders.devices();
+  }catch(e){alert('No se pudo limpiar: '+e.message)}}
 async function linkDevice(){
   const code=document.getElementById('dev-code')?.value,screenId=document.getElementById('dev-screen')?.value;
   const msg=document.getElementById('dev-msg');msg.style.display='none';

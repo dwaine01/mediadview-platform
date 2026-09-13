@@ -77,6 +77,12 @@
     <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Loading…</div></div>`;
     injectExtraTabs();
     const data = await api(FAPI + '/accounts-receivable');
+    // Estado de cobranza por factura: cuantos recordatorios se mandaron y
+    // cuando toca el proximo. Cobrar sin saber eso es cobrar a ciegas.
+    let coll = {rows:[]};
+    try { coll = await api(FAPI + '/collections'); } catch(e){}
+    const byInvoice = {};
+    (coll.rows||[]).forEach(r => byInvoice[r.invoice_id] = r);
     const s = data.summary;
     const c = document.getElementById('f-content');
     c.innerHTML = `
@@ -100,6 +106,7 @@
               <div style="font-size:12px;color:var(--t-4);margin-top:2px">${esc(cl.representative||'—')} · ${esc(cl.phone||'')}${cl.email?' · '+esc(cl.email):''}</div>
             </div>
             <div style="text-align:right">
+              <button class="btn-s" style="padding:4px 10px;font-size:11px;margin-bottom:6px" onclick="showEmailLog('${cl.client_id}','${esc(cl.client_name)}')">🗂 Historial de correos</button>
               <div style="font-size:11px;color:var(--t-4)">Total Due</div>
               <div style="font-size:20px;font-weight:800;color:${cl.overdue_count>0?'var(--red)':'var(--amber)'}">${fmt$(cl.total_due)}</div>
               ${cl.overdue_count>0?'<div style="font-size:10px;color:var(--red);font-weight:700;margin-top:2px">'+cl.overdue_count+' OVERDUE</div>':''}
@@ -111,12 +118,50 @@
               <span style="color:var(--t-4);font-size:11px">Due ${fmtDate(i.due_date)}</span>
               ${status_badge(i.status)}
               <span style="font-weight:700;color:var(--t-1);min-width:80px;text-align:right">${fmt$(i.balance||i.total)}</span>
-              <button class="btn-s" style="padding:4px 10px;font-size:11px" onclick="sendInvoiceReminder('${i.id}','${esc(cl.email||'')}')">📧 Send Reminder</button>
+              <span style="font-size:10px;color:var(--t-4);min-width:150px;text-align:right">${(()=>{const r=byInvoice[i.id]; if(!r) return ''; const enviados=r.reminders_sent?r.reminders_sent+' recordatorio'+(r.reminders_sent!==1?'s':''):'sin recordatorios'; const prox=r.next_reminder_on?' · próximo '+fmtDate(r.next_reminder_on):' · sin más etapas'; return enviados+prox;})()}</span>
+              <button class="btn-s" style="padding:4px 10px;font-size:11px" onclick="remindNow('${i.id}', this)">📧 Recordar ahora</button>
             </div>`).join('')}
           </div>
         </div>`).join('')
       }`;
   }
+  // Mandar el recordatorio que toque, sin esperar al robot de las 10 de la manana.
+  window.remindNow = async function(invoiceId, btn){
+    const label = btn.textContent; btn.disabled = true; btn.textContent = 'Enviando…';
+    try {
+      const r = await api(FAPI + '/invoices/' + invoiceId + '/reminder', {method:'POST'});
+      alert('Recordatorio enviado a ' + r.to + '\n\nAsunto: ' + r.subject);
+      renderAR();
+    } catch(e){ alert(e.message); btn.disabled = false; btn.textContent = label; }
+  };
+
+  // La bitacora: lo que se le mando a este cliente y si salio o fallo. Es lo
+  // que se abre cuando el cliente dice «a mi nunca me avisaron».
+  window.showEmailLog = async function(clientId, clientName){
+    document.getElementById('email-log-modal')?.remove();
+    document.body.insertAdjacentHTML('beforeend',
+      '<div id="email-log-modal" style="position:fixed;inset:0;background:rgba(15,23,42,.6);z-index:300;display:flex;align-items:center;justify-content:center;padding:20px">'
+      +'<div class="card" style="max-width:640px;width:100%;max-height:85vh;overflow:auto;padding:22px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">'
+      +'<h3 style="font-size:16px;font-weight:800">Historial de correos · ' + clientName + '</h3>'
+      +'<button class="btn-s" onclick="document.getElementById(\'email-log-modal\').remove()">✕</button></div>'
+      +'<div id="email-log-body" style="font-size:13px;color:var(--t-4)">Cargando…</div></div></div>');
+    try {
+      const rows = await api(FAPI + '/clients/' + clientId + '/email-log');
+      const label = k => k==='invoice' ? '📄 Factura' : (k==='receipt' ? '✅ Gracias por su pago'
+        : (String(k).indexOf('reminder')===0 ? '🔔 Recordatorio ('+String(k).split(':')[1]+')' : '✉️ '+k));
+      document.getElementById('email-log-body').innerHTML = rows.length===0
+        ? '<div class="empty"><h3>Sin correos todavía</h3><p>Acá van a quedar las facturas, los recordatorios y los recibos</p></div>'
+        : rows.map(r => '<div style="display:flex;gap:10px;padding:10px 0;border-top:1px solid var(--border-l)">'
+            +'<div style="width:20px;font-size:14px">' + (r.ok ? '✅' : '⚠️') + '</div>'
+            +'<div style="flex:1;min-width:0"><div style="font-weight:700;color:var(--t-1);font-size:13px">' + label(r.kind) + '</div>'
+            +'<div style="font-size:12px;color:var(--t-3);margin-top:2px">' + (r.subject||'') + '</div>'
+            +'<div style="font-size:11px;color:var(--t-4);margin-top:2px">' + (r.to||'') + ' · ' + fmtDate(String(r.sent_at).slice(0,10)) + '</div>'
+            + (r.ok ? '' : '<div style="font-size:11px;color:var(--red);margin-top:3px">' + (r.error||'') + '</div>')
+            +'</div></div>').join('');
+    } catch(e){ document.getElementById('email-log-body').innerHTML = '<div style="color:var(--red)">' + e.message + '</div>'; }
+  };
+
   window.renderAR = renderAR;
 
   // ============ EMAIL SETTINGS ============

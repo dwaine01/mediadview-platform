@@ -245,6 +245,45 @@ def create_admin_devices_routes(gen_id, serialize_doc, gen_activation_code):
             d["screen_name"] = screens_map[sid].get("name", "Unknown") if (sid and sid in screens_map) else None
         return serialize_doc(devices)
 
+    @router.post("/admin/devices/cleanup-pending")
+    async def admin_cleanup_pending_devices(days: int = 30, dry_run: bool = True,
+                                            admin: dict = Depends(require_admin)):
+        """Purga los dispositivos `pending` huérfanos (higiene de la flota).
+
+        Cada instalación de la APK que nunca se enlazó deja un documento
+        `pending` para siempre; la colección llegó a 500 docs y el panel se
+        arrastraba. Sólo se borra lo que cumple TODO esto:
+          - `status: pending` (los `active`/`provisioned`/`disabled` no se tocan)
+          - sin `screen_id` (nunca llegó a enlazarse a una pantalla)
+          - sin señal desde hace más de `days` días (o sin señal nunca y
+            registrado hace más de `days` días)
+
+        `dry_run=true` (por defecto) sólo cuenta. Hay que llamarlo con
+        `dry_run=false` para borrar de verdad.
+        """
+        days = max(1, min(int(days), 365))
+        cutoff = datetime.utcnow() - timedelta(days=days)
+        query = {
+            "status": "pending",
+            "screen_id": None,
+            "$or": [
+                {"last_heartbeat": {"$lt": cutoff}},
+                {"last_heartbeat": None, "created_at": {"$lt": cutoff}},
+            ],
+        }
+        matched = await db.devices.count_documents(query)
+        deleted = 0
+        if not dry_run and matched:
+            deleted = (await db.devices.delete_many(query)).deleted_count
+            logger.info(f"Cleanup: {deleted} orphan pending devices removed (older than {days}d)")
+        return {
+            "dry_run": dry_run,
+            "days": days,
+            "matched": matched,
+            "deleted": deleted,
+            "remaining_pending": await db.devices.count_documents({"status": "pending"}),
+        }
+
     @router.post("/admin/devices/activate")
     async def admin_activate_device(data: DeviceActivate, admin: dict = Depends(require_admin)):
         """Admin enters activation code to link device to a screen."""

@@ -167,12 +167,14 @@ async def _send_invoice_email(db, inv: dict):
     msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=pdf_filename)
 
     pwd = decrypt_password(s.get("smtp_password", ""))
-    if s.get("smtp_password") and not pwd:
-        # La contraseña está guardada pero cifrada con una llave que ya cambió.
-        # Sin esto el envío mensual fallaba todos los meses con un «535
-        # authentication failed» y nadie sabía que sólo había que reescribirla.
-        from finance_email import SMTP_PASSWORD_UNREADABLE
-        raise RuntimeError(SMTP_PASSWORD_UNREADABLE)
+    if not pwd:
+        # La contraseña falta o está cifrada con una llave que ya cambió. Sin
+        # esto el envío mensual fallaba todos los meses con un «535
+        # authentication failed» y nadie sabía qué había que corregir.
+        from finance_email import SMTP_PASSWORD_MISSING, SMTP_PASSWORD_UNREADABLE
+        raise RuntimeError(
+            SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
+        )
     port = int(s.get("smtp_port", 587))
     use_tls = port == 465
     await aiosmtplib.send(
@@ -186,6 +188,77 @@ async def _send_invoice_email(db, inv: dict):
         timeout=30,
     )
     return True
+
+
+
+async def _send_plain_email(db, client: dict, subject: str, html: str, *,
+                            kind: str, invoice_id=None) -> bool:
+    """Manda un correo de cobranza (recordatorio o recibo) y lo deja anotado.
+
+    Sin adjunto: el recordatorio no necesita repetir el PDF, necesita que el
+    cliente recuerde que debe. El PDF va en la factura original."""
+    from collections_engine import log_email
+    from finance_email import (
+        SMTP_PASSWORD_MISSING,
+        SMTP_PASSWORD_UNREADABLE,
+        decrypt_password,
+    )
+
+    to_addr = (client.get("email") or "").strip()
+    if not to_addr:
+        return False
+    s = await db.fin_settings.find_one({"_id": "email"})
+    if not s or not s.get("enabled"):
+        return False
+
+    msg = EmailMessage()
+    msg["From"] = formataddr((s.get("from_name", "MediAd View Billing"),
+                              s.get("from_email") or s.get("smtp_user")))
+    msg["To"] = to_addr
+    if s.get("reply_to"):
+        msg["Reply-To"] = s["reply_to"]
+    msg["Subject"] = subject
+    msg.set_content("Este correo se ve mejor en formato HTML.")
+    msg.add_alternative(html, subtype="html")
+
+    pwd = decrypt_password(s.get("smtp_password", ""))
+    if not pwd:
+        # Sin contraseña usable el servidor SMTP contesta «535 authentication
+        # failed», que no le dice nada al dueño. Se corta acá con el motivo real:
+        # o falta cargarla, o está cifrada con una llave que ya cambió.
+        reason = SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
+        await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
+                        kind=kind, to=to_addr, subject=subject, ok=False,
+                        error=reason)
+        raise RuntimeError(reason)
+
+    import aiosmtplib
+    port = int(s.get("smtp_port", 587))
+    use_tls = port == 465
+    try:
+        await aiosmtplib.send(
+            msg, hostname=s.get("smtp_host", "smtp.titan.email"), port=port,
+            username=s.get("smtp_user"), password=pwd,
+            use_tls=use_tls, start_tls=not use_tls, timeout=30,
+        )
+    except Exception as exc:
+        await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
+                        kind=kind, to=to_addr, subject=subject, ok=False, error=str(exc))
+        raise
+    await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
+                    kind=kind, to=to_addr, subject=subject, ok=True)
+    return True
+
+
+async def send_payment_receipt(db, invoice: dict, amount: float) -> bool:
+    """El «gracias por su pago», con el saldo que quede."""
+    from collections_engine import receipt_body
+
+    client = await db.fin_clients.find_one({"id": invoice.get("client_id")}) or {}
+    fully_paid = float(invoice.get("balance") or 0) <= 0.01
+    subject, html = receipt_body(invoice, client, amount, fully_paid)
+    return await _send_plain_email(db, client, subject, html,
+                                   kind="receipt", invoice_id=invoice.get("id"))
 
 
 # =================== MAIN MONTHLY JOB ===================
@@ -210,6 +283,11 @@ async def monthly_billing_job(db):
             ok = await _send_invoice_email(db, inv)
             if ok:
                 sent_email += 1
+                from collections_engine import log_email
+                client = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
+                await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv["id"],
+                                kind="invoice", to=client.get("email", ""),
+                                subject=f"Factura {inv.get('invoice_number', '')}", ok=True)
                 await db.fin_invoices.update_one(
                     {"id": inv["id"]},
                     {"$set": {"email_sent": True, "email_sent_at": datetime.utcnow().isoformat()}}
@@ -246,46 +324,62 @@ async def monthly_billing_job(db):
 
 # =================== OVERDUE REMINDERS (DAILY) ===================
 async def overdue_reminder_job(db):
-    """Daily at 10:00 AM Eastern — mark overdue + send reminder email (1 per invoice per week)."""
-    now = datetime.utcnow().date()
-    cursor = db.fin_invoices.find({"status": {"$in": ["pending", "overdue"]}})
-    n_marked = 0
-    n_emailed = 0
-    async for inv in cursor:
+    """Diario a las 10:00 (Ohio): marca vencidas y recuerda POR ETAPAS.
+
+    Cada etapa se manda una sola vez (tres días antes, el día del vencimiento,
+    y a los 7, 15 y 30 días). Si la factura se paga, sale del filtro y los
+    recordatorios paran solos."""
+    from collections_engine import reminder_body, stage_due_today
+
+    today = datetime.utcnow()
+    marked = reminded = failed = 0
+    async for inv in db.fin_invoices.find({"status": {"$in": ["pending", "overdue", "partial"]}}):
         try:
             due = inv.get("due_date")
             if not due:
                 continue
-            due_d = datetime.fromisoformat(due[:10]).date()
-            if due_d < now and inv.get("balance", 0) > 0:
-                # mark overdue
-                if inv.get("status") != "overdue":
-                    await db.fin_invoices.update_one({"id": inv["id"]}, {"$set": {"status": "overdue"}})
-                    n_marked += 1
-                # Throttle reminders: at most 1 per 7 days
-                last = inv.get("last_reminder_at")
-                send = True
-                if last:
-                    try:
-                        ld = datetime.fromisoformat(last).date()
-                        if (now - ld).days < 7:
-                            send = False
-                    except Exception:
-                        pass
-                if send:
-                    try:
-                        ok = await _send_invoice_email(db, inv)
-                        if ok:
-                            n_emailed += 1
-                            await db.fin_invoices.update_one(
-                                {"id": inv["id"]}, {"$set": {"last_reminder_at": datetime.utcnow().isoformat()}}
-                            )
-                    except Exception as e:
-                        logger.warning(f"Reminder email failed for {inv.get('invoice_number')}: {e}")
-        except Exception as e:
-            logger.exception(f"Overdue check error: {e}")
-    if n_marked or n_emailed:
-        logger.info(f"[Overdue] Marked {n_marked} as overdue · Sent {n_emailed} reminder(s)")
+            due_d = datetime.fromisoformat(str(due)[:10]).date()
+            if due_d < today.date() and float(inv.get("balance") or 0) > 0.01 \
+                    and inv.get("status") != "overdue":
+                await db.fin_invoices.update_one({"id": inv["id"]},
+                                                 {"$set": {"status": "overdue"}})
+                inv["status"] = "overdue"
+                marked += 1
+
+            stage = stage_due_today(inv, today)
+            if not stage:
+                continue
+            client = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
+            subject, html = reminder_body(inv, client, stage)
+            try:
+                sent = await _send_plain_email(db, client, subject, html,
+                                               kind=f"reminder:{stage[0]}",
+                                               invoice_id=inv["id"])
+            except Exception as exc:
+                failed += 1
+                logger.warning(f"Recordatorio {stage[0]} falló para "
+                               f"{inv.get('invoice_number')}: {exc}")
+                continue
+            if not sent:
+                continue
+            reminded += 1
+            await db.fin_invoices.update_one({"id": inv["id"]}, {
+                "$set": {"last_reminder_at": today.isoformat(),
+                         "last_reminder_stage": stage[0]},
+                "$push": {"reminders_sent": {"stage": stage[0],
+                                             "at": today.isoformat()}},
+            })
+        except Exception as exc:
+            logger.exception(f"Error revisando factura vencida: {exc}")
+
+    if marked or reminded or failed:
+        logger.info(f"[Cobranza] {marked} marcadas vencidas · {reminded} recordatorios "
+                    f"enviados · {failed} fallidos")
+    await db.fin_scheduler_log.insert_one({
+        "id": str(uuid.uuid4()), "job": "collections",
+        "ran_at": datetime.utcnow().isoformat(),
+        "marked_overdue": marked, "reminders_sent": reminded, "failed": failed,
+    })
 
 
 # =================== SCHEDULER BOOTSTRAP ===================

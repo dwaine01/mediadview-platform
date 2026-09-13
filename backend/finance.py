@@ -169,12 +169,17 @@ def days_in_period(start: str, end: str) -> int:
     return (e - s).days + 1
 
 def format_date_us(s: str) -> str:
-    """YYYY-MM-DD → MM/DD/YY"""
+    """YYYY-MM-DD → MM/DD/YY. Sin fecha, se imprime vacío.
+
+    Una factura manual puede no tener período; devolver el valor crudo hacía
+    que en el papel saliera «Period: None – None»."""
+    if not s:
+        return ""
     try:
         d = parse_date(s)
         return d.strftime("%m/%d/%y")
     except Exception:
-        return s
+        return str(s)
 
 def role_can_finance(user: dict) -> bool:
     return user.get("role") in ("superadmin", "admin", "accounting", "sales", "viewer", "technical")
@@ -1052,13 +1057,33 @@ For security, please change this password after your first login.
             if inv:
                 paid = inv.get("amount_paid", 0) + data.amount
                 bal = inv.get("total", 0) - paid
-                status = "paid" if bal <= 0.01 else inv.get("status", "pending")
+                if bal <= 0.01:
+                    status = "paid"
+                elif paid > 0:
+                    # Pago a cuenta: «parcial» le dice al cobrador que el
+                    # cliente sí está pagando, y el recordatorio sigue por el
+                    # saldo, no por el total.
+                    status = "partial"
+                else:
+                    status = inv.get("status", "pending")
                 await db.fin_invoices.update_one(
                     {"id": pay["invoice_id"]},
                     {"$set": {"amount_paid": round(paid, 2), "balance": round(bal, 2), "status": status}},
                 )
         if pay.get("deposit_id"):
             await db.fin_deposits.update_one({"id": pay["deposit_id"]}, {"$set": {"status": "received", "received_at": pay["date"]}})
+
+        # Cobrar sin agradecer es perder al cliente: al aplicar el pago sale el
+        # recibo. Si el correo falla, el pago YA quedó registrado igual.
+        pay["receipt_sent"] = False
+        if pay.get("invoice_id"):
+            updated = await db.fin_invoices.find_one({"id": pay["invoice_id"]})
+            if updated:
+                try:
+                    from finance_scheduler import send_payment_receipt
+                    pay["receipt_sent"] = await send_payment_receipt(db, updated, data.amount)
+                except Exception as exc:
+                    pay["receipt_error"] = str(exc)
 
         pay.pop("_id", None)
         return pay
@@ -1368,77 +1393,144 @@ def doc_actions_html():
     """
 
 
+# La factura online tiene que ser LA MISMA que el PDF adjunto en el correo.
+# Antes eran dos diseños distintos (online azul/navy vs. PDF minimalista) y el
+# cliente veía dos documentos diferentes por el mismo cobro. Este CSS reproduce
+# `finance_pdf.generate_invoice_pdf`: hoja Letter, logo a la derecha, franja de
+# fechas con borde, tabla de líneas sin relleno y el pie con banco + totales.
+INVOICE_DOC_CSS = """
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#e9e9ec;padding:24px 12px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#222222}
+.sheet{width:8.5in;max-width:100%;margin:0 auto;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.12);
+  padding:0.5in 0.6in 0.5in;min-height:11in;display:flex;flex-direction:column}
+.brandbar{display:flex;justify-content:flex-end;margin-bottom:6px}
+.brandbar .b{text-align:right}
+.brandbar img{width:2in;max-width:60%;height:auto;display:block;margin-left:auto}
+.brandbar .co{font-size:9pt;line-height:12pt;color:#222222;margin-top:4px}
+.inv-to{font-size:26pt;line-height:30pt;font-weight:bold;letter-spacing:-.5px}
+.cust-name{font-size:18pt;line-height:22pt;font-weight:bold;margin-top:10px}
+.cust-line{font-size:10pt;line-height:14pt}
+.strip{display:flex;border:0.6pt solid #c8c8c8;margin-top:18px}
+.strip .cell{flex:1;padding:10px 14px 10px;border-left:0.5pt solid #c8c8c8}
+.strip .cell:first-child{border-left:none}
+.strip .lbl{font-size:8.5pt;line-height:10pt;font-weight:bold;color:#666666}
+.strip .val{font-size:11pt;line-height:13pt;font-weight:bold;color:#222222;margin-top:2px}
+table.items{width:100%;border-collapse:collapse;margin-top:20px}
+table.items th{font-size:9pt;line-height:11pt;font-weight:bold;color:#666666;text-align:left;
+  padding:10px 2px;border-bottom:0.7pt solid #c8c8c8}
+table.items td{font-size:10pt;line-height:13pt;color:#222222;padding:10px 2px;vertical-align:middle}
+table.items tr:last-child td{border-bottom:0.7pt solid #c8c8c8}
+table.items .r{text-align:right}
+table.items .c{text-align:center}
+.tail{margin-top:auto;padding-top:40px;display:flex;justify-content:space-between;align-items:flex-start;gap:24px}
+.bank .name{font-size:10.5pt;line-height:14pt;font-weight:bold}
+.bank .ln{font-size:9pt;line-height:12pt}
+.tot{width:2.6in;flex:none}
+.tot .row{display:flex;justify-content:space-between;font-size:10.5pt;line-height:18pt;font-weight:bold}
+.tot .sep{border-top:0.7pt solid #c8c8c8;margin:6px 0}
+.tot .big{font-size:13pt;line-height:20pt;font-weight:bold}
+.tot .due{color:#b91c1c}
+.thanks{text-align:center;font-size:12.5pt;font-weight:bold;margin-top:26px}
+.site{text-align:center;font-size:9pt;margin-top:16px}
+@media print{
+  body{background:#fff;padding:0}
+  .sheet{box-shadow:none;width:auto;padding:0.5in 0.6in;min-height:auto}
+  .no-print{display:none !important}
+}
+.actions{position:fixed;top:16px;right:16px;z-index:100}
+.actions button{padding:9px 16px;background:#222222;color:#fff;border:none;border-radius:6px;
+  cursor:pointer;font-weight:600;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.2)}
+"""
+
+
+def money_us(v) -> str:
+    try:
+        return f"{float(v or 0):,.2f}"
+    except Exception:
+        return "0.00"
+
+
+def invoice_line_no(it: dict, index: int) -> str:
+    """Numeración de línea del PDF y del HTML. Una factura cargada a mano puede
+    no traer `line_no`: se cae al orden de la lista en vez de salir en blanco."""
+    raw = str(it.get("line_no") or "").strip()
+    if raw:
+        return raw.zfill(2) if raw.isdigit() else raw
+    return f"{index + 1:02d}"
+
+
 def render_invoice_html(inv: dict, client: dict) -> str:
     items_rows = "".join([
         f"""<tr>
-          <td class="c">{it['line_no']}</td>
-          <td>{it['description']}</td>
-          <td class="r">${it['day_price']:.2f}</td>
-          <td class="c">{it['days']}</td>
-          <td class="r">${it['total']:.2f}</td>
+          <td>{invoice_line_no(it, index)}</td>
+          <td>{it.get('description') or ''}</td>
+          <td class="r">${money_us(it.get('day_price'))}</td>
+          <td class="c">{it.get('days') or it.get('units') or 1}</td>
+          <td class="r">${money_us(it.get('total'))}</td>
         </tr>"""
-        for it in inv.get("items", [])
+        for index, it in enumerate(inv.get("items", []))
     ])
-    status = inv.get("status", "pending")
-    badge_cls = f"badge-{status}"
+    period = f"{format_date_us(inv.get('period_start',''))} – {format_date_us(inv.get('period_end',''))}".strip(" –")
+    paid = float(inv.get("amount_paid") or 0)
+    balance = float(inv.get("balance") or 0)
+    paid_rows = ""
+    if paid > 0:
+        paid_rows = (
+            f'<div class="row"><span>Amount Paid</span><span>-${money_us(paid)}</span></div>'
+            + (f'<div class="row due"><span>Balance Due</span><span>${money_us(balance)}</span></div>'
+               if balance > 0 else "")
+        )
+    addr_city = " ".join(filter(None, [
+        client.get("city", ""), client.get("state", ""), client.get("zip", "")
+    ]))
     return f"""<!DOCTYPE html>
 <html><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Invoice {inv.get('invoice_number','')}</title>
-<style>{DOC_CSS}</style></head><body>
-{doc_actions_html()}
-<div class="page">
-  {doc_header_html()}
-  <div class="title-block">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <div><div class="title">INVOICE</div><div class="subtitle">Period: {format_date_us(inv.get('period_start',''))} – {format_date_us(inv.get('period_end',''))}</div></div>
-      <span class="badge {badge_cls}">{status}</span>
-    </div>
+<style>{INVOICE_DOC_CSS}</style></head><body>
+<div class="actions no-print"><button onclick="window.print()">Print / Save PDF</button></div>
+<div class="sheet">
+  <div class="brandbar"><div class="b">
+    <img src="/api/web/logo-pdf.png" alt="MediAd View">
+    <div class="co">{COMPANY['address_line1']}<br>{COMPANY['address_line2']}<br>
+      {COMPANY['phone_1']}<br>{COMPANY['phone_2']}</div>
+  </div></div>
+  <div class="inv-to">INVOICE TO:</div>
+  <div class="cust-name">{client.get('business_name','—')}</div>
+  <div class="cust-line">{" ".join(filter(None, [client.get('address_line1',''), addr_city]))}</div>
+  <div class="cust-line">{client.get('phone','')}</div>
+  <div class="strip">
+    <div class="cell"><div class="lbl">PERIOD DATE</div><div class="val">{period or '—'}</div></div>
+    <div class="cell"><div class="lbl">INVOICE DUE</div><div class="val">{format_date_us(inv.get('due_date','')) or '—'}</div></div>
+    <div class="cell"><div class="lbl">INVOICE #</div><div class="val">{inv.get('invoice_number','') or '—'}</div></div>
   </div>
-  <div class="row2">
-    <div class="box">
-      <div class="box-lbl">Invoice To</div>
-      <div class="box-val">
-        <div class="name">{client.get('business_name','—')}</div>
-        {client.get('address_line1','')}<br>
-        {client.get('city','')} {client.get('state','')} {client.get('zip','')}<br>
-        {client.get('phone','')}
-      </div>
-    </div>
-    <div class="box" style="text-align:right">
-      <div class="box-lbl">Invoice Details</div>
-      <div class="box-val">
-        <div><strong>Invoice #:</strong> {inv.get('invoice_number','')}</div>
-        <div><strong>Issue Date:</strong> {format_date_us(inv.get('issue_date',''))}</div>
-        <div><strong>Due Date:</strong> {format_date_us(inv.get('due_date',''))}</div>
-      </div>
-    </div>
-  </div>
-  <table>
+  <table class="items">
     <thead><tr>
-      <th class="c" style="width:50px">LED</th>
+      <th style="width:0.55in">LED</th>
       <th>ITEM DESCRIPTION</th>
-      <th class="r" style="width:110px">DAY PRICE</th>
-      <th class="c" style="width:70px">DAYS</th>
-      <th class="r" style="width:120px">TOTAL</th>
+      <th class="r" style="width:1.05in">DAY PRICE($)</th>
+      <th class="c" style="width:0.5in">DAY</th>
+      <th class="r" style="width:1.2in">TOTAL</th>
     </tr></thead>
     <tbody>{items_rows}</tbody>
   </table>
-  <div class="totals">
-    <div class="totals-box">
-      <div class="tr"><span>Sub-Total</span><span>${inv.get('subtotal',0):.2f}</span></div>
-      <div class="tr"><span>Tax</span><span>${inv.get('tax',0):.2f}</span></div>
-      <div class="tr total"><span>TOTAL</span><span>${inv.get('total',0):.2f}</span></div>
-      {f'<div class="tr"><span>Amount Paid</span><span>${inv.get("amount_paid",0):.2f}</span></div>' if inv.get('amount_paid',0)>0 else ''}
-      {f'<div class="tr" style="font-weight:700;color:#dc2626"><span>Balance Due</span><span>${inv.get("balance",0):.2f}</span></div>' if inv.get('balance',0)>0 and inv.get('amount_paid',0)>0 else ''}
+  <div class="tail">
+    <div class="bank">
+      <div class="name">{COMPANY['name']}</div>
+      <div class="ln"><strong>Account Number</strong>&nbsp;&nbsp;{COMPANY['account_number']}</div>
+      <div class="ln"><strong>Bank Name</strong>&nbsp;&nbsp;{COMPANY['bank_name']}</div>
+      <div class="ln"><strong>Routing</strong>&nbsp;&nbsp;{COMPANY['routing']} deposits and ACH transactions</div>
+    </div>
+    <div class="tot">
+      <div class="row"><span>Sub-Total</span><span>${money_us(inv.get('subtotal'))}</span></div>
+      <div class="row"><span>Tax</span><span>${money_us(inv.get('tax'))}</span></div>
+      <div class="sep"></div>
+      <div class="row big"><span>TOTAL</span><span>${money_us(inv.get('total'))}</span></div>
+      {paid_rows}
     </div>
   </div>
-  {doc_payment_info_html()}
   <div class="thanks">Thank You For Your Business</div>
-  <div class="terms">
-    <h3>Terms and Conditions</h3>
-    <p>We may condition future contract renewals/service renewals or suspend our services to you until such amount is paid in full.</p>
-  </div>
-  <div class="footer">{COMPANY['website']} · {COMPANY['phone_1']}</div>
+  <div class="site">{COMPANY['website']}</div>
 </div>
 </body></html>"""
 

@@ -1033,3 +1033,37 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   muchas miniaturas de cartelera, se montan por visibilidad, no todas juntas.
 - En `HtmlPreview`, `pointerEvents` va en la `View` que envuelve al WebView: en el WebView ese
   prop no existe.
+
+## La factura online es la misma que el PDF (2026-06)
+- Pedido textual del dueño: «la factura del PDF y la de "Ver factura online" son muy
+  diferentes; tienen que ser iguales las dos, y prefiero la que está en el PDF».
+- `render_invoice_html` (finance.py) se rehizo para reproducir
+  `finance_pdf.generate_invoice_pdf`: hoja Letter en blanco, logo `logo-pdf.png` arriba a la
+  derecha con la dirección y los dos teléfonos, «INVOICE TO:» de 26 pt, franja con borde
+  `PERIOD DATE | INVOICE DUE | INVOICE #`, tabla `LED / ITEM DESCRIPTION / DAY PRICE($) / DAY /
+  TOTAL` con sólo dos líneas finas, y el pie con los datos del banco a la izquierda, los totales
+  a la derecha, «Thank You For Your Business» y el sitio. CSS propio (`INVOICE_DOC_CSS`); el
+  `DOC_CSS` viejo sigue sirviendo a depósitos y contratos.
+- Para que sean IDÉNTICAS también se tocó el PDF: `Amount Paid` y `Balance Due` (rojo) cuando hay
+  pago parcial —el bloque del pie se corre hacia arriba 18 pt por renglón extra y el
+  `bottomMargin` crece igual, si no se pisa el «Thank You»—, `$` en Tax, numeración de línea
+  con respaldo al orden de la lista (`_line_no`), `DAY` con respaldo a `units`/1, período vacío
+  como «—» y la dirección con coma («Grove City, Ohio 43123») igual que en el HTML.
+- REGLA: cualquier cambio de diseño en la factura se hace en los DOS lados. El cliente compara
+  el adjunto con el link del correo.
+
+## Higiene de datos y código muerto (2026-06)
+- `POST /api/admin/devices/cleanup-pending?days=30&dry_run=true|false` (solo admin): borra los
+  dispositivos `pending` **sin pantalla** y sin señal desde hace más de N días. `dry_run` por
+  defecto en `true`: primero cuenta. Botón «Limpiar pendientes» en el encabezado de Devices del
+  panel (`web/app.js`), que confirma antes de borrar. Los `active`/`provisioned` no se tocan.
+- Eliminado el `/api/health` duplicado de `server.py`: por orden de registro le ganaba al de
+  `health.py` y el APK recibía un payload recortado (sin `uptime_s` ni `version`). El de
+  `health.py` es un superconjunto y conserva `status: healthy` + `ok: true`.
+- Eliminados 4 handlers muertos de `finance_email.py` (`/invoices|contracts|deposits/{id}/pdf` y
+  `/contracts/{id}/sign`): `finance.py` se registra antes en `server.py`, así que nunca corrían.
+- Sin contraseña SMTP cargada el envío daba 500 con «535 authentication failed». Ahora hay
+  `SMTP_PASSWORD_MISSING` y los endpoints responden 400 con el motivo real (falta cargarla vs.
+  está cifrada con una llave vieja). `SMTP_CONFIG_ERRORS` agrupa las dos.
+- Snapshot de rutas regenerado a propósito (499 → 525): venía desactualizado de las iteraciones
+  del marketplace/plantillas más `POST /admin/devices/cleanup-pending`.
