@@ -987,3 +987,18 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   esa página, así que desde cualquier otro lugar el editor se renderizaba invisible.
 - `showPage(p)` muestra una página ya renderizada sin volver a llamar a su loader (`go(p)` sí lo
   llama y pisaría lo que se acaba de escribir).
+
+## El cliente del QR entra directo a las pantallas (2026-06)
+- Síntoma reportado: «ya desplegó y no sale el mapa». El código SÍ estaba en producción
+  (verificado: mediadview.com/marketplace trae `setMktView`/`openVenue`, y
+  `/api/admin/screens/geocode-missing` responde 401, no 404). El problema era de navegación:
+  después de iniciar sesión el cliente caía en «Mi cuenta» y el mapa vive en «Pantallas
+  disponibles», a dos toques de distancia.
+- Ahora: si la URL trae `?code=MV-ADV-XXXX` (llegó escaneando un QR), tanto al restaurar sesión
+  como al iniciar sesión o registrarse, cae **directo en las pantallas con el botón del mapa**.
+  Sin código sigue cayendo en su cuenta.
+- Los botones dicen lo que hacen: «Ver pantallas disponibles y mapa» y, en la landing, «Ver
+  pantallas y mapa» (que con sesión abierta ya no manda al registro).
+- Datos de producción al 13/06/2026: 7 pantallas públicas; Miami y New York (duplicadas) tienen
+  coordenadas, «anuncio publico» (Galloway, 6052 jolliff st) no tiene ni pin ni foto ni tráfico.
+  Para que aparezca hay que tocar «📍 Ubicar en el mapa» en el panel y completar su ficha.

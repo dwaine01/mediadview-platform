@@ -112,7 +112,7 @@ img{max-width:100%}
 
 <div style="display:flex;gap:10px;margin-bottom:6px">
   <button class="btn btn-p" style="flex:1" onclick="showView('v-register')">Anunciate ahora</button>
-  <button class="btn btn-o" style="flex:1" onclick="showView('v-register')">Ver pantallas</button>
+  <button class="btn btn-o" style="flex:1" onclick="(token&&user)?loadMkt():showView('v-register')">Ver pantallas y mapa</button>
 </div>
 <p style="text-align:center;font-size:11px;color:#94a3b8;margin-bottom:16px">Sin tarjeta de credito requerida</p>
 
@@ -305,7 +305,7 @@ img{max-width:100%}
   </div>
 
   <!-- Action button -->
-  <button class="btn btn-p" onclick="loadMkt()" style="margin-bottom:20px">Publicar en nueva pantalla</button>
+  <button class="btn btn-p" onclick="loadMkt()" style="margin-bottom:20px">Ver pantallas disponibles y mapa</button>
 
   <!-- Tabs -->
   <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;-webkit-overflow-scrolling:touch">
@@ -511,8 +511,8 @@ const PLANS=[{id:'m',name:'Mensual',mo:1,off:0,desc:'Sin compromiso'},{id:'q',na
 async function apiFetch(p,o={}){const h={'Content-Type':'application/json'};if(token)h.Authorization='Bearer '+token;const r=await fetch(API+p,{...o,headers:h});if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.detail||'Error')}return r.json()}
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));document.getElementById(id)?.classList.add('on');window.scrollTo(0,0)}
 function toast(m,ok){const t=document.getElementById('toast');t.textContent=m;t.className='toast '+(ok?'ok':'err');setTimeout(()=>t.className='toast',3000)}
-async function doRegister(){const n=document.getElementById('r-name').value,e=document.getElementById('r-email').value,p=document.getElementById('r-pwd').value,c=document.getElementById('r-company').value,err=document.getElementById('r-err');err.style.display='none';if(!n||!e||!p){err.textContent='Complete todos los campos';err.style.display='block';return}try{const d=await apiFetch('/auth/register',{method:'POST',body:JSON.stringify({name:n,email:e,password:p,company_name:c||null})});token=d.access_token;user=d.user;saveSession();toast('Cuenta creada',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
-async function doLogin(){const e=document.getElementById('l-email').value,p=document.getElementById('l-pwd').value,err=document.getElementById('l-err');err.style.display='none';try{const d=await apiFetch('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;saveSession();toast('Bienvenido',true);loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
+async function doRegister(){const n=document.getElementById('r-name').value,e=document.getElementById('r-email').value,p=document.getElementById('r-pwd').value,c=document.getElementById('r-company').value,err=document.getElementById('r-err');err.style.display='none';if(!n||!e||!p){err.textContent='Complete todos los campos';err.style.display='block';return}try{const d=await apiFetch('/auth/register',{method:'POST',body:JSON.stringify({name:n,email:e,password:p,company_name:c||null})});token=d.access_token;user=d.user;saveSession();toast('Cuenta creada',true);hereCode()?loadMkt():loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
+async function doLogin(){const e=document.getElementById('l-email').value,p=document.getElementById('l-pwd').value,err=document.getElementById('l-err');err.style.display='none';try{const d=await apiFetch('/auth/login',{method:'POST',body:JSON.stringify({email:e,password:p})});token=d.access_token;user=d.user;saveSession();toast('Bienvenido',true);hereCode()?loadMkt():loadPortal()}catch(x){err.textContent=x.message;err.style.display='block'}}
 function doLogout(){token=null;user=null;clearSession();showView('v-landing')}
 // ── La tienda publica: primero la ubicacion, despues el plan ────────────────
 // El cliente que escanea el QR no compra una "pantalla": compra estar en la
@@ -1177,8 +1177,9 @@ async function resetPassword(){
   }catch(e){err.textContent=e.message;err.style.display='block'}
 }
 
-// Auto-load portal if session exists
-if(token&&user){loadPortal()}
+// Con sesion abierta: si llego escaneando un QR, va directo a las pantallas y
+// al mapa (para eso escaneo); si no, a su cuenta.
+if(token&&user){ hereCode() ? loadMkt() : loadPortal() }
 (function(){
   const slides=document.querySelectorAll('.vslide2');
   const prog=document.getElementById('vid2-prog');
