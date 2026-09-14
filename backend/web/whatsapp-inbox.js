@@ -160,7 +160,8 @@
       <div id="wa-msgs" style="flex:1;overflow-y:auto;padding:16px;background:var(--bg-1);display:flex;flex-direction:column;gap:8px"></div>
       <div style="padding:12px 16px;border-top:1px solid var(--border)">
         ${d.window_open
-          ? `<div style="display:flex;gap:8px;align-items:flex-end">
+          ? `<div id="wa-qr" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"></div>
+            <div style="display:flex;gap:8px;align-items:flex-end">
               <textarea id="wa-reply" class="inp" rows="2" placeholder="Escribí tu respuesta…" style="flex:1;resize:vertical;min-height:44px"></textarea>
               <button class="btn-p" id="wa-send" style="min-height:44px" onclick="waSend('${phone}')">Enviar</button>
             </div>
@@ -201,8 +202,99 @@
       ta.value = borrador;
       ta.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.waSend(phone); } };
       if (forzar) ta.focus();
+      pintarRapidas(cl);
     }
   }
+
+  // ---- Respuestas rápidas -------------------------------------------------
+  // Contestar «¿cómo pago?» veinte veces por semana a mano es tiempo perdido:
+  // las frases se guardan una vez y se insertan con el nombre y el saldo ya
+  // puestos, para que el dueño sólo revise y mande.
+  let rapidas = null;
+  async function pintarRapidas(cl){
+    const cont = document.getElementById('wa-qr');
+    if (!cont) return;
+    if (!rapidas) { try { rapidas = await api(FAPI + '/whatsapp/quick-replies'); } catch(e){ rapidas = []; } }
+    if (!document.getElementById('wa-qr')) return;
+    cont.innerHTML = rapidas.map(r=>
+      `<button class="btn-s" style="padding:5px 10px;font-size:11.5px" title="${esc(r.text)}" onclick="waQuickUse('${r.id}')">⚡ ${esc(r.title)}</button>`
+    ).join('') + `<button class="btn-s" style="padding:5px 10px;font-size:11.5px;color:var(--t-4)" onclick="waQuickManage()">✏️ Editar respuestas</button>`;
+    cont._cl = cl || null;
+  }
+
+  function llenarHuecos(texto, cl){
+    const inv = cl && (cl.invoices || [])[0];
+    return texto
+      .replace(/\{nombre\}/g, (cl && (cl.representative || cl.business_name)) || '')
+      .replace(/\{saldo\}/g, cl ? fmt$(cl.balance) : '')
+      .replace(/\{factura\}/g, inv ? inv.invoice_number : '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/\s+([,.])/g, '$1')
+      .trim();
+  }
+
+  window.waQuickUse = function(id){
+    const r = (rapidas || []).find(x=>x.id === id);
+    const ta = document.getElementById('wa-reply');
+    const cont = document.getElementById('wa-qr');
+    if (!r || !ta) return;
+    ta.value = llenarHuecos(r.text, cont && cont._cl);
+    ta.focus();
+  };
+
+  window.waQuickManage = async function(){
+    if (window.closeFinModal) closeFinModal();
+    rapidas = await api(FAPI + '/whatsapp/quick-replies').catch(()=>[]);
+    document.body.insertAdjacentHTML('beforeend', `
+      <div id="fin-modal" style="position:fixed;inset:0;background:rgba(2,6,18,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px;overflow-y:auto">
+        <div style="width:100%;max-width:560px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden;max-height:90vh;display:flex;flex-direction:column">
+          <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div><div style="font-size:16px;font-weight:800">Respuestas rápidas</div>
+              <div style="font-size:12px;color:var(--t-4);margin-top:2px">Frases guardadas para contestar con un clic</div></div>
+            <button onclick="closeFinModal()" class="btn-icon">✕</button>
+          </div>
+          <div style="padding:20px 22px;overflow-y:auto">
+            ${rapidas.map(r=>`<div style="padding:11px 0;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:flex-start">
+              <div style="flex:1">
+                <div style="font-size:13.5px;font-weight:700;color:var(--t-1)">${esc(r.title)}</div>
+                <div style="font-size:12.5px;color:var(--t-3);line-height:1.6;margin-top:2px">${esc(r.text)}</div>
+              </div>
+              <button class="btn-s" style="padding:4px 9px;font-size:11.5px;color:#b91c1c" onclick="waQuickDel('${r.id}')">Borrar</button>
+            </div>`).join('') || '<div style="font-size:13px;color:var(--t-4)">Todavía no hay respuestas guardadas.</div>'}
+            <div style="margin-top:18px;padding-top:16px;border-top:1px solid var(--border)">
+              <label class="inp-label">Nombre corto</label>
+              <input class="inp" id="wa-qr-title" placeholder="Cómo pagar">
+              <label class="inp-label" style="margin-top:10px">Mensaje</label>
+              <textarea class="inp" id="wa-qr-text" rows="3" placeholder="Hola {nombre}, tenés {saldo} pendiente de la factura {factura}…"></textarea>
+              <div style="font-size:11.5px;color:var(--t-4);margin-top:6px;line-height:1.6">Podés usar <code>{nombre}</code>, <code>{saldo}</code> y <code>{factura}</code>: se completan solos con los datos del cliente del chat.</div>
+              <button class="btn-p" style="margin-top:12px;width:100%" onclick="waQuickAdd()">Guardar respuesta</button>
+            </div>
+          </div>
+        </div>
+      </div>`);
+  };
+
+  window.waQuickAdd = async function(){
+    const title = (document.getElementById('wa-qr-title')||{}).value || '';
+    const text = (document.getElementById('wa-qr-text')||{}).value || '';
+    if (!title.trim() || !text.trim()) { alert('Poné un nombre corto y el texto del mensaje.'); return; }
+    try {
+      await api(FAPI + '/whatsapp/quick-replies', {method:'POST', body:JSON.stringify({title, text})});
+      rapidas = null;
+      await window.waQuickManage();
+      if (window._waPhone) await abrirHilo(window._waPhone, true);
+    } catch(e){ alert(e.message); }
+  };
+
+  window.waQuickDel = async function(id){
+    if (!confirm('¿Borrar esta respuesta guardada?')) return;
+    try {
+      await api(FAPI + '/whatsapp/quick-replies/' + id, {method:'DELETE'});
+      rapidas = null;
+      await window.waQuickManage();
+      if (window._waPhone) await abrirHilo(window._waPhone, true);
+    } catch(e){ alert(e.message); }
+  };
 
   const KINDS = {invoice_created:'Factura', invoice_due:'Aviso de vencimiento',
                  invoice_overdue:'Atraso', payment_received:'Pago recibido', test:'Prueba'};

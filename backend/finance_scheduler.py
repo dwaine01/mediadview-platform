@@ -473,6 +473,83 @@ async def overdue_reminder_job(db):
     })
 
 
+# =================== WHATSAPP SIN RESPONDER ===================
+async def unanswered_whatsapp_job(db):
+    """Avisa por correo cuando un cliente escribió y nadie contestó.
+
+    Un mensaje sin responder es un cobro que se enfría y un cliente que se
+    siente ignorado. Corre cada 10 minutos y manda UN solo correo con todas las
+    conversaciones pendientes (un correo por chat sería spam). Cada mensaje se
+    avisa una sola vez: se marca la conversación con el mensaje ya avisado.
+    """
+    s = await db.fin_settings.find_one({"_id": "wa_alerts"}) or {}
+    if not s.get("enabled", True):
+        return
+    espera = int(s.get("minutes") or 60)
+    correo = await db.fin_settings.find_one({"_id": "email"}) or {}
+    destino = (s.get("to_email") or correo.get("from_email")
+               or correo.get("smtp_user") or "").strip()
+    if not destino:
+        return
+    limite = datetime.utcnow() - timedelta(minutes=espera)
+    pendientes = []
+    async for c in db.wa_conversations.find({"last_direction": "in"}):
+        entro = c.get("last_inbound_at") or ""
+        if not entro or c.get("alerted_for") == entro:
+            continue
+        try:
+            cuando = datetime.fromisoformat(entro.replace("Z", ""))
+        except ValueError:
+            continue
+        if cuando > limite:
+            continue
+        pendientes.append((c, cuando))
+    await db.fin_settings.update_one(
+        {"_id": "wa_alerts"},
+        {"$set": {"last_run": datetime.utcnow().isoformat()}}, upsert=True)
+    if not pendientes:
+        return
+
+    from finance_email import render_email_shell
+    filas = ""
+    for c, cuando in pendientes:
+        horas = (datetime.utcnow() - cuando).total_seconds() / 3600
+        hace = f"{int(horas * 60)} min" if horas < 1 else f"{horas:.0f} h"
+        quien = c.get("client_name") or ("+" + str(c.get("phone", "")))
+        texto = (c.get("last_message") or "")[:120]
+        sin_ficha = ('<div style="font-size:11.5px;color:#b45309">'
+                     'Número sin ficha de cliente</div>') if not c.get("client_id") else ""
+        filas += (
+            f'<tr><td style="padding:10px 0;border-bottom:1px solid #e2e8f0">'
+            f'<div style="font-size:14px;font-weight:700;color:#0f172a">{quien}'
+            f'<span style="font-weight:600;color:#b45309;font-size:12.5px"> · hace {hace}</span></div>'
+            f'<div style="font-size:13px;color:#475569;margin-top:2px">{texto}</div>'
+            f'{sin_ficha}</td></tr>')
+    panel = (os.environ.get("PANEL_BASE_URL") or os.environ.get("PUBLIC_BASE_URL", "")).rstrip("/")
+    cuerpo = f"""
+      <p style="font-size:15px;color:#0f172a;margin:0 0 12px">Hay {len(pendientes)} mensaje(s) de WhatsApp sin responder desde hace más de {espera} minutos.</p>
+      <table width="100%" cellpadding="0" cellspacing="0">{filas}</table>
+      <p style="margin:22px 0 0"><a href="{panel}" style="background:#047857;color:#fff;text-decoration:none;font-size:14px;font-weight:700;padding:11px 20px;border-radius:8px;display:inline-block">Abrir la bandeja de entrada</a></p>
+    """
+    asunto = f"{len(pendientes)} mensaje(s) de WhatsApp sin responder"
+    html = render_email_shell("Mensajes sin responder",
+                              "Bandeja de entrada de WhatsApp", cuerpo)
+    try:
+        await _send_plain_email(db, {"id": "", "email": destino}, asunto, html,
+                                kind="wa_unanswered")
+    except Exception as exc:
+        logger.warning(f"Aviso de WhatsApp sin responder: {exc}")
+        return
+    ahora = datetime.utcnow().isoformat()
+    for c, _ in pendientes:
+        await db.wa_conversations.update_one(
+            {"phone": c["phone"]}, {"$set": {"alerted_for": c.get("last_inbound_at")}})
+    await db.fin_settings.update_one(
+        {"_id": "wa_alerts"}, {"$set": {"last_sent": ahora}}, upsert=True)
+    logger.info(f"Aviso de WhatsApp sin responder enviado a {destino} "
+                f"({len(pendientes)} conversaciones)")
+
+
 # =================== SCHEDULER BOOTSTRAP ===================
 _scheduler = None
 
@@ -497,11 +574,18 @@ def start_scheduler(db):
         overdue_reminder_job, CronTrigger(hour=10, minute=0, timezone=EASTERN),
         args=[db], id="overdue_reminders", replace_existing=True, misfire_grace_time=3600,
     )
+    # Cada 10 minutos — avisa si un cliente escribió por WhatsApp y nadie
+    # contestó (la espera la configura el dueño en la pestaña WhatsApp).
+    _scheduler.add_job(
+        unanswered_whatsapp_job, CronTrigger(minute="*/10", timezone=EASTERN),
+        args=[db], id="wa_unanswered", replace_existing=True, misfire_grace_time=600,
+    )
     _scheduler.start()
     logger.info("=" * 60)
     logger.info("✓ Finance Scheduler started")
     logger.info("  • Monthly billing: day 25 at 11:00 AM America/New_York (mes siguiente, vence el 1)")
     logger.info("  • Overdue reminders: daily at 10:00 AM America/New_York")
+    logger.info("  • WhatsApp sin responder: cada 10 minutos")
     logger.info("=" * 60)
     return _scheduler
 

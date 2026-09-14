@@ -935,6 +935,97 @@ def create_finance_extensions(db, get_current_user):
             headers["Content-Disposition"] = f'inline; filename="{nombre}"'
         return Response(content=data, media_type=mime, headers=headers)
 
+    # ---- Respuestas rápidas (frases guardadas para contestar en la bandeja) --
+    RESPUESTAS_BASE = [
+        {"title": "Recibimos el pago",
+         "text": "¡Gracias {nombre}! Ya registramos tu pago. Cualquier cosa, escribinos por acá."},
+        {"title": "Pago pendiente",
+         "text": "Hola {nombre}, tenés un saldo pendiente de {saldo} (factura {factura}). "
+                 "¿Te sirve que lo coordinemos para esta semana?"},
+        {"title": "Cómo pagar",
+         "text": "Hola {nombre}, podés pagar por transferencia, Zelle o tarjeta. "
+                 "Decime cuál te queda más cómodo y te paso los datos."},
+        {"title": "Ya lo revisamos",
+         "text": "Hola {nombre}, gracias por avisar. Ya lo estamos revisando y te confirmo hoy mismo."},
+        {"title": "Horario de atención",
+         "text": "Hola {nombre}, nuestro horario es de lunes a viernes de 9 a 6. "
+                 "Te contestamos en cuanto abrimos."},
+    ]
+
+    @ext_router.get("/whatsapp/quick-replies")
+    async def quick_replies(user: dict = Depends(require_finance)):
+        """Frases guardadas. La primera vez se cargan unas cuantas ya escritas:
+        una lista vacía no le sirve a nadie."""
+        rows = await db.wa_quick_replies.find().sort("sort", 1).to_list(200)
+        if not rows:
+            await db.wa_quick_replies.insert_many([
+                {"id": str(uuid.uuid4()), "title": r["title"], "text": r["text"],
+                 "sort": i, "created_at": datetime.utcnow().isoformat()}
+                for i, r in enumerate(RESPUESTAS_BASE)])
+            rows = await db.wa_quick_replies.find().sort("sort", 1).to_list(200)
+        for r in rows:
+            r.pop("_id", None)
+        return rows
+
+    @ext_router.post("/whatsapp/quick-replies")
+    async def quick_reply_create(payload: dict = Body(...),
+                                 user: dict = Depends(require_finance)):
+        titulo = (payload.get("title") or "").strip()
+        texto = (payload.get("text") or "").strip()
+        if not titulo or not texto:
+            raise HTTPException(400, "Poné un nombre corto y el texto del mensaje")
+        doc = {"id": str(uuid.uuid4()), "title": titulo, "text": texto,
+               "sort": int(payload.get("sort") or 99),
+               "created_at": datetime.utcnow().isoformat(),
+               "created_by": user.get("email", "")}
+        await db.wa_quick_replies.insert_one(doc)
+        doc.pop("_id", None)
+        return doc
+
+    @ext_router.patch("/whatsapp/quick-replies/{qr_id}")
+    async def quick_reply_update(qr_id: str, payload: dict = Body(...),
+                                 user: dict = Depends(require_finance)):
+        cambios = {k: (payload[k] or "").strip() for k in ("title", "text") if k in payload}
+        if not cambios:
+            raise HTTPException(400, "Nada para cambiar")
+        r = await db.wa_quick_replies.update_one({"id": qr_id}, {"$set": cambios})
+        if not r.matched_count:
+            raise HTTPException(404, "Respuesta no encontrada")
+        return {"ok": True}
+
+    @ext_router.delete("/whatsapp/quick-replies/{qr_id}")
+    async def quick_reply_delete(qr_id: str, user: dict = Depends(require_finance)):
+        r = await db.wa_quick_replies.delete_one({"id": qr_id})
+        if not r.deleted_count:
+            raise HTTPException(404, "Respuesta no encontrada")
+        return {"ok": True}
+
+    # ---- Aviso por correo de mensajes sin responder -------------------------
+    @ext_router.get("/whatsapp/alerts")
+    async def wa_alerts_get(user: dict = Depends(require_finance)):
+        s = await db.fin_settings.find_one({"_id": "wa_alerts"}) or {}
+        correo = await db.fin_settings.find_one({"_id": "email"}) or {}
+        return {
+            "enabled": s.get("enabled", True),
+            "minutes": int(s.get("minutes") or 60),
+            "to_email": s.get("to_email") or correo.get("from_email")
+                        or correo.get("smtp_user") or "",
+            "last_run": s.get("last_run"),
+            "last_sent": s.get("last_sent"),
+        }
+
+    @ext_router.put("/whatsapp/alerts")
+    async def wa_alerts_put(payload: dict = Body(...), user: dict = Depends(require_admin)):
+        minutos = int(payload.get("minutes") or 60)
+        if minutos < 5 or minutos > 1440:
+            raise HTTPException(400, "El tiempo de espera va de 5 minutos a 24 horas")
+        await db.fin_settings.update_one({"_id": "wa_alerts"}, {"$set": {
+            "enabled": bool(payload.get("enabled")),
+            "minutes": minutos,
+            "to_email": (payload.get("to_email") or "").strip(),
+        }}, upsert=True)
+        return {"ok": True}
+
     # ============ ACCOUNTS RECEIVABLE ============
     @ext_router.get("/accounts-receivable")
     async def accounts_receivable(user: dict = Depends(require_finance)):

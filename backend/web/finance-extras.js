@@ -172,6 +172,12 @@
     <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Cargando…</div></div>`;
     const c = document.getElementById('f-content');
     const s = await api(FAPI + '/whatsapp/status');
+    const al = await api(FAPI + '/whatsapp/alerts').catch(()=>({enabled:true,minutes:60,to_email:''}));
+    const meta = s.templates_meta || [];
+    const sinAprobar = s.connected ? s.templates.filter(t=>{
+      const m = meta.filter(x=>x.name===t);
+      return !m.length || !m.some(x=>x.status==='APPROVED');
+    }) : [];
     const fila = (lbl, ok, valor) => `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
       <span style="font-size:15px">${ok?'✅':'⚠️'}</span>
       <span style="font-size:12px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:.04em;min-width:190px">${lbl}</span>
@@ -182,6 +188,12 @@
           ${s.connected?'Conectado — WhatsApp está enviando':'Todavía no conectado'}</div>
         <div style="font-size:13px;color:var(--t-3);line-height:1.6">${esc(s.reason||'El número oficial de MediaView está enviando las facturas y los recordatorios.')}</div>
       </div>
+      ${sinAprobar.length ? `<div class="card" style="padding:16px 20px;margin-bottom:16px;border-left:4px solid #b45309">
+        <div style="font-size:14px;font-weight:800;color:#b45309;margin-bottom:4px">${sinAprobar.length} plantilla(s) sin aprobar — los envíos van a fallar</div>
+        <div style="font-size:13px;color:var(--t-3);line-height:1.6">
+          ${sinAprobar.map(t=>`<code style="background:var(--bg-1);padding:1px 5px;border-radius:4px">${esc(t)}</code>`).join(' ')}
+          <br>Mientras Meta las tenga <b>en revisión</b> (PENDING) o rechazadas, esos avisos no se pueden enviar. La aprobación suele tardar entre 5 minutos y 1 hora; el detalle está más abajo.
+        </div></div>` : ''}
       <div class="st-grid">
         ${stat('Mensajes enviados', s.stats.total, 'Facturas, recordatorios y recibos', '--brand', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8')}
         ${stat('Entregados / leídos', s.stats.delivered, 'Confirmado por WhatsApp', '--green', 'M5 13l4 4L19 7')}
@@ -208,6 +220,20 @@
         }).join('')}
         <p style="font-size:12px;color:var(--t-4);margin-top:10px;line-height:1.6">El idioma se usa tal como lo aprobó Meta: si la creaste como <code>es_MX</code>, se manda <code>es_MX</code>. El error 132001 significa que el nombre o el idioma no coinciden con ninguna aprobada.</p>
       </div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Aviso de mensajes sin responder</h2>
+        <p style="font-size:13px;color:var(--t-3);margin-bottom:12px;line-height:1.6">Si un cliente escribe por WhatsApp y nadie contesta, te llega un correo con la lista de conversaciones pendientes. Se revisa cada 10 minutos y cada mensaje se avisa una sola vez.</p>
+        <label style="display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--t-1);cursor:pointer">
+          <input type="checkbox" id="wa-al-on" ${al.enabled?'checked':''} style="width:17px;height:17px;cursor:pointer">
+          Avisarme por correo
+        </label>
+        <div class="row2" style="margin-top:12px">
+          <div><label class="inp-label">Esperar antes de avisar (minutos)</label><input class="inp" id="wa-al-min" type="number" min="5" max="1440" value="${al.minutes}"></div>
+          <div><label class="inp-label">Correo donde recibir el aviso</label><input class="inp" id="wa-al-to" value="${esc(al.to_email||'')}" placeholder="tu@correo.com"></div>
+        </div>
+        <button class="btn-p" style="margin-top:12px" onclick="waAlertsSave()">Guardar aviso</button>
+        ${al.last_sent?`<div style="font-size:11.5px;color:var(--t-4);margin-top:8px">Último aviso enviado: ${esc(al.last_sent.replace('T',' ').slice(0,16))} UTC</div>`:''}
+      </div>
       <div class="card" style="padding:20px">
         <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Probar el envío</h2>
         <div class="row2">
@@ -217,6 +243,17 @@
         <button class="btn-p" style="margin-top:12px" onclick="waTest()">Enviar mensaje de prueba</button>
       </div>`;
   }
+
+  window.waAlertsSave = async function(){
+    try {
+      await api(FAPI + '/whatsapp/alerts', {method:'PUT', body:JSON.stringify({
+        enabled: document.getElementById('wa-al-on').checked,
+        minutes: parseInt(document.getElementById('wa-al-min').value || '60', 10),
+        to_email: document.getElementById('wa-al-to').value,
+      })});
+      alert('Listo. El aviso quedó guardado.');
+    } catch(e){ alert(e.message); }
+  };
 
   window.waTest = async function(){
     try {

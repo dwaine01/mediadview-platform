@@ -1356,3 +1356,19 @@ translation`: el código mandaba `es` y la plantilla estaba aprobada con otra va
   `mediaview_invoice_created` lleva encabezado de documento (antes Meta lo rechazaba).
 - Globito de mensajes sin leer al lado de "Finance & CRM" en el menú (refresca cada 30 s).
 - Tests: `tests/test_iter69_wa_template_lang.py` (8 casos). Suite de finanzas: 183 passed.
+
+## Iteración 70 — Respuestas rápidas, aviso de mensajes sin responder y alerta de plantillas
+Pedidos del dueño mientras Meta revisa las plantillas (las 4 quedaron en inglés y `PENDING`).
+- **Respuestas rápidas** (`wa_quick_replies`): CRUD en `/api/finance/whatsapp/quick-replies`.
+  La primera vez se siembran 5 frases ya escritas (idempotente). En el chat se muestran como
+  chips `⚡` arriba de la caja de respuesta y al tocarlas completan `{nombre}`, `{saldo}` y
+  `{factura}` con los datos del cliente del hilo. Modal «✏️ Editar respuestas» para crear/borrar.
+- **Aviso por correo** (`fin_settings._id="wa_alerts"`: enabled/minutes/to_email):
+  `unanswered_whatsapp_job` corre **cada 10 minutos**, busca conversaciones con
+  `last_direction=="in"` más viejas que la espera configurada y manda **un solo correo** con
+  todas (un correo por chat sería spam). Cada mensaje se avisa una vez (`alerted_for`).
+  Configurable desde la pestaña ⚙️ WhatsApp (por defecto 60 min al correo de facturación).
+- **Alerta de plantillas**: banner naranja en la pestaña WhatsApp si alguna plantilla no está
+  `APPROVED` en Meta, con la lista de las que faltan.
+- Tests: `tests/test_iter70_quick_replies_alerts.py` (14). Verificado por testing_agent:
+  57/57 en las suites de WhatsApp y 183 passed / 2 skipped en la regresión de finanzas.
