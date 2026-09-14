@@ -26,14 +26,18 @@ function _crmDate(d) {
   catch (_) { return d; }
 }
 function _crmBadge(s) {
+  // El panel es CLARO: los colores neón del tema oscuro (#34d399, #a5b4fc…)
+  // sobre blanco quedaban casi invisibles. Estos tonos están pensados para
+  // leerse sobre blanco (contraste AA) y son los mismos de la marca.
   const m = {
-    active: '#34d399', prospect: '#a5b4fc', trial: '#60a5fa',
-    suspended: '#f59e0b', churned: '#f87171', cancelled: '#f87171',
-    free: '#94a3b8', starter: '#6366f1', pro: '#22d3ee', enterprise: '#f59e0b',
-    standard: '#6366f1', custom: '#f59e0b',
+    active: '#047857', prospect: '#4338ca', trial: '#1d4ed8',
+    suspended: '#b45309', churned: '#b91c1c', cancelled: '#b91c1c',
+    inactive: '#475569', paused: '#b45309', past_due: '#b91c1c',
+    free: '#475569', starter: '#4338ca', pro: '#0e7490', enterprise: '#b45309',
+    standard: '#4338ca', custom: '#b45309',
   };
-  const c = m[s?.toLowerCase()] || '#94a3b8';
-  return `<span style="background:${c}22;color:${c};border:1px solid ${c}44;border-radius:20px;padding:2px 10px;font-size:11px;font-weight:700">${s || '—'}</span>`;
+  const c = m[s?.toLowerCase()] || '#475569';
+  return `<span style="display:inline-block;background:${c}14;color:${c};border:1px solid ${c}3d;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:capitalize;white-space:nowrap">${s || '—'}</span>`;
 }
 function _crmErr(msg) {
   return `<div style="color:#f87171;font-size:13px;padding:12px 16px;background:#450a0a;border:1px solid #7f1d1d;border-radius:8px;margin-top:8px">${msg}</div>`;
@@ -56,9 +60,29 @@ function _showToast(msg, ok = true) {
   _toastTimeout = setTimeout(() => { t.style.opacity = '0'; }, 3500);
 }
 function _crmRow(label, value, opts = {}) {
-  return `<div style="display:flex;align-items:flex-start;gap:0;padding:10px 0;border-bottom:1px solid #1a2234">
-    <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;min-width:${opts.lw || 180}px;padding-top:2px">${label}</span>
-    <span style="font-size:13px;color:${opts.dim ? '#6b7280' : '#d1d5db'};flex:1">${value || '—'}</span>
+  // Antes el valor se pintaba en #d1d5db (gris del tema oscuro) sobre tarjeta
+  // BLANCA: ilegible. Y la etiqueta ocupaba 180 px fijos, así que el dato
+  // terminaba lejísimos del rótulo. Ahora: texto de verdad y etiqueta angosta.
+  const empty = value === null || value === undefined || value === '' || value === '—';
+  if (empty && !opts.keepEmpty) return '';
+  return `<div style="display:flex;align-items:baseline;gap:12px;padding:9px 0;border-bottom:1px solid var(--border)">
+    <span style="font-size:11px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:.04em;min-width:${opts.lw || 128}px;flex-shrink:0">${label}</span>
+    <span style="font-size:13px;font-weight:600;color:var(--t-1);flex:1;min-width:0;word-break:break-word">${empty ? '—' : value}</span>
+  </div>`;
+}
+function _crmBlock(title, rows, emptyMsg) {
+  // Una tarjeta sólo con renglones «—» no informa nada: si no quedó ninguno,
+  // se dice en una línea y listo.
+  const body = rows.filter(Boolean).join('');
+  return `<div class="card" style="padding:18px 20px">
+    <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">${title}</h2>
+    ${body || `<p style="color:var(--t-4);font-size:13px;margin:4px 0">${emptyMsg || 'Sin datos cargados.'}</p>`}
+  </div>`;
+}
+function _crmStat(label, value, accent) {
+  return `<div style="flex:1;min-width:130px;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px">
+    <div style="font-size:10px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:.06em">${label}</div>
+    <div style="font-size:18px;font-weight:800;color:${accent || 'var(--t-1)'};margin-top:4px;line-height:1.2">${value}</div>
   </div>`;
 }
 function _cwInp(id, label, type, placeholder, required, value = '') {
@@ -155,97 +179,86 @@ async function loadCustomerDetail(customerId) {
     const mrr = pa?.agreed_monthly_price ?? planCfg?.monthly_price ?? 0;
 
     el.innerHTML = `
-      <div style="max-width:900px">
+      <div style="max-width:1000px">
         <!-- Header -->
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:28px">
-          <button onclick="loaders['customers']()" style="padding:7px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;color:var(--t-3);font-size:12px;font-weight:600;cursor:pointer">
-            ← All Customers
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:18px;flex-wrap:wrap">
+          <button onclick="loaders['customers']()" style="padding:7px 14px;background:var(--bg-2);border:1px solid var(--border);border-radius:8px;color:var(--t-2,var(--t-1));font-size:12px;font-weight:700;cursor:pointer">
+            ← Todos los clientes
           </button>
-          <div style="flex:1">
+          <div style="flex:1;min-width:220px">
             <h1 style="font-size:24px;font-weight:800;color:var(--t-1);margin:0">${escapeHtml(c.legal_name || '—')}</h1>
-            <div style="font-size:13px;color:var(--t-4);margin-top:2px">${escapeHtml(c.primary_contact_email || '')} ${c.source ? '· Source: ' + c.source : ''}</div>
+            <div style="font-size:13px;color:var(--t-3);margin-top:2px">${escapeHtml(c.primary_contact_email || '')}${c.source ? ' · Origen: ' + escapeHtml(c.source) : ''}</div>
           </div>
           ${_crmBadge(c.status)}
-          ${mrr > 0 ? `<div style="text-align:right"><div style="font-size:22px;font-weight:800;color:var(--cyan)">$${Number(mrr).toLocaleString()}</div><div style="font-size:10px;color:var(--t-5);margin-top:2px">MRR</div></div>` : ''}
         </div>
 
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-          <!-- Customer Info -->
-          <div class="card" style="padding:20px">
-            <h2 style="font-size:14px;font-weight:700;color:var(--t-1);margin-bottom:14px">Customer Information</h2>
-            ${_crmRow('Legal Name', escapeHtml(c.legal_name))}
-            ${_crmRow('Display Name', escapeHtml(c.display_name))}
-            ${_crmRow('Contact', escapeHtml(c.primary_contact_name))}
-            ${_crmRow('Email', escapeHtml(c.primary_contact_email))}
-            ${_crmRow('Phone', escapeHtml(c.primary_contact_phone))}
-            ${_crmRow('Business Type', escapeHtml(c.business_type))}
-            ${_crmRow('Status', _crmBadge(c.status))}
-            ${_crmRow('Created', _crmDate(c.created_at))}
-            ${c.notes ? _crmRow('Notes', escapeHtml(c.notes)) : ''}
-          </div>
-
-          <!-- Organization -->
-          <div class="card" style="padding:20px">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-              <h2 style="font-size:14px;font-weight:700;color:var(--t-1)">Organization / Workspace</h2>
-            </div>
-            ${org ? `
-              ${_crmRow('Name', escapeHtml(org.name))}
-              ${_crmRow('Slug', org.slug || '—')}
-              ${_crmRow('Plan', _crmBadge(org.plan))}
-              ${_crmRow('Status', _crmBadge(org.status))}
-              ${_crmRow('Timezone', org.timezone)}
-              ${_crmRow('Language', org.language)}
-              ${_crmRow('Account Ref', org.account_ref)}
-              ${_crmRow('Created', _crmDate(org.created_at))}
-            ` : '<p style="color:var(--t-4);font-size:13px">No organization found.</p>'}
-          </div>
+        <!-- Lo que importa de un vistazo -->
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">
+          ${_crmStat('Plan', (pa?.plan_id || org?.plan || 'free').toUpperCase(), '#0e7490')}
+          ${_crmStat('Cobro mensual', mrr > 0 ? '$' + Number(mrr).toLocaleString() : 'Gratis', mrr > 0 ? '#047857' : 'var(--t-3)')}
+          ${_crmStat('Pantallas', (() => {
+            const inc = pa?.screens_included ?? planCfg?.screens_included ?? 0;
+            const lim = pa?.screens_limit;
+            return (lim && lim !== inc) ? `${inc} de ${lim}` : `${inc} incluidas`;
+          })())}
+          ${_crmStat('Suscripción', sub?.status ? sub.status : 'sin suscripción')}
+          ${_crmStat('Próximo período', sub?.current_period_end ? _crmDate(sub.current_period_end) : '—')}
         </div>
 
-        <!-- Subscription + Pricing -->
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:20px">
-          <div class="card" style="padding:20px">
-            <h2 style="font-size:14px;font-weight:700;color:var(--t-1);margin-bottom:14px">Subscription</h2>
-            ${sub ? `
-              ${_crmRow('Status', _crmBadge(sub.status))}
-              ${_crmRow('Billing Provider', sub.billing_provider)}
-              ${_crmRow('Trial Ends', sub.trial_ends_at ? _crmDate(sub.trial_ends_at) : 'N/A')}
-              ${_crmRow('Period Start', _crmDate(sub.current_period_start))}
-              ${_crmRow('Period End', _crmDate(sub.current_period_end))}
-              ${_crmRow('Created', _crmDate(sub.created_at))}
-            ` : '<p style="color:var(--t-4);font-size:13px">No subscription found.</p>'}
-          </div>
-          <div class="card" style="padding:20px">
-            <h2 style="font-size:14px;font-weight:700;color:var(--t-1);margin-bottom:14px">Pricing Agreement</h2>
-            ${pa ? `
-              ${_crmRow('Model', _crmBadge(pa.pricing_model))}
-              ${_crmRow('Plan', _crmBadge(pa.plan_id))}
-              ${_crmRow('Monthly Price', pa.agreed_monthly_price != null ? '$' + Number(pa.agreed_monthly_price).toLocaleString() : '—')}
-              ${_crmRow('Screens Included', pa.screens_included)}
-              ${_crmRow('Screens Limit', pa.screens_limit || 'Unlimited')}
-              ${_crmRow('Extra Screen', pa.overage_price_per_screen != null ? '$' + pa.overage_price_per_screen + '/screen' : '—')}
-              ${_crmRow('Billing Cycle', pa.billing_cycle)}
-              ${_crmRow('Discount', pa.discount_percent != null ? pa.discount_percent + '%' : 'None')}
-              ${_crmRow('Effective From', _crmDate(pa.effective_from))}
-              ${pa.notes ? _crmRow('Notes', escapeHtml(pa.notes)) : ''}
-            ` : '<p style="color:var(--t-4);font-size:13px">No pricing agreement found.</p>'}
-          </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;align-items:start;margin-bottom:16px">
+          ${_crmBlock('Contacto', [
+            _crmRow('Contacto', escapeHtml(c.primary_contact_name || '')),
+            _crmRow('Email', escapeHtml(c.primary_contact_email || '')),
+            _crmRow('Teléfono', escapeHtml(c.primary_contact_phone || '')),
+            _crmRow('Razón social', escapeHtml(c.legal_name || '')),
+            (c.display_name && c.display_name !== c.legal_name) ? _crmRow('Nombre visible', escapeHtml(c.display_name)) : '',
+            _crmRow('Rubro', escapeHtml(c.business_type || '')),
+            _crmRow('Cliente desde', _crmDate(c.created_at)),
+            _crmRow('Notas', c.notes ? escapeHtml(c.notes) : ''),
+          ], 'Este cliente no tiene datos de contacto cargados.')}
+
+          ${_crmBlock('Espacio de trabajo', org ? [
+            _crmRow('Nombre', escapeHtml(org.name || '')),
+            _crmRow('Dirección web', org.slug ? `<code style="font-size:12px;background:var(--bg-1);padding:2px 6px;border-radius:4px">${escapeHtml(org.slug)}</code>` : ''),
+            _crmRow('Estado', _crmBadge(org.status)),
+            _crmRow('Zona horaria', escapeHtml(org.timezone || '')),
+            _crmRow('Idioma', escapeHtml(org.language || '')),
+            _crmRow('Referencia', escapeHtml(org.account_ref || '')),
+            _crmRow('Creado', _crmDate(org.created_at)),
+          ] : [], 'Todavía no se creó el espacio de trabajo del cliente.')}
+
+          ${_crmBlock('Suscripción y precio', [
+            _crmRow('Estado', sub ? _crmBadge(sub.status) : ''),
+            _crmRow('Cobro por', sub?.billing_provider ? escapeHtml(sub.billing_provider) : ''),
+            _crmRow('Prueba hasta', sub?.trial_ends_at ? _crmDate(sub.trial_ends_at) : ''),
+            _crmRow('Período', (sub?.current_period_start || sub?.current_period_end)
+              ? `${_crmDate(sub.current_period_start)} → ${_crmDate(sub.current_period_end)}` : ''),
+            _crmRow('Modelo', pa?.pricing_model ? _crmBadge(pa.pricing_model) : ''),
+            _crmRow('Precio mensual', pa?.agreed_monthly_price != null
+              ? '$' + Number(pa.agreed_monthly_price).toLocaleString() : ''),
+            _crmRow('Pantalla extra', pa?.overage_price_per_screen != null
+              ? '$' + pa.overage_price_per_screen + ' por pantalla' : ''),
+            _crmRow('Ciclo', pa?.billing_cycle ? escapeHtml(pa.billing_cycle) : ''),
+            _crmRow('Descuento', pa?.discount_percent ? pa.discount_percent + '%' : ''),
+            _crmRow('Vigente desde', pa?.effective_from ? _crmDate(pa.effective_from) : ''),
+            _crmRow('Notas', pa?.notes ? escapeHtml(pa.notes) : ''),
+          ], 'Sin suscripción ni acuerdo de precio cargado.')}
         </div>
 
-        <!-- Users -->
-        <div class="card" style="padding:20px;margin-bottom:20px">
-          <h2 style="font-size:14px;font-weight:700;color:var(--t-1);margin-bottom:14px">Workspace Users (${users.length})</h2>
+        <!-- Usuarios -->
+        <div class="card" style="padding:18px 20px">
+          <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Usuarios del panel (${users.length})</h2>
           ${users.length === 0
-            ? '<p style="color:var(--t-4);font-size:13px">No users provisioned yet.</p>'
+            ? '<p style="color:var(--t-4);font-size:13px;margin:4px 0">Todavía no hay usuarios creados para este cliente.</p>'
             : users.map(u => `
               <div style="display:flex;align-items:center;gap:14px;padding:10px 0;border-bottom:1px solid var(--border)">
-                <div style="width:34px;height:34px;border-radius:50%;background:rgba(99,102,241,.15);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#818cf8;flex-shrink:0">${(u.name || u.email || 'U')[0].toUpperCase()}</div>
+                <div style="width:34px;height:34px;border-radius:50%;background:rgba(8,145,178,.12);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#0e7490;flex-shrink:0">${(u.name || u.email || 'U')[0].toUpperCase()}</div>
                 <div style="flex:1;min-width:0">
-                  <div style="font-size:14px;font-weight:600;color:var(--t-1)">${escapeHtml(u.name || '—')}</div>
-                  <div style="font-size:12px;color:var(--t-4)">${escapeHtml(u.email)}</div>
+                  <div style="font-size:14px;font-weight:700;color:var(--t-1)">${escapeHtml(u.name || '—')}</div>
+                  <div style="font-size:12px;color:var(--t-3)">${escapeHtml(u.email)}</div>
                 </div>
-                ${_crmBadge(u.rbac_role?.replace('_', ' ') || u.role)}
-                <div style="font-size:11px;color:var(--t-5)">${_crmDate(u.created_at)}</div>
+                ${_crmBadge(u.rbac_role?.replace(/_/g, ' ') || u.role)}
+                <div style="font-size:11px;color:var(--t-4)">${_crmDate(u.created_at)}</div>
               </div>`).join('')}
         </div>
       </div>`;
