@@ -150,10 +150,19 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             )
 
         # CSP: enforce in prod, report-only in dev to keep iteration fast.
+        # `frame-ancestors 'none'` le gana a X-Frame-Options y bloquea TAMBIÉN
+        # el mismo origen: por eso en producción la vista previa del PDF
+        # (iframe del panel) salía con el ícono de documento roto mientras la
+        # descarga funcionaba. En las respuestas de PDF se baja a 'self'.
+        csp_enforce = CSP_DIRECTIVES_ENFORCE
+        csp_report = CSP_DIRECTIVES
+        if is_pdf_preview:
+            csp_enforce = csp_enforce.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
+            csp_report = csp_report.replace("frame-ancestors 'none'", "frame-ancestors 'self'")
         if self.is_production:
-            headers.setdefault("Content-Security-Policy", CSP_DIRECTIVES_ENFORCE)
+            headers.setdefault("Content-Security-Policy", csp_enforce)
         else:
-            headers.setdefault("Content-Security-Policy-Report-Only", CSP_DIRECTIVES)
+            headers.setdefault("Content-Security-Policy-Report-Only", csp_report)
 
         return response
 

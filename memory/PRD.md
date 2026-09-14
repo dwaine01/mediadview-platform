@@ -1094,3 +1094,28 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   `#64748b` sobre blanco, nada de fondos `#0f172a`/`#111827` en tarjetas, nada de dorado.
   Los `?v=` de `index.html` se suben en cada cambio de estos archivos o el navegador sirve el
   viejo y «no se ve el cambio».
+
+## Vista previa de PDF y facturación anticipada (2026-06)
+- **Bug: la vista previa de contratos/facturas salía con el ícono de documento roto en
+  producción, pero «Descargar» funcionaba.** Causa: `security_headers.py` mandaba
+  `frame-ancestors 'none'` en el CSP **enforced**, y esa directiva le gana a
+  `X-Frame-Options: SAMEORIGIN` y bloquea el iframe **incluso del mismo origen**. Ahora, sólo en
+  las respuestas de PDF (`path.endswith('/pdf')`), el CSP baja a `frame-ancestors 'self'`.
+  Verificado con la middleware en modo producción: `/pdf` → `'self'`, cualquier otra ruta →
+  `'none'`. Los PDFs en sí estaban bien (los 5 contratos de la base generan 63 KB válidos).
+  REGLA: si algo tiene que embeberse en el panel, hay que tocar el CSP, no sólo X-Frame-Options.
+- **Facturación anticipada (decisión del dueño: «genera y envía el 25 del mes anterior, vence el
+  1», como lo hacen las grandes).** Antes se generaba el día 1 y vencía el día 1: el cliente
+  recibía la factura el mismo día que ya vencía y la etapa `pre_due` (-3 días) nunca se usaba.
+  - Cron movido al **día 25, 11:00 AM ET** en los dos lados: `finance_scheduler.start_scheduler`
+    (APScheduler local) y `worker.py` (ARQ, el que corre de verdad en producción: `day=25,
+    hour=15` UTC). Si se cambia uno hay que cambiar el otro.
+  - `monthly_billing_job`: del **día 15 en adelante factura el MES SIGUIENTE**; antes del 15, el
+    mes en curso (para regularizar). Diciembre rueda a enero del año siguiente.
+  - `due_date` = día 1 del período (sin cambio). `issue_date` = `min(hoy, period_start)`: la
+    fecha real de emisión para un período futuro, el día 1 para regularizar un mes pasado.
+  - El endpoint manual `POST /api/finance/invoices/generate-monthly` sigue la misma regla cuando
+    no se le pasa período, para que el botón del panel no contradiga al cron.
+  - Tests: `tests/test_iter62_advance_billing.py` (8 casos: día del cron en ambos schedulers,
+    mes objetivo según el día, rollover de diciembre, fechas de emisión/vencimiento y que la
+    etapa `pre_due` ahora sí cae dentro de la vida de la factura).

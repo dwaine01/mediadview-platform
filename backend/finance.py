@@ -876,13 +876,26 @@ For security, please change this password after your first login.
     @finance_router.post("/invoices/generate-monthly")
     async def generate_monthly_invoices(period_year: Optional[int] = None, period_month: Optional[int] = None,
                                          user: dict = Depends(require_finance_edit)):
-        """Generate invoices for all active clients for the given month. Defaults to current month."""
+        """Generate invoices for all active clients for the given month.
+
+        Sin período explícito sigue la misma regla que el cron del día 25
+        (`finance_scheduler.monthly_billing_job`): del 15 en adelante factura el
+        MES SIGUIENTE (facturación anticipada, vence el día 1); antes del 15,
+        el mes en curso (para regularizar un mes sin facturar)."""
         now = datetime.utcnow()
-        y = period_year or now.year
-        m = period_month or now.month
+        if period_year and period_month:
+            y, m = period_year, period_month
+        else:
+            target = date(now.year, now.month, 1)
+            if now.day >= 15:
+                target = (target + timedelta(days=31)).replace(day=1)
+            y, m = target.year, target.month
         period_start = date(y, m, 1)
         period_end = date(y, m, monthrange(y, m)[1])
         days = (period_end - period_start).days + 1
+        # Facturación anticipada: si el período todavía no empezó, la fecha de
+        # emisión es hoy (el vencimiento sigue siendo el día 1 del período).
+        issue_date = min(now.date(), period_start)
 
         created = []
         contracts = await db.fin_contracts.find({"status": "active"}).to_list(2000)
@@ -921,7 +934,7 @@ For security, please change this password after your first login.
                 "client_id": ct["client_id"],
                 "period_start": period_start.isoformat(),
                 "period_end": period_end.isoformat(),
-                "issue_date": period_start.isoformat(),
+                "issue_date": issue_date.isoformat(),
                 "due_date": period_start.isoformat(),
                 "items": items,
                 "subtotal": round(total, 2),

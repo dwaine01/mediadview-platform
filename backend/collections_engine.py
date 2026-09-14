@@ -3,7 +3,9 @@
 Una factura enviada no es una factura cobrada. Este módulo pone por escrito
 cómo se cobra en MediaView:
 
-1. La factura sale el día 1 (`finance_scheduler.monthly_billing_job`).
+1. La factura se emite y se manda el **día 25**, por el mes siguiente, y vence
+   el **día 1** (`finance_scheduler.monthly_billing_job`). El cliente la recibe
+   con una semana de anticipación, no el mismo día que vence.
 2. Si no la pagan, el sistema recuerda **por etapas y una sola vez cada una**:
    tres días antes de vencer, el día que vence, y a los 7, 15 y 30 días de
    atraso. El tono sube de «aviso amable» a «cuenta suspendida», nunca al

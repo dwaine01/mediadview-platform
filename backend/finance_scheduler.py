@@ -11,7 +11,7 @@ import os
 import secrets
 import uuid
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from email.message import EmailMessage
 from email.utils import formataddr
 
@@ -51,12 +51,21 @@ async def enqueue_for_print(db, invoice: dict, kind: str = "invoice"):
 
 # =================== MONTHLY INVOICE GENERATOR ===================
 async def _generate_monthly_invoices(db, year: int, month: int):
-    """Create invoices for the given period (year, month)."""
+    """Create invoices for the given period (year, month).
+
+    FACTURACIÓN ANTICIPADA (decisión del dueño, 2026-06): el período siempre es
+    el mes completo y el **vencimiento es el día 1 de ese mes**, pero la factura
+    se emite y se manda el **25 del mes anterior**. Así el cliente la recibe con
+    una semana de anticipación, el recordatorio de «vence en 3 días» sirve de
+    verdad, y el dinero entra el día 1. `issue_date` es la fecha real de emisión
+    (hoy), no el día 1: si no, la factura salía fechada el mismo día que vencía.
+    """
     from finance import next_doc_number, parse_date  # reuse existing helpers
 
     period_start = date(year, month, 1)
     period_end = date(year, month, monthrange(year, month)[1])
     days = (period_end - period_start).days + 1
+    issue_date = min(datetime.now(EASTERN).date(), period_start)
 
     created = []
     contracts = await db.fin_contracts.find({"status": "active"}).to_list(2000)
@@ -95,7 +104,7 @@ async def _generate_monthly_invoices(db, year: int, month: int):
                 "client_id": ct["client_id"],
                 "period_start": period_start.isoformat(),
                 "period_end": period_end.isoformat(),
-                "issue_date": period_start.isoformat(),
+                "issue_date": issue_date.isoformat(),
                 "due_date": period_start.isoformat(),
                 "items": items,
                 "subtotal": round(total, 2),
@@ -263,16 +272,27 @@ async def send_payment_receipt(db, invoice: dict, amount: float) -> bool:
 
 # =================== MAIN MONTHLY JOB ===================
 async def monthly_billing_job(db):
-    """Run on day 1 of each month at 11:00 AM Eastern (Ohio time).
-    1. Generate invoices for current month.
-    2. Email each to the client.
-    3. Enqueue for local printer.
+    """Corre el **25 de cada mes a las 11:00 AM** (hora de Ohio).
+
+    1. Genera las facturas del MES SIGUIENTE (vencen el día 1 de ese mes).
+    2. Manda cada una por correo con el PDF adjunto.
+    3. Las encola para la impresora local.
+
+    Si se dispara a mano en la primera mitad del mes, factura el mes en curso
+    (útil para regularizar un mes que quedó sin facturar).
     """
     now_et = datetime.now(EASTERN)
     logger.info("=" * 60)
     logger.info(f"[Monthly Billing] Starting — {now_et.strftime('%Y-%m-%d %H:%M %Z')}")
 
-    created = await _generate_monthly_invoices(db, now_et.year, now_et.month)
+    # Facturación anticipada: del día 15 en adelante se factura el mes que viene.
+    if now_et.day >= 15:
+        target = (date(now_et.year, now_et.month, 1) + timedelta(days=31)).replace(day=1)
+    else:
+        target = date(now_et.year, now_et.month, 1)
+    logger.info(f"[Monthly Billing] Período facturado: {target.isoformat()[:7]} (vence {target})")
+
+    created = await _generate_monthly_invoices(db, target.year, target.month)
     logger.info(f"  ✓ Generated {len(created)} new invoice(s)")
 
     sent_email = 0
@@ -394,9 +414,11 @@ def start_scheduler(db):
         return _scheduler
 
     _scheduler = AsyncIOScheduler(timezone=EASTERN)
-    # Day 1 at 11:00 AM Eastern
+    # Día 25 a las 11:00 AM Eastern — se facturan por adelantado las del mes
+    # siguiente, que vencen el día 1 (decisión del dueño: «como lo hacen los
+    # grandes», el cliente recibe la factura una semana antes del vencimiento).
     _scheduler.add_job(
-        monthly_billing_job, CronTrigger(day=1, hour=11, minute=0, timezone=EASTERN),
+        monthly_billing_job, CronTrigger(day=25, hour=11, minute=0, timezone=EASTERN),
         args=[db], id="monthly_billing", replace_existing=True, misfire_grace_time=3600,
     )
     # Daily at 10:00 AM Eastern — overdue reminders
@@ -407,7 +429,7 @@ def start_scheduler(db):
     _scheduler.start()
     logger.info("=" * 60)
     logger.info("✓ Finance Scheduler started")
-    logger.info("  • Monthly billing: day 1 at 11:00 AM America/New_York")
+    logger.info("  • Monthly billing: day 25 at 11:00 AM America/New_York (mes siguiente, vence el 1)")
     logger.info("  • Overdue reminders: daily at 10:00 AM America/New_York")
     logger.info("=" * 60)
     return _scheduler

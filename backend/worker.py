@@ -244,8 +244,10 @@ if HAS_ARQ:
 
         # Scheduled jobs (all times UTC; adjust if your Render region drifts)
         cron_jobs = [
-            # Monthly billing — 1st of the month at 15:00 UTC (11 AM Eastern)
-            cron(cron_monthly_billing, month=None, day=1, hour=15, minute=0, keep_result=0),
+            # Monthly billing — 25th of the month at 15:00 UTC (11 AM Eastern).
+            # Factura el mes SIGUIENTE, que vence el día 1: el cliente la recibe
+            # una semana antes del vencimiento (ver finance_scheduler).
+            cron(cron_monthly_billing, month=None, day=25, hour=15, minute=0, keep_result=0),
             # Daily overdue reminders — every day at 14:00 UTC (10 AM Eastern)
             cron(cron_overdue_reminders, hour=14, minute=0, keep_result=0),
             # A40 sleep/wake — every minute
