@@ -13,7 +13,7 @@ from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv("/app/backend/.env")
 
-PREFIJOS = ["Borrar Test ", "Dulce Vida Test "]
+PREFIJOS = ["Borrar Test ", "Dulce Vida Test ", "TEST_", "Test Client ", "Smoke Test "]
 
 
 async def main():

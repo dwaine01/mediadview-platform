@@ -1204,3 +1204,30 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   facturar, alargar el fin no sirve: hay que corregir `start_date`, que recién se puede desde
   `PUT /contracts/{id}/full` (botón ✏️ Editar).
 - Tests: 4 casos nuevos en `tests/test_iter63_backfill_and_maillog.py::TestPorQueNoSeFacturo`.
+
+## Logo en el correo, borrar cliente y botones claros (2026-06)
+- **Logo en el correo de factura.** `web/logo-email.png` (600px, generado desde `logo-dark.png`
+  con fondo blanco aplanado) va **incrustado por CID**, no con `<img src="https://…">`: Gmail,
+  Outlook y Hotmail bloquean las imágenes remotas y al cliente le quedaba un cuadro roto.
+  `finance_email.attach_email_logo(msg)` se llama DESPUÉS de `add_alternative(html)` y ANTES de
+  adjuntar el PDF, en los dos remitentes (el cron `finance_scheduler._send_invoice_email` y el
+  envío manual). Constantes: `EMAIL_LOGO_CID`, `EMAIL_LOGO_PATH`.
+- **La cabecera del correo ya NO es azul** (pedido explícito: «no se ve bien la combinación»):
+  fondo blanco, borde inferior gris, título en navy. Si se vuelve a poner un fondo de color hay
+  que regenerar `logo-email.png` desde `logo.png` (ése tiene el texto BLANCO); el actual sale de
+  `logo-dark.png` (texto negro) y sólo sirve sobre blanco.
+- **`DELETE /api/finance/clients/{id}/purge?confirm_name=&force=`**: borra el cliente de verdad
+  (el `DELETE` normal sólo lo archiva). Tres candados: hay que escribir el **nombre exacto**
+  (`confirm_name`, comparación sin distinguir mayúsculas/espacios), se **bloquea si tiene pagos
+  registrados** (contabilidad real → archivar, no borrar) y con contratos/facturas pide
+  `force=true`. Antes de borrar copia `client_name` a las filas de `fin_email_log` para que el
+  historial siga siendo legible (igual que `invoice_number` al purgar facturas).
+  UI: botón «🗑 Eliminar cliente» en la ficha, con modal que exige tipear el nombre.
+- **Botones de factura renombrados** (el dueño confundía «Cancel» con cerrar la ventana):
+  «🚫 Anular factura» (ámbar, la deja en la lista como `cancelled` y deja de cobrarse) y
+  «🗑 Borrar definitivamente» (rojo, la saca de la base). Los confirmes explican la diferencia.
+  «Anular» ya no aparece en facturas que están anuladas.
+- `scripts/clean_test_finance_data.py` limpia también los prefijos `TEST_`, `Test Client `,
+  `Smoke Test `.
+- Tests: `tests/test_iter64_delete_and_edit.py` → 20 casos (6 de borrado de cliente y 1 del logo
+  del correo: verifica el CID, que no quede la banda azul y que la parte `image/png` se adjunte).

@@ -138,6 +138,33 @@ class UserUpdate(BaseModel):
 def fmt_money(v):
     return "$" + f"{float(v or 0):,.2f}"
 
+EMAIL_LOGO_CID = "mavlogo"
+EMAIL_LOGO_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "logo-email.png")
+
+
+def attach_email_logo(msg) -> bool:
+    """Incrusta el logo en la cabecera azul del correo.
+
+    Va como imagen **inline (CID)** y no como `<img src="https://…">` a
+    propósito: Gmail, Outlook y Hotmail bloquean las imágenes remotas hasta que
+    el usuario aprieta «mostrar imágenes», y el cliente abría la factura con un
+    cuadro roto arriba. Adjunta, se ve siempre.
+
+    Se llama DESPUÉS de `add_alternative(html)` y ANTES de adjuntar el PDF.
+    """
+    try:
+        with open(EMAIL_LOGO_PATH, "rb") as fh:
+            data = fh.read()
+    except OSError:
+        return False
+    for part in msg.iter_parts():
+        if part.get_content_type() == "text/html":
+            part.add_related(data, maintype="image", subtype="png",
+                             cid=f"<{EMAIL_LOGO_CID}>", filename="mediadview-logo.png")
+            return True
+    return False
+
+
 def fmt_date(s):
     if not s: return ""
     try:
@@ -155,11 +182,13 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
   <tr><td align="center">
     <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
-      <!-- Header -->
-      <tr><td style="background:linear-gradient(135deg,#2563eb 0%,#1e40af 100%);padding:32px 32px 24px;text-align:center;color:#fff">
-        <div style="font-size:11px;font-weight:700;letter-spacing:2.5px;opacity:.85;margin-bottom:10px">MEDIAD VIEW · ADVERTISING SOLUTION</div>
-        <div style="font-size:22px;font-weight:700;color:#fff;margin-bottom:6px">Your Monthly Invoice</div>
-        <div style="font-size:13px;opacity:.9">Invoice #{inv.get('invoice_number','')} · Period {period}</div>
+      <!-- Header: fondo BLANCO con el logo. Antes era una banda azul con el
+           logo en blanco encima y la combinación quedaba pesada. -->
+      <tr><td style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
+        <img src="cid:{EMAIL_LOGO_CID}" alt="MediAd View · Advertising Solution" width="230"
+             style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
+        <div style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">Your Monthly Invoice</div>
+        <div style="font-size:13px;color:#475569">Invoice #{inv.get('invoice_number','')} · Period {period}</div>
       </td></tr>
 
       <!-- Greeting -->
@@ -389,7 +418,7 @@ def create_finance_extensions(db, get_current_user):
                 1,
             )
         msg.add_alternative(html_body, subtype="html")
-        msg.get_payload()[1].add_related  # noqa
+        attach_email_logo(msg)
         msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=pdf_filename)
 
         try:
@@ -610,7 +639,7 @@ def create_finance_extensions(db, get_current_user):
             if iid and iid not in invoice_numbers:
                 inv = await db.fin_invoices.find_one({"id": iid}) or {}
                 invoice_numbers[iid] = inv.get("invoice_number") or ""
-            row["client_name"] = client_names.get(cid, "—")
+            row["client_name"] = client_names.get(cid) or row.get("client_name") or "—"
             # Si la factura se borró, el número quedó copiado en la fila (ver
             # purge_invoice): así el historial no pierde la constancia.
             row["invoice_number"] = invoice_numbers.get(iid) or row.get("invoice_number") or ""

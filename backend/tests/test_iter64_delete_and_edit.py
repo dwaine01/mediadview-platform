@@ -239,3 +239,131 @@ class TestPanelNoSeQuedaCacheado:
         r = requests.get(f"{BASE_URL}/api/dashboard", timeout=30)
         assert r.status_code == 200
         assert "no-cache" in r.headers.get("cache-control", "").lower()
+
+
+class TestBorrarCliente:
+    def test_pide_el_nombre_exacto(self, headers):
+        cl = _nuevo_cliente(headers)
+        r = requests.delete(f"{FIN}/clients/{cl['id']}/purge?confirm_name=otra+cosa",
+                            headers=headers, timeout=30)
+        assert r.status_code == 400
+        assert "nombre exacto" in r.json()["detail"]
+        assert requests.get(f"{FIN}/clients/{cl['id']}", headers=headers,
+                            timeout=30).status_code == 200, "no se puede borrar sin confirmar"
+
+    def test_sin_nada_colgado_se_borra(self, headers):
+        cl = _nuevo_cliente(headers)
+        r = requests.delete(f"{FIN}/clients/{cl['id']}/purge",
+                            headers=headers, params={"confirm_name": cl["business_name"]},
+                            timeout=30)
+        assert r.status_code == 200, r.text
+        assert requests.get(f"{FIN}/clients/{cl['id']}", headers=headers,
+                            timeout=30).status_code == 404
+
+    def test_con_contratos_y_facturas_pide_confirmacion_y_despues_borra_todo(self, headers):
+        cl = _nuevo_cliente(headers)
+        _nuevo_contrato(headers, cl["id"])
+        hoy = date.today()
+        requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": [f"{hoy.year}-{hoy.month:02d}"],
+            "send_email": False}, timeout=60)
+
+        r = requests.delete(f"{FIN}/clients/{cl['id']}/purge", headers=headers,
+                            params={"confirm_name": cl["business_name"]}, timeout=30)
+        assert r.status_code == 409, r.text
+        assert "Confirmá para borrar" in r.json()["detail"]
+
+        r = requests.delete(f"{FIN}/clients/{cl['id']}/purge", headers=headers,
+                            params={"confirm_name": cl["business_name"], "force": "true"},
+                            timeout=30)
+        assert r.status_code == 200, r.text
+        assert r.json()["contracts_deleted"] == 1
+        assert r.json()["invoices_deleted"] == 1
+        restantes = [i for i in requests.get(f"{FIN}/invoices", headers=headers, timeout=30).json()
+                     if i.get("client_id") == cl["id"]]
+        assert restantes == []
+
+    def test_un_cliente_con_pagos_no_se_borra(self, headers):
+        """Plata cobrada es contabilidad real: se archiva, no se borra."""
+        cl = _nuevo_cliente(headers)
+        _nuevo_contrato(headers, cl["id"])
+        hoy = date.today()
+        gen = requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": [f"{hoy.year}-{hoy.month:02d}"],
+            "send_email": False}, timeout=60)
+        inv_id = [x for x in gen.json()["results"] if x["status"] == "created"][0]["invoice_id"]
+        requests.post(f"{FIN}/payments", headers=headers, json={
+            "invoice_id": inv_id, "client_id": cl["id"], "amount": 10.0,
+            "method": "cash"}, timeout=30)
+
+        r = requests.delete(f"{FIN}/clients/{cl['id']}/purge", headers=headers,
+                            params={"confirm_name": cl["business_name"], "force": "true"},
+                            timeout=30)
+        assert r.status_code == 400, r.text
+        assert "pago" in r.json()["detail"].lower()
+        assert requests.get(f"{FIN}/clients/{cl['id']}", headers=headers,
+                            timeout=30).status_code == 200
+
+    def test_el_historial_de_correos_conserva_el_nombre(self, headers):
+        from datetime import datetime
+
+        from dotenv import load_dotenv
+        from pymongo import MongoClient
+        load_dotenv("/app/backend/.env")
+        db = MongoClient(os.environ["MONGO_URL"])[os.environ["DB_NAME"]]
+
+        cl = _nuevo_cliente(headers)
+        marca = uuid.uuid4().hex[:8]
+        db.fin_email_log.insert_one({
+            "id": str(uuid.uuid4()), "client_id": cl["id"], "invoice_id": None,
+            "kind": "invoice", "to": cl["email"], "subject": f"{marca} envio",
+            "ok": True, "error": "", "sent_at": datetime.utcnow().isoformat()})
+        try:
+            r = requests.delete(f"{FIN}/clients/{cl['id']}/purge", headers=headers,
+                                params={"confirm_name": cl["business_name"]}, timeout=30)
+            assert r.status_code == 200, r.text
+            rows = requests.get(f"{FIN}/email-log?limit=300", headers=headers,
+                                timeout=30).json()["rows"]
+            fila = [x for x in rows if marca in (x.get("subject") or "")]
+            assert fila, "el movimiento no puede desaparecer"
+            assert fila[0]["client_name"] == cl["business_name"]
+        finally:
+            db.fin_email_log.delete_many({"subject": {"$regex": marca}})
+
+    def test_cliente_inexistente_da_404(self, headers):
+        r = requests.delete(f"{FIN}/clients/no-existe/purge?confirm_name=x",
+                            headers=headers, timeout=30)
+        assert r.status_code == 404
+
+
+class TestLogoDelCorreo:
+    def test_el_correo_lleva_el_logo_incrustado_y_sin_banda_azul(self):
+        """El dueño pidió el logo en la cabecera y después sacar el fondo azul:
+        cabecera blanca, logo adjunto por CID (las imágenes remotas las bloquean
+        Gmail/Outlook y quedaba un cuadro roto)."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from email.message import EmailMessage
+
+        from finance_email import (
+            EMAIL_LOGO_CID,
+            attach_email_logo,
+            render_invoice_email_html,
+        )
+
+        inv = {"id": "x", "invoice_number": "OH1", "period_start": "2026-08-01",
+               "period_end": "2026-08-31", "issue_date": "2026-07-25",
+               "due_date": "2026-08-01", "total": 100.0, "balance": 100.0}
+        cl = {"business_name": "Test", "representative": "T", "email": "a@b.com"}
+        html = render_invoice_email_html(inv, cl, base_url="https://panel.mediadview.com")
+        assert f"cid:{EMAIL_LOGO_CID}" in html, "el logo va por CID, no por URL remota"
+        assert "linear-gradient(135deg,#2563eb" not in html, "la banda azul se saca"
+        assert "background:#ffffff;padding:30px" in html, "la cabecera es blanca"
+
+        msg = EmailMessage()
+        msg["From"] = "a@b.com"; msg["To"] = "c@d.com"; msg["Subject"] = "t"
+        msg.set_content("texto")
+        msg.add_alternative(html, subtype="html")
+        assert attach_email_logo(msg) is True
+        tipos = [(p.get_content_type(), p.get("Content-ID")) for p in msg.walk()]
+        assert ("image/png", f"<{EMAIL_LOGO_CID}>") in tipos, tipos

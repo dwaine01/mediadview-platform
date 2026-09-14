@@ -146,6 +146,7 @@ async def _send_invoice_email(db, inv: dict):
     import aiosmtplib
     from collections_engine import log_email
     from finance_email import (
+        attach_email_logo,
         decrypt_password,
         fmt_date,
         fmt_money,
@@ -188,6 +189,7 @@ async def _send_invoice_email(db, inv: dict):
     )
     msg.set_content(text_body)
     msg.add_alternative(render_invoice_email_html(inv, client, base_url=base_url), subtype="html")
+    attach_email_logo(msg)
     msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=pdf_filename)
 
     pwd = decrypt_password(s.get("smtp_password", ""))

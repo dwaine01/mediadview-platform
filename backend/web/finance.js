@@ -552,6 +552,7 @@
           <button class="btn-s" onclick="showNewPayment('','${cl.id}')">+ Record Payment</button>
           <button class="btn-s" onclick="showBackfillInvoices('${cl.id}')">🗓️ Meses atrasados</button>
           <button class="btn-s" onclick="editClient('${cl.id}')">Edit Client</button>
+          <button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="deleteClient('${cl.id}','${esc(cl.business_name).replace(/'/g,"\\'")}')">🗑 Eliminar cliente</button>
         </div>
       </div>
 
@@ -1029,15 +1030,56 @@
         <button class="btn-s" onclick="openInvoiceDoc('${id}')">📄 View / Print PDF</button>
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-p" onclick="sendInvoiceEmail('${i.id}')">📧 Send by Email</button>` : ''}
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
-        ${i.status!=='paid' ? `<button class="btn-s" style="color:var(--red-l)" onclick="cancelInvoice('${i.id}')">Cancel</button>` : ''}
-        ${(i.amount_paid||0) === 0 ? `<button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="purgeInvoice('${i.id}','${esc(i.invoice_number)}')">🗑 Eliminar</button>` : ''}
+        ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" style="color:#b45309;border-color:#fde68a" onclick="cancelInvoice('${i.id}')">🚫 Anular factura</button>` : ''}
+        ${(i.amount_paid||0) === 0 ? `<button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="purgeInvoice('${i.id}','${esc(i.invoice_number)}')">🗑 Borrar definitivamente</button>` : ''}
       </div></div>
       <div class="card" style="padding:0;overflow:hidden;height:1000px;background:#525659"><iframe src="${FURL}/invoices/${id}/pdf#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none"></iframe></div>
     `;
   };
 
+  // Borrar un cliente es lo más destructivo del módulo (se lleva contratos y
+  // facturas), así que hay que ESCRIBIR el nombre: un clic de más no borra a
+  // nadie. El backend además bloquea si hay pagos cobrados.
+  window.deleteClient = async function(id, nombre){
+    openModal('Eliminar cliente', `
+      <div style="padding:14px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-bottom:16px">
+        <div style="font-size:13.5px;font-weight:700;color:#b91c1c;margin-bottom:6px">Esto no se puede deshacer</div>
+        <div style="font-size:13px;color:#7f1d1d;line-height:1.6">Se borran también <strong>sus contratos, facturas y depósitos</strong>.
+        Si el cliente ya te pagó algo, el sistema no te va a dejar borrarlo: en ese caso conviene archivarlo.</div>
+      </div>
+      <label class="inp-label">Escribí el nombre exacto del cliente para confirmar</label>
+      <div style="font-size:13px;font-weight:700;color:var(--t-1);margin:4px 0 8px">${esc(nombre)}</div>
+      <input class="inp" id="del-confirm" placeholder="${esc(nombre)}" autocomplete="off">
+    `, 'Eliminar definitivamente', async ()=>{
+      const escrito = val('del-confirm');
+      if (escrito.trim().toLowerCase() !== (nombre||'').trim().toLowerCase()) {
+        alert('El nombre no coincide. Escribilo tal como aparece arriba.');
+        return false;
+      }
+      const url = FAPI + '/clients/' + id + '/purge?confirm_name=' + encodeURIComponent(escrito);
+      try {
+        const r = await api(url, {method:'DELETE'});
+        alert('Cliente ' + r.business_name + ' eliminado.');
+      } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('Confirmá para borrar')) {
+          if (!confirm(msg)) return false;
+          const r = await api(url + '&force=true', {method:'DELETE'});
+          alert('Cliente ' + r.business_name + ' eliminado junto con '
+                + r.contracts_deleted + ' contrato(s) y ' + r.invoices_deleted + ' factura(s).');
+        } else { alert(msg); return false; }
+      }
+      window._fTab='clients';
+      loaders.finance();
+      return true;
+    });
+  };
+
   window.cancelInvoice = async function(id){
-    if (!confirm('Cancel this invoice?')) return;
+    // «Cancel» se confundía con cerrar el panel. El texto del botón y este
+    // aviso dejan claro que anula la factura pero la conserva en la lista.
+    if (!confirm('¿Anular esta factura?\n\nQueda en la lista marcada como «cancelled» '
+      + 'y deja de cobrarse. Si querés que desaparezca, usá «Borrar definitivamente».')) return;
     await api(FAPI + '/invoices/' + id, {method:'DELETE'});
     window._fTab='invoices';loaders.finance();
   };

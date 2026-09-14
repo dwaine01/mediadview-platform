@@ -1652,6 +1652,13 @@
   {
     "kind": "APIRoute",
     "methods": [
+      "DELETE"
+    ],
+    "path": "/api/finance/clients/{client_id}/purge"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
       "POST"
     ],
     "path": "/api/finance/clients/{client_id}/quick-contract"

@@ -312,6 +312,55 @@ def create_finance_routes(db, get_current_user):
         await db.fin_clients.update_one({"id": client_id}, {"$set": {"status": "archived"}})
         return {"ok": True}
 
+    @finance_router.delete("/clients/{client_id}/purge")
+    async def purge_client(client_id: str, confirm_name: str = "", force: bool = False,
+                           user: dict = Depends(require_finance_edit)):
+        """Borra el cliente de la base, con doble candado.
+
+        Borrar un cliente se lleva puestos sus contratos, facturas y depósitos:
+        es lo más destructivo del módulo. Por eso:
+          1. hay que **escribir el nombre exacto** del cliente (`confirm_name`);
+             un clic de más en la lista no puede borrar a nadie;
+          2. si tiene **plata cobrada**, no se borra (eso es contabilidad real);
+          3. si tiene contratos o facturas sin cobrar, hace falta `force=true`.
+        El historial de correos se conserva: antes de borrar se le copia el
+        nombre del cliente a cada movimiento para que siga siendo legible.
+        """
+        cl = await db.fin_clients.find_one({"id": client_id})
+        if not cl:
+            raise HTTPException(404, "Client not found")
+
+        esperado = (cl.get("business_name") or "").strip().lower()
+        if (confirm_name or "").strip().lower() != esperado:
+            raise HTTPException(400,
+                f"Para borrar hay que escribir el nombre exacto del cliente: "
+                f"«{cl.get('business_name','')}».")
+
+        pagos = await db.fin_payments.count_documents({"client_id": client_id})
+        if pagos:
+            raise HTTPException(400,
+                f"{cl.get('business_name','')} tiene {pagos} pago(s) registrado(s). "
+                "No se puede borrar un cliente con cobros hechos: archivalo en vez de borrarlo "
+                "(queda fuera de la lista pero se conserva la contabilidad).")
+
+        contratos = await db.fin_contracts.count_documents({"client_id": client_id})
+        facturas = await db.fin_invoices.count_documents({"client_id": client_id})
+        if (contratos or facturas) and not force:
+            raise HTTPException(409,
+                f"{cl.get('business_name','')} tiene {contratos} contrato(s) y "
+                f"{facturas} factura(s). Confirmá para borrar todo junto.")
+
+        await db.fin_email_log.update_many(
+            {"client_id": client_id},
+            {"$set": {"client_name": cl.get("business_name", ""), "client_id": None}})
+        for col in ("fin_contracts", "fin_invoices", "fin_deposits"):
+            await db[col].delete_many({"client_id": client_id})
+        await db.fin_clients.delete_one({"id": client_id})
+        logger.info(f"Cliente {cl.get('business_name')} borrado por {user.get('email','')} "
+                    f"({contratos} contratos, {facturas} facturas)")
+        return {"ok": True, "business_name": cl.get("business_name", ""),
+                "contracts_deleted": contratos, "invoices_deleted": facturas}
+
     # ============ PORTAL ACCESS (Phase D.1 — corporate client login) ============
     #
     # These endpoints let the admin grant / reset a client's login to the
