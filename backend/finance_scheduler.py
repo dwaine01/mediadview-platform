@@ -50,12 +50,16 @@ async def enqueue_for_print(db, invoice: dict, kind: str = "invoice"):
 
 
 # =================== MONTHLY INVOICE GENERATOR ===================
-async def _generate_monthly_invoices(db, year: int, month: int, client_id: str = ""):
+async def _generate_monthly_invoices(db, year: int, month: int, client_id: str = "",
+                                     statuses: tuple = ("active",)):
     """Create invoices for the given period (year, month).
 
-    `client_id` limita la generación a un solo cliente: lo usa
+    `client_id` limita la generación a un solo cliente y `statuses` a ciertos
+    estados de contrato: los usa
     `POST /api/finance/invoices/generate-for-client` para facturar los meses
-    atrasados de alguien que se dio de alta debiendo.
+    atrasados de alguien que se dio de alta debiendo (ahí también valen los
+    contratos `draft` y `expired`, porque un mes viejo lo cubre un contrato que
+    ya venció). El cron mensual sigue mirando sólo los `active`.
 
     FACTURACIÓN ANTICIPADA (decisión del dueño, 2026-06): el período siempre es
     el mes completo y el **vencimiento es el día 1 de ese mes**, pero la factura
@@ -72,7 +76,7 @@ async def _generate_monthly_invoices(db, year: int, month: int, client_id: str =
     issue_date = min(datetime.now(EASTERN).date(), period_start)
 
     created = []
-    query = {"status": "active"}
+    query = {"status": {"$in": list(statuses)}}
     if client_id:
         query["client_id"] = client_id
     contracts = await db.fin_contracts.find(query).to_list(2000)

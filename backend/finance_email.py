@@ -449,6 +449,27 @@ def create_finance_extensions(db, get_current_user):
         if not payload.periods:
             raise HTTPException(400, "Elegí al menos un mes.")
 
+        # Para explicar bien por qué un mes no se facturó hace falta saber qué
+        # contratos tiene el cliente. Antes el mensaje era siempre «el contrato
+        # no cubre este mes (o no hay contrato activo)» y el dueño no sabía si
+        # el problema era el estado, las fechas o que el contrato estaba colgado
+        # de otro cliente.
+        contracts = await db.fin_contracts.find({"client_id": payload.client_id}).to_list(200)
+        usable = [c for c in contracts if c.get("status") != "cancelled"]
+
+        def _porque_no(period_start_iso: str) -> str:
+            if not contracts:
+                return ("Este cliente no tiene ningún contrato cargado. Creá el contrato "
+                        "primero (Contracts → + New Contract).")
+            if not usable:
+                return (f"El contrato {contracts[0].get('contract_number','')} está cancelado. "
+                        "Reactivalo o creá uno nuevo.")
+            detalle = "; ".join(
+                f"{c.get('contract_number','')} cubre del {fmt_date(c.get('start_date',''))} "
+                f"al {fmt_date(c.get('end_date',''))}" for c in usable[:3])
+            return (f"Este mes queda fuera de las fechas del contrato ({detalle}). "
+                    "Editá el contrato (✏️) y corregí la fecha de inicio o el plazo.")
+
         results = []
         for period in sorted(payload.periods):
             try:
@@ -457,18 +478,23 @@ def create_finance_extensions(db, get_current_user):
             except (ValueError, TypeError):
                 raise HTTPException(400, f"Período inválido: {period} (se espera 2026-07)")
 
-            created = await _generate_monthly_invoices(db, year, month, client_id=payload.client_id)
+            # En el backfill manual también valen los contratos `draft` y
+            # `expired`: un mes viejo lo cubre un contrato que ya venció.
+            created = await _generate_monthly_invoices(
+                db, year, month, client_id=payload.client_id,
+                statuses=("active", "draft", "expired"))
             if not created:
+                period_start = date(year, month, 1).isoformat()
                 existing = await db.fin_invoices.find_one({
                     "client_id": payload.client_id,
-                    "period_start": date(year, month, 1).isoformat(),
+                    "period_start": period_start,
                 })
                 results.append({
                     "period": period,
                     "status": "skipped",
                     "invoice_number": (existing or {}).get("invoice_number", ""),
                     "detail": "Ya existía la factura de este mes" if existing
-                              else "El contrato no cubre este mes (o no hay contrato activo)",
+                              else _porque_no(period_start),
                 })
                 continue
 

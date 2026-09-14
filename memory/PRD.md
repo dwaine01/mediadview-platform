@@ -1185,3 +1185,22 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   Test …» que dejan los tests con todo lo que arrastran. Correrlo después de los tests de
   finanzas para no dejar basura en el panel de desarrollo.
 - Tests: `tests/test_iter64_delete_and_edit.py` (13 casos).
+
+## «El contrato no cubre este mes» — diagnóstico del backfill (2026-06)
+- El dueño marcó julio/agosto/septiembre para Dulce Vida y le salió tres veces «El contrato no
+  cubre este mes (o no hay contrato activo)», sin saber qué corregir. El mensaje mezclaba tres
+  causas distintas. Ahora el endpoint mira los contratos del cliente y dice la causa real:
+  · sin contratos → «Este cliente no tiene ningún contrato cargado…»
+  · todos cancelados → «El contrato MV-C-x está cancelado…»
+  · fechas → «Este mes queda fuera de las fechas del contrato (MV-C-x cubre del … al …).
+    Editá el contrato (✏️) y corregí la fecha de inicio o el plazo.»
+  · ya facturado → «Ya existía la factura de este mes» (con el número).
+- El backfill manual ahora acepta contratos `active`, `draft` y `expired` (un mes viejo lo cubre
+  un contrato que ya venció; que esté en borrador no es motivo para no poder cobrarlo). El cron
+  mensual sigue tomando sólo los `active`. Parámetro nuevo: `_generate_monthly_invoices(...,
+  statuses=("active",))`.
+- OJO para el diagnóstico: hasta 806ae43 el panel sólo podía editar `end_date`/`status`/`notes`
+  del contrato (`PUT /contracts/{id}`). Si el contrato arranca DESPUÉS del mes que se quiere
+  facturar, alargar el fin no sirve: hay que corregir `start_date`, que recién se puede desde
+  `PUT /contracts/{id}/full` (botón ✏️ Editar).
+- Tests: 4 casos nuevos en `tests/test_iter63_backfill_and_maillog.py::TestPorQueNoSeFacturo`.

@@ -248,3 +248,87 @@ class TestEnvioQuedaRegistrado:
         log = requests.get(f"{FIN}/email-log?limit=50&client_id={client['id']}",
                            headers=headers, timeout=30).json()["rows"]
         assert any(not x["ok"] and x["kind"] == "invoice" for x in log), log
+
+
+class TestPorQueNoSeFacturo:
+    """El dueño marcó julio/agosto/septiembre y le salió «el contrato no cubre
+    este mes (o no hay contrato activo)» tres veces, sin saber qué corregir.
+    Ahora cada caso dice exactamente qué pasa."""
+
+    def test_cliente_sin_contrato_lo_dice(self, headers):
+        tag = uuid.uuid4().hex[:6]
+        cl = requests.post(f"{FIN}/clients", headers=headers, json={
+            "business_name": f"Dulce Vida Test sin-ct {tag}", "representative": "T",
+            "email": f"sinct.{tag}@example.com", "phone": "1",
+            "address_line1": "1", "city": "Columbus", "state": "OH", "zip": "43205",
+        }, timeout=30).json()
+        r = requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": ["2026-07"], "send_email": False}, timeout=30)
+        assert r.status_code == 200, r.text
+        detail = r.json()["results"][0]["detail"]
+        assert "no tiene ningún contrato" in detail, detail
+
+    def test_mes_fuera_de_las_fechas_muestra_el_rango_del_contrato(self, headers):
+        tag = uuid.uuid4().hex[:6]
+        cl = requests.post(f"{FIN}/clients", headers=headers, json={
+            "business_name": f"Dulce Vida Test fechas {tag}", "representative": "T",
+            "email": f"fechas.{tag}@example.com", "phone": "1",
+            "address_line1": "1", "city": "Columbus", "state": "OH", "zip": "43205",
+        }, timeout=30).json()
+        ct = requests.post(f"{FIN}/contracts", headers=headers, json={
+            "client_id": cl["id"], "start_date": "2030-01-01", "term_months": 12,
+            "screens": [{"model": "MAV-30540S", "units": 1, "day_price": 8.5, "location": "A"}],
+        }, timeout=30).json()
+        ct = ct.get("contract", ct)
+        r = requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": ["2026-07"], "send_email": False}, timeout=30)
+        detail = r.json()["results"][0]["detail"]
+        assert ct["contract_number"] in detail, detail
+        assert "queda fuera de las fechas" in detail, detail
+        assert "2030" in detail, "tiene que mostrar el rango real del contrato"
+
+    def test_un_contrato_en_borrador_igual_factura_los_meses_atrasados(self, headers):
+        """Un mes viejo lo cubre un contrato que quedó en `draft` o que ya
+        venció: el backfill manual los acepta (el cron mensual, no)."""
+        tag = uuid.uuid4().hex[:6]
+        cl = requests.post(f"{FIN}/clients", headers=headers, json={
+            "business_name": f"Dulce Vida Test draft {tag}", "representative": "T",
+            "email": f"draft.{tag}@example.com", "phone": "1",
+            "address_line1": "1", "city": "Columbus", "state": "OH", "zip": "43205",
+        }, timeout=30).json()
+        year = date.today().year
+        ct = requests.post(f"{FIN}/contracts", headers=headers, json={
+            "client_id": cl["id"], "start_date": f"{year}-01-01", "term_months": 12,
+            "screens": [{"model": "MAV-30540S", "units": 1, "day_price": 8.5, "location": "A"}],
+        }, timeout=30).json()
+        ct = ct.get("contract", ct)
+        requests.put(f"{FIN}/contracts/{ct['id']}", headers=headers,
+                     json={"status": "draft"}, timeout=30)
+        hoy = date.today()
+        r = requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": [f"{hoy.year}-{hoy.month:02d}"],
+            "send_email": False}, timeout=60)
+        assert r.status_code == 200, r.text
+        assert r.json()["created"] == 1, r.json()
+
+    def test_contrato_cancelado_avisa_que_esta_cancelado(self, headers):
+        tag = uuid.uuid4().hex[:6]
+        cl = requests.post(f"{FIN}/clients", headers=headers, json={
+            "business_name": f"Dulce Vida Test cancel {tag}", "representative": "T",
+            "email": f"cancel.{tag}@example.com", "phone": "1",
+            "address_line1": "1", "city": "Columbus", "state": "OH", "zip": "43205",
+        }, timeout=30).json()
+        year = date.today().year
+        ct = requests.post(f"{FIN}/contracts", headers=headers, json={
+            "client_id": cl["id"], "start_date": f"{year}-01-01", "term_months": 12,
+            "screens": [{"model": "MAV-30540S", "units": 1, "day_price": 8.5, "location": "A"}],
+        }, timeout=30).json()
+        ct = ct.get("contract", ct)
+        requests.put(f"{FIN}/contracts/{ct['id']}", headers=headers,
+                     json={"status": "cancelled"}, timeout=30)
+        hoy = date.today()
+        r = requests.post(f"{FIN}/invoices/generate-for-client", headers=headers, json={
+            "client_id": cl["id"], "periods": [f"{hoy.year}-{hoy.month:02d}"],
+            "send_email": False}, timeout=30)
+        detail = r.json()["results"][0]["detail"]
+        assert "cancelado" in detail, detail
