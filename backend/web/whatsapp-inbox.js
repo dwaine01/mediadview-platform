@@ -90,6 +90,7 @@
          <div style="font-size:12.5px;color:var(--t-3);line-height:1.6">${esc(data.reason||'')}
            Cuando se conecte el número oficial, los mensajes de los clientes van a aparecer acá automáticamente.</div></div>`;
     const rows = data.rows || [];
+    ponerGlobito(data.unread_total || 0);
     const firma = JSON.stringify(rows.map(r=>[r.phone,r.last_at,r.unread,r.client_id]));
     if (firma === ultimaLista) return;
     ultimaLista = firma;
@@ -123,6 +124,7 @@
     await abrirHilo(phone, true);
     await cargarLista();
     try { await api(FAPI + '/whatsapp/inbox/' + phone + '/read', {method:'POST'}); } catch(e){}
+    pintarGlobito();
   };
 
   let ultimoHilo = '';
@@ -322,4 +324,27 @@
       ultimaLista = ''; await cargarLista(); await abrirHilo(phone, true);
     } catch(e){ alert(e.message); }
   };
+  // ---- Globito de no leídos en el menú ------------------------------------
+  // Un mensaje de un cliente que pregunta por su factura no puede esperar a
+  // que alguien se acuerde de abrir la bandeja.
+  function ponerGlobito(n){
+    const b = document.getElementById('nav-wa-badge');
+    if (!b) return;
+    b.textContent = n > 99 ? '99+' : n;
+    b.style.display = n > 0 ? 'inline-flex' : 'none';
+  }
+
+  async function pintarGlobito(){
+    const b = document.getElementById('nav-wa-badge');
+    if (!b) return;
+    if (!window.Auth || !window.Auth.isAuthenticated()) { b.style.display = 'none'; return; }
+    try {
+      const d = await api(FAPI + '/whatsapp/inbox');
+      ponerGlobito(d.unread_total || 0);
+    } catch(e){ b.style.display = 'none'; }
+  }
+  window.refreshWaBadge = pintarGlobito;
+  setTimeout(pintarGlobito, 2500);
+  setInterval(pintarGlobito, 30000);
+
 })();

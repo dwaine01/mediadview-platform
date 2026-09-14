@@ -708,9 +708,24 @@ def create_finance_extensions(db, get_current_user):
         if not to:
             raise HTTPException(400, "Escribí el número con código de país.")
         try:
+            # La prueba usa el mismo camino que una factura real (PDF subido a
+            # Meta + plantilla con encabezado de documento): si esto llega, el
+            # envío de facturas funciona.
+            from finance_pdf import generate_invoice_pdf
+            hoy = datetime.utcnow().date().isoformat()
+            muestra_inv = {"invoice_number": "TEST-0001", "issue_date": hoy, "due_date": hoy,
+                           "period_label": "Mensaje de prueba", "items": [],
+                           "subtotal": 0.0, "tax": 0.0, "total": 0.0,
+                           "amount_paid": 0.0, "balance": 0.0, "status": "pending"}
+            muestra_cli = {"business_name": "Prueba de conexión", "representative": "Prueba",
+                           "phone": to, "address_line1": "", "city": "", "state": "",
+                           "zip": "", "country": ""}
+            media_id = await wa.upload_pdf(generate_invoice_pdf(muestra_inv, muestra_cli),
+                                           "MediaView_Prueba.pdf")
             msg_id = await wa.send_template(
                 to=to, template="invoice_created", lang=payload.get("lang", "es"),
-                params=["Prueba", "TEST-0001", "$0.00", datetime.utcnow().date().isoformat()])
+                params=["Prueba", "TEST-0001", "$0.00", hoy],
+                media_id=media_id, filename="MediaView_Prueba.pdf")
         except wa.WhatsAppError as exc:
             raise HTTPException(400, f"Meta rechazó el envío: {exc.detail}")
         await wa.log_wa(db, client_id="", invoice_id="", kind="test", to=to,
