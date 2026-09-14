@@ -63,6 +63,13 @@ class ClientCreate(BaseModel):
     zip: str = ""
     country: str = "USA"
     notes: Optional[str] = ""
+    # Canal WhatsApp (ver whatsapp.py). Los avisos quedan ON por defecto para
+    # todo cliente con número válido; se apagan uno por uno desde su ficha.
+    whatsapp: Optional[str] = ""
+    country_code: Optional[str] = "1"
+    language: Optional[str] = "es"
+    wa_invoice_notify: bool = True
+    wa_reminder_notify: bool = True
     # Default rental setup (pre-filled when generating contracts/invoices)
     default_screens: int = 1
     default_screen_model: str = "MAV-30540S"
@@ -75,6 +82,11 @@ class ClientCreate(BaseModel):
     locations: Optional[List[ClientLocation]] = None
 
 class ClientUpdate(BaseModel):
+    whatsapp: Optional[str] = None
+    country_code: Optional[str] = None
+    language: Optional[str] = None
+    wa_invoice_notify: Optional[bool] = None
+    wa_reminder_notify: Optional[bool] = None
     business_name: Optional[str] = None
     representative: Optional[str] = None
     email: Optional[str] = None
@@ -1429,11 +1441,16 @@ For security, please change this password after your first login.
         return HTMLResponse(render_contract_html(c, client or {}))
 
     @finance_router.get("/invoices/{invoice_id}/render", response_class=HTMLResponse)
-    async def render_invoice(invoice_id: str):
+    async def render_invoice(invoice_id: str, t: str = ""):
         i = await db.fin_invoices.find_one({"id": invoice_id})
         if not i:
             raise HTTPException(404, "Invoice not found")
         client = await db.fin_clients.find_one({"id": i["client_id"]})
+        if t:
+            # El cliente apretó «View Invoice Online» desde el correo. Esto no
+            # se puede bloquear como el píxel: es la prueba fuerte de que la vio.
+            await db.fin_email_log.update_one(
+                {"id": t}, {"$set": {"viewed_at": datetime.utcnow().isoformat()}})
         return HTMLResponse(render_invoice_html(i, client or {}))
 
     @finance_router.get("/deposits/{deposit_id}/render", response_class=HTMLResponse)

@@ -165,6 +165,22 @@ def attach_email_logo(msg) -> bool:
     return False
 
 
+def tracking_pixel(base_url: str, track_id: str) -> str:
+    """Píxel de 1x1 que avisa cuándo el cliente ABRE el correo.
+
+    Es la única forma de saberlo: el correo, una vez enviado, está en el buzón
+    del cliente. Al abrirlo, el lector pide esta imagen y el servidor anota la
+    fecha. OJO: si el cliente tiene las imágenes bloqueadas (Gmail las carga por
+    su proxy, Outlook a veces las bloquea) la apertura no se registra — por eso
+    además se rastrea el click en «View Invoice Online», que no se puede
+    bloquear y es prueba más fuerte de que la vio.
+    """
+    if not (base_url and track_id):
+        return ""
+    return (f'<img src="{base_url}/api/finance/email-log/{track_id}/open.png" '
+            'width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0">')
+
+
 def fmt_date(s):
     if not s: return ""
     try:
@@ -172,33 +188,64 @@ def fmt_date(s):
     except Exception:
         return s
 
-def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> str:
-    """Intermedia-style branded invoice email."""
+def render_invoice_email_html(inv: dict, client: dict, base_url: str = "",
+                              track_id: str = "") -> str:
+    """Intermedia-style branded invoice email.
+
+    `track_id` es el id de la fila del historial: cuelga el píxel de apertura y
+    marca el link «View Invoice Online» para saber cuándo el cliente lo vio.
+    """
     period = ""
     if inv.get("period_start") and inv.get("period_end"):
         period = f"{fmt_date(inv['period_start'])} – {fmt_date(inv['period_end'])}"
+    pixel = tracking_pixel(base_url, track_id)
+    track_qs = f"?t={track_id}" if track_id else ""
     return f"""<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica','Arial',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<style>
+  body,table,td{{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}}
+  img{{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}}
+  /* En el celular la tarjeta tenía 600px fijos y el correo se abría «gigante»:
+     el cliente tenía que alejar el zoom para leerlo. Acá se estira al ancho de
+     la pantalla y se achican los rellenos y los títulos. */
+  @media only screen and (max-width:620px){{
+    .mv-wrap{{padding:10px 6px !important}}
+    .mv-card{{width:100% !important;border-radius:10px !important}}
+    .mv-head{{padding:22px 18px 16px !important}}
+    .mv-pad{{padding-left:18px !important;padding-right:18px !important}}
+    .mv-logo{{width:175px !important;max-width:62% !important}}
+    .mv-title{{font-size:19px !important;line-height:1.3 !important}}
+    .mv-sub{{font-size:12.5px !important}}
+    .mv-amount{{font-size:19px !important}}
+    .mv-btn{{display:block !important;padding:14px 10px !important}}
+  }}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica','Arial',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" class="mv-wrap" style="background:#f1f5f9;padding:24px 12px">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
+    <table width="100%" cellpadding="0" cellspacing="0" class="mv-card" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
       <!-- Header: fondo BLANCO con el logo. Antes era una banda azul con el
            logo en blanco encima y la combinación quedaba pesada. -->
-      <tr><td style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
+      <tr><td class="mv-head" style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
         <img src="cid:{EMAIL_LOGO_CID}" alt="MediAd View · Advertising Solution" width="230"
-             style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
-        <div style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">Your Monthly Invoice</div>
-        <div style="font-size:13px;color:#475569">Invoice #{inv.get('invoice_number','')} · Period {period}</div>
+             class="mv-logo" style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
+        <div class="mv-title" style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">Your Monthly Invoice</div>
+        <div class="mv-sub" style="font-size:13px;color:#475569">Invoice #{inv.get('invoice_number','')} · Period {period}</div>
       </td></tr>
 
       <!-- Greeting -->
-      <tr><td style="padding:32px 32px 0">
+      <tr><td class="mv-pad" style="padding:32px 32px 0">
         <div style="font-size:14px;color:#0f172a;margin-bottom:18px">Hello <strong>{client.get('representative','—')}</strong>,</div>
         <div style="font-size:13.5px;color:#334155;line-height:1.6">Thank you for your continued business with <strong>MediAd View</strong>. Below is your invoice summary for this billing period. The detailed PDF is attached to this email.</div>
       </td></tr>
 
       <!-- Summary box -->
-      <tr><td style="padding:24px 32px 0">
+      <tr><td class="mv-pad" style="padding:24px 32px 0">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px">
           <tr><td style="padding:18px 22px">
             <div style="font-size:10.5px;font-weight:700;color:#1e40af;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:14px">INVOICE SUMMARY</div>
@@ -208,19 +255,19 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
               <tr><td style="padding:5px 0;font-size:13px;color:#475569">Issue Date</td><td align="right" style="padding:5px 0;font-size:13px;font-weight:600;color:#0f172a">{fmt_date(inv.get('issue_date',''))}</td></tr>
               <tr><td style="padding:5px 0;font-size:13px;color:#475569">Due Date</td><td align="right" style="padding:5px 0;font-size:13px;font-weight:600;color:#0f172a">{fmt_date(inv.get('due_date',''))}</td></tr>
               <tr><td colspan="2" style="padding:10px 0 0"><div style="border-top:1px solid #bfdbfe"></div></td></tr>
-              <tr><td style="padding:10px 0 0;font-size:15px;font-weight:700;color:#0f172a">Amount Due</td><td align="right" style="padding:10px 0 0;font-size:22px;font-weight:800;color:#1e40af">{fmt_money(inv.get('balance', inv.get('total',0)))}</td></tr>
+              <tr><td style="padding:10px 0 0;font-size:15px;font-weight:700;color:#0f172a">Amount Due</td><td align="right" class="mv-amount" style="padding:10px 0 0;font-size:22px;font-weight:800;color:#1e40af">{fmt_money(inv.get('balance', inv.get('total',0)))}</td></tr>
             </table>
           </td></tr>
         </table>
       </td></tr>
 
       <!-- CTA Button -->
-      <tr><td style="padding:24px 32px;text-align:center">
-        <a href="{base_url}/api/finance/invoices/{inv.get('id','')}/render" style="display:inline-block;background:#2563eb;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(37,99,235,.3)">View Invoice Online</a>
+      <tr><td class="mv-pad" style="padding:24px 32px;text-align:center">
+        <a href="{base_url}/api/finance/invoices/{inv.get('id','')}/render{track_qs}" class="mv-btn" style="display:inline-block;background:#2563eb;color:#fff;padding:13px 32px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px;box-shadow:0 4px 12px rgba(37,99,235,.3)">View Invoice Online</a>
       </td></tr>
 
       <!-- Payment info -->
-      <tr><td style="padding:0 32px 24px">
+      <tr><td class="mv-pad" style="padding:0 32px 24px">
         <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
           <tr><td style="padding:16px 20px">
             <div style="font-size:11px;font-weight:700;color:#1e40af;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Payment Methods</div>
@@ -235,7 +282,7 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
       </td></tr>
 
       <!-- Inquiries -->
-      <tr><td style="padding:0 32px 28px">
+      <tr><td class="mv-pad" style="padding:0 32px 28px">
         <div style="font-size:12px;color:#64748b;line-height:1.6;text-align:center">
           <strong style="color:#0f172a">Billing Inquiries</strong><br>
           Phone: <strong>{COMPANY['phone_1']}</strong> · {COMPANY['phone_2']}<br>
@@ -244,7 +291,7 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
       </td></tr>
 
       <!-- Footer -->
-      <tr><td style="background:#0f172a;padding:18px 32px;text-align:center">
+      <tr><td class="mv-pad" style="background:#0f172a;padding:18px 32px;text-align:center">
         <div style="font-size:11px;color:#94a3b8;line-height:1.5">
           © {datetime.utcnow().year} {COMPANY['name']} · {COMPANY['address_line1']}, {COMPANY['address_line2']}
         </div>
@@ -252,10 +299,12 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
     </table>
   </td></tr>
 </table>
+{pixel}
 </body></html>"""
 
 
-def render_email_shell(title: str, subtitle: str, body_html: str) -> str:
+def render_email_shell(title: str, subtitle: str, body_html: str,
+                       base_url: str = "", track_id: str = "") -> str:
     """La misma hoja que el correo de la factura, para recordatorios y recibos.
 
     Cabecera blanca con el logo incrustado (CID), tarjeta de 600px y el pie
@@ -263,26 +312,51 @@ def render_email_shell(title: str, subtitle: str, body_html: str) -> str:
     suelto con un «MediAd View» escrito a mano: parecían de otra empresa.
     Quien use esto tiene que llamar `attach_email_logo(msg)` al armar el mensaje.
     """
+    pixel = tracking_pixel(base_url, track_id)
     return f"""<!DOCTYPE html>
-<html><body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica','Arial',sans-serif">
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<style>
+  body,table,td{{-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%}}
+  img{{border:0;outline:none;text-decoration:none;-ms-interpolation-mode:bicubic}}
+  /* En el celular la tarjeta tenía 600px fijos y el correo se abría «gigante»:
+     el cliente tenía que alejar el zoom para leerlo. Acá se estira al ancho de
+     la pantalla y se achican los rellenos y los títulos. */
+  @media only screen and (max-width:620px){{
+    .mv-wrap{{padding:10px 6px !important}}
+    .mv-card{{width:100% !important;border-radius:10px !important}}
+    .mv-head{{padding:22px 18px 16px !important}}
+    .mv-pad{{padding-left:18px !important;padding-right:18px !important}}
+    .mv-logo{{width:175px !important;max-width:62% !important}}
+    .mv-title{{font-size:19px !important;line-height:1.3 !important}}
+    .mv-sub{{font-size:12.5px !important}}
+    .mv-amount{{font-size:19px !important}}
+    .mv-btn{{display:block !important;padding:14px 10px !important}}
+  }}
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica','Arial',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" class="mv-wrap" style="background:#f1f5f9;padding:24px 12px">
   <tr><td align="center">
-    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
-      <tr><td style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
+    <table width="100%" cellpadding="0" cellspacing="0" class="mv-card" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
+      <tr><td class="mv-head" style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
         <img src="cid:{EMAIL_LOGO_CID}" alt="MediAd View · Advertising Solution" width="230"
-             style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
-        <div style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">{title}</div>
-        <div style="font-size:13px;color:#475569">{subtitle}</div>
+             class="mv-logo" style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
+        <div class="mv-title" style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">{title}</div>
+        <div class="mv-sub" style="font-size:13px;color:#475569">{subtitle}</div>
       </td></tr>
-      <tr><td style="padding:28px 32px 8px">{body_html}</td></tr>
-      <tr><td style="padding:0 32px 28px">
+      <tr><td class="mv-pad" style="padding:28px 32px 8px">{body_html}</td></tr>
+      <tr><td class="mv-pad" style="padding:0 32px 28px">
         <div style="font-size:12px;color:#64748b;line-height:1.6;text-align:center">
           <strong style="color:#0f172a">Consultas de facturación</strong><br>
           {COMPANY['phone_1']} · {COMPANY['phone_2']}<br>
           <a href="https://{COMPANY['website']}" style="color:#2563eb;text-decoration:none">{COMPANY['website']}</a>
         </div>
       </td></tr>
-      <tr><td style="background:#0f172a;padding:18px 32px;text-align:center">
+      <tr><td class="mv-pad" style="background:#0f172a;padding:18px 32px;text-align:center">
         <div style="font-size:11px;color:#94a3b8;line-height:1.5">
           © {datetime.utcnow().year} {COMPANY['name']} · {COMPANY['address_line1']}, {COMPANY['address_line2']}
         </div>
@@ -290,6 +364,7 @@ def render_email_shell(title: str, subtitle: str, body_html: str) -> str:
     </table>
   </td></tr>
 </table>
+{pixel}
 </body></html>"""
 
 
@@ -448,7 +523,9 @@ def create_finance_extensions(db, get_current_user):
             text_body = payload.custom_message + "\n\n" + text_body
         msg.set_content(text_body)
 
-        html_body = render_invoice_email_html(inv, client, base_url=base_url)
+        # El id del historial va DENTRO del correo (píxel + link rastreado).
+        log_id = str(uuid.uuid4())
+        html_body = render_invoice_email_html(inv, client, base_url=base_url, track_id=log_id)
         if payload.custom_message:
             html_body = html_body.replace(
                 '<div style="font-size:13.5px;color:#334155;line-height:1.6">',
@@ -464,17 +541,18 @@ def create_finance_extensions(db, get_current_user):
         except HTTPException as exc:
             await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
                             kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
-                            error=str(exc.detail))
+                            error=str(exc.detail), log_id=log_id)
             raise
         except Exception as e:
             await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
                             kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
-                            error=str(e))
+                            error=str(e), log_id=log_id)
             raise HTTPException(500, f"Failed to send: {str(e)}")
         # El envío manual también va al historial: el panel muestra una sola
         # bitácora, no importa si el correo lo disparó el cron o una persona.
         await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
-                        kind="invoice", to=to_addr, subject=msg["Subject"], ok=True)
+                        kind="invoice", to=to_addr, subject=msg["Subject"], ok=True,
+                        log_id=log_id)
 
         # Log the send
         await db.fin_invoices.update_one(
@@ -592,6 +670,78 @@ def create_finance_extensions(db, get_current_user):
             "results": results,
         }
 
+    # ============ CANAL WHATSAPP (Meta Cloud API) ============
+    @ext_router.get("/whatsapp/status")
+    async def whatsapp_status(user: dict = Depends(require_finance)):
+        """Estado de la conexión para Settings → Integraciones → WhatsApp.
+
+        NUNCA devuelve el token ni el App Secret: sólo si están cargados."""
+        import whatsapp as wa
+        total = await db.wa_messages.count_documents({})
+        entregados = await db.wa_messages.count_documents(
+            {"status": {"$in": ["delivered", "read"]}})
+        fallidos = await db.wa_messages.count_documents({"ok": False})
+        return {
+            "connected": wa.is_configured(),
+            "reason": wa.missing_config(),
+            "phone_number_id": wa.PHONE_NUMBER_ID or "",
+            "waba_id": wa.WABA_ID or "",
+            "graph_version": wa.GRAPH_VERSION,
+            "has_token": bool(wa.ACCESS_TOKEN),
+            "has_app_secret": bool(wa.APP_SECRET),
+            "webhook_ready": bool(wa.VERIFY_TOKEN),
+            "webhook_url": (os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+                            + "/api/whatsapp/webhook"),
+            "templates": [t["name"] for t in wa.TEMPLATES.values()],
+            "stats": {"total": total, "delivered": entregados, "failed": fallidos},
+        }
+
+    @ext_router.post("/whatsapp/test")
+    async def whatsapp_test(payload: dict = Body(...), user: dict = Depends(require_admin)):
+        """Manda un mensaje de prueba al número que indique el dueño."""
+        import whatsapp as wa
+        if not wa.is_configured():
+            raise HTTPException(400, wa.missing_config())
+        to = wa.normalize_phone(payload.get("to", ""), payload.get("country_code", "1"))
+        if not to:
+            raise HTTPException(400, "Escribí el número con código de país.")
+        try:
+            msg_id = await wa.send_template(
+                to=to, template="invoice_created", lang=payload.get("lang", "es"),
+                params=["Prueba", "TEST-0001", "$0.00", datetime.utcnow().date().isoformat()])
+        except wa.WhatsAppError as exc:
+            raise HTTPException(400, f"Meta rechazó el envío: {exc.detail}")
+        await wa.log_wa(db, client_id="", invoice_id="", kind="test", to=to,
+                        template=wa.TEMPLATES["invoice_created"]["name"], ok=True,
+                        message_id=msg_id)
+        return {"ok": True, "message_id": msg_id, "to": to}
+
+    @ext_router.post("/invoices/{invoice_id}/whatsapp")
+    async def send_invoice_by_whatsapp(invoice_id: str, user: dict = Depends(require_admin)):
+        """Reenvío manual de la factura por WhatsApp (con el PDF adjunto)."""
+        import whatsapp as wa
+        inv = await db.fin_invoices.find_one({"id": invoice_id})
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        client = await db.fin_clients.find_one({"id": inv["client_id"]}) or {}
+        res = await wa.send_invoice_whatsapp(db, inv, client, force=True)
+        if not res.get("ok"):
+            raise HTTPException(400, res.get("reason", "No se pudo enviar por WhatsApp"))
+        return res
+
+    @ext_router.get("/invoices/{invoice_id}/communications")
+    async def invoice_communications(invoice_id: str, user: dict = Depends(require_finance)):
+        """Historial de comunicación de la factura: EMAIL y WHATSAPP.
+
+        Es lo que se mira cuando el cliente dice «no me llegó la factura»."""
+        emails = await db.fin_email_log.find({"invoice_id": invoice_id}) \
+            .sort("sent_at", -1).to_list(100)
+        was = await db.wa_messages.find({"invoice_id": invoice_id}) \
+            .sort("sent_at", -1).to_list(100)
+        for r in emails + was:
+            r.pop("_id", None)
+        return {"email": emails, "whatsapp": was}
+
     # ============ ACCOUNTS RECEIVABLE ============
     @ext_router.get("/accounts-receivable")
     async def accounts_receivable(user: dict = Depends(require_finance)):
@@ -645,6 +795,35 @@ def create_finance_extensions(db, get_current_user):
     # quedaba sombreada por el orden de registro de los routers.
 
     # ============ USER MANAGEMENT ============
+    # 1x1 PNG transparente (43 bytes). Va inline para no depender de ningún
+    # archivo en disco: si el píxel no responde, el correo muestra un hueco.
+    _PIXEL_PNG = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8"
+        "z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==")
+
+    @ext_router.get("/email-log/{log_id}/open.png")
+    async def track_email_open(log_id: str):
+        """Marca que el cliente ABRIÓ el correo (lo pide su lector de correo).
+
+        Sin autenticación a propósito: lo llama el buzón del cliente. Se guarda
+        la primera apertura y se cuenta cada una. Nunca falla ni devuelve error:
+        si el id no existe, igual entrega el píxel (un correo viejo no puede
+        romperle la vista a nadie).
+        """
+        now = datetime.utcnow().isoformat()
+        await db.fin_email_log.update_one(
+            {"id": log_id},
+            {"$set": {"last_opened_at": now},
+             "$inc": {"open_count": 1},
+             "$setOnInsert": {}},
+        )
+        await db.fin_email_log.update_one(
+            {"id": log_id, "opened_at": None}, {"$set": {"opened_at": now}})
+        return Response(content=_PIXEL_PNG, media_type="image/png", headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "Pragma": "no-cache",
+        })
+
     # ============ COBRANZA: BITÁCORA Y ESTADO ============
     @ext_router.get("/email-log")
     async def email_log(limit: int = 200, client_id: str = "", kind: str = "",
@@ -685,6 +864,7 @@ def create_finance_extensions(db, get_current_user):
             "rows": rows,
             "total_ok": sum(1 for r in rows if r.get("ok")),
             "total_failed": sum(1 for r in rows if not r.get("ok")),
+            "total_seen": sum(1 for r in rows if r.get("opened_at") or r.get("viewed_at")),
         }
 
     @ext_router.get("/clients/{client_id}/email-log")

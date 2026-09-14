@@ -105,6 +105,20 @@ envVarGroups:
         value: https://mediadview.com,https://www.mediadview.com,https://panel.mediadview.com
       - key: PUBLIC_BASE_URL
         value: https://www.mediadview.com
+      # WhatsApp Business (Meta Cloud API). Son secretos: se cargan a mano en el
+      # panel de Render (Environment), no acá. Vacíos = canal apagado.
+      - key: WHATSAPP_PHONE_NUMBER_ID
+        sync: false
+      - key: WHATSAPP_BUSINESS_ACCOUNT_ID
+        sync: false
+      - key: META_ACCESS_TOKEN
+        sync: false
+      - key: META_APP_SECRET
+        sync: false
+      - key: WHATSAPP_VERIFY_TOKEN
+        sync: false
+      - key: GRAPH_API_VERSION
+        value: v23.0
       - key: PANEL_BASE_URL
         value: https://panel.mediadview.com
       - key: API_BASE_URL

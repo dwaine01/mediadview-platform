@@ -1794,6 +1794,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/finance/email-log/{log_id}/open.png"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/finance/expenses"
   },
   {
@@ -1899,6 +1906,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/finance/invoices/{invoice_id}/communications"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/finance/invoices/{invoice_id}/pdf"
   },
   {
@@ -1928,6 +1942,13 @@
       "POST"
     ],
     "path": "/api/finance/invoices/{invoice_id}/send"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/finance/invoices/{invoice_id}/whatsapp"
   },
   {
     "kind": "APIRoute",
@@ -2082,6 +2103,20 @@
       "PUT"
     ],
     "path": "/api/finance/users/{user_id}"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/finance/whatsapp/status"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/finance/whatsapp/test"
   },
   {
     "kind": "APIRoute",
@@ -3002,6 +3037,20 @@
       "POST"
     ],
     "path": "/api/webhooks/stripe"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
+    "path": "/api/whatsapp/webhook"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/whatsapp/webhook"
   },
   {
     "kind": "APIRoute",

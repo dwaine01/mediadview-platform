@@ -188,7 +188,12 @@ async def _send_invoice_email(db, inv: dict):
         f"{COMPANY['name']}\n"
     )
     msg.set_content(text_body)
-    msg.add_alternative(render_invoice_email_html(inv, client, base_url=base_url), subtype="html")
+    # El id del historial se genera acá porque va DENTRO del correo (píxel de
+    # apertura + link rastreado): así el panel puede decir cuándo lo vio.
+    log_id = str(uuid.uuid4())
+    msg.add_alternative(
+        render_invoice_email_html(inv, client, base_url=base_url, track_id=log_id),
+        subtype="html")
     attach_email_logo(msg)
     msg.add_attachment(pdf_bytes, maintype="application", subtype="pdf", filename=pdf_filename)
 
@@ -202,7 +207,7 @@ async def _send_invoice_email(db, inv: dict):
         reason = SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
         await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
                         kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
-                        error=reason)
+                        error=reason, log_id=log_id)
         raise RuntimeError(reason)
     port = int(s.get("smtp_port", 587))
     use_tls = port == 465
@@ -220,10 +225,11 @@ async def _send_invoice_email(db, inv: dict):
     except Exception as exc:
         await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
                         kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
-                        error=str(exc))
+                        error=str(exc), log_id=log_id)
         raise
     await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
-                    kind="invoice", to=to_addr, subject=msg["Subject"], ok=True)
+                    kind="invoice", to=to_addr, subject=msg["Subject"], ok=True,
+                    log_id=log_id)
     return True
 
 
@@ -240,6 +246,7 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
         SMTP_PASSWORD_UNREADABLE,
         attach_email_logo,
         decrypt_password,
+        tracking_pixel,
     )
 
     to_addr = (client.get("email") or "").strip()
@@ -257,6 +264,12 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
         msg["Reply-To"] = s["reply_to"]
     msg["Subject"] = subject
     msg.set_content("Este correo se ve mejor en formato HTML.")
+    # Mismo seguimiento que la factura: el píxel lleva el id de la fila del
+    # historial, que se crea recién al final (log_email(log_id=...)).
+    log_id = str(uuid.uuid4())
+    pixel = tracking_pixel(os.environ.get("PUBLIC_BASE_URL", "").rstrip("/"), log_id)
+    if pixel:
+        html = html.replace("</body>", f"{pixel}</body>")
     msg.add_alternative(html, subtype="html")
     # Recordatorios y recibos llevan la misma cabecera que la factura, así que
     # también necesitan el logo incrustado.
@@ -270,7 +283,7 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
         reason = SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
         await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
                         kind=kind, to=to_addr, subject=subject, ok=False,
-                        error=reason)
+                        error=reason, log_id=log_id)
         raise RuntimeError(reason)
 
     import aiosmtplib
@@ -284,10 +297,11 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
         )
     except Exception as exc:
         await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
-                        kind=kind, to=to_addr, subject=subject, ok=False, error=str(exc))
+                        kind=kind, to=to_addr, subject=subject, ok=False, error=str(exc),
+                        log_id=log_id)
         raise
     await log_email(db, client_id=client.get("id", ""), invoice_id=invoice_id,
-                    kind=kind, to=to_addr, subject=subject, ok=True)
+                    kind=kind, to=to_addr, subject=subject, ok=True, log_id=log_id)
     return True
 
 
@@ -298,6 +312,11 @@ async def send_payment_receipt(db, invoice: dict, amount: float) -> bool:
     client = await db.fin_clients.find_one({"id": invoice.get("client_id")}) or {}
     fully_paid = float(invoice.get("balance") or 0) <= 0.01
     subject, html = receipt_body(invoice, client, amount, fully_paid)
+    try:
+        import whatsapp as wa
+        await wa.send_payment_received_whatsapp(db, invoice, client, amount)
+    except Exception as exc:
+        logger.warning(f"WhatsApp recibo {invoice.get('invoice_number')}: {exc}")
     return await _send_plain_email(db, client, subject, html,
                                    kind="receipt", invoice_id=invoice.get("id"))
 
@@ -328,6 +347,7 @@ async def monthly_billing_job(db):
     logger.info(f"  ✓ Generated {len(created)} new invoice(s)")
 
     sent_email = 0
+    sent_whatsapp = 0
     queued_print = 0
     for inv in created:
         # 1) Email
@@ -350,6 +370,16 @@ async def monthly_billing_job(db):
                 {"id": inv["id"]},
                 {"$set": {"email_error": str(e)}}
             )
+        # 1b) WhatsApp (canal ADICIONAL: nunca reemplaza ni frena el correo)
+        try:
+            import whatsapp as wa
+            cli_wa = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
+            res_wa = await wa.send_invoice_whatsapp(db, inv, cli_wa)
+            if res_wa.get("ok") and not res_wa.get("skipped"):
+                sent_whatsapp += 1
+        except Exception as exc:
+            logger.warning(f"WhatsApp factura {inv.get('invoice_number')}: {exc}")
+
         # 2) Print queue
         try:
             await enqueue_for_print(db, inv, kind="invoice")
@@ -368,9 +398,11 @@ async def monthly_billing_job(db):
         "period": f"{now_et.year}-{now_et.month:02d}",
         "generated": len(created),
         "emailed": sent_email,
+        "whatsapp": sent_whatsapp,
         "queued_print": queued_print,
     })
-    logger.info(f"[Monthly Billing] Done — emailed {sent_email}, queued for print {queued_print}")
+    logger.info(f"[Monthly Billing] Done — emailed {sent_email}, whatsapp {sent_whatsapp}, "
+                f"queued for print {queued_print}")
     logger.info("=" * 60)
 
 
@@ -403,6 +435,13 @@ async def overdue_reminder_job(db):
                 continue
             client = await db.fin_clients.find_one({"id": inv.get("client_id")}) or {}
             subject, html = reminder_body(inv, client, stage)
+            # WhatsApp primero porque es el que el cliente lee; si la factura ya
+            # está pagada, send_reminder_whatsapp no manda nada.
+            try:
+                import whatsapp as wa
+                await wa.send_reminder_whatsapp(db, inv, client, stage[0], stage[2])
+            except Exception as exc:
+                logger.warning(f"WhatsApp recordatorio {stage[0]}: {exc}")
             try:
                 sent = await _send_plain_email(db, client, subject, html,
                                                kind=f"reminder:{stage[0]}",

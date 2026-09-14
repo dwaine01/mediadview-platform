@@ -1985,6 +1985,10 @@ set_screen_version_reader(_screen_playlist_version)
 
 app.include_router(create_finance_routes(db, get_current_user))
 app.include_router(create_finance_extensions(db, get_current_user))
+# Canal WhatsApp (Meta Cloud API). El webhook es público a propósito: lo llama
+# Meta y se valida por firma (X-Hub-Signature-256), no por sesión.
+from whatsapp import create_whatsapp_router  # noqa: E402
+app.include_router(create_whatsapp_router(db))
 app.include_router(create_finance_print_routes(db, get_current_user))
 app.include_router(create_colorlight_routes(db, get_current_user))
 # Direct player ('Integrate to Player' mode — A40 talks to MediAd View directly).

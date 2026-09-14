@@ -24,6 +24,7 @@
     // Extra tabs beyond originals
     if (window._fTab === 'ar') return renderAR();
     if (window._fTab === 'emails') return renderEmailHistory();
+    if (window._fTab === 'whatsapp') return renderWhatsApp();
     if (window._fTab === 'users') return renderUsers();
     if (window._fTab === 'settings_email') return renderEmailSettings();
     return origFinance();
@@ -41,6 +42,7 @@
     const extras = [
       {id:'ar', name:'Accounts Receivable', icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2'},
       {id:'emails', name:'Historial de correos', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
+      {id:'whatsapp', name:'WhatsApp', icon:'M12 2a10 10 0 00-8.7 15l-1.3 5 5.2-1.4A10 10 0 1012 2z'},
       {id:'users', name:'Users & Roles', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2'},
       {id:'settings_email', name:'Email Settings', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
     ];
@@ -66,6 +68,7 @@
       {id:'expenses', name:'Expenses'},
       {id:'ar', name:'💸 Accounts Receivable'},
       {id:'emails', name:'📧 Historial de correos'},
+      {id:'whatsapp', name:'💬 WhatsApp'},
       {id:'users', name:'👥 Users & Roles'},
       {id:'settings_email', name:'📧 Email Settings'},
     ];
@@ -95,6 +98,17 @@
                                       hour:'2-digit', minute:'2-digit'});
   };
 
+  // ¿El cliente lo vio? Dos señales, de la más fuerte a la más débil:
+  //  · abrió la factura online (click en el botón del correo) → no se bloquea;
+  //  · abrió el correo (píxel) → puede no registrarse si tiene las imágenes
+  //    bloqueadas, así que «sin abrir» NO prueba que no lo haya leído.
+  const seenCell = r => {
+    if (!r.ok) return '<span style="color:var(--t-4)">—</span>';
+    if (r.viewed_at) return `<span style="color:#047857;font-weight:700" title="Abrió la factura online">👁 Vio la factura<br><span style="font-weight:400;color:var(--t-3)">${fmtWhen(r.viewed_at)}</span></span>`;
+    if (r.opened_at) return `<span style="color:#0e7490;font-weight:700" title="Abrió el correo${r.open_count>1?' ('+r.open_count+' veces)':''}">✉️ Abrió el correo<br><span style="font-weight:400;color:var(--t-3)">${fmtWhen(r.opened_at)}</span></span>`;
+    return '<span style="color:var(--t-4)" title="No se registró apertura. Si el cliente tiene las imágenes bloqueadas puede haberlo leído igual.">Sin abrir</span>';
+  };
+
   async function renderEmailHistory(){
     const el = document.getElementById('pg-finance');
     el.innerHTML = `<div class="ph"><div><h1>Historial de correos</h1><p>Facturas, recordatorios y recibos que salieron del sistema</p></div></div>
@@ -114,6 +128,7 @@
     c.innerHTML = `
       <div class="st-grid">
         ${stat('Correos enviados', data.total_ok, 'Llegaron al servidor de correo', '--green', 'M5 13l4 4L19 7')}
+        ${stat('Vistos por el cliente', data.total_seen, 'Abrieron el correo o la factura', '--brand', 'M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z')}
         ${stat('Fallidos', data.total_failed, 'No salieron — revisar el motivo', '--red', 'M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z')}
         ${stat('En esta lista', rows.length, 'Últimos 300 movimientos', '--brand', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8')}
       </div>
@@ -122,11 +137,11 @@
       </div>
       ${rows.length===0 ? `<div class="empty"><div class="empty-ico">📭</div><h3>Todavía no hay correos</h3>
         <p>Acá van a aparecer las facturas que se envíen el día 25, los recordatorios de cobranza y los recibos de pago.</p></div>`
-      : `<div class="card"><div class="tbl-h" style="grid-template-columns:1.4fr 1.4fr 1.8fr 1fr 1.6fr 90px">
-          <span>Fecha</span><span>Cliente</span><span>Qué se envió</span><span>Factura</span><span>Correo</span><span>Estado</span></div>
+      : `<div class="card"><div class="tbl-h" style="grid-template-columns:1.2fr 1.2fr 1.5fr .8fr 1.3fr 80px 1.2fr">
+          <span>Enviado</span><span>Cliente</span><span>Qué se envió</span><span>Factura</span><span>Correo</span><span>Estado</span><span>¿Lo vio?</span></div>
         ${rows.map(r=>{
           const k = mailKind(r.kind);
-          return `<div class="tbl-r" style="grid-template-columns:1.4fr 1.4fr 1.8fr 1fr 1.6fr 90px">
+          return `<div class="tbl-r" style="grid-template-columns:1.2fr 1.2fr 1.5fr .8fr 1.3fr 80px 1.2fr">
             <span style="font-size:12px;color:var(--t-3)">${fmtWhen(r.sent_at)}</span>
             <span style="font-size:13px;font-weight:600">${esc(r.client_name)}</span>
             <span style="font-size:12.5px">${k.i} ${k.t}</span>
@@ -135,10 +150,72 @@
             <span>${r.ok
               ? '<span class="bdg" style="background:#04785714;color:#047857">Enviado</span>'
               : `<span class="bdg" style="background:#b91c1c14;color:#b91c1c;cursor:help" title="${esc(r.error||'')}">Falló</span>`}</span>
+            <span style="font-size:11.5px">${seenCell(r)}</span>
           </div>${r.ok ? '' : `<div style="padding:0 16px 12px;font-size:12px;color:#b91c1c">${esc(r.error||'')}</div>`}`;
         }).join('')}</div>`}
     `;
   }
+
+  // ============ WHATSAPP (Settings → Integraciones) ============
+  // Nunca se muestran el token ni el App Secret: sólo si están cargados en el
+  // servidor. Lo que el dueño necesita ver es si está conectado y si los
+  // mensajes llegan.
+  async function renderWhatsApp(){
+    const el = document.getElementById('pg-finance');
+    el.innerHTML = `<div class="ph"><div><h1>WhatsApp Business</h1><p>Canal adicional al correo: factura con PDF, recordatorios y recibos</p></div></div>
+    ${buildTabsBar(window._fTab)}
+    <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Cargando…</div></div>`;
+    const c = document.getElementById('f-content');
+    const s = await api(FAPI + '/whatsapp/status');
+    const fila = (lbl, ok, valor) => `<div style="display:flex;align-items:center;gap:12px;padding:11px 0;border-bottom:1px solid var(--border)">
+      <span style="font-size:15px">${ok?'✅':'⚠️'}</span>
+      <span style="font-size:12px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:.04em;min-width:190px">${lbl}</span>
+      <span style="font-size:13px;font-weight:600;color:var(--t-1);flex:1;word-break:break-all">${valor||'sin cargar'}</span></div>`;
+    c.innerHTML = `
+      <div class="card" style="padding:20px;margin-bottom:16px;border-left:4px solid ${s.connected?'#047857':'#b45309'}">
+        <div style="font-size:15px;font-weight:800;color:${s.connected?'#047857':'#b45309'};margin-bottom:4px">
+          ${s.connected?'Conectado — WhatsApp está enviando':'Todavía no conectado'}</div>
+        <div style="font-size:13px;color:var(--t-3);line-height:1.6">${esc(s.reason||'El número oficial de MediaView está enviando las facturas y los recordatorios.')}</div>
+      </div>
+      <div class="st-grid">
+        ${stat('Mensajes enviados', s.stats.total, 'Facturas, recordatorios y recibos', '--brand', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8')}
+        ${stat('Entregados / leídos', s.stats.delivered, 'Confirmado por WhatsApp', '--green', 'M5 13l4 4L19 7')}
+        ${stat('Fallidos', s.stats.failed, 'Revisar el motivo', '--red', 'M12 9v2m0 4h.01')}
+      </div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Conexión</h2>
+        ${fila('Phone Number ID', !!s.phone_number_id, esc(s.phone_number_id))}
+        ${fila('WhatsApp Business Account', !!s.waba_id, esc(s.waba_id))}
+        ${fila('Token de Meta', s.has_token, s.has_token?'cargado en el servidor':'')}
+        ${fila('App Secret (firma)', s.has_app_secret, s.has_app_secret?'cargado en el servidor':'')}
+        ${fila('Webhook', s.webhook_ready, esc(s.webhook_url))}
+        ${fila('Versión de la API', true, esc(s.graph_version))}
+      </div>
+      <div class="card" style="padding:20px;margin-bottom:16px">
+        <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Plantillas aprobadas por Meta</h2>
+        <p style="font-size:13px;color:var(--t-3);margin-bottom:10px">Estos son los nombres que hay que crear en el Administrador de WhatsApp (en español e inglés). Sin la aprobación de Meta, los envíos se rechazan.</p>
+        ${s.templates.map(t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--t-1)"><code style="background:var(--bg-1);padding:2px 6px;border-radius:4px">${esc(t)}</code></div>`).join('')}
+      </div>
+      <div class="card" style="padding:20px">
+        <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Probar el envío</h2>
+        <div class="row2">
+          <div><label class="inp-label">Código de país</label><input class="inp" id="wa-cc" value="1" style="max-width:110px"></div>
+          <div><label class="inp-label">Número de WhatsApp</label><input class="inp" id="wa-to" placeholder="6145551234"></div>
+        </div>
+        <button class="btn-p" style="margin-top:12px" onclick="waTest()">Enviar mensaje de prueba</button>
+      </div>`;
+  }
+
+  window.waTest = async function(){
+    try {
+      const r = await api(FAPI + '/whatsapp/test', {method:'POST', body:JSON.stringify({
+        to: document.getElementById('wa-to').value,
+        country_code: document.getElementById('wa-cc').value,
+      })});
+      alert('Mensaje enviado a +' + r.to + '.\n\nSi no llega, revisá que la plantilla esté aprobada por Meta y que el número tenga WhatsApp.');
+      loaders.finance();
+    } catch(e){ alert(e.message); }
+  };
 
   // ============ ACCOUNTS RECEIVABLE ============
   async function renderAR(){

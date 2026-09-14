@@ -1237,3 +1237,75 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   (`reminder_body`, `receipt_body`) sólo arma el cuerpo. `finance_scheduler._send_plain_email`
   llama `attach_email_logo(msg)`: sin eso el recordatorio sale con el hueco del logo. Quien
   agregue un correo nuevo tiene que usar el shell + adjuntar el logo.
+
+## Saber cuándo el cliente VE el correo (2026-06)
+- Pregunta del dueño: «¿cómo podemos saber cuándo el cliente ve el correo?». Se rastrean dos
+  señales, de la más fuerte a la más débil:
+  1. **Click** en «View Invoice Online» → `viewed_at`. El link del correo lleva `?t=<log_id>` y
+     `GET /api/finance/invoices/{id}/render` lo anota. No se puede bloquear: es la prueba fuerte.
+  2. **Apertura** vía píxel 1x1 → `opened_at` (primera), `last_opened_at` y `open_count`.
+     `GET /api/finance/email-log/{log_id}/open.png` (SIN autenticación: lo pide el buzón del
+     cliente) devuelve un PNG transparente inline con `Cache-Control: no-store` (si se cachea,
+     la segunda apertura no se registra) y **nunca falla**: si el id no existe igual entrega el
+     píxel, para no romperle la vista a nadie.
+  LÍMITE REAL que hay que explicarle al dueño: si el cliente tiene las imágenes bloqueadas
+  (Gmail las pasa por su proxy, Outlook a veces las bloquea) la apertura no queda registrada.
+  «Sin abrir» NO prueba que no lo haya leído.
+- El **id de la fila del historial se genera ANTES de armar el correo** porque viaja dentro de
+  él: `log_email(..., log_id=...)` (nuevo parámetro, devuelve el id). Los tres remitentes lo
+  usan: `finance_scheduler._send_invoice_email` (cron) y el endpoint manual pasan
+  `track_id=log_id` a `render_invoice_email_html`; `_send_plain_email` (recordatorios y recibos)
+  inyecta el píxel en el HTML ya armado por `collections_engine`.
+- `finance_email.tracking_pixel(base_url, track_id)` construye el `<img>`; sin `base_url`
+  (`PUBLIC_BASE_URL`, en render.yaml = https://www.mediadview.com) o sin `track_id` devuelve ""
+  → las vistas previas del panel no rastrean nada.
+- Panel → Historial de correos: columna **«¿Lo vio?»** («👁 Vio la factura» verde / «✉️ Abrió el
+  correo» cian con la fecha / «Sin abrir» gris con la explicación en el tooltip) y KPI nuevo
+  «Vistos por el cliente» (`total_seen`).
+- Tests: `tests/test_iter66_email_open_tracking.py` (10 casos: el píxel es PNG real, sin caché,
+  sin sesión, cuenta aperturas sin sobreescribir la primera, id inexistente, el click marca
+  `viewed_at`, abrir la factura desde el panel NO marca nada, el resumen cuenta los vistos, y
+  las plantillas/remitentes llevan el seguimiento).
+
+## Canal WhatsApp — Meta Cloud API oficial (2026-06)
+- Pedido: «factura generada → Email + WhatsApp con el PDF → seguimiento entregado/leído →
+  recordatorios automáticos → parar al pagar». **El correo NO se toca**: WhatsApp es ADICIONAL.
+  Decisiones del dueño: usa su número actual de WhatsApp Business (hay que migrarlo a Cloud API,
+  deja de funcionar en el celular), avisos **ON por defecto** para todo cliente con número válido
+  y apagables uno por uno, y construir las 4 fases de una.
+- `backend/whatsapp.py` (nuevo): servicio + webhook. `is_configured()/missing_config()` →
+  **mientras falten credenciales el canal queda APAGADO** y cada envío devuelve el motivo sin
+  romper nada. `normalize_phone` (limpia y agrega código de país, EE.UU. por defecto),
+  `client_whatsapp` (cae al teléfono común), `wants` (interruptores), `graph()` con reintentos
+  sólo para errores transitorios (408/429/5xx y códigos 2/4/80007/130429/131056),
+  `upload_pdf` (media_id, NUNCA link público: la factura no puede quedar abierta en internet),
+  `send_template`, y los tres envíos de negocio: `send_invoice_whatsapp` (PDF en el header),
+  `send_reminder_whatsapp` (**corta si `status` es paid/cancelled o `balance<=0`**) y
+  `send_payment_received_whatsapp`. Bitácora en `wa_messages` + `dedupe_key`
+  (`plantilla:etapa:factura:número`) contra duplicados.
+- Webhook `/api/whatsapp/webhook`: GET verifica `hub.challenge` con `WHATSAPP_VERIFY_TOKEN`;
+  POST valida `X-Hub-Signature-256` **sobre el body CRUDO** (si se re-serializa el JSON la firma
+  nunca coincide) y guarda `sent/delivered/read/failed` en `wa_messages` y en la factura
+  (`wa_status`, `wa_delivered_at`, `wa_read_at`). Responde 200 siempre: si no, Meta reintenta
+  días. Es público a propósito (lo llama Meta, se valida por firma, no por sesión).
+- Endpoints admin (en `finance_email.py`, con auth): `GET /api/finance/whatsapp/status`
+  (NUNCA devuelve el token ni el App Secret, sólo `has_token`/`has_app_secret`),
+  `POST /api/finance/whatsapp/test`, `POST /api/finance/invoices/{id}/whatsapp` (reenvío manual)
+  y `GET /api/finance/invoices/{id}/communications` (los dos canales).
+- Automático: `monthly_billing_job` manda WhatsApp DESPUÉS del correo dentro de un
+  `try/except` (si WhatsApp falla, el cobro no se cae); `overdue_reminder_job` manda la misma
+  etapa; `send_payment_receipt` manda el agradecimiento. Al pagar, el saldo queda en 0 → los
+  recordatorios se cortan solos.
+- Cliente: campos `whatsapp`, `country_code`, `language`, `wa_invoice_notify`,
+  `wa_reminder_notify` (en `ClientCreate`/`ClientUpdate`) + UI en «Edit Client». Botón
+  «💬 WhatsApp» en la ficha y «💬 Enviar por WhatsApp» en la factura.
+- Factura: semáforos **EMAIL ✓ | WHATSAPP ✓** arriba del PDF (`paintInvoiceComms`), con estado
+  (entregado/leído/falló) y hora. Pestaña **WhatsApp** en Finance & CRM con estado de conexión,
+  webhook URL, nombres de plantillas y prueba de envío.
+- Secretos: `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_BUSINESS_ACCOUNT_ID`, `META_ACCESS_TOKEN`,
+  `META_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `GRAPH_API_VERSION` — en `backend/.env` (vacías) y
+  en `render.yaml` con `sync: false` (se cargan a mano en Render). PENDIENTE DEL DUEÑO: obtener
+  las credenciales (guía paso a paso, uno por vez) y crear/aprobar las 4 plantillas en Meta
+  (`mediaview_invoice_created` con header de documento, `_invoice_due`, `_invoice_overdue`,
+  `_payment_received`) en español e inglés. Sin aprobación Meta rechaza los envíos.
+- Tests: `tests/test_iter67_whatsapp.py` (21 casos).

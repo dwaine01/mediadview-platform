@@ -143,10 +143,17 @@ def receipt_body(invoice: dict, client: dict, amount: float, fully_paid: bool) -
 
 
 async def log_email(db, *, client_id: str, invoice_id: Optional[str], kind: str,
-                    to: str, subject: str, ok: bool, error: str = "") -> None:
-    """Bitácora por cliente. Sin registro, la cobranza es palabra contra palabra."""
+                    to: str, subject: str, ok: bool, error: str = "",
+                    log_id: str = "") -> str:
+    """Bitácora por cliente. Sin registro, la cobranza es palabra contra palabra.
+
+    `log_id` lo pasa quien envía: el id se genera ANTES de armar el correo para
+    poder meterlo en el píxel de seguimiento y en el link «Ver factura online»,
+    y así saber cuándo el cliente lo abre. Devuelve el id usado.
+    """
+    log_id = log_id or str(uuid4())
     await db.fin_email_log.insert_one({
-        "id": str(uuid4()),
+        "id": log_id,
         "client_id": client_id,
         "invoice_id": invoice_id,
         "kind": kind,                     # invoice · reminder:<etapa> · receipt · test
@@ -155,7 +162,11 @@ async def log_email(db, *, client_id: str, invoice_id: Optional[str], kind: str,
         "ok": bool(ok),
         "error": error or "",
         "sent_at": datetime.utcnow().isoformat(),
+        "opened_at": None,                # primera apertura (píxel)
+        "open_count": 0,
+        "viewed_at": None,                # abrió la factura online (click)
     })
+    return log_id
 
 
 def next_reminder_hint(invoice: dict) -> Optional[str]:

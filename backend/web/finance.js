@@ -551,6 +551,7 @@
           <button class="btn-p" style="background:#fff;color:var(--brand-dd);border:none" onclick="quickGenerateContract('${cl.id}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Generate Contract</button>
           <button class="btn-s" onclick="showNewPayment('','${cl.id}')">+ Record Payment</button>
           <button class="btn-s" onclick="showBackfillInvoices('${cl.id}')">🗓️ Meses atrasados</button>
+          <button class="btn-s" style="color:#047857;border-color:#a7f3d0" onclick="sendClientWhatsApp('${cl.id}')">💬 WhatsApp</button>
           <button class="btn-s" onclick="editClient('${cl.id}')">Edit Client</button>
           <button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="deleteClient('${cl.id}','${esc(cl.business_name).replace(/'/g,"\\'")}')">🗑 Eliminar cliente</button>
         </div>
@@ -809,10 +810,28 @@
       <div style="margin-top:12px"><label class="inp-label">Address</label><input class="inp" id="ec-addr" value="${esc(cl.address_line1)}"></div>
       <div class="row2" style="margin-top:12px"><div><label class="inp-label">City</label><input class="inp" id="ec-city" value="${esc(cl.city||'')}"></div>
       <div><label class="inp-label">State / ZIP</label><div style="display:flex;gap:6px"><input class="inp" id="ec-state" value="${esc(cl.state||'')}" style="width:80px"><input class="inp" id="ec-zip" value="${esc(cl.zip||'')}"></div></div></div>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+        <label class="inp-label" style="margin-bottom:8px">WhatsApp</label>
+        <div class="row2"><div><label class="inp-label">Código de país</label><input class="inp" id="ec-cc" value="${esc(cl.country_code||'1')}" style="max-width:110px"></div>
+        <div><label class="inp-label">Número de WhatsApp</label><input class="inp" id="ec-wa" value="${esc(cl.whatsapp||'')}" placeholder="Si se deja vacío se usa el teléfono"></div></div>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:12px;font-size:13px;font-weight:600">
+          <input type="checkbox" id="ec-wa-inv" ${cl.wa_invoice_notify===false?'':'checked'} style="width:16px;height:16px">
+          Avisar las facturas por WhatsApp (con el PDF)</label>
+        <label style="display:flex;align-items:center;gap:10px;margin-top:8px;font-size:13px;font-weight:600">
+          <input type="checkbox" id="ec-wa-rem" ${cl.wa_reminder_notify===false?'':'checked'} style="width:16px;height:16px">
+          Mandar los recordatorios de pago por WhatsApp</label>
+        <div class="row2" style="margin-top:12px"><div><label class="inp-label">Idioma de los mensajes</label><select class="inp" id="ec-lang">
+          <option value="es" ${cl.language!=='en'?'selected':''}>Español</option>
+          <option value="en" ${cl.language==='en'?'selected':''}>Inglés</option>
+        </select></div><div></div></div>
+      </div>
     `, 'Save', async ()=>{
       await api(FAPI + '/clients/' + id, {method:'PUT', body:JSON.stringify({
         business_name:val('ec-name'),representative:val('ec-rep'),email:val('ec-email'),phone:val('ec-phone'),
         address_line1:val('ec-addr'),city:val('ec-city'),state:val('ec-state'),zip:val('ec-zip'),
+        whatsapp:val('ec-wa'), country_code:val('ec-cc'), language:val('ec-lang'),
+        wa_invoice_notify:document.getElementById('ec-wa-inv').checked,
+        wa_reminder_notify:document.getElementById('ec-wa-rem').checked,
       })});
       viewClient(id);
       return true;
@@ -1029,12 +1048,15 @@
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn-s" onclick="openInvoiceDoc('${id}')">📄 View / Print PDF</button>
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-p" onclick="sendInvoiceEmail('${i.id}')">📧 Send by Email</button>` : ''}
+        ${i.status!=='cancelled' ? `<button class="btn-s" style="color:#047857;border-color:#a7f3d0" onclick="sendInvoiceWhatsApp('${i.id}')">💬 Enviar por WhatsApp</button>` : ''}
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" style="color:#b45309;border-color:#fde68a" onclick="cancelInvoice('${i.id}')">🚫 Anular factura</button>` : ''}
         ${(i.amount_paid||0) === 0 ? `<button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="purgeInvoice('${i.id}','${esc(i.invoice_number)}')">🗑 Borrar definitivamente</button>` : ''}
       </div></div>
+      <div id="inv-comms" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"></div>
       <div class="card" style="padding:0;overflow:hidden;height:1000px;background:#525659"><iframe src="${FURL}/invoices/${id}/pdf#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none"></iframe></div>
     `;
+    paintInvoiceComms(id);
   };
 
   // Borrar un cliente es lo más destructivo del módulo (se lleva contratos y
@@ -1074,6 +1096,58 @@
       return true;
     });
   };
+
+  // Mandar por WhatsApp la última factura pendiente del cliente, desde su ficha.
+  window.sendClientWhatsApp = async function(clientId){
+    const invs = (await api(FAPI + '/invoices?client_id=' + clientId))
+      .filter(i => i.status !== 'cancelled');
+    if (invs.length === 0) { alert('Este cliente todavía no tiene facturas.'); return; }
+    const pend = invs.find(i => i.status !== 'paid') || invs[0];
+    if (!confirm('¿Enviar por WhatsApp la factura ' + pend.invoice_number + ' con el PDF adjunto?')) return;
+    try {
+      const r = await api(FAPI + '/invoices/' + pend.id + '/whatsapp', {method:'POST'});
+      alert('Enviado a +' + r.to + '.');
+    } catch(e){ alert(e.message); }
+  };
+
+  window.sendInvoiceWhatsApp = async function(id){
+    if (!confirm('¿Enviar esta factura por WhatsApp al cliente, con el PDF adjunto?')) return;
+    try {
+      const r = await api(FAPI + '/invoices/' + id + '/whatsapp', {method:'POST'});
+      alert('Enviado a +' + r.to + '.\n\nEl estado (entregado / leído) se actualiza solo cuando WhatsApp lo confirma.');
+      viewInvoice(id);
+    } catch(e){ alert(e.message); }
+  };
+
+  // Semáforos de comunicación: EMAIL ✓ Enviado | WHATSAPP ✓ Entregado
+  const WA_ESTADO = {accepted:['En camino','#b45309'], sent:['Enviado','#0e7490'],
+                     delivered:['Entregado','#047857'], read:['Leído','#047857'],
+                     failed:['Falló','#b91c1c']};
+  async function paintInvoiceComms(id){
+    const box = document.getElementById('inv-comms');
+    if (!box) return;
+    let d;
+    try { d = await api(FAPI + '/invoices/' + id + '/communications'); } catch(e){ return; }
+    const chip = (canal, txt, color, cuando) => `<div style="display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--bg-card);border:1px solid var(--border);border-left:4px solid ${color};border-radius:10px">
+      <span style="font-size:11px;font-weight:800;color:var(--t-4);letter-spacing:.06em">${canal}</span>
+      <span style="font-size:13px;font-weight:700;color:${color}">${txt}</span>
+      ${cuando?`<span style="font-size:11.5px;color:var(--t-3)">${cuando}</span>`:''}</div>`;
+    const cuando = s => { if(!s) return ''; const dt=new Date(s.endsWith('Z')||s.includes('+')?s:s+'Z');
+      return isNaN(dt)?'':dt.toLocaleString('es-US',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}); };
+    let html = '';
+    const em = (d.email||[])[0];
+    if (!em) html += chip('EMAIL', 'Sin enviar', '#94a3b8', '');
+    else if (!em.ok) html += chip('EMAIL', '✗ Falló', '#b91c1c', cuando(em.sent_at));
+    else if (em.viewed_at) html += chip('EMAIL', '👁 Vio la factura', '#047857', cuando(em.viewed_at));
+    else if (em.opened_at) html += chip('EMAIL', '✉️ Abrió el correo', '#0e7490', cuando(em.opened_at));
+    else html += chip('EMAIL', '✓ Enviado', '#0e7490', cuando(em.sent_at));
+    const wa = (d.whatsapp||[])[0];
+    if (!wa) html += chip('WHATSAPP', 'Sin enviar', '#94a3b8', '');
+    else { const e = WA_ESTADO[wa.status] || ['Enviado','#0e7490'];
+      html += chip('WHATSAPP', (wa.status==='failed'?'✗ ':'✓ ') + e[0], e[1],
+                   cuando(wa.read_at || wa.delivered_at || wa.sent_at)); }
+    box.innerHTML = html;
+  }
 
   window.cancelInvoice = async function(id){
     // «Cancel» se confundía con cerrar el panel. El texto del botón y este

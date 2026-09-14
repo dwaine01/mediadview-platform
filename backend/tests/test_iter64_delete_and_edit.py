@@ -386,7 +386,8 @@ class TestLogoDelCorreo:
                                receipt_body(inv, cl, 40.0, False),
                                receipt_body(inv, cl, 100.0, True)):
             assert f"cid:{EMAIL_LOGO_CID}" in html, "falta el logo incrustado"
-            assert 'width="600"' in html, "tiene que usar la tarjeta de 600px"
+            assert 'class="mv-card"' in html, "tiene que usar la tarjeta compartida"
+            assert "max-width:600px" in html, "el techo de ancho es 600px"
             assert "background:#0f172a;padding:18px 32px" in html, "falta el pie"
             assert COMPANY_WEB in html
 
@@ -398,3 +399,31 @@ class TestLogoDelCorreo:
         src = inspect.getsource(finance_scheduler._send_plain_email)
         assert "attach_email_logo(msg)" in src, (
             "sin esto el recordatorio sale con el hueco del logo")
+
+    def test_los_correos_se_adaptan_al_celular(self):
+        """El dueño abrió la factura en Titán desde el celular y se veía
+        «gigante»: la tarjeta tenía `width="600"` fijo, así que el teléfono la
+        mostraba a 600px y había que alejar el zoom. Ahora el ancho es fluido
+        con techo de 600px y hay media query para pantallas chicas."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from collections_engine import STAGES, receipt_body, reminder_body
+        from finance_email import render_invoice_email_html
+
+        inv = {"id": "x", "invoice_number": "OH1", "period_start": "2026-08-01",
+               "period_end": "2026-08-31", "issue_date": "2026-07-25",
+               "due_date": "2026-08-01", "total": 100.0, "balance": 100.0}
+        cl = {"business_name": "Test", "representative": "T", "email": "a@b.com",
+              "contact_name": "T", "name": "Test"}
+        plantillas = {
+            "factura": render_invoice_email_html(inv, cl, base_url="https://panel.mediadview.com"),
+            "recordatorio": reminder_body(inv, cl, STAGES[2])[1],
+            "recibo": receipt_body(inv, cl, 40.0, False)[1],
+        }
+        for nombre, html in plantillas.items():
+            assert 'name="viewport"' in html, f"{nombre}: falta el viewport"
+            assert "@media only screen and (max-width:620px)" in html, f"{nombre}: sin media query"
+            assert 'width="600"' not in html, f"{nombre}: la tarjeta sigue con ancho fijo"
+            assert "max-width:600px" in html, f"{nombre}: falta el techo de 600px"
+            assert 'class="mv-card"' in html and 'class="mv-pad"' in html, \
+                f"{nombre}: faltan las clases que usa la media query"
