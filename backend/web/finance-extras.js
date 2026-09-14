@@ -199,7 +199,14 @@
       <div class="card" style="padding:20px;margin-bottom:16px">
         <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Plantillas aprobadas por Meta</h2>
         <p style="font-size:13px;color:var(--t-3);margin-bottom:10px">Estos son los nombres que hay que crear en el Administrador de WhatsApp (en español e inglés). Sin la aprobación de Meta, los envíos se rechazan.</p>
-        ${s.templates.map(t=>`<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--t-1)"><code style="background:var(--bg-1);padding:2px 6px;border-radius:4px">${esc(t)}</code></div>`).join('')}
+        ${s.templates.map(t=>{
+          const reales = (s.templates_meta||[]).filter(m=>m.name===t);
+          const detalle = reales.length
+            ? reales.map(m=>`<span style="font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:5px;margin-left:6px;background:${m.status==='APPROVED'?'#04785714':'#b4530914'};color:${m.status==='APPROVED'?'#047857':'#b45309'}">${esc(m.language)} · ${esc(m.status)}</span>`).join('')
+            : (s.connected ? '<span style="font-size:11.5px;font-weight:700;padding:1px 7px;border-radius:5px;margin-left:6px;background:#b4530914;color:#b45309">no existe en Meta</span>' : '');
+          return `<div style="padding:8px 0;border-bottom:1px solid var(--border);font-size:13px;font-weight:600;color:var(--t-1)"><code style="background:var(--bg-1);padding:2px 6px;border-radius:4px">${esc(t)}</code>${detalle}</div>`;
+        }).join('')}
+        <p style="font-size:12px;color:var(--t-4);margin-top:10px;line-height:1.6">El idioma se usa tal como lo aprobó Meta: si la creaste como <code>es_MX</code>, se manda <code>es_MX</code>. El error 132001 significa que el nombre o el idioma no coinciden con ninguna aprobada.</p>
       </div>
       <div class="card" style="padding:20px">
         <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px">Probar el envío</h2>

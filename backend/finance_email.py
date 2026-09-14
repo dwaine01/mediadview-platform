@@ -695,8 +695,25 @@ def create_finance_extensions(db, get_current_user):
                              or os.environ.get("PUBLIC_BASE_URL", "")).rstrip("/")
                             + "/api/whatsapp/webhook"),
             "templates": [t["name"] for t in wa.TEMPLATES.values()],
+            "templates_meta": await _templates_meta(),
             "stats": {"total": total, "delivered": entregados, "failed": fallidos},
         }
+
+    async def _templates_meta() -> list:
+        """Lo que Meta aprobó de verdad: nombre, idioma y estado.
+
+        Es el diagnóstico que faltaba: un error 132001 casi siempre es una
+        plantilla creada con otra variante de idioma (es vs es_MX)."""
+        import whatsapp as wa
+        if not wa.is_configured() or not wa.WABA_ID:
+            return []
+        try:
+            rows = await wa.list_templates(force=True)
+        except wa.WhatsAppError as exc:
+            return [{"name": "", "language": "", "status": "ERROR",
+                     "category": str(exc.detail)[:200]}]
+        nuestras = {t["name"] for t in wa.TEMPLATES.values()}
+        return [r for r in rows if r["name"] in nuestras]
 
     @ext_router.post("/whatsapp/test")
     async def whatsapp_test(payload: dict = Body(...), user: dict = Depends(require_admin)):

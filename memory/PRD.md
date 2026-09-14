@@ -1339,3 +1339,20 @@ cuando llega el webhook, se pierde.
 - Tests: `tests/test_iter68_wa_inbox.py` (14 casos) + regresión finance 80 passed / 1 skipped.
 - PENDIENTE DEL DUEÑO (P1): recién ahora conviene conectar Meta — credenciales y migración del
   número (guía paso a paso, uno por vez).
+
+## Iteración 69 — Error 132001: el idioma de la plantilla tiene que ser el exacto
+Al primer envío real Meta respondió `(#132001) Template name does not exist in the
+translation`: el código mandaba `es` y la plantilla estaba aprobada con otra variante
+(`es_MX`/`es_ES`). Meta las trata como idiomas distintos.
+- `whatsapp.py`: `list_templates()` lee las plantillas reales del WABA
+  (`GET /{WABA_ID}/message_templates`, caché 5 min) y `resolve_lang()` elige el idioma
+  **aprobado** (exacto → misma base de idioma → primero aprobado). Si Meta no responde,
+  se manda el idioma pedido y el error explica el motivo (la factura no se frena).
+- `finance_email.py`: `/whatsapp/status` ahora devuelve `templates_meta` (nombre, idioma,
+  estado real en Meta).
+- UI (`finance-extras.js`): cada plantilla muestra su idioma y estado (`es_MX · APPROVED`)
+  o «no existe en Meta». Es el diagnóstico que faltaba para el 132001.
+- Además: el botón "mensaje de prueba" ahora genera y sube un PDF de muestra, porque
+  `mediaview_invoice_created` lleva encabezado de documento (antes Meta lo rechazaba).
+- Globito de mensajes sin leer al lado de "Finance & CRM" en el menú (refresca cada 30 s).
+- Tests: `tests/test_iter69_wa_template_lang.py` (8 casos). Suite de finanzas: 183 passed.

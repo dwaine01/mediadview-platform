@@ -23,6 +23,7 @@ import json
 import logging
 import os
 import re
+import time
 from datetime import datetime
 from uuid import uuid4
 
@@ -150,6 +151,52 @@ async def upload_pdf(pdf: bytes, filename: str) -> str:
                         data=data, files=files))["id"]
 
 
+_TPL_CACHE = {"at": 0.0, "rows": []}
+
+
+async def list_templates(force: bool = False) -> list:
+    """Plantillas reales del WABA con su idioma y estado (caché de 5 minutos).
+
+    Sirve para dos cosas: mostrarle al dueño qué aprobó Meta de verdad y elegir
+    el idioma exacto al mandar."""
+    if not (WABA_ID and ACCESS_TOKEN):
+        return []
+    ahora = time.time()
+    if not force and _TPL_CACHE["rows"] and ahora - _TPL_CACHE["at"] < 300:
+        return _TPL_CACHE["rows"]
+    data = await graph("GET", f"{BASE}/{WABA_ID}/message_templates",
+                       params={"fields": "name,language,status,category", "limit": "200"})
+    rows = [{"name": t.get("name", ""), "language": t.get("language", ""),
+             "status": t.get("status", ""), "category": t.get("category", "")}
+            for t in (data.get("data") or [])]
+    _TPL_CACHE.update(at=ahora, rows=rows)
+    return rows
+
+
+async def resolve_lang(name: str, lang: str) -> str:
+    """Devuelve el código de idioma EXACTO con el que Meta aprobó la plantilla.
+
+    Meta trata `es`, `es_MX` y `es_ES` como idiomas distintos: si se manda uno
+    que no es el aprobado responde 132001 («Template name does not exist in the
+    translation») aunque la plantilla exista. Así el envío no depende de qué
+    variante eligió el dueño al crearla en el Administrador de WhatsApp.
+    """
+    quiere = LANG_CODES.get(lang, "es")
+    try:
+        rows = await list_templates()
+    except WhatsAppError:
+        return quiere
+    aprobados = [r["language"] for r in rows
+                 if r["name"] == name and r["status"] == "APPROVED"]
+    if not aprobados or quiere in aprobados:
+        return quiere
+    base = quiere.split("_")[0]
+    for idioma in aprobados:
+        if idioma.split("_")[0] == base:
+            return idioma
+    return aprobados[0]
+
+
 async def send_template(*, to: str, template: str, params: list, lang: str = "es",
                         media_id: str = "", filename: str = "") -> str:
     tpl = TEMPLATES[template]
@@ -163,7 +210,7 @@ async def send_template(*, to: str, template: str, params: list, lang: str = "es
         "messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
         "type": "template",
         "template": {"name": tpl["name"],
-                     "language": {"code": LANG_CODES.get(lang, "es")},
+                     "language": {"code": await resolve_lang(tpl["name"], lang)},
                      "components": componentes},
     }
     res = await graph("POST", f"{BASE}/{PHONE_NUMBER_ID}/messages", json=payload)
