@@ -1701,6 +1701,13 @@
   {
     "kind": "APIRoute",
     "methods": [
+      "PUT"
+    ],
+    "path": "/api/finance/contracts/{contract_id}/full"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
       "GET"
     ],
     "path": "/api/finance/contracts/{contract_id}/pdf"
@@ -1886,6 +1893,13 @@
       "GET"
     ],
     "path": "/api/finance/invoices/{invoice_id}/pdf"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "DELETE"
+    ],
+    "path": "/api/finance/invoices/{invoice_id}/purge"
   },
   {
     "kind": "APIRoute",

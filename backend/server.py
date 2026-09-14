@@ -1932,7 +1932,8 @@ async def serve_design_studio():
 @api_router.get("/dashboard")
 async def serve_dashboard():
     """Dashboard principal del sistema."""
-    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html')
+    return FileResponse(os.path.join(WEB_DIR, 'index.html'), media_type='text/html',
+                        headers={'Cache-Control': 'no-cache, must-revalidate'})
 
 # Mount static assets under /api/ prefix for K8s ingress compatibility
 app.mount("/api/web", StaticFiles(directory=WEB_DIR), name="web-static")

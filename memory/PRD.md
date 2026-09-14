@@ -1151,3 +1151,37 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   no duplica, vencimiento el día 1, el PDF de cada una abre para imprimir, validaciones de
   período/cliente, y el historial con sus filtros, el nombre del cliente resuelto y el registro
   de los fallos).
+
+## Borrar/editar contratos y facturas + caché del panel (2026-06)
+- **Por qué el dueño «no veía los cambios» después de publicar.** Producción SÍ estaba al día
+  (`/api/health` devolvía el commit correcto y el `index.html` ya traía los `?v=` nuevos). El
+  problema era el **caché del navegador**: `panel.mediadview.com/` servía `index.html` sin
+  `Cache-Control`, así que Chrome lo guardaba por heurística y seguía cargando los scripts con
+  los `?v=` viejos. Arreglado: `public_pages_routes.root` y `/api/dashboard` devuelven
+  `Cache-Control: no-cache, must-revalidate` (revalida siempre, 304 si no cambió). Test:
+  `tests/test_iter64_delete_and_edit.py::TestPanelNoSeQuedaCacheado`.
+  NOTA: la rama que se publica es **`production`** en GitHub (no `main`, que quedó en iter40).
+- **`PUT /api/finance/contracts/{id}/full`** (+ botón «✏️ Editar» en la lista de contratos y en
+  la ficha del cliente): edita el contrato desde la raíz (fecha de inicio, plazo, pantallas,
+  precio por día, depósito, multas, términos, estado) y **recalcula** `end_date`, `total_units`,
+  `monthly_total` y `security_deposit`. Conserva el número de contrato y el cliente. Si el
+  recibo de depósito sigue `pending`, se actualiza con el monto nuevo; si ya se cobró, no se
+  toca. Antes sólo se podía cambiar estado/notas (`ContractUpdate`), así que un contrato mal
+  cargado había que borrarlo y rehacerlo.
+- **`DELETE /api/finance/contracts/{id}`** endurecido (+ botón «🗑 Eliminar»): antes borraba el
+  contrato y dejaba huérfanas sus facturas (que seguían mandando recordatorios). Ahora:
+  facturas con pagos aplicados → **400** con los números involucrados; facturas sin cobrar →
+  **409** pidiendo confirmación, y con `?force=true` borra contrato + facturas + depósito
+  pendiente. La UI hace el segundo intento después de confirmar.
+- **`DELETE /api/finance/invoices/{id}/purge`**: borra la factura de verdad (el `DELETE` normal
+  sólo la marca `cancelled`, y las anuladas quedaban para siempre en la lista). Bloquea si
+  tiene plata cobrada. Antes de borrar copia el `invoice_number` en las filas de
+  `fin_email_log` para no perder la constancia de lo enviado (el endpoint del historial usa el
+  número de la fila cuando la factura ya no existe). Botón «🗑 Eliminar» en la vista de la
+  factura, sólo si no tiene pagos.
+- Botón «🗓️ Meses atrasados» agregado también en la ficha del cliente (pre-selecciona ese
+  cliente), no sólo en la pestaña Invoices.
+- `scripts/clean_test_finance_data.py --yes`: borra los clientes «Borrar Test …» / «Dulce Vida
+  Test …» que dejan los tests con todo lo que arrastran. Correrlo después de los tests de
+  finanzas para no dejar basura en el panel de desarrollo.
+- Tests: `tests/test_iter64_delete_and_edit.py` (13 casos).

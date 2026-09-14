@@ -550,6 +550,7 @@
         <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn-p" style="background:#fff;color:var(--brand-dd);border:none" onclick="quickGenerateContract('${cl.id}')"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>Generate Contract</button>
           <button class="btn-s" onclick="showNewPayment('','${cl.id}')">+ Record Payment</button>
+          <button class="btn-s" onclick="showBackfillInvoices('${cl.id}')">🗓️ Meses atrasados</button>
           <button class="btn-s" onclick="editClient('${cl.id}')">Edit Client</button>
         </div>
       </div>
@@ -591,6 +592,8 @@
                   <button class="btn-s" style="padding:5px 10px;font-size:11.5px;background:var(--brand-tint);color:var(--brand-dd);border-color:#bfdbfe" onclick="quickGenerateInvoice('${ct.id}')">⚡ Generate This Month's Invoice</button>
                   <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="openSignatureModal('${ct.id}','lessor')">✍️ Sign as Lessor</button>
                   <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="openSignatureModal('${ct.id}','lessee')">✍️ Sign as Lessee</button>
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px" onclick="editContract('${ct.id}')">✏️ Editar</button>
+                  <button class="btn-s" style="padding:5px 10px;font-size:11.5px;color:#b91c1c;border-color:#fecaca" onclick="deleteContract('${ct.id}')">🗑 Eliminar</button>
                 </div>
               </div>`).join('')}
           </div>
@@ -824,14 +827,18 @@
         <button class="btn-p" onclick="showNewContract()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New Contract</button>
       </div>
       ${list.length===0?'<div class="empty"><h3>No contracts yet</h3><p>Create a contract from a client profile or here</p></div>':
-        `<div class="card"><div class="tbl-h" style="grid-template-columns:1fr 2fr 1fr 1fr 1fr auto"><span>#</span><span>Client</span><span>Start</span><span>End</span><span>Monthly</span><span></span></div>
-        ${list.map(ct=>`<div class="tbl-r" style="grid-template-columns:1fr 2fr 1fr 1fr 1fr auto;cursor:pointer" onclick="viewContract('${ct.id}')">
+        `<div class="card"><div class="tbl-h" style="grid-template-columns:1fr 2fr 1fr 1fr 1fr auto 90px"><span>#</span><span>Client</span><span>Start</span><span>End</span><span>Monthly</span><span></span><span></span></div>
+        ${list.map(ct=>`<div class="tbl-r" style="grid-template-columns:1fr 2fr 1fr 1fr 1fr auto 90px;cursor:pointer" onclick="viewContract('${ct.id}')">
           <span style="font-size:12px;font-weight:700;color:var(--brand-l)">${esc(ct.contract_number)}</span>
           <span style="font-size:13px;font-weight:600">${esc(ct.client_name)}</span>
           <span style="font-size:12px;color:var(--t-3)">${fmtDate(ct.start_date)}</span>
           <span style="font-size:12px;color:var(--t-3)">${fmtDate(ct.end_date)}</span>
           <span style="font-size:14px;font-weight:700;color:var(--cyan)">${fmt$(ct.monthly_total)}</span>
           ${status_badge(ct.status)}
+          <span style="display:flex;gap:4px" onclick="event.stopPropagation()">
+            <button class="btn-s" style="padding:4px 8px;font-size:12px" title="Editar contrato" onclick="editContract('${ct.id}')">✏️</button>
+            <button class="btn-s" style="padding:4px 8px;font-size:12px;color:#b91c1c;border-color:#fecaca" title="Eliminar contrato" onclick="deleteContract('${ct.id}')">🗑</button>
+          </span>
         </div>`).join('')}</div>`}
     `;
   }
@@ -879,18 +886,19 @@
   };
 
   let _ctScreenIdx = 0;
-  window.addCtScreen = function(){
+  window.addCtScreen = function(data){
     _ctScreenIdx++;
     const box = document.getElementById('ct-screens');
     if (!box) return;
+    const d = data || {};
     const row = document.createElement('div');
     row.style.cssText='display:grid;grid-template-columns:1.2fr 1fr 70px 100px auto;gap:8px;margin-bottom:6px;align-items:center';
     row.dataset.cts='1';
     row.innerHTML = `
-      <input class="inp" placeholder="Model (MAV-30540S)" value="MAV-30540S" data-f="model" style="font-size:12px">
-      <input class="inp" placeholder="Install address" data-f="location" style="font-size:12px">
-      <input class="inp" type="number" placeholder="Units" value="1" data-f="units" style="font-size:12px">
-      <input class="inp" type="number" step="0.01" placeholder="Day price" value="8.50" data-f="day_price" style="font-size:12px">
+      <input class="inp" placeholder="Model (MAV-30540S)" value="${esc(d.model||'MAV-30540S')}" data-f="model" style="font-size:12px">
+      <input class="inp" placeholder="Install address" value="${esc(d.location||'')}" data-f="location" style="font-size:12px">
+      <input class="inp" type="number" placeholder="Units" value="${d.units||1}" data-f="units" style="font-size:12px">
+      <input class="inp" type="number" step="0.01" placeholder="Day price" value="${d.day_price!=null?d.day_price:'8.50'}" data-f="day_price" style="font-size:12px">
       <button onclick="this.parentNode.remove()" style="background:rgba(248,113,113,.15);color:var(--red-l);border:1px solid rgba(248,113,113,.3);border-radius:6px;padding:6px 10px;cursor:pointer;font-size:14px">✕</button>
     `;
     box.appendChild(row);
@@ -910,6 +918,75 @@
 
   window.viewContract = async function(id){
     openContractDoc(id);
+  };
+
+  // Editar el contrato «desde la raíz»: fechas, plazo, pantallas y cargos.
+  // Antes sólo se podía cambiar el estado, así que un contrato con un precio
+  // mal cargado había que borrarlo y rehacerlo (perdiendo el número).
+  window.editContract = async function(id){
+    const ct = await api(FAPI + '/contracts/' + id);
+    openModal('Editar contrato ' + (ct.contract_number||''), `
+      <div class="row2"><div><label class="inp-label">Fecha de inicio *</label>
+        <input class="inp" id="ct-start" type="date" value="${ct.start_date||''}"></div>
+      <div><label class="inp-label">Plazo *</label><select class="inp" id="ct-term">
+        ${[6,12,18,24,36].map(m=>`<option value="${m}" ${Number(ct.term_months)===m?'selected':''}>${m} meses</option>`).join('')}
+      </select></div></div>
+      <div class="row2" style="margin-top:12px">
+        <div><label class="inp-label">Depósito por pantalla ($)</label>
+          <input class="inp" id="ct-dep" type="number" step="0.01" value="${ct.security_deposit_per_screen!=null?ct.security_deposit_per_screen:250}"></div>
+        <div><label class="inp-label">Estado</label><select class="inp" id="ct-status">
+          ${['active','draft','expired','cancelled'].map(s=>`<option value="${s}" ${ct.status===s?'selected':''}>${s}</option>`).join('')}
+        </select></div></div>
+      <div style="margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <label class="inp-label" style="margin:0">Pantallas alquiladas</label>
+          <button class="btn-s" onclick="addCtScreen()">+ Agregar pantalla</button></div>
+        <div id="ct-screens"></div>
+        <p style="font-size:12px;color:var(--t-3);margin-top:8px">Al guardar se recalculan el vencimiento del plazo, el total mensual y el depósito.</p>
+      </div>
+      <div class="row2" style="margin-top:14px">
+        <div><label class="inp-label">Multa por día ($)</label><input class="inp" id="ct-late" type="number" value="${ct.late_fee_per_day!=null?ct.late_fee_per_day:50}"></div>
+        <div><label class="inp-label">Cargo NSF ($)</label><input class="inp" id="ct-nsf" type="number" value="${ct.nsf_fee!=null?ct.nsf_fee:85}"></div></div>
+      <div style="margin-top:12px"><label class="inp-label">Términos adicionales</label>
+        <textarea class="inp" id="ct-add" rows="2">${esc(ct.additional_terms||'')}</textarea></div>
+    `, 'Guardar cambios', async ()=>{
+      const screens = collectCtScreens();
+      if (screens.length===0) { alert('El contrato necesita al menos una pantalla'); return false; }
+      await api(FAPI + '/contracts/' + id + '/full', {method:'PUT', body:JSON.stringify({
+        start_date: val('ct-start'),
+        term_months: parseInt(val('ct-term'))||12,
+        screens,
+        security_deposit_per_screen: parseFloat(val('ct-dep'))||0,
+        late_fee_per_day: parseFloat(val('ct-late'))||0,
+        nsf_fee: parseFloat(val('ct-nsf'))||0,
+        additional_terms: val('ct-add'),
+        status: val('ct-status'),
+      })});
+      loaders.finance();
+      return true;
+    });
+    (ct.screens||[]).forEach(s=>addCtScreen(s));
+    if (!(ct.screens||[]).length) addCtScreen();
+  };
+
+  // Borrar un contrato cargado por error. El backend no deja borrar si hay
+  // pagos aplicados, y pide confirmar si hay facturas sin cobrar.
+  window.deleteContract = async function(id){
+    if (!confirm('¿Eliminar este contrato? Esta acción no se puede deshacer.')) return;
+    try {
+      const r = await api(FAPI + '/contracts/' + id, {method:'DELETE'});
+      alert('Contrato ' + (r.contract_number||'') + ' eliminado.');
+    } catch (e) {
+      const msg = e.message || '';
+      if (msg.includes('sin cobrar')) {
+        if (!confirm(msg + '\n\n¿Eliminar el contrato y esas facturas?')) return;
+        const r = await api(FAPI + '/contracts/' + id + '?force=true', {method:'DELETE'});
+        alert('Contrato ' + (r.contract_number||'') + ' eliminado junto con '
+              + r.invoices_deleted + ' factura(s).');
+      } else { alert(msg); return; }
+    }
+    window._fTab='contracts';
+    loaders.finance();
   };
 
   // ============ INVOICES ============
@@ -953,6 +1030,7 @@
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-p" onclick="sendInvoiceEmail('${i.id}')">📧 Send by Email</button>` : ''}
         ${i.status!=='paid' && i.status!=='cancelled' ? `<button class="btn-s" onclick="showNewPayment('${i.id}','${i.client_id}','${i.balance}')">Record Payment</button>` : ''}
         ${i.status!=='paid' ? `<button class="btn-s" style="color:var(--red-l)" onclick="cancelInvoice('${i.id}')">Cancel</button>` : ''}
+        ${(i.amount_paid||0) === 0 ? `<button class="btn-s" style="color:#b91c1c;border-color:#fecaca" onclick="purgeInvoice('${i.id}','${esc(i.invoice_number)}')">🗑 Eliminar</button>` : ''}
       </div></div>
       <div class="card" style="padding:0;overflow:hidden;height:1000px;background:#525659"><iframe src="${FURL}/invoices/${id}/pdf#toolbar=0&navpanes=0&view=FitH" style="width:100%;height:100%;border:none"></iframe></div>
     `;
@@ -961,6 +1039,17 @@
   window.cancelInvoice = async function(id){
     if (!confirm('Cancel this invoice?')) return;
     await api(FAPI + '/invoices/' + id, {method:'DELETE'});
+    window._fTab='invoices';loaders.finance();
+  };
+
+  // Borrar de verdad (no anular) una factura generada por error o ya anulada:
+  // las anuladas quedaban para siempre en la lista.
+  window.purgeInvoice = async function(id, numero){
+    if (!confirm('¿Eliminar la factura ' + (numero||'') + ' de forma definitiva?\n\n'
+      + 'No se puede deshacer. El historial de correos conserva la constancia de lo enviado.')) return;
+    try {
+      await api(FAPI + '/invoices/' + id + '/purge', {method:'DELETE'});
+    } catch (e) { alert(e.message); return; }
     window._fTab='invoices';loaders.finance();
   };
 

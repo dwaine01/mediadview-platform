@@ -3,6 +3,7 @@
 MediAd View — Finance & Administration Module
 Phase 1: Clients (CRM), Contracts, Invoices, Deposits, Payments
 """
+import logging
 import re
 import uuid
 from calendar import monthrange
@@ -13,6 +14,7 @@ from fastapi import APIRouter, BackgroundTasks, Body, Depends, HTTPException
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger("finance")
 finance_router = APIRouter(prefix="/api/finance")
 
 # ==================== COMPANY CONSTANTS ====================
@@ -117,6 +119,22 @@ class ContractUpdate(BaseModel):
     lessor_signature: Optional[str] = None
     lessee_signature: Optional[str] = None
     signed_at: Optional[str] = None
+
+class ContractFullUpdate(BaseModel):
+    """Edición del contrato «desde la raíz»: fechas, plazo, pantallas y cargos.
+
+    Se usa cuando el contrato se cargó mal (precio equivocado, pantalla de más,
+    fecha de arranque errada). Antes sólo se podía cambiar el estado y las notas,
+    así que había que borrarlo y rehacerlo, perdiendo el número."""
+    start_date: Optional[str] = None
+    term_months: Optional[int] = None
+    screens: Optional[List[ContractScreen]] = None
+    security_deposit_per_screen: Optional[float] = None
+    late_fee_per_day: Optional[float] = None
+    nsf_fee: Optional[float] = None
+    additional_terms: Optional[str] = None
+    notes: Optional[str] = None
+    status: Optional[str] = None
 
 class PaymentRecord(BaseModel):
     invoice_id: Optional[str] = None
@@ -847,10 +865,97 @@ For security, please change this password after your first login.
         return {"ok": True, "signed_at": upd.get("signed_at") or ct.get("signed_at"),
                 "fully_signed": will_have_both}
 
+    @finance_router.put("/contracts/{contract_id}/full")
+    async def update_contract_full(contract_id: str, data: ContractFullUpdate,
+                                   user: dict = Depends(require_finance_edit)):
+        """Edita el contrato completo y recalcula lo que depende de los cambios.
+
+        Cambiar pantallas, precio por día o plazo obliga a recalcular
+        `end_date`, `total_units`, `monthly_total` y el depósito. El número de
+        contrato y el cliente NO se tocan: es el mismo contrato corregido, no
+        uno nuevo. El recibo de depósito asociado se actualiza sólo si sigue
+        pendiente (si ya lo pagaron, no se toca la plata cobrada)."""
+        ct = await db.fin_contracts.find_one({"id": contract_id})
+        if not ct:
+            raise HTTPException(404, "Contract not found")
+
+        upd = {k: v for k, v in data.dict(exclude_unset=True).items() if v is not None}
+        if "screens" in upd:
+            if not upd["screens"]:
+                raise HTTPException(400, "El contrato necesita al menos una pantalla.")
+            upd["screens"] = [s if isinstance(s, dict) else s.dict() for s in upd["screens"]]
+
+        screens = upd.get("screens", ct.get("screens", []))
+        start_date = upd.get("start_date", ct.get("start_date"))
+        term_months = int(upd.get("term_months", ct.get("term_months", 12)))
+        dep_per_screen = float(upd.get("security_deposit_per_screen",
+                                       ct.get("security_deposit_per_screen", 250)))
+
+        total_units = sum(int(s.get("units", 1)) for s in screens)
+        monthly_total = sum(int(s.get("units", 1)) * float(s.get("day_price", 0)) * 30
+                            for s in screens)
+        upd.update({
+            "end_date": add_months(parse_date(start_date), term_months).strftime("%Y-%m-%d"),
+            "term_months": term_months,
+            "total_units": total_units,
+            "monthly_total": round(monthly_total, 2),
+            "security_deposit_per_screen": dep_per_screen,
+            "security_deposit": round(total_units * dep_per_screen, 2),
+            "updated_at": datetime.utcnow().isoformat(),
+            "updated_by": user.get("email", ""),
+        })
+        await db.fin_contracts.update_one({"id": contract_id}, {"$set": upd})
+
+        dep = await db.fin_deposits.find_one({"contract_id": contract_id, "status": "pending"})
+        if dep:
+            await db.fin_deposits.update_one({"id": dep["id"]}, {"$set": {
+                "amount": upd["security_deposit"],
+                "total": upd["security_deposit"],
+                "screens": screens,
+                "updated_at": datetime.utcnow().isoformat(),
+            }})
+
+        updated = await db.fin_contracts.find_one({"id": contract_id})
+        updated.pop("_id", None)
+        return {"ok": True, "contract": updated, "deposit_updated": bool(dep)}
+
     @finance_router.delete("/contracts/{contract_id}")
-    async def delete_contract(contract_id: str, user: dict = Depends(require_finance_edit)):
+    async def delete_contract(contract_id: str, force: bool = False,
+                              user: dict = Depends(require_finance_edit)):
+        """Borra un contrato cargado por error.
+
+        Antes borraba el contrato y dejaba huérfanas sus facturas y su recibo de
+        depósito (y las facturas huérfanas seguían mandando recordatorios de
+        cobranza). Ahora:
+          · si alguna factura del contrato tiene plata cobrada → NO se borra
+            (primero hay que anular ese pago; no se tapa un cobro real);
+          · con facturas sin cobrar, hay que confirmar con `force=true` y se
+            borran el contrato, esas facturas y el depósito pendiente.
+        """
+        ct = await db.fin_contracts.find_one({"id": contract_id})
+        if not ct:
+            raise HTTPException(404, "Contract not found")
+
+        invoices = await db.fin_invoices.find({"contract_id": contract_id}).to_list(500)
+        paid = [i for i in invoices if float(i.get("amount_paid") or 0) > 0]
+        if paid:
+            raise HTTPException(400,
+                f"El contrato {ct.get('contract_number','')} tiene "
+                f"{len(paid)} factura(s) con pagos aplicados "
+                f"({', '.join(i.get('invoice_number','') for i in paid[:3])}). "
+                "Anulá esos pagos antes de borrar el contrato.")
+        if invoices and not force:
+            raise HTTPException(409,
+                f"El contrato tiene {len(invoices)} factura(s) sin cobrar. "
+                "Confirmá para borrar el contrato junto con esas facturas.")
+
+        await db.fin_invoices.delete_many({"contract_id": contract_id})
+        await db.fin_deposits.delete_many({"contract_id": contract_id, "status": "pending"})
         await db.fin_contracts.delete_one({"id": contract_id})
-        return {"ok": True}
+        logger.info(f"Contrato {ct.get('contract_number')} borrado por {user.get('email','')} "
+                    f"({len(invoices)} facturas)")
+        return {"ok": True, "contract_number": ct.get("contract_number", ""),
+                "invoices_deleted": len(invoices)}
 
     # ============ INVOICES ============
     @finance_router.get("/invoices")
@@ -1012,6 +1117,30 @@ For security, please change this password after your first login.
     async def delete_invoice(invoice_id: str, user: dict = Depends(require_finance_edit)):
         await db.fin_invoices.update_one({"id": invoice_id}, {"$set": {"status": "cancelled"}})
         return {"ok": True}
+
+    @finance_router.delete("/invoices/{invoice_id}/purge")
+    async def purge_invoice(invoice_id: str, user: dict = Depends(require_finance_edit)):
+        """Borra la factura de la base (no la anula: la elimina).
+
+        Es para las que se generaron por error o se anularon y no se van a usar:
+        anuladas quedaban para siempre en la lista. Sólo se borran las que no
+        tienen plata cobrada — una factura con pagos es un cobro real y se anula
+        el pago primero. El historial de correos conserva el número de la
+        factura borrada para que quede la constancia de lo que se envió."""
+        inv = await db.fin_invoices.find_one({"id": invoice_id})
+        if not inv:
+            raise HTTPException(404, "Invoice not found")
+        if float(inv.get("amount_paid") or 0) > 0:
+            raise HTTPException(400,
+                f"La factura {inv.get('invoice_number','')} tiene "
+                f"${inv.get('amount_paid')} cobrados. Anulá el pago antes de borrarla.")
+        await db.fin_email_log.update_many(
+            {"invoice_id": invoice_id},
+            {"$set": {"invoice_number": inv.get("invoice_number", ""), "invoice_id": None}})
+        await db.fin_print_queue.delete_many({"invoice_id": invoice_id})
+        await db.fin_invoices.delete_one({"id": invoice_id})
+        logger.info(f"Factura {inv.get('invoice_number')} borrada por {user.get('email','')}")
+        return {"ok": True, "invoice_number": inv.get("invoice_number", "")}
 
     # ============ DEPOSITS ============
     @finance_router.get("/deposits")

@@ -585,7 +585,9 @@ def create_finance_extensions(db, get_current_user):
                 inv = await db.fin_invoices.find_one({"id": iid}) or {}
                 invoice_numbers[iid] = inv.get("invoice_number") or ""
             row["client_name"] = client_names.get(cid, "—")
-            row["invoice_number"] = invoice_numbers.get(iid, "")
+            # Si la factura se borró, el número quedó copiado en la fila (ver
+            # purge_invoice): así el historial no pierde la constancia.
+            row["invoice_number"] = invoice_numbers.get(iid) or row.get("invoice_number") or ""
         return {
             "rows": rows,
             "total_ok": sum(1 for r in rows if r.get("ok")),

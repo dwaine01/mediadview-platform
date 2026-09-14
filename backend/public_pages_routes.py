@@ -82,8 +82,14 @@ def create_public_pages_router(web_dir: str) -> APIRouter:
     async def root(request: Request):
         host = (request.headers.get("host") or "").lower()
         if host.startswith("panel."):
-            return FileResponse(os.path.join(web_dir, 'index.html'), media_type='text/html')
-        return FileResponse(os.path.join(web_dir, 'landing.html'), media_type='text/html')
+            # `no-cache` = el navegador revalida siempre (304 si no cambió). Sin
+            # esto el HTML del panel quedaba en el caché del navegador y el dueño
+            # seguía viendo la versión vieja después de publicar, porque los
+            # `?v=` nuevos de los scripts viven DENTRO de este HTML.
+            return FileResponse(os.path.join(web_dir, 'index.html'), media_type='text/html',
+                                headers={'Cache-Control': 'no-cache, must-revalidate'})
+        return FileResponse(os.path.join(web_dir, 'landing.html'), media_type='text/html',
+                            headers={'Cache-Control': 'no-cache, must-revalidate'})
 
     @router.get("/home", include_in_schema=False)
     async def home_marketing():
