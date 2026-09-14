@@ -89,21 +89,24 @@ def reminder_body(invoice: dict, client: dict, stage: tuple) -> tuple:
     }
     subject = stage[2].format(**values)
     greeting = client.get("contact_name") or client.get("name") or "Estimado cliente"
-    html = f"""
-    <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <div style="font-size:20px;font-weight:800;color:#2563eb;margin-bottom:4px">MediAd View</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:20px">Cobranza · Cuentas por cobrar</div>
-      <p style="font-size:15px;margin:0 0 12px">Hola {greeting},</p>
-      <p style="font-size:15px;line-height:1.7;margin:0 0 18px">{stage[3].format(**values)}</p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">
-        <tr><td style="padding:8px 0;color:#64748b">Factura</td><td style="padding:8px 0;text-align:right;font-weight:700">{values['number']}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b">Vencimiento</td><td style="padding:8px 0;text-align:right;font-weight:700">{values['due']}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b">Saldo pendiente</td><td style="padding:8px 0;text-align:right;font-weight:800;color:#b91c1c">{values['amount']}</td></tr>
+    # Misma hoja que el correo de la factura (cabecera blanca con el logo).
+    from finance_email import render_email_shell
+    cuerpo = f"""
+      <p style="font-size:15px;color:#0f172a;margin:0 0 12px">Hola {greeting},</p>
+      <p style="font-size:14.5px;color:#334155;line-height:1.7;margin:0 0 18px">{stage[3].format(**values)}</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:18px">
+        <tr><td style="padding:16px 20px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px">
+            <tr><td style="padding:6px 0;color:#475569">Factura</td><td align="right" style="padding:6px 0;font-weight:700;color:#0f172a">{values['number']}</td></tr>
+            <tr><td style="padding:6px 0;color:#475569">Vencimiento</td><td align="right" style="padding:6px 0;font-weight:700;color:#0f172a">{values['due']}</td></tr>
+            <tr><td style="padding:6px 0;color:#475569">Saldo pendiente</td><td align="right" style="padding:6px 0;font-weight:800;color:#b91c1c">{values['amount']}</td></tr>
+          </table>
+        </td></tr>
       </table>
-      <p style="font-size:13px;color:#64748b;line-height:1.6">Si ya realizó el pago, escríbanos y lo aplicamos de inmediato.
-      Si necesita otra fecha, respóndanos este correo y lo acordamos.</p>
-      <p style="font-size:13px;color:#94a3b8;margin-top:24px">MediAd View · billing@mediadview.com</p>
-    </div>"""
+      <p style="font-size:13px;color:#64748b;line-height:1.6;margin:0">Si ya realizó el pago, escríbanos y lo aplicamos de inmediato.
+      Si necesita otra fecha, respóndanos este correo y lo acordamos.</p>"""
+    html = render_email_shell("Recordatorio de pago",
+                              f"Factura {values['number']} · vence {values['due']}", cuerpo)
     return subject, html
 
 
@@ -120,19 +123,22 @@ def receipt_body(invoice: dict, client: dict, amount: float, fully_paid: bool) -
                f"Aplicamos su pago de <b>{money(amount)}</b>. Queda un saldo pendiente de "
                f"<b>{money(balance)}</b>.")
     html = f"""
-    <div style="font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#0f172a">
-      <div style="font-size:20px;font-weight:800;color:#2563eb;margin-bottom:4px">MediAd View</div>
-      <div style="font-size:12px;color:#64748b;margin-bottom:20px">Comprobante de pago</div>
-      <div style="font-size:34px;margin-bottom:6px">✅</div>
-      <p style="font-size:17px;font-weight:700;margin:0 0 10px">¡Gracias por su pago, {greeting}!</p>
-      <p style="font-size:15px;line-height:1.7;margin:0 0 18px">{closing}</p>
-      <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:18px">
-        <tr><td style="padding:8px 0;color:#64748b">Factura</td><td style="padding:8px 0;text-align:right;font-weight:700">{number}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b">Pago recibido</td><td style="padding:8px 0;text-align:right;font-weight:800;color:#059669">{money(amount)}</td></tr>
-        <tr><td style="padding:8px 0;color:#64748b">Saldo</td><td style="padding:8px 0;text-align:right;font-weight:700">{money(0 if fully_paid else balance)}</td></tr>
-      </table>
-      <p style="font-size:13px;color:#94a3b8;margin-top:24px">MediAd View · billing@mediadview.com</p>
-    </div>"""
+      <div style="font-size:34px;text-align:center;margin-bottom:6px">✅</div>
+      <p style="font-size:17px;font-weight:700;color:#0f172a;margin:0 0 10px;text-align:center">¡Gracias por su pago, {greeting}!</p>
+      <p style="font-size:14.5px;color:#334155;line-height:1.7;margin:0 0 18px">{closing}</p>
+      <table width="100%" cellpadding="0" cellspacing="0" style="background:#ecfdf5;border:1px solid #a7f3d0;border-radius:10px;margin-bottom:18px">
+        <tr><td style="padding:16px 20px">
+          <table width="100%" cellpadding="0" cellspacing="0" style="font-size:13.5px">
+            <tr><td style="padding:6px 0;color:#475569">Factura</td><td align="right" style="padding:6px 0;font-weight:700;color:#0f172a">{number}</td></tr>
+            <tr><td style="padding:6px 0;color:#475569">Pago recibido</td><td align="right" style="padding:6px 0;font-weight:800;color:#047857">{money(amount)}</td></tr>
+            <tr><td style="padding:6px 0;color:#475569">Saldo</td><td align="right" style="padding:6px 0;font-weight:700;color:#0f172a">{money(0 if fully_paid else balance)}</td></tr>
+          </table>
+        </td></tr>
+      </table>"""
+    from finance_email import render_email_shell
+    html = render_email_shell(
+        "Pago recibido" if not fully_paid else "¡Factura pagada!",
+        f"Factura {number} · {money(amount)}", html)
     return subject, html
 
 

@@ -1231,3 +1231,9 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   `Smoke Test `.
 - Tests: `tests/test_iter64_delete_and_edit.py` → 20 casos (6 de borrado de cliente y 1 del logo
   del correo: verifica el CID, que no quede la banda azul y que la parte `image/png` se adjunte).
+- Recordatorios y recibos usan ahora la MISMA hoja que la factura:
+  `finance_email.render_email_shell(title, subtitle, body_html)` (cabecera blanca con el logo
+  por CID, tarjeta de 600px, consultas de facturación y pie oscuro). `collections_engine`
+  (`reminder_body`, `receipt_body`) sólo arma el cuerpo. `finance_scheduler._send_plain_email`
+  llama `attach_email_logo(msg)`: sin eso el recordatorio sale con el hueco del logo. Quien
+  agregue un correo nuevo tiene que usar el shell + adjuntar el logo.

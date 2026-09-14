@@ -255,6 +255,44 @@ def render_invoice_email_html(inv: dict, client: dict, base_url: str = "") -> st
 </body></html>"""
 
 
+def render_email_shell(title: str, subtitle: str, body_html: str) -> str:
+    """La misma hoja que el correo de la factura, para recordatorios y recibos.
+
+    Cabecera blanca con el logo incrustado (CID), tarjeta de 600px y el pie
+    oscuro con la dirección. Antes los correos de cobranza salían como texto
+    suelto con un «MediAd View» escrito a mano: parecían de otra empresa.
+    Quien use esto tiene que llamar `attach_email_logo(msg)` al armar el mensaje.
+    """
+    return f"""<!DOCTYPE html>
+<html><body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica','Arial',sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:24px 12px">
+  <tr><td align="center">
+    <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(15,23,42,.08);max-width:600px">
+      <tr><td style="background:#ffffff;padding:30px 32px 22px;text-align:center;border-bottom:1px solid #e2e8f0">
+        <img src="cid:{EMAIL_LOGO_CID}" alt="MediAd View · Advertising Solution" width="230"
+             style="display:block;margin:0 auto 18px;width:230px;max-width:72%;height:auto;border:0">
+        <div style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:6px">{title}</div>
+        <div style="font-size:13px;color:#475569">{subtitle}</div>
+      </td></tr>
+      <tr><td style="padding:28px 32px 8px">{body_html}</td></tr>
+      <tr><td style="padding:0 32px 28px">
+        <div style="font-size:12px;color:#64748b;line-height:1.6;text-align:center">
+          <strong style="color:#0f172a">Consultas de facturación</strong><br>
+          {COMPANY['phone_1']} · {COMPANY['phone_2']}<br>
+          <a href="https://{COMPANY['website']}" style="color:#2563eb;text-decoration:none">{COMPANY['website']}</a>
+        </div>
+      </td></tr>
+      <tr><td style="background:#0f172a;padding:18px 32px;text-align:center">
+        <div style="font-size:11px;color:#94a3b8;line-height:1.5">
+          © {datetime.utcnow().year} {COMPANY['name']} · {COMPANY['address_line1']}, {COMPANY['address_line2']}
+        </div>
+      </td></tr>
+    </table>
+  </td></tr>
+</table>
+</body></html>"""
+
+
 # ============ ROUTES FACTORY ============
 def create_finance_extensions(db, get_current_user):
     async def require_finance(user: dict = Depends(get_current_user)):

@@ -238,6 +238,7 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
     from finance_email import (
         SMTP_PASSWORD_MISSING,
         SMTP_PASSWORD_UNREADABLE,
+        attach_email_logo,
         decrypt_password,
     )
 
@@ -257,6 +258,9 @@ async def _send_plain_email(db, client: dict, subject: str, html: str, *,
     msg["Subject"] = subject
     msg.set_content("Este correo se ve mejor en formato HTML.")
     msg.add_alternative(html, subtype="html")
+    # Recordatorios y recibos llevan la misma cabecera que la factura, así que
+    # también necesitan el logo incrustado.
+    attach_email_logo(msg)
 
     pwd = decrypt_password(s.get("smtp_password", ""))
     if not pwd:

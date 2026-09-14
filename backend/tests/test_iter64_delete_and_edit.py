@@ -19,6 +19,7 @@ import pytest
 import requests
 
 BASE_URL = os.environ.get("TEST_BASE_URL", "http://localhost:8001").rstrip("/")
+COMPANY_WEB = "www.mediadview.com"
 FIN = f"{BASE_URL}/api/finance"
 
 
@@ -367,3 +368,33 @@ class TestLogoDelCorreo:
         assert attach_email_logo(msg) is True
         tipos = [(p.get_content_type(), p.get("Content-ID")) for p in msg.walk()]
         assert ("image/png", f"<{EMAIL_LOGO_CID}>") in tipos, tipos
+
+    def test_recordatorios_y_recibos_usan_la_misma_cabecera(self):
+        """Los correos de cobranza salían como texto suelto con un «MediAd View»
+        escrito a mano: parecían de otra empresa. Ahora comparten la hoja del
+        correo de la factura (logo por CID, tarjeta de 600px, pie oscuro)."""
+        import sys
+        sys.path.insert(0, "/app/backend")
+        from collections_engine import STAGES, receipt_body, reminder_body
+        from finance_email import EMAIL_LOGO_CID
+
+        inv = {"invoice_number": "OH1", "due_date": "2026-08-01",
+               "balance": 100.0, "total": 100.0}
+        cl = {"contact_name": "Franklin", "name": "Test", "email": "a@b.com"}
+        for _subject, html in (reminder_body(inv, cl, STAGES[0]),
+                               reminder_body(inv, cl, STAGES[4]),
+                               receipt_body(inv, cl, 40.0, False),
+                               receipt_body(inv, cl, 100.0, True)):
+            assert f"cid:{EMAIL_LOGO_CID}" in html, "falta el logo incrustado"
+            assert 'width="600"' in html, "tiene que usar la tarjeta de 600px"
+            assert "background:#0f172a;padding:18px 32px" in html, "falta el pie"
+            assert COMPANY_WEB in html
+
+    def test_el_remitente_de_cobranza_adjunta_el_logo(self):
+        import inspect
+        import sys
+        sys.path.insert(0, "/app/backend")
+        import finance_scheduler
+        src = inspect.getsource(finance_scheduler._send_plain_email)
+        assert "attach_email_logo(msg)" in src, (
+            "sin esto el recordatorio sale con el hueco del logo")
