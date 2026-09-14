@@ -691,7 +691,8 @@ def create_finance_extensions(db, get_current_user):
             "has_token": bool(wa.ACCESS_TOKEN),
             "has_app_secret": bool(wa.APP_SECRET),
             "webhook_ready": bool(wa.VERIFY_TOKEN),
-            "webhook_url": (os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+            "webhook_url": ((os.environ.get("PANEL_BASE_URL")
+                             or os.environ.get("PUBLIC_BASE_URL", "")).rstrip("/")
                             + "/api/whatsapp/webhook"),
             "templates": [t["name"] for t in wa.TEMPLATES.values()],
             "stats": {"total": total, "delivered": entregados, "failed": fallidos},
