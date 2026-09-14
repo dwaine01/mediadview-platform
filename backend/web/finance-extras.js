@@ -24,6 +24,7 @@
     // Extra tabs beyond originals
     if (window._fTab === 'ar') return renderAR();
     if (window._fTab === 'emails') return renderEmailHistory();
+    if (window._fTab === 'inbox' && window.renderWhatsAppInbox) return window.renderWhatsAppInbox();
     if (window._fTab === 'whatsapp') return renderWhatsApp();
     if (window._fTab === 'users') return renderUsers();
     if (window._fTab === 'settings_email') return renderEmailSettings();
@@ -42,6 +43,7 @@
     const extras = [
       {id:'ar', name:'Accounts Receivable', icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2'},
       {id:'emails', name:'Historial de correos', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
+      {id:'inbox', name:'Bandeja de entrada', icon:'M3 8l4 8h10l4-8M3 8h18M8 16v2a2 2 0 002 2h4a2 2 0 002-2v-2'},
       {id:'whatsapp', name:'WhatsApp', icon:'M12 2a10 10 0 00-8.7 15l-1.3 5 5.2-1.4A10 10 0 1012 2z'},
       {id:'users', name:'Users & Roles', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2'},
       {id:'settings_email', name:'Email Settings', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
@@ -68,12 +70,15 @@
       {id:'expenses', name:'Expenses'},
       {id:'ar', name:'💸 Accounts Receivable'},
       {id:'emails', name:'📧 Historial de correos'},
-      {id:'whatsapp', name:'💬 WhatsApp'},
+      {id:'inbox', name:'💬 Bandeja de entrada'},
+      {id:'whatsapp', name:'⚙️ WhatsApp'},
       {id:'users', name:'👥 Users & Roles'},
       {id:'settings_email', name:'📧 Email Settings'},
     ];
     return `<div data-extras-injected="1" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px">${allTabs.map(t=>`<button onclick="window._fTab='${t.id}';loaders.finance()" style="padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${activeTab===t.id?'rgba(37,99,235,.35)':'transparent'};cursor:pointer;background:${activeTab===t.id?'var(--brand-tint)':'transparent'};color:${activeTab===t.id?'var(--brand-dd)':'var(--t-3)'};transition:all .15s">${t.name}</button>`).join('')}</div>`;
   }
+  window._finTabsBar = buildTabsBar;   // lo usa whatsapp-inbox.js
+
 
   // ============ HISTORIAL DE CORREOS ============
   // Todo lo que salió: la factura automática del día 25, cada recordatorio de

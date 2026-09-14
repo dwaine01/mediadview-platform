@@ -365,6 +365,12 @@ def create_finance_routes(db, get_current_user):
         await db.fin_email_log.update_many(
             {"client_id": client_id},
             {"$set": {"client_name": cl.get("business_name", ""), "client_id": None}})
+        # El chat de WhatsApp se conserva, pero deja de apuntar a una ficha que
+        # ya no existe: si no, la bandeja sigue mostrando el nombre borrado.
+        await db.wa_conversations.update_many(
+            {"client_id": client_id}, {"$set": {"client_id": None, "client_name": ""}})
+        await db.wa_messages.update_many(
+            {"client_id": client_id}, {"$set": {"client_id": None}})
         for col in ("fin_contracts", "fin_invoices", "fin_deposits"):
             await db[col].delete_many({"client_id": client_id})
         await db.fin_clients.delete_one({"id": client_id})

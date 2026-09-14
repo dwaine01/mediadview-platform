@@ -170,13 +170,124 @@ async def send_template(*, to: str, template: str, params: list, lang: str = "es
     return res["messages"][0]["id"]
 
 
+MEDIA_TYPES = ("image", "document", "audio", "video", "sticker", "voice")
+
+
+def parse_inbound(m: dict) -> dict:
+    """Saca el texto y, si viene, el archivo de un mensaje del cliente.
+
+    El cliente manda fotos del local, comprobantes de pago en PDF y notas de
+    voz. Meta no manda el archivo: manda un `id` que hay que bajar con el token
+    (y que caduca), así que se guarda el id y el panel lo pide cuando lo abre.
+    """
+    tipo = m.get("type") or "text"
+    if tipo == "text":
+        return {"text": (m.get("text") or {}).get("body") or "", "media": None}
+    if tipo in MEDIA_TYPES:
+        cuerpo = m.get(tipo) or {}
+        return {"text": cuerpo.get("caption") or "", "media": {
+            "media_id": cuerpo.get("id") or "", "kind": tipo,
+            "mime_type": cuerpo.get("mime_type") or "",
+            "filename": cuerpo.get("filename") or "",
+        }}
+    if tipo == "location":
+        loc = m.get("location") or {}
+        return {"text": f"📍 {loc.get('name') or ''} {loc.get('address') or ''}".strip()
+                        or f"📍 {loc.get('latitude')}, {loc.get('longitude')}", "media": None}
+    if tipo == "button":
+        return {"text": (m.get("button") or {}).get("text") or "[botón]", "media": None}
+    if tipo == "interactive":
+        it = m.get("interactive") or {}
+        elegido = it.get("button_reply") or it.get("list_reply") or {}
+        return {"text": elegido.get("title") or "[respuesta]", "media": None}
+    if tipo == "contacts":
+        return {"text": "[contacto compartido]", "media": None}
+    return {"text": f"[{tipo}]", "media": None}
+
+
+async def fetch_media(media_id: str) -> tuple:
+    """Baja un archivo que mandó el cliente. Devuelve (bytes, mime, nombre)."""
+    info = await graph("GET", f"{BASE}/{media_id}")
+    url = info.get("url")
+    if not url:
+        raise WhatsAppError(404, {"error": {"message": "El archivo ya no está disponible en Meta"}})
+    async with httpx.AsyncClient(timeout=90) as cli:
+        r = await cli.get(url, headers={"Authorization": f"Bearer {ACCESS_TOKEN}"})
+    if r.status_code >= 400:
+        raise WhatsAppError(r.status_code, {"error": {"message": "No se pudo bajar el archivo"}})
+    mime = info.get("mime_type") or r.headers.get("content-type") or "application/octet-stream"
+    return r.content, mime.split(";")[0].strip(), info.get("file_name") or ""
+
+
+async def send_text(*, to: str, body: str) -> str:
+    """Texto libre. Meta SÓLO lo permite dentro de las 24 h desde el último
+    mensaje del cliente; fuera de esa ventana hay que usar plantilla."""
+    res = await graph("POST", f"{BASE}/{PHONE_NUMBER_ID}/messages", json={
+        "messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
+        "type": "text", "text": {"preview_url": False, "body": body}})
+    return res["messages"][0]["id"]
+
+
+WINDOW_HOURS = 24
+
+
+def window_open(conv: dict) -> bool:
+    """¿Se puede contestar con texto libre? Se mide desde el ÚLTIMO mensaje
+    entrante del cliente, no desde el último nuestro."""
+    ultimo = (conv or {}).get("last_inbound_at")
+    if not ultimo:
+        return False
+    try:
+        return (datetime.utcnow() - datetime.fromisoformat(ultimo)).total_seconds() < WINDOW_HOURS * 3600
+    except ValueError:
+        return False
+
+
+async def upsert_conversation(db, phone: str, *, text: str = "", inbound: bool = True,
+                              client: dict = None) -> dict:
+    """Una conversación por número. Guarda a quién pertenece (si es cliente) y
+    cuándo escribió por última vez, que es lo que abre la ventana de 24 h."""
+    ahora = datetime.utcnow().isoformat()
+    upd = {"last_message": (text or "")[:300], "last_at": ahora,
+           "last_direction": "in" if inbound else "out"}
+    if inbound:
+        upd["last_inbound_at"] = ahora
+    if client:
+        upd["client_id"] = client.get("id")
+        upd["client_name"] = client.get("business_name") or client.get("representative") or ""
+    inc = {"unread": 1} if inbound else {}
+    if not inbound:
+        upd["unread"] = 0
+    await db.wa_conversations.update_one(
+        {"phone": phone},
+        {"$set": upd, "$inc": inc,
+         "$setOnInsert": {"id": str(uuid4()), "phone": phone, "created_at": ahora}},
+        upsert=True)
+    return await db.wa_conversations.find_one({"phone": phone})
+
+
+async def find_client_by_phone(db, phone: str) -> dict:
+    """Engancha el número con el cliente: se comparan los últimos 10 dígitos
+    porque el dueño carga los teléfonos en cualquier formato."""
+    cola = phone[-10:]
+    if len(cola) < 10:
+        return {}
+    async for cl in db.fin_clients.find({}, {"id": 1, "business_name": 1, "representative": 1,
+                                             "phone": 1, "whatsapp": 1, "country_code": 1}):
+        for campo in ("whatsapp", "phone"):
+            if re.sub(r"\D", "", cl.get(campo) or "")[-10:] == cola:
+                return cl
+    return {}
+
+
 # ---------------------------------------------------------------- Bitácora
 async def log_wa(db, *, client_id: str, invoice_id: str, kind: str, to: str,
                  template: str, ok: bool, message_id: str = "", error: str = "",
-                 dedupe_key: str = "") -> str:
+                 dedupe_key: str = "", text: str = "") -> str:
     doc = {
         "id": str(uuid4()), "client_id": client_id, "invoice_id": invoice_id,
         "kind": kind, "to": to, "template": template,
+        "direction": "out", "text": text or "", "media": None,
         "message_id": message_id or None,
         "status": "accepted" if ok else "failed",
         "ok": bool(ok), "error": error or "",
@@ -185,7 +296,45 @@ async def log_wa(db, *, client_id: str, invoice_id: str, kind: str, to: str,
         "delivered_at": None, "read_at": None, "failed_at": None,
     }
     await db.wa_messages.insert_one(doc)
+    # Que lo enviado también aparezca en el hilo de la bandeja: si no, el dueño
+    # ve la respuesta del cliente sin saber qué se le había mandado.
+    if ok and to:
+        await upsert_conversation(db, to, text=text or template, inbound=False)
+        if client_id:
+            await db.wa_conversations.update_one({"phone": to},
+                                                 {"$set": {"client_id": client_id}})
     return doc["id"]
+
+
+async def send_reply(db, phone: str, text: str, sent_by: str = "") -> dict:
+    """Respuesta manual del panel (texto libre, dentro de la ventana de 24 h)."""
+    if not is_configured():
+        return {"ok": False, "reason": missing_config()}
+    to = normalize_phone(phone)
+    if not to:
+        return {"ok": False, "reason": "Número inválido."}
+    if not (text or "").strip():
+        return {"ok": False, "reason": "Escribí el mensaje."}
+    conv = await db.wa_conversations.find_one({"phone": to})
+    if not window_open(conv):
+        return {"ok": False, "window_closed": True,
+                "reason": ("Pasaron más de 24 h desde el último mensaje del cliente. "
+                           "WhatsApp sólo permite plantillas aprobadas fuera de esa ventana.")}
+    try:
+        msg_id = await send_text(to=to, body=text.strip())
+    except WhatsAppError as exc:
+        return {"ok": False, "reason": exc.detail}
+    ahora = datetime.utcnow().isoformat()
+    await db.wa_messages.insert_one({
+        "id": str(uuid4()), "message_id": msg_id,
+        "client_id": (conv or {}).get("client_id"), "invoice_id": None,
+        "kind": "reply", "direction": "out", "to": to, "from": PHONE_NUMBER_ID,
+        "text": text.strip(), "media": None, "template": "", "ok": True, "error": "",
+        "status": "accepted", "sent_by": sent_by, "sent_at": ahora,
+        "delivered_at": None, "read_at": None, "failed_at": None,
+    })
+    await upsert_conversation(db, to, text=text.strip(), inbound=False)
+    return {"ok": True, "message_id": msg_id}
 
 
 async def already_sent(db, dedupe_key: str) -> bool:
@@ -357,7 +506,33 @@ def create_whatsapp_router(db) -> APIRouter:
             for change in entry.get("changes", []):
                 if change.get("field") != "messages":
                     continue
-                for st in (change.get("value") or {}).get("statuses", []):
+                valor = change.get("value") or {}
+                for m in valor.get("messages", []):
+                    # Mensaje del cliente. Antes se descartaba: si el número se
+                    # migra a la API y esto no se guarda, nadie puede leer las
+                    # respuestas (Meta no guarda historial recuperable).
+                    desde = re.sub(r"\D", "", m.get("from") or "")
+                    if not desde:
+                        continue
+                    if await db.wa_messages.find_one({"message_id": m.get("id")}):
+                        continue          # Meta reintenta: no duplicar
+                    parsed = parse_inbound(m)
+                    media = parsed["media"]
+                    texto = parsed["text"] or (
+                        f"[{media['kind']}]" if media else f"[{m.get('type','mensaje')}]")
+                    cliente = await find_client_by_phone(db, desde)
+                    await db.wa_messages.insert_one({
+                        "id": str(uuid4()), "message_id": m.get("id"),
+                        "client_id": cliente.get("id"), "invoice_id": None,
+                        "kind": "inbound", "direction": "in", "to": desde, "from": desde,
+                        "text": texto, "media": media, "msg_type": m.get("type") or "text",
+                        "template": "", "ok": True, "error": "",
+                        "status": "received", "sent_at": ahora,
+                        "delivered_at": ahora, "read_at": None, "failed_at": None,
+                    })
+                    await upsert_conversation(db, desde, text=texto, inbound=True,
+                                              client=cliente or None)
+                for st in valor.get("statuses", []):
                     mid, estado = st.get("id"), st.get("status")
                     if not mid or not estado:
                         continue

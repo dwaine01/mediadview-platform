@@ -7,6 +7,7 @@ import base64
 import csv
 import hashlib
 import os
+import re
 import smtplib
 import uuid
 from calendar import monthrange
@@ -741,6 +742,165 @@ def create_finance_extensions(db, get_current_user):
         for r in emails + was:
             r.pop("_id", None)
         return {"email": emails, "whatsapp": was}
+
+    # ============ BANDEJA DE ENTRADA DE WHATSAPP ============
+    # Sin esto, migrar el número a la API oficial significa perder lo que
+    # escriben los clientes: Meta no guarda un historial que se pueda recuperar
+    # después. Todo lo que entra se lee y se contesta acá.
+    def _digits(v: str) -> str:
+        return re.sub(r"\D", "", v or "")
+
+    async def _client_snapshot(client: dict) -> dict:
+        """Ficha corta del cliente para el panel del chat: saldo y qué debe."""
+        if not client:
+            return None
+        invs = await db.fin_invoices.find(
+            {"client_id": client["id"], "status": {"$in": ["pending", "overdue"]}}
+        ).sort("due_date", 1).to_list(50)
+        return {
+            "id": client["id"],
+            "business_name": client.get("business_name", ""),
+            "representative": client.get("representative", ""),
+            "email": client.get("email", ""),
+            "phone": client.get("phone", ""),
+            "whatsapp": client.get("whatsapp", ""),
+            "open_count": len(invs),
+            "balance": round(sum(float(i.get("balance") or 0) for i in invs), 2),
+            "invoices": [{"id": i["id"], "invoice_number": i.get("invoice_number", ""),
+                          "due_date": i.get("due_date", ""), "status": i.get("status", ""),
+                          "balance": float(i.get("balance") or 0)} for i in invs],
+        }
+
+    @ext_router.get("/whatsapp/inbox")
+    async def wa_inbox(user: dict = Depends(require_finance)):
+        import whatsapp as wa
+        convs = await db.wa_conversations.find().sort("last_at", -1).to_list(300)
+        rows = []
+        for c in convs:
+            c.pop("_id", None)
+            c["unread"] = int(c.get("unread") or 0)
+            c["window_open"] = wa.window_open(c)
+            rows.append(c)
+        return {
+            "rows": rows,
+            "unread_total": sum(r["unread"] for r in rows),
+            "connected": wa.is_configured(),
+            "reason": wa.missing_config(),
+        }
+
+    @ext_router.get("/whatsapp/inbox/{phone}")
+    async def wa_thread(phone: str, limit: int = 300, user: dict = Depends(require_finance)):
+        import whatsapp as wa
+        tel = _digits(phone)
+        if not tel:
+            raise HTTPException(400, "Número inválido")
+        msgs = await db.wa_messages.find(
+            {"$or": [{"to": tel}, {"from": tel}]}).sort("sent_at", 1).to_list(limit)
+        for m in msgs:
+            m.pop("_id", None)
+            m.setdefault("direction", "out")
+            m.setdefault("text", "")
+        conv = await db.wa_conversations.find_one({"phone": tel}) or {"phone": tel}
+        conv.pop("_id", None)
+        client = None
+        if conv.get("client_id"):
+            client = await db.fin_clients.find_one({"id": conv["client_id"]})
+        if not client:
+            encontrado = await wa.find_client_by_phone(db, tel)
+            if encontrado:
+                client = await db.fin_clients.find_one({"id": encontrado["id"]})
+        return {
+            "phone": tel, "conversation": conv, "messages": msgs,
+            "client": await _client_snapshot(client),
+            "window_open": wa.window_open(conv),
+            "connected": wa.is_configured(),
+        }
+
+    @ext_router.post("/whatsapp/inbox/{phone}/read")
+    async def wa_mark_read(phone: str, user: dict = Depends(require_finance)):
+        await db.wa_conversations.update_one({"phone": _digits(phone)},
+                                             {"$set": {"unread": 0}})
+        return {"ok": True}
+
+    @ext_router.post("/whatsapp/inbox/{phone}/reply")
+    async def wa_reply(phone: str, payload: dict = Body(...),
+                       user: dict = Depends(require_finance)):
+        import whatsapp as wa
+        res = await wa.send_reply(db, phone, payload.get("text", ""),
+                                  sent_by=user.get("email", ""))
+        if not res.get("ok"):
+            raise HTTPException(400, res.get("reason", "No se pudo enviar"))
+        return res
+
+    @ext_router.post("/whatsapp/inbox/{phone}/link")
+    async def wa_link_client(phone: str, payload: dict = Body(...),
+                             user: dict = Depends(require_finance)):
+        """Engancha el número con un cliente que ya existe, o lo da de alta.
+
+        Un número desconocido que escribe es un cliente nuevo o un cliente
+        cargado con otro teléfono: en los dos casos se resuelve desde el chat.
+        """
+        tel = _digits(phone)
+        if not tel:
+            raise HTTPException(400, "Número inválido")
+        client_id = (payload.get("client_id") or "").strip()
+        if client_id:
+            client = await db.fin_clients.find_one({"id": client_id})
+            if not client:
+                raise HTTPException(404, "Cliente no encontrado")
+            if not _digits(client.get("whatsapp") or "") == tel:
+                await db.fin_clients.update_one({"id": client_id},
+                                                 {"$set": {"whatsapp": tel}})
+        else:
+            nombre = (payload.get("business_name") or "").strip()
+            if not nombre:
+                raise HTTPException(400, "Escribí el nombre del negocio")
+            client = {
+                "id": str(uuid.uuid4()), "business_name": nombre,
+                "representative": (payload.get("representative") or "").strip(),
+                "email": (payload.get("email") or "").strip(),
+                "phone": tel, "whatsapp": tel,
+                "country_code": payload.get("country_code") or "1",
+                "language": payload.get("language") or "es",
+                "wa_invoice_notify": True, "wa_reminder_notify": True,
+                "address_line1": (payload.get("address_line1") or "").strip(),
+                "city": "", "state": "", "zip": "", "country": "USA",
+                "notes": "Dado de alta desde la bandeja de WhatsApp",
+                "status": "active", "locations": [],
+                "created_at": datetime.utcnow().isoformat(),
+                "created_by": user.get("email", ""),
+            }
+            await db.fin_clients.insert_one(client)
+            client.pop("_id", None)
+            client_id = client["id"]
+        nombre_conv = client.get("business_name") or client.get("representative") or ""
+        await db.wa_conversations.update_one(
+            {"phone": tel},
+            {"$set": {"client_id": client_id, "client_name": nombre_conv},
+             "$setOnInsert": {"id": str(uuid.uuid4()), "phone": tel,
+                              "created_at": datetime.utcnow().isoformat()}},
+            upsert=True)
+        await db.wa_messages.update_many({"$or": [{"to": tel}, {"from": tel}]},
+                                         {"$set": {"client_id": client_id}})
+        return {"ok": True, "client_id": client_id, "client_name": nombre_conv}
+
+    @ext_router.get("/whatsapp/media/{media_id}")
+    async def wa_media(media_id: str, user: dict = Depends(require_finance)):
+        """Sirve la foto o el archivo que mandó el cliente.
+
+        Va por el servidor a propósito: el link de Meta necesita el token y no
+        se puede exponer en el navegador."""
+        import whatsapp as wa
+        if not wa.is_configured():
+            raise HTTPException(400, wa.missing_config())
+        try:
+            data, mime, nombre = await wa.fetch_media(media_id)
+        except wa.WhatsAppError as exc:
+            raise HTTPException(400, exc.detail)
+        headers = {"Cache-Control": "private, max-age=86400"}
+        if nombre:
+            headers["Content-Disposition"] = f'inline; filename="{nombre}"'
+        return Response(content=data, media_type=mime, headers=headers)
 
     # ============ ACCOUNTS RECEIVABLE ============
     @ext_router.get("/accounts-receivable")

@@ -1309,3 +1309,33 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   (`mediaview_invoice_created` con header de documento, `_invoice_due`, `_invoice_overdue`,
   `_payment_received`) en español e inglés. Sin aprobación Meta rechaza los envíos.
 - Tests: `tests/test_iter67_whatsapp.py` (21 casos).
+
+## Iteración 68 — Bandeja de entrada de WhatsApp (leer y responder dentro de MediaView)
+Motivo: el dueño no migra su número real a la API oficial si no puede leer las respuestas de
+los clientes en MediaView. Meta **no** guarda un historial recuperable: lo que no se guarda
+cuando llega el webhook, se pierde.
+- Entrante (`whatsapp.py`): `parse_inbound` entiende texto, foto (con pie de foto), documento,
+  audio/nota de voz, video, sticker, ubicación, botón/respuesta rápida y cualquier tipo nuevo
+  (`[tipo]`, no rompe el webhook). Cada mensaje queda en `wa_messages` con `direction:"in"`,
+  `media:{media_id, kind, mime_type, filename}` y `message_id` único (los reintentos de Meta no
+  duplican). `wa_conversations`: una por número, con `client_id`, `unread`, `last_message`,
+  `last_inbound_at` (lo que abre la ventana de 24 h).
+- Saliente: `log_wa` ahora marca `direction:"out"` y arma conversación, así lo enviado
+  (facturas, recordatorios, recibos) aparece en el mismo hilo.
+- Endpoints (auth, en `finance_email.py`): `GET /api/finance/whatsapp/inbox`,
+  `GET /inbox/{phone}` (hilo + ficha del cliente con saldo y facturas abiertas + `window_open`),
+  `POST /inbox/{phone}/read`, `POST /inbox/{phone}/reply` (texto libre; bloqueado fuera de las
+  24 h con motivo claro), `POST /inbox/{phone}/link` (vincular con cliente existente o darlo de
+  alta desde el chat, y re-etiquetar los mensajes viejos),
+  `GET /whatsapp/media/{media_id}` (las fotos/archivos se bajan **por el servidor**: el link de
+  Meta necesita el token y no puede exponerse en el navegador).
+- UI: `backend/web/whatsapp-inbox.js` — pestaña «💬 Bandeja de entrada» en Finance & CRM.
+  Lista de chats con no leídos y etiqueta DESCONOCIDO, hilo tipo WhatsApp (burbujas, separador
+  de día, tildes de entregado/leído), fotos en línea y archivos descargables, atajos para
+  reenviar facturas pendientes, cartel cuando la ventana de 24 h está cerrada y modal para
+  vincular/registrar cliente. Refresco automático cada 10 s (conserva lo que se está escribiendo).
+- Borrar un cliente desvincula sus conversaciones (`client_id=null`) para que la bandeja no
+  muestre el nombre de una ficha que ya no existe.
+- Tests: `tests/test_iter68_wa_inbox.py` (14 casos) + regresión finance 80 passed / 1 skipped.
+- PENDIENTE DEL DUEÑO (P1): recién ahora conviene conectar Meta — credenciales y migración del
+  número (guía paso a paso, uno por vez).
