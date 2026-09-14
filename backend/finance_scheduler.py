@@ -50,8 +50,12 @@ async def enqueue_for_print(db, invoice: dict, kind: str = "invoice"):
 
 
 # =================== MONTHLY INVOICE GENERATOR ===================
-async def _generate_monthly_invoices(db, year: int, month: int):
+async def _generate_monthly_invoices(db, year: int, month: int, client_id: str = ""):
     """Create invoices for the given period (year, month).
+
+    `client_id` limita la generación a un solo cliente: lo usa
+    `POST /api/finance/invoices/generate-for-client` para facturar los meses
+    atrasados de alguien que se dio de alta debiendo.
 
     FACTURACIÓN ANTICIPADA (decisión del dueño, 2026-06): el período siempre es
     el mes completo y el **vencimiento es el día 1 de ese mes**, pero la factura
@@ -68,7 +72,10 @@ async def _generate_monthly_invoices(db, year: int, month: int):
     issue_date = min(datetime.now(EASTERN).date(), period_start)
 
     created = []
-    contracts = await db.fin_contracts.find({"status": "active"}).to_list(2000)
+    query = {"status": "active"}
+    if client_id:
+        query["client_id"] = client_id
+    contracts = await db.fin_contracts.find(query).to_list(2000)
     for ct in contracts:
         try:
             cs = parse_date(ct["start_date"]).date()
@@ -128,8 +135,12 @@ async def _generate_monthly_invoices(db, year: int, month: int):
 
 # =================== EMAIL SENDING ===================
 async def _send_invoice_email(db, inv: dict):
-    """Send invoice via SMTP. Returns True if sent, raises on configuration errors only."""
+    """Send invoice via SMTP. Returns True if sent, raises on configuration errors only.
+
+    Todo envío queda en `fin_email_log` (bien o mal): es el historial que se ve
+    en el panel, y lo que se le muestra al cliente que dice «nunca me llegó»."""
     import aiosmtplib
+    from collections_engine import log_email
     from finance_email import (
         decrypt_password,
         fmt_date,
@@ -179,23 +190,34 @@ async def _send_invoice_email(db, inv: dict):
     if not pwd:
         # La contraseña falta o está cifrada con una llave que ya cambió. Sin
         # esto el envío mensual fallaba todos los meses con un «535
-        # authentication failed» y nadie sabía qué había que corregir.
+        # authentication failed» y nadie sabía qué había que corregir. Queda
+        # anotado en el historial para que el panel lo muestre.
         from finance_email import SMTP_PASSWORD_MISSING, SMTP_PASSWORD_UNREADABLE
-        raise RuntimeError(
-            SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
-        )
+        reason = SMTP_PASSWORD_UNREADABLE if s.get("smtp_password") else SMTP_PASSWORD_MISSING
+        await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
+                        kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
+                        error=reason)
+        raise RuntimeError(reason)
     port = int(s.get("smtp_port", 587))
     use_tls = port == 465
-    await aiosmtplib.send(
-        msg,
-        hostname=s.get("smtp_host", "smtp.titan.email"),
-        port=port,
-        username=s.get("smtp_user"),
-        password=pwd,
-        use_tls=use_tls,
-        start_tls=not use_tls,
-        timeout=30,
-    )
+    try:
+        await aiosmtplib.send(
+            msg,
+            hostname=s.get("smtp_host", "smtp.titan.email"),
+            port=port,
+            username=s.get("smtp_user"),
+            password=pwd,
+            use_tls=use_tls,
+            start_tls=not use_tls,
+            timeout=30,
+        )
+    except Exception as exc:
+        await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
+                        kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
+                        error=str(exc))
+        raise
+    await log_email(db, client_id=inv.get("client_id", ""), invoice_id=inv.get("id"),
+                    kind="invoice", to=to_addr, subject=msg["Subject"], ok=True)
     return True
 
 

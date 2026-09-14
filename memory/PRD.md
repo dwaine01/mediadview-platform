@@ -1119,3 +1119,35 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   - Tests: `tests/test_iter62_advance_billing.py` (8 casos: día del cron en ambos schedulers,
     mes objetivo según el día, rollover de diciembre, fechas de emisión/vencimiento y que la
     etapa `pre_due` ahora sí cae dentro de la vida de la factura).
+
+## Facturar meses atrasados + historial de correos (2026-06)
+- Pedido del dueño: «Dulce Vida se dio de alta debiendo julio, agosto y septiembre: quiero
+  generar esas tres facturas, que se manden solas a su correo, poder imprimirlas, y ver en el
+  panel un historial de los correos que se enviaron (factura tal día, recordatorio tantos días
+  después)».
+- **`POST /api/finance/invoices/generate-for-client`** (admin): `{client_id, periods:
+  ["2026-07","2026-08","2026-09"], send_email}`. Crea una factura por mes con el mismo formato
+  que las automáticas (período completo, vencimiento el día 1), la manda con el PDF adjunto y
+  devuelve el resultado mes por mes. **Nunca duplica**: si el mes ya está facturado lo reporta
+  como `skipped` con el número de la factura existente. Botón «🗓️ Meses atrasados» en la
+  pestaña Invoices → modal con el cliente, los últimos 6 meses + el mes que viene en casillas, y
+  la opción de enviar por correo (marcada por defecto).
+- `_generate_monthly_invoices(db, year, month, client_id="")`: se le agregó el filtro por
+  cliente. Sin `client_id` se comporta igual que antes (todos los contratos activos).
+- **`GET /api/finance/email-log`** + pestaña **«Historial de correos»** en Finance & CRM:
+  fecha y hora, cliente, qué se envió (traducido: «Factura enviada», «Aviso: vence en 3 días»,
+  «Recordatorio: 7/15 días de atraso», «Aviso final: 30 días», «Recibo de pago»), número de
+  factura, destinatario y estado. Cuando falla muestra el motivo debajo, en rojo. Filtros por
+  tipo y contador de enviados/fallidos.
+- Los envíos **de factura** no quedaban registrados (sólo los recordatorios y recibos): se
+  agregó `log_email` en `finance_scheduler._send_invoice_email` (cron) y en el endpoint manual
+  `POST /invoices/{id}/send`, en éxito y en error. Si falta la contraseña SMTP, el historial lo
+  dice con el texto que hay que corregir.
+- Se arregló la duplicación de pestañas en Finance: `buildTabsBar` ya incluye las extras, y
+  además `injectExtraTabs()` las volvía a agregar (se veían dos veces «Accounts Receivable»,
+  «Users & Roles», «Email Settings»). Ahora `buildTabsBar` marca el contenedor con
+  `data-extras-injected` y las llamadas sueltas a `injectExtraTabs()` se quitaron.
+- Tests: `tests/test_iter63_backfill_and_maillog.py` (13 casos: genera los 3 meses de una vez,
+  no duplica, vencimiento el día 1, el PDF de cada una abre para imprimir, validaciones de
+  período/cliente, y el historial con sus filtros, el nombre del cliente resuelto y el registro
+  de los fallos).

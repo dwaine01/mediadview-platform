@@ -23,6 +23,7 @@
     if (!el) return;
     // Extra tabs beyond originals
     if (window._fTab === 'ar') return renderAR();
+    if (window._fTab === 'emails') return renderEmailHistory();
     if (window._fTab === 'users') return renderUsers();
     if (window._fTab === 'settings_email') return renderEmailSettings();
     return origFinance();
@@ -39,6 +40,7 @@
     if (tabsBar.dataset.extrasInjected) return;
     const extras = [
       {id:'ar', name:'Accounts Receivable', icon:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2'},
+      {id:'emails', name:'Historial de correos', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
       {id:'users', name:'Users & Roles', icon:'M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2'},
       {id:'settings_email', name:'Email Settings', icon:'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z'},
     ];
@@ -63,10 +65,79 @@
       {id:'payments', name:'Payments'},
       {id:'expenses', name:'Expenses'},
       {id:'ar', name:'💸 Accounts Receivable'},
+      {id:'emails', name:'📧 Historial de correos'},
       {id:'users', name:'👥 Users & Roles'},
       {id:'settings_email', name:'📧 Email Settings'},
     ];
-    return `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px">${allTabs.map(t=>`<button onclick="window._fTab='${t.id}';loaders.finance()" style="padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${activeTab===t.id?'rgba(37,99,235,.35)':'transparent'};cursor:pointer;background:${activeTab===t.id?'var(--brand-tint)':'transparent'};color:${activeTab===t.id?'var(--brand-dd)':'var(--t-3)'};transition:all .15s">${t.name}</button>`).join('')}</div>`;
+    return `<div data-extras-injected="1" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px">${allTabs.map(t=>`<button onclick="window._fTab='${t.id}';loaders.finance()" style="padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${activeTab===t.id?'rgba(37,99,235,.35)':'transparent'};cursor:pointer;background:${activeTab===t.id?'var(--brand-tint)':'transparent'};color:${activeTab===t.id?'var(--brand-dd)':'var(--t-3)'};transition:all .15s">${t.name}</button>`).join('')}</div>`;
+  }
+
+  // ============ HISTORIAL DE CORREOS ============
+  // Todo lo que salió: la factura automática del día 25, cada recordatorio de
+  // cobranza y el recibo cuando pagan. Es la prueba cuando el cliente dice
+  // «a mí nunca me avisaron».
+  const MAIL_KINDS = {
+    'invoice':            {t:'Factura enviada',                 i:'📄'},
+    'reminder:pre_due':   {t:'Aviso: vence en 3 días',          i:'🔔'},
+    'reminder:due':       {t:'Aviso: vence hoy',                i:'🔔'},
+    'reminder:late_7':    {t:'Recordatorio: 7 días de atraso',  i:'⚠️'},
+    'reminder:late_15':   {t:'Recordatorio: 15 días de atraso', i:'⚠️'},
+    'reminder:late_30':   {t:'Aviso final: 30 días de atraso',  i:'⛔'},
+    'receipt':            {t:'Recibo de pago',                  i:'✅'},
+    'test':               {t:'Correo de prueba',                i:'🧪'},
+  };
+  const mailKind = k => MAIL_KINDS[k] || {t: k || '—', i:'✉️'};
+  const fmtWhen = s => {
+    if (!s) return '—';
+    const d = new Date(s.endsWith('Z') || s.includes('+') ? s : s + 'Z');
+    if (isNaN(d)) return s;
+    return d.toLocaleString('es-US', {day:'2-digit', month:'short', year:'numeric',
+                                      hour:'2-digit', minute:'2-digit'});
+  };
+
+  async function renderEmailHistory(){
+    const el = document.getElementById('pg-finance');
+    el.innerHTML = `<div class="ph"><div><h1>Historial de correos</h1><p>Facturas, recordatorios y recibos que salieron del sistema</p></div></div>
+    ${buildTabsBar(window._fTab)}
+    <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Cargando…</div></div>`;
+    const c = document.getElementById('f-content');
+    if (!window._mailFilter) window._mailFilter = '';
+    const q = window._mailFilter ? '&kind=' + window._mailFilter : '';
+    const data = await api(FAPI + '/email-log?limit=300' + q);
+    const rows = data.rows || [];
+    const filtros = [
+      {v:'', n:'Todos'},
+      {v:'invoice', n:'📄 Facturas'},
+      {v:'reminder', n:'🔔 Recordatorios'},
+      {v:'receipt', n:'✅ Recibos'},
+    ];
+    c.innerHTML = `
+      <div class="st-grid">
+        ${stat('Correos enviados', data.total_ok, 'Llegaron al servidor de correo', '--green', 'M5 13l4 4L19 7')}
+        ${stat('Fallidos', data.total_failed, 'No salieron — revisar el motivo', '--red', 'M12 9v2m0 4h.01M5 19h14a2 2 0 001.84-2.75L13.74 4a2 2 0 00-3.48 0L3.16 16.25A2 2 0 005 19z')}
+        ${stat('En esta lista', rows.length, 'Últimos 300 movimientos', '--brand', 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8')}
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap">${filtros.map(f=>`
+        <button onclick="window._mailFilter='${f.v}';loaders.finance()" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${window._mailFilter===f.v?'rgba(8,145,178,.35)':'var(--border)'};background:${window._mailFilter===f.v?'rgba(8,145,178,.12)':'transparent'};color:${window._mailFilter===f.v?'var(--brand-dd)':'var(--t-3)'}">${f.n}</button>`).join('')}
+      </div>
+      ${rows.length===0 ? `<div class="empty"><div class="empty-ico">📭</div><h3>Todavía no hay correos</h3>
+        <p>Acá van a aparecer las facturas que se envíen el día 25, los recordatorios de cobranza y los recibos de pago.</p></div>`
+      : `<div class="card"><div class="tbl-h" style="grid-template-columns:1.4fr 1.4fr 1.8fr 1fr 1.6fr 90px">
+          <span>Fecha</span><span>Cliente</span><span>Qué se envió</span><span>Factura</span><span>Correo</span><span>Estado</span></div>
+        ${rows.map(r=>{
+          const k = mailKind(r.kind);
+          return `<div class="tbl-r" style="grid-template-columns:1.4fr 1.4fr 1.8fr 1fr 1.6fr 90px">
+            <span style="font-size:12px;color:var(--t-3)">${fmtWhen(r.sent_at)}</span>
+            <span style="font-size:13px;font-weight:600">${esc(r.client_name)}</span>
+            <span style="font-size:12.5px">${k.i} ${k.t}</span>
+            <span style="font-size:12px;font-weight:700;color:var(--brand-dd)">${esc(r.invoice_number||'—')}</span>
+            <span style="font-size:12px;color:var(--t-3);overflow:hidden;text-overflow:ellipsis">${esc(r.to||'—')}</span>
+            <span>${r.ok
+              ? '<span class="bdg" style="background:#04785714;color:#047857">Enviado</span>'
+              : `<span class="bdg" style="background:#b91c1c14;color:#b91c1c;cursor:help" title="${esc(r.error||'')}">Falló</span>`}</span>
+          </div>${r.ok ? '' : `<div style="padding:0 16px 12px;font-size:12px;color:#b91c1c">${esc(r.error||'')}</div>`}`;
+        }).join('')}</div>`}
+    `;
   }
 
   // ============ ACCOUNTS RECEIVABLE ============
@@ -75,7 +146,6 @@
     el.innerHTML = `<div class="ph"><div><h1>Accounts Receivable</h1><p>Outstanding invoices grouped by client</p></div></div>
     ${buildTabsBar(window._fTab)}
     <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Loading…</div></div>`;
-    injectExtraTabs();
     const data = await api(FAPI + '/accounts-receivable');
     // Estado de cobranza por factura: cuantos recordatorios se mandaron y
     // cuando toca el proximo. Cobrar sin saber eso es cobrar a ciegas.
@@ -170,7 +240,6 @@
     el.innerHTML = `<div class="ph"><div><h1>Email / SMTP Settings</h1><p>Configure outgoing email server for invoices and reminders</p></div></div>
     ${buildTabsBar(window._fTab)}
     <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Loading…</div></div>`;
-    injectExtraTabs();
     const c = document.getElementById('f-content');
     const s = await api(FAPI + '/settings/email');
     const enabled = s.enabled;
@@ -353,7 +422,6 @@
     <button class="btn-p" onclick="showNewUser()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" d="M12 5v14m7-7H5"/></svg>New User</button></div>
     ${buildTabsBar(window._fTab)}
     <div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Loading…</div></div>`;
-    injectExtraTabs();
     const list = await api(FAPI + '/users');
     const c = document.getElementById('f-content');
     const roleInfo = {

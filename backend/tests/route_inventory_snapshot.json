@@ -1773,6 +1773,13 @@
     "methods": [
       "GET"
     ],
+    "path": "/api/finance/email-log"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "GET"
+    ],
     "path": "/api/finance/expenses"
   },
   {
@@ -1830,6 +1837,13 @@
       "GET"
     ],
     "path": "/api/finance/invoices"
+  },
+  {
+    "kind": "APIRoute",
+    "methods": [
+      "POST"
+    ],
+    "path": "/api/finance/invoices/generate-for-client"
   },
   {
     "kind": "APIRoute",

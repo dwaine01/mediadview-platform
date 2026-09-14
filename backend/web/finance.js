@@ -921,7 +921,8 @@
     c.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
         <h2 style="font-size:18px;font-weight:700">Invoices (${list.length})</h2>
-        <div style="display:flex;gap:8px">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn-s" onclick="showBackfillInvoices()">🗓️ Meses atrasados</button>
           <button class="btn-s" onclick="generateMonthlyInvoices()">⚡ Generate Monthly</button>
           <button class="btn-p" onclick="showNewManualInvoice()">+ Manual Invoice</button>
         </div>
@@ -968,6 +969,57 @@
     const r = await api(FAPI + '/invoices/generate-monthly', {method:'POST'});
     alert(`✓ Generated ${r.created} invoices for ${r.period}`);
     window._fTab='invoices';loaders.finance();
+  };
+
+  // Facturar meses atrasados de UN cliente. Caso real: «Dulce Vida se dio de
+  // alta debiendo julio, agosto y septiembre». El generador mensual sólo hace
+  // el mes que corresponde; acá se eligen los meses y salen por correo.
+  window.showBackfillInvoices = async function(preClientId){
+    const clients = await api(FAPI + '/clients');
+    if (clients.length===0) { alert('Agregá un cliente primero'); return; }
+    const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio',
+                   'agosto','septiembre','octubre','noviembre','diciembre'];
+    const now = new Date();
+    const opts = [];
+    for (let k = 6; k >= -1; k--) {                     // 6 meses atrás → mes que viene
+      const d = new Date(now.getFullYear(), now.getMonth() - k, 1);
+      const val = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+      opts.push({ v: val, label: MESES[d.getMonth()] + ' ' + d.getFullYear(), past: k > 0 });
+    }
+    openModal('Facturar meses atrasados', `
+      <div><label class="inp-label">Cliente *</label>
+        <select class="inp" id="bf-client">${clients.map(c=>`<option value="${c.id}" ${c.id===preClientId?'selected':''}>${esc(c.business_name)}${c.email?'':' (sin correo)'}</option>`).join('')}</select></div>
+      <div style="margin-top:16px"><label class="inp-label">Meses a facturar *</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px">
+          ${opts.map(o=>`<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;text-transform:capitalize">
+            <input type="checkbox" class="bf-month" value="${o.v}" style="width:16px;height:16px">${o.label}</label>`).join('')}
+        </div>
+        <p style="font-size:12px;color:var(--t-3);margin-top:8px">Se crea una factura por mes, con el período completo y vencimiento el día 1. Si el mes ya está facturado, no se duplica.</p>
+      </div>
+      <label style="display:flex;align-items:center;gap:10px;margin-top:16px;font-size:13px;font-weight:600">
+        <input type="checkbox" id="bf-send" checked style="width:16px;height:16px">
+        Enviar cada factura por correo al cliente (con el PDF adjunto)
+      </label>
+    `, 'Generar facturas', async ()=>{
+      const periods = Array.from(document.querySelectorAll('.bf-month:checked')).map(i=>i.value);
+      if (periods.length===0) { alert('Elegí al menos un mes'); return false; }
+      const r = await api(FAPI + '/invoices/generate-for-client', {method:'POST', body:JSON.stringify({
+        client_id: val('bf-client'),
+        periods,
+        send_email: document.getElementById('bf-send').checked,
+      })});
+      const lineas = r.results.map(x => {
+        if (x.status === 'skipped') return `•  ${x.period} — ${x.detail}${x.invoice_number?' ('+x.invoice_number+')':''}`;
+        const envio = x.emailed ? 'enviada por correo' : (x.detail ? 'NO se pudo enviar: '+x.detail : 'creada (sin envío)');
+        return `✔  ${x.period} — ${x.invoice_number} · ${fmt$(x.total)} · ${envio}`;
+      });
+      alert(`${r.client}${r.email? ' ('+r.email+')' : ''}\n\n`
+        + `${r.created} factura(s) creada(s), ${r.emailed} enviada(s) por correo, ${r.skipped} sin cambios\n\n`
+        + lineas.join('\n'));
+      window._invFilter='all';
+      loaders.finance();
+      return true;
+    });
   };
 
   window.showNewManualInvoice = async function(){

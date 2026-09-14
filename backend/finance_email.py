@@ -332,6 +332,8 @@ def create_finance_extensions(db, get_current_user):
     @ext_router.post("/invoices/{invoice_id}/send")
     async def send_invoice_email(invoice_id: str, payload: SendInvoiceRequest = Body(...),
                                   user: dict = Depends(require_admin)):
+        from collections_engine import log_email
+
         inv = await db.fin_invoices.find_one({"id": invoice_id})
         if not inv:
             raise HTTPException(404, "Invoice not found")
@@ -392,10 +394,20 @@ def create_finance_extensions(db, get_current_user):
 
         try:
             await _send_email_async(s, msg, to_addr)
-        except HTTPException:
+        except HTTPException as exc:
+            await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
+                            kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
+                            error=str(exc.detail))
             raise
         except Exception as e:
+            await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
+                            kind="invoice", to=to_addr, subject=msg["Subject"], ok=False,
+                            error=str(e))
             raise HTTPException(500, f"Failed to send: {str(e)}")
+        # El envío manual también va al historial: el panel muestra una sola
+        # bitácora, no importa si el correo lo disparó el cron o una persona.
+        await log_email(db, client_id=inv.get("client_id", ""), invoice_id=invoice_id,
+                        kind="invoice", to=to_addr, subject=msg["Subject"], ok=True)
 
         # Log the send
         await db.fin_invoices.update_one(
@@ -405,6 +417,87 @@ def create_finance_extensions(db, get_current_user):
                       "sent_count": inv.get("sent_count", 0) + 1}},
         )
         return {"ok": True, "sent_to": to_addr}
+
+    # ============ FACTURAR MESES ATRASADOS DE UN CLIENTE ============
+    class BackfillRequest(BaseModel):
+        client_id: str
+        periods: list[str]          # ["2026-07", "2026-08", "2026-09"]
+        send_email: bool = True
+
+    @ext_router.post("/invoices/generate-for-client")
+    async def generate_invoices_for_client(payload: BackfillRequest = Body(...),
+                                           user: dict = Depends(require_admin)):
+        """Genera (y opcionalmente manda) las facturas de varios meses de UN cliente.
+
+        Caso real: un cliente que se dio de alta debiendo julio, agosto y
+        septiembre. El generador mensual sólo hace el mes que corresponde, así
+        que había que crear las tres a mano. Acá se eligen los meses, se crean
+        con el mismo formato que las automáticas (mismo período, mismo
+        vencimiento el día 1) y salen por correo con el PDF adjunto.
+
+        Nunca duplica: si ya existe la factura de ese contrato y ese mes, la
+        reporta como `skipped` con su número.
+        """
+        from finance_scheduler import _generate_monthly_invoices, _send_invoice_email
+
+        client = await db.fin_clients.find_one({"id": payload.client_id})
+        if not client:
+            raise HTTPException(404, "Client not found")
+        if payload.send_email and not (client.get("email") or "").strip():
+            raise HTTPException(400, f"{client.get('business_name','El cliente')} no tiene "
+                                     "correo cargado. Agregalo en su ficha o desmarcá el envío.")
+        if not payload.periods:
+            raise HTTPException(400, "Elegí al menos un mes.")
+
+        results = []
+        for period in sorted(payload.periods):
+            try:
+                year, month = (int(x) for x in period.split("-")[:2])
+                date(year, month, 1)
+            except (ValueError, TypeError):
+                raise HTTPException(400, f"Período inválido: {period} (se espera 2026-07)")
+
+            created = await _generate_monthly_invoices(db, year, month, client_id=payload.client_id)
+            if not created:
+                existing = await db.fin_invoices.find_one({
+                    "client_id": payload.client_id,
+                    "period_start": date(year, month, 1).isoformat(),
+                })
+                results.append({
+                    "period": period,
+                    "status": "skipped",
+                    "invoice_number": (existing or {}).get("invoice_number", ""),
+                    "detail": "Ya existía la factura de este mes" if existing
+                              else "El contrato no cubre este mes (o no hay contrato activo)",
+                })
+                continue
+
+            for inv in created:
+                row = {"period": period, "status": "created",
+                       "invoice_number": inv.get("invoice_number"),
+                       "invoice_id": inv["id"], "total": inv.get("total"),
+                       "emailed": False, "detail": ""}
+                if payload.send_email:
+                    try:
+                        row["emailed"] = await _send_invoice_email(db, inv)
+                        if row["emailed"]:
+                            await db.fin_invoices.update_one(
+                                {"id": inv["id"]},
+                                {"$set": {"email_sent": True,
+                                          "last_sent_at": datetime.utcnow().isoformat(),
+                                          "last_sent_to": client.get("email", "")}})
+                    except Exception as exc:
+                        row["detail"] = str(exc)
+                results.append(row)
+
+        return {
+            "client": client.get("business_name", ""),
+            "email": client.get("email", ""),
+            "created": sum(1 for r in results if r["status"] == "created"),
+            "emailed": sum(1 for r in results if r.get("emailed")),
+            "skipped": sum(1 for r in results if r["status"] == "skipped"),
+            "results": results,
+        }
 
     # ============ ACCOUNTS RECEIVABLE ============
     @ext_router.get("/accounts-receivable")
@@ -460,6 +553,45 @@ def create_finance_extensions(db, get_current_user):
 
     # ============ USER MANAGEMENT ============
     # ============ COBRANZA: BITÁCORA Y ESTADO ============
+    @ext_router.get("/email-log")
+    async def email_log(limit: int = 200, client_id: str = "", kind: str = "",
+                        only_errors: bool = False, user: dict = Depends(require_finance)):
+        """Historial de TODO lo que salió por correo: facturas automáticas,
+        recordatorios de cobranza y recibos de pago.
+
+        El dueño necesita poder abrir el panel y ver «a este cliente se le mandó
+        la factura tal día y el recordatorio de 7 días tal otro». Sin esto la
+        cobranza es palabra contra palabra."""
+        q: dict = {}
+        if client_id:
+            q["client_id"] = client_id
+        if kind:
+            # `reminder` trae todas las etapas (reminder:pre_due, reminder:late_7…)
+            q["kind"] = {"$regex": f"^{kind}"}
+        if only_errors:
+            q["ok"] = False
+        rows = await db.fin_email_log.find(q).sort("sent_at", -1) \
+            .to_list(max(1, min(int(limit), 500)))
+        client_names = {}
+        invoice_numbers = {}
+        for row in rows:
+            row.pop("_id", None)
+            cid = row.get("client_id")
+            if cid and cid not in client_names:
+                cl = await db.fin_clients.find_one({"id": cid}) or {}
+                client_names[cid] = cl.get("business_name") or cl.get("email") or "—"
+            iid = row.get("invoice_id")
+            if iid and iid not in invoice_numbers:
+                inv = await db.fin_invoices.find_one({"id": iid}) or {}
+                invoice_numbers[iid] = inv.get("invoice_number") or ""
+            row["client_name"] = client_names.get(cid, "—")
+            row["invoice_number"] = invoice_numbers.get(iid, "")
+        return {
+            "rows": rows,
+            "total_ok": sum(1 for r in rows if r.get("ok")),
+            "total_failed": sum(1 for r in rows if not r.get("ok")),
+        }
+
     @ext_router.get("/clients/{client_id}/email-log")
     async def client_email_log(client_id: str, limit: int = 100,
                                user: dict = Depends(require_finance)):
