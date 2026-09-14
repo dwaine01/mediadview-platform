@@ -113,7 +113,7 @@ async function renderMarketplace(el) {
     ${hereScreen ? `
       <div style="display:flex;align-items:center;gap:10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.25);border-radius:12px;padding:12px 14px;margin-bottom:16px">
         <span style="font-size:18px">📍</span>
-        <div style="font-size:13px;color:#34d399;font-weight:600">Esta es la pantalla donde estás ahora:
+        <div style="font-size:13px;color:#059669;font-weight:600">Esta es la pantalla donde estás ahora:
           <span style="color:var(--t-1)">${hereScreen.venue.establishment_name}</span>
         </div>
       </div>` : ''}
@@ -209,7 +209,7 @@ async function renderMktMap() {
 
   located.forEach(s => {
     const v = s.venue;
-    const color = s.is_here ? '#10b981' : s.is_full ? '#ef4444' : '#6366f1';
+    const color = s.is_here ? '#10b981' : s.is_full ? '#ef4444' : '#0891b2';
     const marker = L.marker([v.lat, v.lng], {
       icon: L.divIcon({
         className: '',
@@ -222,9 +222,9 @@ async function renderMktMap() {
         ${v.photo_url ? `<img src="${v.photo_url}" style="width:100%;height:96px;object-fit:cover;border-radius:8px;margin-bottom:8px">` : ''}
         <div style="font-size:13px;font-weight:700;color:#0f172a">${v.establishment_name}</div>
         <div style="font-size:11px;color:#64748b;margin-top:2px">${[v.city, v.reference].filter(Boolean).join(' · ')}</div>
-        ${v.audience?.label ? `<div style="font-size:11px;color:#4f46e5;font-weight:600;margin-top:6px">👥 ${v.audience.label}</div>` : ''}
+        ${v.audience?.label ? `<div style="font-size:11px;color:#0e7490;font-weight:600;margin-top:6px">👥 ${v.audience.label}</div>` : ''}
         <div style="font-size:11px;color:${s.is_full ? '#ef4444' : '#059669'};font-weight:600;margin-top:4px">${s.is_full ? 'Lleno' : s.available_slots + ' espacios libres'}</div>
-        <button onclick="openVenueSheet('${s.id}')" style="width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:#4f46e5;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Ver esta ubicación</button>
+        <button onclick="openVenueSheet('${s.id}')" style="width:100%;margin-top:8px;padding:8px;border:0;border-radius:8px;background:#0e7490;color:#fff;font-size:12px;font-weight:700;cursor:pointer">Ver esta ubicación</button>
       </div>`);
     if (s.is_here) marker.openPopup();
   });
@@ -260,7 +260,7 @@ function renderScreenCard(s) {
     ap.price_per_year ? `Año: ${fmtPrice(ap.price_per_year)}` : '',
   ].filter(Boolean).join(' · ');
 
-  const slotsColor = s.is_full ? '#ef4444' : s.available_slots <= 1 ? '#f59e0b' : '#10b981';
+  const slotsColor = s.is_full ? '#ef4444' : s.available_slots <= 1 ? '#b45309' : '#10b981';
   const slotsText = s.is_full ? '🔴 Lleno' : `🟢 ${s.available_slots} libre${s.available_slots !== 1 ? 's' : ''}`;
   const selected = !!(window._selectedScreens || {})[s.id];
 
@@ -271,14 +271,14 @@ function renderScreenCard(s) {
         ${venuePhoto(s, 168)}
         ${s.is_here ? '<span style="position:absolute;top:10px;left:10px;background:#10b981;color:#04140f;font-size:11px;font-weight:800;padding:4px 10px;border-radius:999px;white-space:nowrap">📍&#8202;Estás acá</span>' : ''}
         <span style="position:absolute;top:10px;right:10px;font-size:11px;font-weight:600;color:${slotsColor};background:rgba(2,6,18,.78);padding:4px 9px;border-radius:999px;border:1px solid ${slotsColor}55">${slotsText}</span>
-        ${selected ? '<span style="position:absolute;bottom:10px;right:10px;background:#6366f1;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px">✓ Elegida</span>' : ''}
+        ${selected ? '<span style="position:absolute;bottom:10px;right:10px;background:#0891b2;color:#fff;font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px">✓ Elegida</span>' : ''}
       </div>
       <div style="padding:16px">
         <div style="font-size:15px;font-weight:700;color:var(--t-1)">${v.establishment_name || s.name}</div>
         <div style="font-size:12px;color:var(--t-4);margin-top:3px">${[v.city, v.state].filter(Boolean).join(', ')}</div>
         ${v.reference ? `<div style="font-size:12px;color:var(--t-3);margin-top:6px">📍 ${v.reference}</div>` : ''}
-        ${v.audience?.label ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(99,102,241,.12);border:1px solid rgba(99,102,241,.25);color:#a5b4fc;font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px">👥 ${v.audience.label}</div>` : ''}
-        <div style="font-size:12px;color:#6366f1;font-weight:600;border-top:1px solid var(--border);padding-top:10px;margin-top:12px">${prices || 'Consultar precio'}</div>
+        ${v.audience?.label ? `<div style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;background:rgba(8,145,178,.12);border:1px solid rgba(8,145,178,.25);color:#4338ca;font-size:11px;font-weight:600;padding:4px 10px;border-radius:999px">👥 ${v.audience.label}</div>` : ''}
+        <div style="font-size:12px;color:#0891b2;font-weight:600;border-top:1px solid var(--border);padding-top:10px;margin-top:12px">${prices || 'Consultar precio'}</div>
         <button class="btn-s" style="width:100%;margin-top:10px;padding:9px;font-size:12px" onclick="event.stopPropagation();openVenueSheet('${s.id}')">👁 Ver esta ubicación</button>
       </div>
     </div>`;
@@ -351,7 +351,7 @@ async function openVenueSheet(screenId) {
           ${specs.orientation ? `<span class="tag">${specs.orientation === 'portrait' ? '↕ Vertical' : '↔ Horizontal'}</span>` : ''}
         </div>
 
-        <div style="margin-top:16px;font-size:12px;color:${s.is_full ? '#f87171' : '#34d399'};font-weight:600">
+        <div style="margin-top:16px;font-size:12px;color:${s.is_full ? '#dc2626' : '#059669'};font-weight:600">
           ${s.is_full
             ? '🔴 Esta pantalla está a capacidad máxima'
             : `🟢 ${s.available_slots} de ${s.max_ad_slots} espacios publicitarios libres`}
@@ -362,7 +362,7 @@ async function openVenueSheet(screenId) {
             ${priceItems.map(i => `
               <div style="background:rgba(8,145,178,.07);border:1px solid rgba(8,145,178,.18);border-radius:12px;padding:12px;text-align:center">
                 <div style="font-size:11px;color:var(--t-4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${i.label}</div>
-                <div style="font-size:19px;font-weight:800;color:#22d3ee;margin-top:2px">${fmtPrice(i.amount)}</div>
+                <div style="font-size:19px;font-weight:800;color:#0891b2;margin-top:2px">${fmtPrice(i.amount)}</div>
               </div>`).join('')}
           </div>` : '<div style="font-size:12px;color:var(--t-4);margin-top:14px">Consultá el precio con el equipo MediaView</div>'}
 
@@ -445,9 +445,9 @@ async function recalcReach(screenId) {
           <div style="font-size:22px;font-weight:800;color:#059669">${n(r.reach_per_day)}</div>
           <div style="font-size:11px;color:var(--t-4)">personas frente a la pantalla</div>
         </div>
-        <div style="background:rgba(99,102,241,.08);border:1px solid rgba(99,102,241,.22);border-radius:12px;padding:12px">
+        <div style="background:rgba(8,145,178,.08);border:1px solid rgba(8,145,178,.22);border-radius:12px;padding:12px">
           <div style="font-size:11px;color:var(--t-4);font-weight:600">EN TODA LA CAMPAÑA</div>
-          <div style="font-size:22px;font-weight:800;color:#4f46e5">${n(r.reach_total)}</div>
+          <div style="font-size:22px;font-weight:800;color:#0e7490">${n(r.reach_total)}</div>
           <div style="font-size:11px;color:var(--t-4)">${r.days_total} días al aire</div>
         </div>
       </div>
@@ -505,7 +505,7 @@ async function renderCreateAdForm(el) {
         <div class="card-section-title">1. Pantallas Seleccionadas</div>
         ${selectedIds.length === 0
           ? '<div style="font-size:13px;color:#64748b;margin-bottom:10px">Ninguna pantalla seleccionada. Ve al Marketplace para seleccionar.</div>'
-          : `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">${selectedIds.map(id => `<span class="tag" style="color:#6366f1;border-color:rgba(99,102,241,.3);padding:6px 12px">${selected[id]} <span onclick="removeSelectedScreen('${id}')" style="cursor:pointer;color:#ef4444;margin-left:4px">✕</span></span>`).join('')}</div>`}
+          : `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px">${selectedIds.map(id => `<span class="tag" style="color:#0891b2;border-color:rgba(8,145,178,.3);padding:6px 12px">${selected[id]} <span onclick="removeSelectedScreen('${id}')" style="cursor:pointer;color:#ef4444;margin-left:4px">✕</span></span>`).join('')}</div>`}
         <button class="btn-s" style="font-size:12px" onclick="_adTab='marketplace';loadAdTabContent()">
           ${selectedIds.length === 0 ? '🗺 Ir al Marketplace' : '+ Agregar más pantallas'}
         </button>
@@ -552,7 +552,7 @@ async function renderCreateAdForm(el) {
       </div>
 
       <!-- Cotización en tiempo real -->
-      <div class="card" id="ad-quote-card" style="padding:20px;margin-bottom:16px;background:rgba(99,102,241,.06);border-color:rgba(99,102,241,.2)">
+      <div class="card" id="ad-quote-card" style="padding:20px;margin-bottom:16px;background:rgba(8,145,178,.06);border-color:rgba(8,145,178,.2)">
         <div class="card-section-title">💰 Cotización (calculada en backend)</div>
         <div id="ad-quote-content" style="color:#64748b;font-size:13px">Selecciona pantallas, período y duración para ver el precio</div>
       </div>
@@ -609,14 +609,14 @@ function updateAdQuote() {
         ${lines.map(l => `
           <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.05)">
             <div>
-              <div style="font-size:13px;font-weight:600;color:#e2e8f0">${l.screen_name}</div>
+              <div style="font-size:13px;font-weight:600;color:#0f172a">${l.screen_name}</div>
               <div style="font-size:11px;color:#64748b">${l.screen_city} · ${l.duration}× ${periodLabel(l.pricing_period)} @ ${fmtPrice(l.unit_price)}</div>
             </div>
-            <div style="font-size:14px;font-weight:700;color:#6366f1">${fmtPrice(l.line_total)}</div>
+            <div style="font-size:14px;font-weight:700;color:#0891b2">${fmtPrice(l.line_total)}</div>
           </div>`).join('')}
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px">
-          <div style="font-size:14px;font-weight:700;color:#e2e8f0">TOTAL</div>
-          <div style="font-size:24px;font-weight:800;color:#6366f1">${fmtPrice(q.grand_total)}</div>
+          <div style="font-size:14px;font-weight:700;color:#0f172a">TOTAL</div>
+          <div style="font-size:24px;font-weight:800;color:#0891b2">${fmtPrice(q.grand_total)}</div>
         </div>
         <div style="font-size:11px;color:#64748b;margin-top:4px">Del ${q.start_date} al ${q.end_date} · Pago SIMULADO</div>`;
     } catch (e) {
@@ -666,8 +666,8 @@ async function submitAdCampaign() {
 function showAdMsg(msg, type) {
   const el = document.getElementById('ad-form-msg');
   if (!el) return;
-  const colors = { error: '#ef4444', success: '#10b981', info: '#6366f1' };
-  const bgs = { error: 'rgba(239,68,68,.08)', success: 'rgba(16,185,129,.08)', info: 'rgba(99,102,241,.08)' };
+  const colors = { error: '#ef4444', success: '#10b981', info: '#0891b2' };
+  const bgs = { error: 'rgba(239,68,68,.08)', success: 'rgba(16,185,129,.08)', info: 'rgba(8,145,178,.08)' };
   el.style.display = 'block';
   el.style.color = colors[type] || '#e2e8f0';
   el.style.background = bgs[type] || 'rgba(255,255,255,.05)';
@@ -699,19 +699,19 @@ async function renderMyCampaigns(el) {
             <div style="display:flex;align-items:flex-start;gap:12px">
               <div style="flex:1;min-width:0">
                 <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-                  <div style="font-size:15px;font-weight:700;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
+                  <div style="font-size:15px;font-weight:700;color:#0f172a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.name}</div>
                   ${adStatusBadge(c.status)}
                 </div>
                 <div style="font-size:12px;color:#64748b;margin-bottom:6px">
                   ${screens || 'Sin pantallas'} · ${periodLabel(c.pricing_period)} × ${c.duration} · ${c.start_date || ''} → ${c.end_date || ''}
                 </div>
                 ${hasRejection ? `<div style="font-size:12px;color:#ef4444;background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:6px;padding:8px;margin-bottom:8px">❌ Motivo de rechazo: ${c.rejection_reason}</div>` : ''}
-                <div style="font-size:12px;color:#94a3b8;margin-top:2px">
-                  🔗 <a href="${c.creative_url}" target="_blank" style="color:#6366f1;text-decoration:none">${c.creative_url.substring(0,60)}${c.creative_url.length>60?'…':''}</a>
+                <div style="font-size:12px;color:#64748b;margin-top:2px">
+                  🔗 <a href="${c.creative_url}" target="_blank" style="color:#0891b2;text-decoration:none">${c.creative_url.substring(0,60)}${c.creative_url.length>60?'…':''}</a>
                 </div>
               </div>
               <div style="text-align:right;flex-shrink:0">
-                <div style="font-size:20px;font-weight:800;color:#6366f1">${fmtPrice(c.total_price)}</div>
+                <div style="font-size:20px;font-weight:800;color:#0891b2">${fmtPrice(c.total_price)}</div>
                 ${c.payment_ref ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${c.payment_ref}</div>` : ''}
               </div>
             </div>
@@ -746,7 +746,7 @@ async function renderMyWaitlist(el) {
       <div class="card" style="padding:16px">
         <div style="display:flex;align-items:center;gap:12px">
           <div style="flex:1">
-            <div style="font-size:14px;font-weight:700;color:#e2e8f0">${e.screen_name}</div>
+            <div style="font-size:14px;font-weight:700;color:#0f172a">${e.screen_name}</div>
             <div style="font-size:12px;color:#64748b">${e.screen_city || ''} · En espera desde ${new Date(e.created_at).toLocaleDateString()}</div>
           </div>
           <span class="bdg bdg-pending">${e.status}</span>
@@ -793,13 +793,15 @@ async function renderApprovalCenter() {
     <!-- KPI Cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:20px">
       ${[
-        { label: 'Pendientes', v: stats.pending_review, c: '--amber' },
-        { label: 'Activas', v: stats.active, c: '--green' },
-        { label: 'Total', v: stats.total_campaigns, c: '--brand-l' },
-        { label: 'Revenue (MOCK)', v: fmtPrice(stats.total_mock_revenue), c: '--cyan' },
-        { label: 'En espera', v: stats.waitlist_entries, c: '--violet' },
+        // Un color por tarjeta se veía como un arcoíris. Sólo lo que exige
+        // acción (pendientes) y el dinero llevan color; el resto en navy.
+        { label: 'Pendientes', v: stats.pending_review, c: stats.pending_review > 0 ? '#b45309' : 'var(--t-1)' },
+        { label: 'Activas', v: stats.active, c: 'var(--t-1)' },
+        { label: 'Total', v: stats.total_campaigns, c: 'var(--t-1)' },
+        { label: 'Ingresos', v: fmtPrice(stats.total_mock_revenue), c: '#047857' },
+        { label: 'En espera', v: stats.waitlist_entries, c: 'var(--t-1)' },
       ].map(s => `<div class="card" style="padding:16px;text-align:center">
-        <div style="font-size:22px;font-weight:800;color:var(${s.c})">${s.v}</div>
+        <div style="font-size:22px;font-weight:800;color:${s.c}">${s.v}</div>
         <div style="font-size:11px;color:#64748b;font-weight:600;margin-top:2px">${s.label}</div>
       </div>`).join('')}
     </div>
@@ -865,7 +867,7 @@ function renderApprovalCard(c, showActions) {
       <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:12px">
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px">
-            <span style="font-size:15px;font-weight:700;color:#e2e8f0">${c.name}</span>
+            <span style="font-size:15px;font-weight:700;color:#0f172a">${c.name}</span>
             ${adStatusBadge(c.status)}
           </div>
           <div style="font-size:12px;color:#64748b">
@@ -878,13 +880,13 @@ function renderApprovalCard(c, showActions) {
           </div>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div style="font-size:22px;font-weight:800;color:#6366f1">${fmtPrice(c.total_price)}</div>
+          <div style="font-size:22px;font-weight:800;color:#0891b2">${fmtPrice(c.total_price)}</div>
           <div style="font-size:10px;color:#64748b">${c.payment_status === 'mocked_paid' ? '✅ Pago recibido' : '⏳ Sin pago'}</div>
         </div>
       </div>
       <div style="margin-bottom:12px;padding:10px;background:rgba(255,255,255,.03);border-radius:8px">
         <div style="font-size:11px;font-weight:600;color:#64748b;margin-bottom:4px">MATERIAL PUBLICITARIO</div>
-        <a href="${c.creative_url}" target="_blank" style="font-size:12px;color:#6366f1;word-break:break-all">${c.creative_url}</a>
+        <a href="${c.creative_url}" target="_blank" style="font-size:12px;color:#0891b2;word-break:break-all">${c.creative_url}</a>
       </div>
       ${showActions && isPending ? `
         <div style="display:flex;gap:8px">
@@ -944,7 +946,7 @@ async function renderAdminWaitlist(el) {
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600">${e.advertiser_name} <span style="color:#64748b;font-weight:400">(${e.advertiser_email})</span></div>
           <div style="font-size:12px;color:#64748b">${e.screen_name} · ${e.screen_city} · ${new Date(e.created_at).toLocaleDateString()}</div>
-          ${e.notes ? `<div style="font-size:11px;color:#94a3b8;margin-top:2px">${e.notes}</div>` : ''}
+          ${e.notes ? `<div style="font-size:11px;color:#64748b;margin-top:2px">${e.notes}</div>` : ''}
         </div>
         <span class="bdg bdg-pending">${e.status}</span>
       </div>`).join('')}
@@ -969,8 +971,8 @@ async function showScreenQR(screenId, screenName) {
 
           <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:12px;margin-bottom:16px">
             <div style="font-size:11px;color:#64748b;margin-bottom:4px">URL de la Landing</div>
-            <div style="font-size:13px;color:#6366f1;word-break:break-all;font-weight:600">${data.advertise_url}</div>
-            <div style="font-size:11px;color:#64748b;margin-top:6px">Código: <strong style="color:#22d3ee">${data.public_screen_code}</strong></div>
+            <div style="font-size:13px;color:#0891b2;word-break:break-all;font-weight:600">${data.advertise_url}</div>
+            <div style="font-size:11px;color:#64748b;margin-top:6px">Código: <strong style="color:#0891b2">${data.public_screen_code}</strong></div>
           </div>
 
           <div style="display:flex;gap:8px;justify-content:center">
@@ -994,7 +996,7 @@ function printQR() {
   win.document.write(`<!DOCTYPE html><html><head><title>QR Publicitario</title>
     <style>body{margin:0;padding:20px;text-align:center;font-family:Inter,sans-serif}
     img{width:300px;height:300px}
-    p{font-size:14px;color:#334155;margin-top:8px}</style></head>
+    p{font-size:14px;color:#475569;margin-top:8px}</style></head>
     <body><img src="${url}"><p>Escanea para anunciarte en esta pantalla</p>
     <script>window.onload=()=>window.print()<\/script></body></html>`);
   win.document.close();

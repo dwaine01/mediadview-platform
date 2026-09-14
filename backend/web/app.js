@@ -116,15 +116,19 @@ function mediaThumb(mid, info, h){
   }
   var src = '/api/player/media/'+mid;
   if(kind === 'video'){
-    return '<video src="'+src+'" muted playsinline preload="metadata" style="width:100%;height:'+h+';object-fit:cover;background:#0f172a"></video>'+
+    return '<video src="'+src+'" muted playsinline preload="metadata" style="width:100%;height:'+h+';object-fit:cover;background:#f1f5f9"></video>'+
       '<div style="position:absolute;bottom:8px;left:8px;background:rgba(15,23,42,.85);color:#fff;font-size:10px;font-weight:700;padding:3px 7px;border-radius:6px">VIDEO</div>';
   }
   return '<img src="'+src+'" style="width:100%;height:'+h+';object-fit:cover" onerror="this.style.display=\'none\'">';
 }
 
 function badge(s){return`<span class="bdg bdg-${s}">${s}</span>`}
-function dot(s){const m={active:'#059669',pending:'#d97706',approved:'#a5b4fc',rejected:'#dc2626',draft:'#64748b',completed:'#67e8f9'};return m[s]||'#64748b'}
-const SG=['linear-gradient(135deg,#2563eb,#1e40af)','linear-gradient(135deg,#ea580c,#c2410c)','linear-gradient(135deg,#0d9488,#0f766e)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#d97706,#b45309)','linear-gradient(135deg,#db2777,#be185d)','linear-gradient(135deg,#059669,#047857)','linear-gradient(135deg,#4f46e5,#0e7490)','linear-gradient(135deg,#0891b2,#0e7490)','linear-gradient(135deg,#e11d48,#be123c)'];
+function dot(s){const m={active:'#059669',pending:'#d97706',approved:'#4338ca',rejected:'#dc2626',draft:'#64748b',completed:'#67e8f9'};return m[s]||'#64748b'}
+// Marcadores de pantalla SIN foto. Eran 10 gradientes de todos los colores
+// (azul, naranja, rosa, rojo…) y la pagina de Pantallas parecia un arcoiris que
+// no queria decir nada. Ahora son 4 tonos de la marca (navy → cian): distinguen
+// una tarjeta de otra sin pelearse entre ellas.
+const SG=['linear-gradient(135deg,#0f172a,#0e7490)','linear-gradient(135deg,#0e7490,#0891b2)','linear-gradient(135deg,#164e63,#0f172a)','linear-gradient(135deg,#0891b2,#06b6d4)'];
 // Premium stat card: label / icon / value / sub trend
 function stat(label,value,sub,colorVar,iconPath,trend){
   var trendHtml='';
@@ -188,7 +192,7 @@ const loaders={
               ${actCard('Browse Marketplace','Explore screens','#0891b2','M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','screens')}
               ${actCard('Create Menu','Restaurant menus','#10b981','M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253','menus')}
               ${actCard('View Analytics','Performance data','#0891b2','M3 3v18h18M7 14l3-3 4 4 5-6','analytics')}
-              ${user?.role==='admin'||user?.role==='superadmin'?actCard('Manage Devices','Connected players','#f59e0b','M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','devices'):''}
+              ${user?.role==='admin'||user?.role==='superadmin'?actCard('Manage Devices','Connected players','#b45309','M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z','devices'):''}
             </div>
           </div>
         </div>
@@ -228,7 +232,7 @@ const loaders={
             +'<div class="ct"><div class="nm">'+s.name+'</div>'
             +'<div class="ad">'+((s.location?.address||'')+(s.location?.postal_code?' · '+s.location.postal_code:''))+'</div>'
             +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin:8px 0">'+mapa
-            +(pub?'<span style="font-size:10px;font-weight:700;color:#4338ca;background:rgba(99,102,241,.12);padding:3px 8px;border-radius:999px">Publicidad</span>':'')+'</div>'
+            +(pub?'<span style="font-size:10px;font-weight:700;color:#0e7490;background:rgba(8,145,178,.12);padding:3px 8px;border-radius:999px">Publicidad</span>':'')+'</div>'
             +'<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:11px;color:var(--t-4)">'+((s.specs?.size||'')+' · '+(s.specs?.resolution||''))+'</span>'
             +'<div class="pr">$'+(s.pricing?.per_month||0)+'<span>/mes</span></div></div>'
             +(isAdm?'<button class="btn-s" style="width:100%;margin-top:10px;padding:8px;font-size:12px" onclick="editAdminScreen(\''+s.id+'\')">Editar ficha y ubicacion</button>':'')
@@ -439,14 +443,14 @@ const loaders={
             '<div style="width:56px;height:36px;border-radius:8px;background:'+(s._g||'linear-gradient(135deg,#0e7490,#0891b2)')+';flex-shrink:0"></div>'+
             '<div style="flex:1">'+
               '<div style="font-size:15px;font-weight:700">'+s.name+'</div>'+
-              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+((s.specs?.orientation||s.orientation)==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#10b981;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
+              '<div style="font-size:11px;color:#475569">'+(s.location_code||'')+' · '+s.location?.city+' · $'+(s.pricing?.per_month||0).toLocaleString()+'/mo · '+((s.specs?.orientation||s.orientation)==='portrait'?'↕ Portrait':'↔ Landscape')+(s.operation_type==='PUBLIC_ADVERTISING'?' · <span style="color:#047857;font-weight:700">PUBLIC ADS · Code:'+s.public_screen_code+'</span>':'')+'</div>'+
             '</div>'+
             '<div style="display:flex;gap:6px" onclick="event.stopPropagation()">'+
               (s.operation_type==='PUBLIC_ADVERTISING'?'<button onclick="showScreenQR(\''+s.id+'\',\''+s.name.replace(/'/g,'')+'\');event.stopPropagation()" style="padding:5px 14px;border-radius:6px;background:rgba(16,185,129,.1);color:#059669;font-size:11px;font-weight:600;border:1px solid rgba(16,185,129,.2);cursor:pointer">📱 QR</button>':'')+
               '<button onclick="editAdminScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(8,145,178,.1);color:#0891b2;font-size:11px;font-weight:600;border:none;cursor:pointer">Edit</button>'+
               '<button onclick="removeScreen(\''+s.id+'\')" style="padding:5px 14px;border-radius:6px;background:rgba(248,113,113,.1);color:#dc2626;font-size:11px;font-weight:600;border:none;cursor:pointer">Remove</button>'+
             '</div>'+
-            '<svg width="18" height="18" fill="none" stroke="#94a3b8" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
+            '<svg width="18" height="18" fill="none" stroke="#64748b" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>'+
           '</div>').join('')+'</div>';
 
       // ===== PENDING TAB =====
@@ -462,7 +466,7 @@ const loaders={
           var mid=hasMedia?c.media_ids[0]:'';
           return '<div class="card" style="padding:0;overflow:hidden"><div style="display:flex">'+
             (hasMedia?'<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;cursor:pointer;position:relative;display:flex;align-items:center;justify-content:center" onclick="openReview(\''+c.id+'\',\''+mid+'\',\'m\',\''+c.name.replace(/'/g,'')+'\',\''+(c.user?.name||'').replace(/'/g,'')+'\',\''+c.status+'\')">'+mediaThumb(mid,(c.media_info||[])[0])+'<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:opacity .2s" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0"><div style="background:rgba(255,255,255,.9);padding:8px 20px;border-radius:8px;font-size:13px;font-weight:700;color:#000">View Full Size</div></div></div>':
-            '<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#94a3b8;font-size:12.5px;font-weight:600">Sin vista previa</span></div>')+
+            '<div style="width:240px;min-height:180px;background:#f1f5f9;border-right:1px solid #e2e8f0;flex-shrink:0;display:flex;align-items:center;justify-content:center"><span style="color:#64748b;font-size:12.5px;font-weight:600">Sin vista previa</span></div>')+
             '<div style="flex:1;padding:20px;display:flex;flex-direction:column">'+
               '<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:18px;font-weight:700">'+c.name+'</span>'+badge(c.status)+'</div>'+
               '<div style="font-size:13px;color:#64748b;margin-bottom:4px">Client: <span style="color:#0f172a;font-weight:600">'+(c.user?.name||'Unknown')+'</span></div>'+
@@ -760,7 +764,7 @@ async function approveCamp(id){try{await api('/admin/campaigns/'+id+'/approve',{
 function selectOpType(type) {
   var types = ['SELF_SERVICE','PUBLIC_ADVERTISING','MEDIAVIEW_MANAGED'];
   var ids = {SELF_SERVICE:'ot-ss',PUBLIC_ADVERTISING:'ot-pa',MEDIAVIEW_MANAGED:'ot-mm'};
-  var colors = {SELF_SERVICE:'#0891b2',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#F59E0B'};
+  var colors = {SELF_SERVICE:'#0891b2',PUBLIC_ADVERTISING:'#10B981',MEDIAVIEW_MANAGED:'#b45309'};
   types.forEach(function(t){
     var el = document.getElementById(ids[t]);
     if (!el) return;
@@ -1213,7 +1217,7 @@ async function loadPlaylists(screens){
         items.forEach(function(item){
           var rot=item.rotation||0;
           html+='<div style="width:200px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-1)">';
-          html+='<div style="height:100px;overflow:hidden;background:#0f172a;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
+          html+='<div style="height:100px;overflow:hidden;background:#f1f5f9;display:flex;align-items:center;justify-content:center"><img src="'+location.origin+item.media_url+'" style="width:100%;height:100%;object-fit:cover;transform:rotate('+rot+'deg)"></div>';
           html+='<div style="padding:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><div style="font-size:10px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1">'+item.filename+'</div><button onclick="delMedia(\''+item.campaign_id+'\',\''+item.media_id+'\',event)" style="padding:2px 8px;border-radius:4px;background:rgba(248,113,113,.15);color:var(--red);font-size:10px;font-weight:700;border:none;cursor:pointer;flex-shrink:0">✕</button></div>';
           html+='<div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:4px">';
           ['none','fade','slide','zoom'].forEach(function(anim){
@@ -1269,8 +1273,13 @@ loaders.menus = async function(){
         var catCount=m.category_count!==undefined?m.category_count:(m.categories?m.categories.length:0);
         var itemCount=m.item_count!==undefined?m.item_count:(function(){var n=0;(m.categories||[]).forEach(function(c){n+=(c.items||[]).length});return n})();
         html+='<div class="card card-i" style="overflow:hidden;cursor:pointer" onclick="editMenu(\''+m.id+'\')">';
-        html+='<div style="height:80px;background:'+tpl.preview_color+';display:flex;align-items:center;justify-content:center;position:relative">';
-        html+='<span style="font-size:20px;font-weight:900;color:'+tpl.accent_color+';letter-spacing:2px">'+(m.restaurant_name||m.name)+'</span>';
+        // El encabezado usaba los colores de la plantilla (navy + dorado). En un
+        // panel claro eso se ve como un parche ajeno, y el dorado no es de la
+        // marca. Banda navy→cian con el nombre en blanco y el color de la
+        // plantilla reducido a un punto.
+        html+='<div style="height:80px;background:linear-gradient(135deg,#0f172a,#0e7490);display:flex;align-items:center;justify-content:center;position:relative;padding:0 14px">';
+        html+='<span style="font-size:17px;font-weight:800;color:#ffffff;letter-spacing:.5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(m.restaurant_name||m.name)+'</span>';
+        html+='<span style="position:absolute;bottom:8px;left:8px;width:10px;height:10px;border-radius:50%;background:'+tpl.accent_color+';border:1px solid rgba(255,255,255,.6)" title="'+tpl.name+'"></span>';
         html+='<span class="bdg bdg-'+(m.status==='published'?'active':'pending')+'" style="position:absolute;top:8px;right:8px;font-size:9px">'+m.status+'</span>';
         html+='</div>';
         html+='<div style="padding:16px">';

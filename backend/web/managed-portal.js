@@ -7,13 +7,13 @@
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 const MV_STATUS_COLOR = {
-  online:  '#34d399',
-  offline: '#f87171',
-  unpaired:'#94a3b8',
-  PENDING:    '#fbbf24',
+  online:  '#059669',
+  offline: '#dc2626',
+  unpaired:'#64748b',
+  PENDING:    '#d97706',
   IN_PROGRESS:'#60a5fa',
-  COMPLETED:  '#34d399',
-  CANCELLED:  '#94a3b8',
+  COMPLETED:  '#059669',
+  CANCELLED:  '#64748b',
 };
 
 const MV_TYPE_LABEL = {
@@ -40,7 +40,7 @@ const MV_PRIORITY_LABEL = {
 };
 
 function mvBadge(key, label){
-  const c = MV_STATUS_COLOR[key] || '#94a3b8';
+  const c = MV_STATUS_COLOR[key] || '#64748b';
   return `<span style="display:inline-flex;align-items:center;font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;background:${c}22;color:${c};border:1px solid ${c}44">${label||key}</span>`;
 }
 
@@ -78,18 +78,18 @@ loaders['managed-dashboard'] = async function(){
     const greet = hour < 12 ? 'Buenos días' : hour < 18 ? 'Buenas tardes' : 'Buenas noches';
 
     el.innerHTML = `
-      <div class="welcome-banner fade" style="border-left:4px solid #6366f1;padding-left:20px;margin-bottom:28px">
+      <div class="welcome-banner fade" style="border-left:4px solid #0891b2;padding-left:20px;margin-bottom:28px">
         <div class="greeting" style="font-size:12px;color:var(--t-4);font-weight:600;text-transform:uppercase;letter-spacing:.5px">${greet} · Portal de Cliente Gestionado</div>
         <h1 style="font-size:28px;font-weight:800;margin:6px 0 6px">Bienvenido, ${(usr.name||'').split(' ')[0]||'Cliente'}</h1>
         <p style="color:var(--t-3);font-size:14px">Tu equipo de MediaView gestiona el contenido de tus pantallas. Aquí puedes monitorear el estado y solicitar cambios.</p>
       </div>
 
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px;margin-bottom:28px">
-        ${mvKpi('Total Pantallas', d.total_screens, '#6366f1', 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z')}
-        ${mvKpi('En Línea', d.online_screens, '#34d399', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z')}
-        ${mvKpi('Ubicaciones', d.total_locations, '#22d3ee', 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z')}
-        ${mvKpi('Contenido Activo', d.active_content, '#a78bfa', 'M5 4h14a2 2 0 012 2v3H3V6a2 2 0 012-2zm-2 9h18v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z')}
-        ${mvKpi('Solicitudes Pendientes', d.pending_requests, '#fbbf24', 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4v-4z')}
+        ${mvKpi('Total Pantallas', d.total_screens, '#0891b2', 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z')}
+        ${mvKpi('En Línea', d.online_screens, '#059669', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z')}
+        ${mvKpi('Ubicaciones', d.total_locations, '#0891b2', 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z')}
+        ${mvKpi('Contenido Activo', d.active_content, '#0891b2', 'M5 4h14a2 2 0 012 2v3H3V6a2 2 0 012-2zm-2 9h18v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5z')}
+        ${mvKpi('Solicitudes Pendientes', d.pending_requests, '#d97706', 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4v-4z')}
       </div>
 
       <div>
@@ -125,7 +125,7 @@ loaders['managed-dashboard'] = async function(){
       <div style="margin-top:28px">
         <div class="sh" style="margin-bottom:14px"><h2 style="font-size:16px;font-weight:700">¿Necesitas un cambio?</h2></div>
         <div class="card" style="padding:24px;display:flex;align-items:center;gap:20px">
-          <div style="width:48px;height:48px;border-radius:14px;background:rgba(99,102,241,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <div style="width:48px;height:48px;border-radius:14px;background:rgba(8,145,178,.12);display:flex;align-items:center;justify-content:center;flex-shrink:0">
             <svg width="22" height="22" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-4 4v-4z"/></svg>
           </div>
           <div style="flex:1">
@@ -163,7 +163,7 @@ loaders['managed-screens'] = async function(){
            </div>`
         : `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px">
             ${screens.map(s=>{
-              const statusColor = MV_STATUS_COLOR[s.device_status] || '#94a3b8';
+              const statusColor = MV_STATUS_COLOR[s.device_status] || '#64748b';
               const statusLabel = s.device_status==='online'?'En Línea':s.device_status==='offline'?'Sin Conexión':'Sin Dispositivo';
               return `
               <div class="card" style="overflow:hidden">
@@ -202,7 +202,7 @@ loaders['managed-screens'] = async function(){
             }).join('')}
           </div>`
       }
-      <div style="margin-top:24px;padding:16px;background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:var(--radius-sm);font-size:13px;color:var(--t-3);display:flex;align-items:center;gap:10px">
+      <div style="margin-top:24px;padding:16px;background:rgba(8,145,178,.05);border:1px solid rgba(8,145,178,.15);border-radius:var(--radius-sm);font-size:13px;color:var(--t-3);display:flex;align-items:center;gap:10px">
         <svg width="16" height="16" fill="none" stroke="var(--brand-l)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path stroke-linecap="round" d="M12 8v4m0 4h.01"/></svg>
         <span>Estas pantallas son <strong>administradas por MediaView</strong>. Para solicitar cambios de contenido o configuración, usa la sección <a onclick="go('managed-requests')" style="color:var(--brand-l);cursor:pointer;text-decoration:underline">Solicitar Cambio</a>.</span>
       </div>`;
@@ -334,8 +334,8 @@ loaders['managed-requests'] = async function(){
                <button class="btn-p" onclick="window._mvShowRequestForm()">+ Crear Primera Solicitud</button>
              </div>`
           : reqs.map(r=>{
-              const statusColor = MV_STATUS_COLOR[r.status] || '#94a3b8';
-              const prioColor = r.priority==='URGENT'?'#ef4444':r.priority==='HIGH'?'#f97316':r.priority==='LOW'?'#94a3b8':'var(--t-3)';
+              const statusColor = MV_STATUS_COLOR[r.status] || '#64748b';
+              const prioColor = r.priority==='URGENT'?'#ef4444':r.priority==='HIGH'?'#f97316':r.priority==='LOW'?'#64748b':'var(--t-3)';
               return `
               <div class="card" style="padding:20px;margin-bottom:10px">
                 <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px">
@@ -351,7 +351,7 @@ loaders['managed-requests'] = async function(){
                 </div>
                 <p style="font-size:13px;color:var(--t-3);margin:0 0 ${r.admin_notes?'10px':'0'};line-height:1.6">${escapeHtml(r.description||'')}</p>
                 ${r.admin_notes
-                  ? `<div style="padding:10px 14px;background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:8px;margin-top:8px">
+                  ? `<div style="padding:10px 14px;background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.15);border-radius:8px;margin-top:8px">
                        <div style="font-size:11px;font-weight:700;color:var(--brand-l);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px">Nota del Equipo MediaView</div>
                        <div style="font-size:13px;color:var(--t-2)">${escapeHtml(r.admin_notes)}</div>
                      </div>`
@@ -380,7 +380,7 @@ window._mvAdminLoadRequests = async function(containerId){
     }
     el.innerHTML = `<div style="display:flex;flex-direction:column;gap:8px;padding:4px 0">` +
       reqs.map(r=>{
-        const statusColor = MV_STATUS_COLOR[r.status] || '#94a3b8';
+        const statusColor = MV_STATUS_COLOR[r.status] || '#64748b';
         return `
         <div style="padding:16px;background:var(--bg-2);border-radius:10px;border:1px solid var(--border)">
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px">

@@ -19,14 +19,14 @@
       .sp-tbl th,.sp-tbl td{padding:11px 13px;text-align:left;font-size:12.5px;border-bottom:1px solid var(--border)}
       .sp-tbl th{background:rgba(2,6,23,.04);font-size:10px;font-weight:800;color:var(--t-4);text-transform:uppercase;letter-spacing:1px}
       .sp-tbl tbody tr{cursor:pointer;transition:background .1s}
-      .sp-tbl tbody tr:hover{background:rgba(99,102,241,.04)}
+      .sp-tbl tbody tr:hover{background:rgba(8,145,178,.04)}
       .sp-mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t-4)}
       .sp-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px}
-      .sp-b-new{background:rgba(99,102,241,.12);color:#4f46e5}
+      .sp-b-new{background:rgba(8,145,178,.12);color:#0e7490}
       .sp-b-in_review{background:rgba(251,191,36,.15);color:#d97706}
       .sp-b-missing_info{background:rgba(239,68,68,.12);color:#dc2626}
       .sp-b-ready_for_permit{background:rgba(34,211,238,.12);color:#0891b2}
-      .sp-b-submitted{background:rgba(147,51,234,.12);color:#7c3aed}
+      .sp-b-submitted{background:rgba(147,51,234,.12);color:#0e7490}
       .sp-b-approved{background:rgba(16,185,129,.12);color:#059669}
       .sp-b-closed{background:rgba(148,163,184,.15);color:#64748b}
       .sp-empty{padding:60px 20px;text-align:center;color:var(--t-4);font-size:13px}
@@ -43,8 +43,8 @@
       .sp-kv div span:last-child{color:var(--t-1);font-weight:500;text-align:right;word-break:break-word}
       .sp-sig{background:#fafafa;border:1px solid var(--border);border-radius:10px;padding:10px;text-align:center}
       .sp-sig img{max-width:100%;max-height:180px;background:#fff;border-radius:6px}
-      .sp-act{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border:none;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-right:6px}
-      .sp-act.pdf{background:linear-gradient(135deg,#22d3ee,#0891b2)}
+      .sp-act{background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border:none;padding:9px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;font-family:inherit;margin-right:6px}
+      .sp-act.pdf{background:linear-gradient(135deg,#0891b2,#0891b2)}
       .sp-note{width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--t-1);padding:10px 12px;border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;min-height:60px}
     `;
     document.head.appendChild(st);
@@ -168,7 +168,7 @@
         ['Business on Sign',o.sign_business_name],
         ['Sign Address',o.sign_address],
         ['Type',o.sign_type + (o.sign_type_other?` — ${o.sign_type_other}`:'')],
-      ])}${o.sign_description?`<div style="margin-top:8px;padding:10px 12px;background:rgba(99,102,241,.04);border-radius:8px;font-size:13px"><b>Description:</b><br>${esc(o.sign_description)}</div>`:''}${o.sign_additional?`<div style="margin-top:8px;padding:10px 12px;background:rgba(99,102,241,.04);border-radius:8px;font-size:13px"><b>Additional:</b><br>${esc(o.sign_additional)}</div>`:''}</div>
+      ])}${o.sign_description?`<div style="margin-top:8px;padding:10px 12px;background:rgba(8,145,178,.04);border-radius:8px;font-size:13px"><b>Description:</b><br>${esc(o.sign_description)}</div>`:''}${o.sign_additional?`<div style="margin-top:8px;padding:10px 12px;background:rgba(8,145,178,.04);border-radius:8px;font-size:13px"><b>Additional:</b><br>${esc(o.sign_additional)}</div>`:''}</div>
 
       <div class="sp-sec"><h3>Authorization</h3>${kv([
         ['Certified by',o.cert_full_name],['Date',o.cert_date],['Agreed',o.cert_agreed?'Yes':'No'],

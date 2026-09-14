@@ -1067,3 +1067,30 @@ Pendiente de validación en hardware real por el dueño (checklist de 13 pasos e
   está cifrada con una llave vieja). `SMTP_CONFIG_ERRORS` agrupa las dos.
 - Snapshot de rutas regenerado a propósito (499 → 525): venía desactualizado de las iteraciones
   del marketplace/plantillas más `POST /admin/devices/cleanup-pending`.
+
+## Panel claro de punta a punta (2026-06)
+- Reporte del dueño: «los colores están mal, no se nota, está muy apagado, y no entiendo todos
+  esos recuadros». Era la ficha de CRM Customers, pero el problema era general: el shell del
+  panel es CLARO y varios módulos que arman su HTML en JS seguían con el tema oscuro viejo
+  (tarjetas `#111827`, bordes `#1f2937`, texto `#f3f4f6`/`#d1d5db`/`#9ca3af`, acento índigo).
+  Texto gris claro sobre tarjeta blanca = ilegible.
+- `backend/scripts/relight_panel_modules.py` (nuevo, idempotente): mapea los literales de color
+  de los 13 módulos que carga `index.html`. 469 literales aclarados. Se dejan oscuros a
+  propósito los scrims de modal (`rgba(...)`), el visor de PDF (`#525659`) y el lightbox.
+- Ficha del cliente (CRM) reorganizada: tira superior con **Plan · Cobro mensual · Pantallas ·
+  Suscripción · Próximo período**, y 3 tarjetas (Contacto · Espacio de trabajo · Suscripción y
+  precio) en vez de 4. `_crmRow` ya **no dibuja los campos vacíos** (media tarjeta eran
+  renglones «—») y `_crmBadge` usa tonos con contraste AA sobre blanco. Todo en español.
+- Otros arreglos de combinación:
+  - `.tabs-row/.tab-btn` (Portal del Anunciante y Centro de Aprobación) no tenían CSS: las
+    pestañas salían como texto pegado. Ahora comparten el estilo de `#f-tabs`.
+  - Centro de Aprobación: los 5 KPI tenían un color cada uno (arcoíris). Sólo «Pendientes»
+    (ámbar, si hay) e «Ingresos» (verde) llevan color.
+  - Menús: el encabezado de cada tarjeta usaba los colores de la plantilla (navy + **dorado**,
+    color prohibido de la marca). Ahora banda navy→cian con el nombre en blanco y el color de
+    la plantilla como un punto.
+  - Pantallas: `SG` pasó de 10 gradientes de todos los colores a 4 tonos navy/cian.
+- REGLA: el panel (`web/*.js` cargado por `index.html`) es claro. Nada de texto por encima de
+  `#64748b` sobre blanco, nada de fondos `#0f172a`/`#111827` en tarjetas, nada de dorado.
+  Los `?v=` de `index.html` se suben en cada cambio de estos archivos o el navegador sirve el
+  viejo y «no se ve el cambio».

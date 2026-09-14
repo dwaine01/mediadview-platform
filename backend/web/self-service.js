@@ -7,16 +7,16 @@
  */
 
 // ── Plan colour map ───────────────────────────────────────────────────────────
-const PLAN_COLOR = { starter:'#6366f1', pro:'#0891b2', enterprise:'#10b981', free:'#94a3b8' };
-const STATUS_COLOR = { active:'#34d399', trialing:'#a78bfa', suspended:'#fbbf24', cancelled:'#f87171', free:'#94a3b8' };
+const PLAN_COLOR = { starter:'#0891b2', pro:'#0891b2', enterprise:'#10b981', free:'#64748b' };
+const STATUS_COLOR = { active:'#059669', trialing:'#0891b2', suspended:'#d97706', cancelled:'#dc2626', free:'#64748b' };
 
 function ssBadge(status, text){
-  const c = STATUS_COLOR[status]||'#94a3b8';
+  const c = STATUS_COLOR[status]||'#64748b';
   const bg = c+'22';
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;padding:3px 9px;border-radius:20px;background:${bg};color:${c};border:1px solid ${c}44">${text||status}</span>`;
 }
 function planBadge(plan){
-  const c = PLAN_COLOR[plan]||'#94a3b8';
+  const c = PLAN_COLOR[plan]||'#64748b';
   return `<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:12px;background:${c}22;color:${c};border:1px solid ${c}44;text-transform:uppercase;letter-spacing:.5px">${plan||'free'}</span>`;
 }
 function fmtDate(iso){
@@ -27,7 +27,7 @@ function copyText(txt, btn){
   navigator.clipboard.writeText(txt).then(()=>{
     const orig = btn.textContent;
     btn.textContent = '✓ Copied!';
-    btn.style.color = '#34d399';
+    btn.style.color = '#059669';
     setTimeout(()=>{ btn.textContent=orig; btn.style.color=''; }, 2000);
   });
 }
@@ -78,8 +78,8 @@ loaders['my-org'] = async function(){
         <div class="ph"><div><h1>My Organization</h1><p>Set up your organization to manage screens, locations and team.</p></div></div>
         <div style="max-width:560px;margin:0 auto">
           <div class="card" style="padding:32px">
-            <div style="width:56px;height:56px;border-radius:16px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px">
-              <svg width="28" height="28" fill="none" stroke="#6366f1" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            <div style="width:56px;height:56px;border-radius:16px;background:rgba(8,145,178,.1);border:1px solid rgba(8,145,178,.2);display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+              <svg width="28" height="28" fill="none" stroke="#0891b2" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
             </div>
             <h2 style="font-size:20px;font-weight:700;margin-bottom:8px">Create your organization</h2>
             <p style="color:var(--t-3);font-size:14px;margin-bottom:24px">Your organization groups all your screens, locations and team members under one account.</p>
@@ -92,11 +92,11 @@ loaders['my-org'] = async function(){
       return;
     }
     const s = org.stats || {};
-    const statusColor = org.status==='active' ? '#34d399' : org.status==='suspended' ? '#fbbf24' : '#f87171';
+    const statusColor = org.status==='active' ? '#059669' : org.status==='suspended' ? '#d97706' : '#dc2626';
     el.innerHTML = `
       <div class="ph">
         <div style="display:flex;align-items:center;gap:16px">
-          ${org.logo_url ? `<img src="${org.logo_url}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;border:1px solid var(--border)">` : `<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">${(org.name||'O')[0]}</div>`}
+          ${org.logo_url ? `<img src="${org.logo_url}" style="width:48px;height:48px;border-radius:12px;object-fit:cover;border:1px solid var(--border)">` : `<div style="width:48px;height:48px;border-radius:12px;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:800;color:#fff">${(org.name||'O')[0]}</div>`}
           <div>
             <h1 style="margin-bottom:4px">${escapeHtml(org.name)}</h1>
             <div style="display:flex;gap:8px;align-items:center">
@@ -216,8 +216,8 @@ loaders['locations'] = async function(){
           ${locs.map(loc=>`
             <div class="card card-i" style="padding:20px">
               <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-                <div style="width:40px;height:40px;border-radius:10px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.18);display:flex;align-items:center;justify-content:center">
-                  <svg width="20" height="20" fill="none" stroke="#6366f1" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <div style="width:40px;height:40px;border-radius:10px;background:rgba(8,145,178,.1);border:1px solid rgba(8,145,178,.18);display:flex;align-items:center;justify-content:center">
+                  <svg width="20" height="20" fill="none" stroke="#0891b2" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0zM15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                 </div>
                 <div style="display:flex;gap:6px">
                   <button onclick="ssEditLocationModal('${loc.id}')" class="btn-icon" title="Edit" style="width:30px;height:30px">
@@ -231,7 +231,7 @@ loaders['locations'] = async function(){
               <div style="font-size:15px;font-weight:700;color:var(--t-1);margin-bottom:4px">${escapeHtml(loc.name)}</div>
               <div style="font-size:12px;color:var(--t-4);margin-bottom:10px">${escapeHtml(loc.address||'')}${loc.city?', '+escapeHtml(loc.city):''}${loc.state?', '+escapeHtml(loc.state):''}</div>
               <div style="display:flex;align-items:center;gap:6px">
-                <div style="width:6px;height:6px;border-radius:50%;background:#34d399"></div>
+                <div style="width:6px;height:6px;border-radius:50%;background:#059669"></div>
                 <span style="font-size:12px;color:var(--t-4)">${loc.screen_count||0} screen${loc.screen_count!==1?'s':''}</span>
               </div>
             </div>`).join('')}
@@ -331,13 +331,13 @@ loaders['team'] = async function(){
         <div style="padding:18px 22px;border-bottom:1px solid var(--border);font-size:13px;font-weight:700;color:var(--t-2)">MEMBERS (${(data.members?.length||0) + 1})</div>
         ${[data.owner, ...(data.members||[])].filter(Boolean).map(m=>`
           <div style="display:flex;align-items:center;gap:14px;padding:16px 22px;border-bottom:1px solid var(--border)">
-            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0">${(m.name||m.email||'?')[0].toUpperCase()}</div>
+            <div style="width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#fff;flex-shrink:0">${(m.name||m.email||'?')[0].toUpperCase()}</div>
             <div style="flex:1;min-width:0">
               <div style="font-size:14px;font-weight:600;color:var(--t-1)">${escapeHtml(m.name||'—')}</div>
               <div style="font-size:12px;color:var(--t-4)">${escapeHtml(m.email||'')}</div>
             </div>
             <div style="display:flex;gap:8px;align-items:center">
-              ${m.id===data.owner?.id ? '<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:rgba(99,102,241,.12);color:#6366f1;border:1px solid rgba(99,102,241,.2)">Owner</span>' :
+              ${m.id===data.owner?.id ? '<span style="font-size:11px;font-weight:700;padding:3px 9px;border-radius:12px;background:rgba(8,145,178,.12);color:#0891b2;border:1px solid rgba(8,145,178,.2)">Owner</span>' :
                 `<span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;background:rgba(148,163,184,.08);color:var(--t-3);border:1px solid var(--border)">${m.rbac_role||m.role||'Member'}</span>
                 <button onclick="ssRemoveMember('${orgId}','${m.id}','${escapeHtml(m.name||m.email||'')}')" class="btn-icon" title="Remove" style="width:28px;height:28px;color:var(--red)">
                   <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -356,7 +356,7 @@ loaders['team'] = async function(){
                 <div style="font-size:14px;font-weight:600;color:var(--t-2)">${escapeHtml(inv.email)}</div>
                 <div style="font-size:12px;color:var(--t-4)">Invited · expires ${fmtDate(inv.expires_at)}</div>
               </div>
-              <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;background:rgba(251,191,36,.1);color:#fbbf24;border:1px solid rgba(251,191,36,.2)">Pending</span>
+              <span style="font-size:11px;font-weight:600;padding:3px 9px;border-radius:12px;background:rgba(251,191,36,.1);color:#d97706;border:1px solid rgba(251,191,36,.2)">Pending</span>
               <button onclick="copyText('${inviteBaseUrl}#/invite/${inv.token}', this)" class="btn-s" style="font-size:12px;padding:6px 12px">Copy Link</button>
               <button onclick="ssRevokeInvite('${orgId}','${inv.id}')" class="btn-icon" title="Revoke" style="width:28px;height:28px;color:var(--red)">
                 <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -376,12 +376,12 @@ function ssInviteModal(orgId){
           <option value="SELF_SERVICE_OWNER">Owner — full access to this organization</option>
         </select>
       </div>
-      <div style="background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:var(--radius-sm);padding:12px">
+      <div style="background:rgba(8,145,178,.05);border:1px solid rgba(8,145,178,.15);border-radius:var(--radius-sm);padding:12px">
         <p style="font-size:12px;color:var(--t-3);margin:0">📧 Email sending is not configured yet. After creating the invite, you'll receive a shareable link to send manually.</p>
       </div>
       <p id="inv-err" style="color:var(--red);font-size:12px;display:none"></p>
       <div id="inv-success" style="display:none;background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.2);border-radius:var(--radius-sm);padding:16px">
-        <div style="font-size:13px;font-weight:600;color:#34d399;margin-bottom:8px">✓ Invite created!</div>
+        <div style="font-size:13px;font-weight:600;color:#059669;margin-bottom:8px">✓ Invite created!</div>
         <div style="font-size:12px;color:var(--t-3);margin-bottom:8px">Share this link with your team member:</div>
         <div style="display:flex;gap:8px;align-items:center">
           <input id="inv-link" class="inp" readonly style="font-size:11px;font-family:monospace;flex:1">
@@ -467,8 +467,8 @@ loaders['subscriptions'] = async function(){
         `<div style="display:flex;flex-direction:column;gap:10px">
           ${subs.map(s=>`
             <div class="card" style="display:flex;align-items:center;gap:16px;padding:18px 22px">
-              <div style="width:40px;height:40px;border-radius:10px;background:${PLAN_COLOR[s.plan]||'#94a3b8'}18;border:1px solid ${PLAN_COLOR[s.plan]||'#94a3b8'}33;display:flex;align-items:center;justify-content:center;flex-shrink:0">
-                <svg width="20" height="20" fill="none" stroke="${PLAN_COLOR[s.plan]||'#94a3b8'}" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8m-4-4v4"/></svg>
+              <div style="width:40px;height:40px;border-radius:10px;background:${PLAN_COLOR[s.plan]||'#64748b'}18;border:1px solid ${PLAN_COLOR[s.plan]||'#64748b'}33;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                <svg width="20" height="20" fill="none" stroke="${PLAN_COLOR[s.plan]||'#64748b'}" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path stroke-linecap="round" d="M8 21h8m-4-4v4"/></svg>
               </div>
               <div style="flex:1;min-width:0">
                 <div style="font-size:14px;font-weight:700;color:var(--t-1)">${escapeHtml(s.screen_name||'Unknown Screen')}</div>
@@ -484,7 +484,7 @@ loaders['subscriptions'] = async function(){
               </div>
               <div style="display:flex;gap:6px">
                 ${s.status!=='cancelled' ? `<button onclick="ssChangePlanModal('${s.id}','${s.plan}','${s.billing_cycle}')" class="btn-s" style="font-size:11px;padding:6px 10px">Change Plan</button>` : ''}
-                ${s.status==='suspended' ? `<button onclick="ssActivateSub('${s.id}')" class="btn-s" style="font-size:11px;padding:6px 10px;color:#34d399">Reactivate</button>` : ''}
+                ${s.status==='suspended' ? `<button onclick="ssActivateSub('${s.id}')" class="btn-s" style="font-size:11px;padding:6px 10px;color:#059669">Reactivate</button>` : ''}
                 ${!['cancelled'].includes(s.status) ? `<button onclick="ssCancelSub('${s.id}','${escapeHtml(s.screen_name||'')}')" class="btn-s" style="font-size:11px;padding:6px 10px;color:var(--red)">Cancel</button>` : ''}
               </div>
             </div>`).join('')}
@@ -517,10 +517,10 @@ async function ssNewSubModal(){
         <div>
           <label class="inp-label">Billing Cycle</label>
           <div style="display:flex;gap:8px">
-            <button type="button" id="sub-monthly-btn" onclick="document.getElementById('sub-cycle').value='monthly';document.getElementById('sub-monthly-btn').style.background='rgba(99,102,241,.08)';document.getElementById('sub-monthly-btn').style.borderColor='var(--brand)';document.getElementById('sub-annual-btn').style.background='transparent';document.getElementById('sub-annual-btn').style.borderColor='var(--border)'"
-              style="flex:1;padding:10px;border-radius:var(--radius-sm);border:2px solid var(--brand);background:rgba(99,102,241,.08);font-size:13px;font-weight:600;cursor:pointer;color:var(--t-1)">Monthly</button>
-            <button type="button" id="sub-annual-btn" onclick="document.getElementById('sub-cycle').value='annual';document.getElementById('sub-annual-btn').style.background='rgba(99,102,241,.08)';document.getElementById('sub-annual-btn').style.borderColor='var(--brand)';document.getElementById('sub-monthly-btn').style.background='transparent';document.getElementById('sub-monthly-btn').style.borderColor='var(--border)'"
-              style="flex:1;padding:10px;border-radius:var(--radius-sm);border:2px solid var(--border);background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--t-1)">Annual <span style="font-size:11px;color:#34d399">(Save ~17%)</span></button>
+            <button type="button" id="sub-monthly-btn" onclick="document.getElementById('sub-cycle').value='monthly';document.getElementById('sub-monthly-btn').style.background='rgba(8,145,178,.08)';document.getElementById('sub-monthly-btn').style.borderColor='var(--brand)';document.getElementById('sub-annual-btn').style.background='transparent';document.getElementById('sub-annual-btn').style.borderColor='var(--border)'"
+              style="flex:1;padding:10px;border-radius:var(--radius-sm);border:2px solid var(--brand);background:rgba(8,145,178,.08);font-size:13px;font-weight:600;cursor:pointer;color:var(--t-1)">Monthly</button>
+            <button type="button" id="sub-annual-btn" onclick="document.getElementById('sub-cycle').value='annual';document.getElementById('sub-annual-btn').style.background='rgba(8,145,178,.08)';document.getElementById('sub-annual-btn').style.borderColor='var(--brand)';document.getElementById('sub-monthly-btn').style.background='transparent';document.getElementById('sub-monthly-btn').style.borderColor='var(--border)'"
+              style="flex:1;padding:10px;border-radius:var(--radius-sm);border:2px solid var(--border);background:transparent;font-size:13px;font-weight:600;cursor:pointer;color:var(--t-1)">Annual <span style="font-size:11px;color:#059669">(Save ~17%)</span></button>
             <input type="hidden" id="sub-cycle" value="monthly">
           </div>
         </div>
@@ -616,12 +616,12 @@ loaders['admin-orgs'] = async function(){
             <div>${planBadge(org.plan)}</div>
             <div style="font-size:14px;font-weight:600;color:var(--t-2)">${org.screen_count||0}</div>
             <div style="font-size:14px;font-weight:600;color:var(--t-2)">${org.member_count||0}</div>
-            <div style="font-size:14px;font-weight:600;color:${(org.active_subs||0)>0?'#34d399':'var(--t-4)'}">${org.active_subs||0}</div>
+            <div style="font-size:14px;font-weight:600;color:${(org.active_subs||0)>0?'#059669':'var(--t-4)'}">${org.active_subs||0}</div>
             <div>${ssBadge(org.status)}</div>
             <div style="display:flex;gap:6px;justify-content:flex-end">
               <button onclick="adminViewOrg('${org.id}')" class="btn-s" style="font-size:11px;padding:5px 10px">View</button>
-              ${org.status==='active'?`<button onclick="adminSetOrgStatus('${org.id}','suspended')" class="btn-s" style="font-size:11px;padding:5px 10px;color:#fbbf24">Suspend</button>`:
-                org.status==='suspended'?`<button onclick="adminSetOrgStatus('${org.id}','active')" class="btn-s" style="font-size:11px;padding:5px 10px;color:#34d399">Activate</button>`:''}
+              ${org.status==='active'?`<button onclick="adminSetOrgStatus('${org.id}','suspended')" class="btn-s" style="font-size:11px;padding:5px 10px;color:#d97706">Suspend</button>`:
+                org.status==='suspended'?`<button onclick="adminSetOrgStatus('${org.id}','active')" class="btn-s" style="font-size:11px;padding:5px 10px;color:#059669">Activate</button>`:''}
             </div>
           </div>`).join('')}
       </div>`}`;
@@ -676,19 +676,19 @@ async function handleInviteHash(){
 function showInviteError(msg){
   document.getElementById('view-login').classList.remove('off');
   const card = document.querySelector('#view-login .login-card');
-  if(card) card.innerHTML += `<div style="margin-top:16px;padding:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--rl);text-align:center;font-size:13px;color:#f87171">${escapeHtml(msg)}</div>`;
+  if(card) card.innerHTML += `<div style="margin-top:16px;padding:16px;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.2);border-radius:var(--rl);text-align:center;font-size:13px;color:#dc2626">${escapeHtml(msg)}</div>`;
 }
 
 function showInviteAcceptModal(token, inv){
   const isNew = !inv.has_account;
   ssModal('ss-accept-invite', `Join ${escapeHtml(inv.org_name)}`,
     `<div style="text-align:center;margin-bottom:20px">
-      <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#6366f1,#4338ca);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;margin:0 auto 12px">${(inv.org_name||'O')[0]}</div>
+      <div style="width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#0891b2,#0e7490);display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:#fff;margin:0 auto 12px">${(inv.org_name||'O')[0]}</div>
       <div style="font-size:11px;color:var(--t-4);text-transform:uppercase;letter-spacing:.5px">${escapeHtml(inv.invited_by)} is inviting you to join</div>
       <h3 style="font-size:20px;font-weight:700;color:var(--t-1);margin:6px 0 4px">${escapeHtml(inv.org_name)}</h3>
       <div style="font-size:12px;color:var(--t-4)">as <strong>${escapeHtml(inv.role)}</strong></div>
     </div>
-    <div style="background:rgba(99,102,241,.05);border:1px solid rgba(99,102,241,.15);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px">
+    <div style="background:rgba(8,145,178,.05);border:1px solid rgba(8,145,178,.15);border-radius:var(--radius-sm);padding:12px;margin-bottom:16px">
       <div style="font-size:12px;color:var(--t-3)">Invite sent to: <strong style="color:var(--t-1)">${escapeHtml(inv.email)}</strong></div>
     </div>
     ${isNew ? `
@@ -697,7 +697,7 @@ function showInviteAcceptModal(token, inv){
         <div><label class="inp-label">Password *</label><input class="inp" id="ai-pwd" type="password" placeholder="min. 8 characters"></div>
       </div>` : `
       <div style="background:rgba(52,211,153,.06);border:1px solid rgba(52,211,153,.15);border-radius:var(--radius-sm);padding:12px">
-        <p style="font-size:12px;color:#34d399;margin:0">✓ Your account already exists. Click Accept to join this organization.</p>
+        <p style="font-size:12px;color:#059669;margin:0">✓ Your account already exists. Click Accept to join this organization.</p>
       </div>`}
     <p id="ai-err" style="color:var(--red);font-size:12px;margin-top:12px;display:none"></p>`,
     `${ssBtn('Decline',"ssCloseModal('ss-accept-invite')","ghost")}${ssBtn(`${isNew?'Create Account & ':''}Accept Invite`,`ssAcceptInvite('${token}',${isNew})`)}`

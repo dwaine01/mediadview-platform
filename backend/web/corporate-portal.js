@@ -30,14 +30,14 @@
       .cp-brand{display:flex;align-items:center;gap:10px}
       .cp-brand img{height:52px}
       .cp-user{display:flex;align-items:center;gap:12px;background:#fff;border:1px solid #e2e8f0;padding:6px 12px 6px 6px;border-radius:100px;font-size:12.5px}
-      .cp-user .av{width:32px;height:32px;background:linear-gradient(135deg,#6366f1,#22d3ee);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
+      .cp-user .av{width:32px;height:32px;background:linear-gradient(135deg,#0891b2,#0891b2);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px}
       .cp-user .who{display:flex;flex-direction:column;line-height:1.2}
       .cp-user .who b{font-weight:700;color:#0f172a}
       .cp-user .who span{color:#64748b;font-size:11px}
       .cp-logout{background:transparent;border:1px solid #e2e8f0;color:#64748b;padding:7px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit}
       .cp-logout:hover{color:#dc2626;border-color:#dc2626}
 
-      .cp-hero{background:linear-gradient(135deg,#6366f1 0%,#22d3ee 100%);color:#fff;border-radius:16px;padding:24px 26px;margin-bottom:20px;position:relative;overflow:hidden}
+      .cp-hero{background:linear-gradient(135deg,#0891b2 0%,#0891b2 100%);color:#fff;border-radius:16px;padding:24px 26px;margin-bottom:20px;position:relative;overflow:hidden}
       .cp-hero::before{content:'';position:absolute;right:-40px;top:-40px;width:220px;height:220px;background:radial-gradient(circle,rgba(255,255,255,.18),transparent 70%);border-radius:50%}
       .cp-hero .greet{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.9}
       .cp-hero h1{font-size:26px;font-weight:900;margin-top:4px;letter-spacing:-.4px}
@@ -46,7 +46,7 @@
       .cp-tabs{display:flex;gap:6px;margin-bottom:20px;background:#fff;padding:5px;border-radius:12px;border:1px solid #e2e8f0;overflow:auto;-webkit-overflow-scrolling:touch}
       .cp-tab{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;color:#64748b;border:none;background:transparent;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .15s;display:inline-flex;align-items:center;gap:7px}
       .cp-tab:hover{color:#0f172a}
-      .cp-tab.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;box-shadow:0 4px 10px rgba(99,102,241,.25)}
+      .cp-tab.on{background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;box-shadow:0 4px 10px rgba(8,145,178,.25)}
       .cp-tab svg{width:14px;height:14px}
 
       .cp-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
@@ -55,7 +55,7 @@
       .cp-stat .l svg{width:12px;height:12px}
       .cp-stat .v{font-size:24px;font-weight:900;color:#0f172a;font-variant-numeric:tabular-nums;letter-spacing:-.5px}
       .cp-stat .s{font-size:11.5px;color:#64748b;margin-top:2px}
-      .cp-stat.brand{background:linear-gradient(135deg,rgba(99,102,241,.06),#fff);border-color:rgba(99,102,241,.2)}
+      .cp-stat.brand{background:linear-gradient(135deg,rgba(8,145,178,.06),#fff);border-color:rgba(8,145,178,.2)}
       .cp-stat.cyan .v{color:#0891b2}
       .cp-stat.green .v{color:#059669}
       .cp-stat.red .v{color:#dc2626}
@@ -66,7 +66,7 @@
 
       .cp-locations{display:grid;grid-template-columns:1fr 1fr;gap:16px}
       .cp-loc{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:20px 20px 16px;transition:all .15s;position:relative}
-      .cp-loc:hover{border-color:#6366f1;box-shadow:0 8px 24px rgba(99,102,241,.08);transform:translateY(-2px)}
+      .cp-loc:hover{border-color:#0891b2;box-shadow:0 8px 24px rgba(8,145,178,.08);transform:translateY(-2px)}
       .cp-loc-hd{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px}
       .cp-loc-hd .name{font-size:15px;font-weight:800;color:#0f172a;line-height:1.25}
       .cp-loc-hd .addr{font-size:12px;color:#64748b;margin-top:3px;line-height:1.4}
@@ -75,15 +75,15 @@
       .cp-loc-badge.paused{background:rgba(148,163,184,.15);color:#64748b}
 
       .cp-screens{margin-top:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px}
-      .cp-screen{background:linear-gradient(160deg,#0f172a,#1e293b);border-radius:10px;padding:12px 10px 10px;color:#fff;position:relative;overflow:hidden;transition:all .15s}
+      .cp-screen{background:linear-gradient(160deg,#0f172a,#e2e8f0);border-radius:10px;padding:12px 10px 10px;color:#fff;position:relative;overflow:hidden;transition:all .15s}
       .cp-screen:hover{transform:scale(1.03);box-shadow:0 10px 22px rgba(15,23,42,.28)}
-      .cp-screen::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#22d3ee,#6366f1)}
-      .cp-screen .frame{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(99,102,241,.16));border:1px solid rgba(255,255,255,.1);border-radius:6px;height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative}
-      .cp-screen .frame svg{width:22px;height:22px;color:#22d3ee}
+      .cp-screen::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#0891b2,#0891b2)}
+      .cp-screen .frame{background:linear-gradient(135deg,rgba(34,211,238,.18),rgba(8,145,178,.16));border:1px solid rgba(255,255,255,.1);border-radius:6px;height:56px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;position:relative}
+      .cp-screen .frame svg{width:22px;height:22px;color:#0891b2}
       .cp-screen .frame::after{content:'';position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);width:22px;height:2px;background:rgba(255,255,255,.15);border-radius:2px}
-      .cp-screen .model{font-size:11px;font-weight:800;letter-spacing:.5px;color:#e2e8f0}
-      .cp-screen .units{font-size:10.5px;color:#94a3b8;margin-top:2px}
-      .cp-screen .price{font-size:11px;color:#22d3ee;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
+      .cp-screen .model{font-size:11px;font-weight:800;letter-spacing:.5px;color:#0f172a}
+      .cp-screen .units{font-size:10.5px;color:#64748b;margin-top:2px}
+      .cp-screen .price{font-size:11px;color:#0891b2;font-weight:700;margin-top:4px;font-variant-numeric:tabular-nums}
 
       .cp-empty{background:#fff;border:2px dashed #e2e8f0;border-radius:14px;padding:44px 24px;text-align:center}
       .cp-empty h3{font-size:15px;font-weight:800;color:#0f172a;margin-bottom:6px}
@@ -91,11 +91,11 @@
 
       /* Sub-pages */
       .cp-placeholder{background:#fff;border:1px solid #e2e8f0;border-radius:14px;padding:60px 30px;text-align:center}
-      .cp-placeholder .ico{width:64px;height:64px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(135deg,rgba(99,102,241,.1),rgba(34,211,238,.1));display:flex;align-items:center;justify-content:center}
-      .cp-placeholder .ico svg{width:32px;height:32px;color:#6366f1}
+      .cp-placeholder .ico{width:64px;height:64px;margin:0 auto 14px;border-radius:16px;background:linear-gradient(135deg,rgba(8,145,178,.1),rgba(34,211,238,.1));display:flex;align-items:center;justify-content:center}
+      .cp-placeholder .ico svg{width:32px;height:32px;color:#0891b2}
       .cp-placeholder h3{font-size:20px;font-weight:800;color:#0f172a;margin-bottom:8px}
       .cp-placeholder p{font-size:14px;color:#64748b;max-width:420px;margin:0 auto}
-      .cp-placeholder .soon{margin-top:16px;display:inline-block;padding:6px 12px;border-radius:100px;background:rgba(99,102,241,.1);color:#6366f1;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
+      .cp-placeholder .soon{margin-top:16px;display:inline-block;padding:6px 12px;border-radius:100px;background:rgba(8,145,178,.1);color:#0891b2;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase}
 
       /* Billing list */
       .cp-list{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden}
@@ -114,14 +114,14 @@
       .cp-list .row .stat.cancelled{background:rgba(239,68,68,.12);color:#dc2626}
 
       /* Password-change banner */
-      .cp-warn{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #fbbf24;color:#78350f;padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+      .cp-warn{background:linear-gradient(135deg,#fef3c7,#fde68a);border:1px solid #d97706;color:#78350f;padding:12px 16px;border-radius:10px;font-size:13px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
       .cp-warn a{color:#78350f;font-weight:700;text-decoration:underline}
 
       /* Media grid (D.1.b — My Content) */
       .cp-media-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
       .cp-media-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;transition:all .15s}
       .cp-media-card:hover{box-shadow:0 10px 24px rgba(15,23,42,.08);transform:translateY(-2px);border-color:#c7d2fe}
-      .cp-media-preview{position:relative;aspect-ratio:16/9;background:#020617;overflow:hidden}
+      .cp-media-preview{position:relative;aspect-ratio:16/9;background:#e2e8f0;overflow:hidden}
       .cp-media-preview img,.cp-media-preview video{width:100%;height:100%;object-fit:cover}
       .cp-media-kind{position:absolute;top:8px;left:8px;background:rgba(0,0,0,.7);color:#fff;font-size:10px;font-weight:800;padding:3px 8px;border-radius:5px;letter-spacing:.5px}
       .cp-media-status{position:absolute;top:8px;right:8px;font-size:9.5px;font-weight:800;padding:3px 7px;border-radius:5px;letter-spacing:.5px;background:rgba(16,185,129,.9);color:#fff}
@@ -136,37 +136,37 @@
       /* Schedule tab (D.1.c) */
       .cp-sched-list{display:flex;flex-direction:column;gap:12px}
       .cp-sched-card{display:grid;grid-template-columns:120px 1fr;gap:16px;background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:14px}
-      .cp-sched-thumb{aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#020617}
+      .cp-sched-thumb{aspect-ratio:16/9;border-radius:8px;overflow:hidden;background:#e2e8f0}
       .cp-sched-thumb img,.cp-sched-thumb video{width:100%;height:100%;object-fit:cover}
       .cp-sched-name{font-size:15px;font-weight:800;color:#0f172a}
       .cp-sched-kind{font-size:12px;color:#64748b;margin-top:2px}
       .cp-days{display:flex;gap:6px;flex-wrap:wrap}
       .cp-day{padding:6px 12px;border-radius:8px;border:1.5px solid #e2e8f0;background:transparent;color:#64748b;font-size:11.5px;font-weight:700;cursor:pointer;transition:all .12s;font-family:inherit}
-      .cp-day:hover{border-color:#94a3b8;color:#0f172a}
-      .cp-day.on{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff;border-color:transparent}
+      .cp-day:hover{border-color:#64748b;color:#0f172a}
+      .cp-day.on{background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff;border-color:transparent}
       .cp-times{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:12.5px;flex-wrap:wrap}
       .cp-times label{color:#64748b;font-weight:600;margin-right:2px}
       .cp-times input[type="time"]{border:1.5px solid #e2e8f0;border-radius:8px;padding:6px 10px;font-family:inherit;font-size:13px}
-      .cp-times input[type="time"]:focus{outline:none;border-color:#6366f1}
+      .cp-times input[type="time"]:focus{outline:none;border-color:#0891b2}
       .cp-toggle{display:inline-flex;align-items:center;gap:6px;margin-left:auto;cursor:pointer;color:#475569;font-weight:600}
-      .cp-toggle input{width:16px;height:16px;cursor:pointer;accent-color:#6366f1}
+      .cp-toggle input{width:16px;height:16px;cursor:pointer;accent-color:#0891b2}
       .cp-sched-status{margin-top:6px;font-size:11px;font-weight:600;min-height:14px}
       .cp-sched-status.ok{color:#059669}
       .cp-sched-status.err{color:#dc2626}
 
       /* Upload modal */
       .cp-upload-drop{border:2px dashed #cbd5e1;border-radius:12px;padding:36px 20px;text-align:center;background:#f8fafc;cursor:pointer;transition:all .15s;margin-top:12px}
-      .cp-upload-drop:hover,.cp-upload-drop.hover{border-color:#6366f1;background:rgba(99,102,241,.04)}
-      .cp-upload-drop .ico{width:44px;height:44px;margin:0 auto 10px;border-radius:12px;background:rgba(99,102,241,.1);display:flex;align-items:center;justify-content:center}
-      .cp-upload-drop .ico svg{width:24px;height:24px;color:#6366f1}
+      .cp-upload-drop:hover,.cp-upload-drop.hover{border-color:#0891b2;background:rgba(8,145,178,.04)}
+      .cp-upload-drop .ico{width:44px;height:44px;margin:0 auto 10px;border-radius:12px;background:rgba(8,145,178,.1);display:flex;align-items:center;justify-content:center}
+      .cp-upload-drop .ico svg{width:24px;height:24px;color:#0891b2}
       .cp-upload-drop .prim{font-size:14px;font-weight:700;color:#0f172a;margin-bottom:4px}
       .cp-upload-drop .sec{font-size:12px;color:#64748b}
-      .cp-upload-preview{margin-top:14px;border-radius:10px;overflow:hidden;background:#020617;aspect-ratio:16/9;position:relative}
+      .cp-upload-preview{margin-top:14px;border-radius:10px;overflow:hidden;background:#e2e8f0;aspect-ratio:16/9;position:relative}
       .cp-upload-preview img,.cp-upload-preview video{width:100%;height:100%;object-fit:contain}
       .cp-screen-list{max-height:180px;overflow-y:auto;border:1px solid #e2e8f0;border-radius:8px;padding:6px;margin-top:6px;background:#fafafa}
       .cp-screen-list label{display:flex!important;align-items:center;gap:10px;padding:8px 10px;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500!important;color:#0f172a!important;text-transform:none!important;letter-spacing:0!important;margin:0!important;transition:background .1s}
       .cp-screen-list label:hover{background:#fff}
-      .cp-screen-list input{accent-color:#6366f1;width:16px;height:16px}
+      .cp-screen-list input{accent-color:#0891b2;width:16px;height:16px}
       .cp-screen-list .loc{color:#64748b;font-size:11.5px;margin-left:auto}
 
       /* Modal */
@@ -176,11 +176,11 @@
       .cp-modal p.sub{font-size:13px;color:#64748b;margin-bottom:16px}
       .cp-modal label{display:block;font-size:11px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;margin-top:12px}
       .cp-modal input{width:100%;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:8px;font-size:14px;font-family:inherit}
-      .cp-modal input:focus{outline:none;border-color:#6366f1}
+      .cp-modal input:focus{outline:none;border-color:#0891b2}
       .cp-modal .actions{display:flex;gap:8px;margin-top:20px;justify-content:flex-end}
       .cp-btn{padding:10px 18px;border-radius:9px;font-weight:700;font-size:13px;cursor:pointer;border:none;font-family:inherit;transition:all .15s}
-      .cp-btn.primary{background:linear-gradient(135deg,#6366f1,#4f46e5);color:#fff}
-      .cp-btn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(99,102,241,.3)}
+      .cp-btn.primary{background:linear-gradient(135deg,#0891b2,#0e7490);color:#fff}
+      .cp-btn.primary:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(8,145,178,.3)}
       .cp-btn.ghost{background:transparent;border:1px solid #e2e8f0;color:#64748b}
       .cp-err{color:#dc2626;font-size:12.5px;margin-top:8px}
 
@@ -234,7 +234,7 @@
     const s = d.summary;
 
     const locations = (cl.locations||[]).map(loc=>{
-      const screens = (loc.screens||[]).map(screenCard).join('') || '<div style="grid-column:1/-1;padding:12px;text-align:center;color:#94a3b8;font-size:12px">No screens configured for this location</div>';
+      const screens = (loc.screens||[]).map(screenCard).join('') || '<div style="grid-column:1/-1;padding:12px;text-align:center;color:#64748b;font-size:12px">No screens configured for this location</div>';
       return `<div class="cp-loc">
         <div class="cp-loc-hd">
           <div>
@@ -349,7 +349,7 @@
           </div>
           <div class="cp-media-actions">
             <button class="cp-btn ghost" onclick="window.corpMediaEdit('${m.id}')">Edit</button>
-            <button class="cp-btn ghost" style="color:#dc2626;border-color:#fca5a5" onclick="window.corpMediaDelete('${m.id}')">Delete</button>
+            <button class="cp-btn ghost" style="color:#dc2626;border-color:#dc2626" onclick="window.corpMediaDelete('${m.id}')">Delete</button>
           </div>
         </div>
       </div>
@@ -368,7 +368,7 @@
       if(media.length === 0){
         root.innerHTML = `<div class="cp-empty">
           <h3>No content to schedule yet</h3>
-          <p>Upload your first image or video in the <a href="#" onclick="event.preventDefault();window.corpGo('content')" style="color:#6366f1;font-weight:700">My Content</a> tab, then come back to set when it should show.</p>
+          <p>Upload your first image or video in the <a href="#" onclick="event.preventDefault();window.corpGo('content')" style="color:#0891b2;font-weight:700">My Content</a> tab, then come back to set when it should show.</p>
         </div>`;
         return;
       }
@@ -437,7 +437,7 @@
           <span class="stat ${esc(ct.status||'draft')}">${esc(ct.status||'draft')}</span>
           <span class="amt">${money(ct.monthly_total||0)}/mo</span>
         </div>
-      `).join('') : '<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px">No contracts yet.</div>';
+      `).join('') : '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px">No contracts yet.</div>';
 
       const iList = invoices.length ? invoices.map(iv=>{
         const bal = Number(iv.total||0) - Number(iv.amount_paid||0);
@@ -450,7 +450,7 @@
           <span class="stat ${esc(iv.status||'pending')}">${esc(iv.status||'pending')}</span>
           <span class="amt">${money(iv.total||0)}${bal>0&&iv.status!=='paid'?`<br><span style="font-size:11px;color:#dc2626;font-weight:600">${money(bal)} due</span>`:''}</span>
         </div>`;
-      }).join('') : '<div style="padding:32px;text-align:center;color:#94a3b8;font-size:13px">No invoices yet.</div>';
+      }).join('') : '<div style="padding:32px;text-align:center;color:#64748b;font-size:13px">No invoices yet.</div>';
 
       root.innerHTML = `
         <div class="cp-section-title"><div><h2>Contracts (${contracts.length})</h2><p>Your rental agreements with MediAd View.</p></div></div>
@@ -587,7 +587,7 @@
 
   function screenChecklist(selectedIds){
     const scr = state.screens || [];
-    if(scr.length === 0)return '<div style="color:#94a3b8;font-size:12px;padding:8px">No screens available yet.</div>';
+    if(scr.length === 0)return '<div style="color:#64748b;font-size:12px;padding:8px">No screens available yet.</div>';
     // Group by location
     const groups = {};
     scr.forEach(s => {

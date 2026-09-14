@@ -35,7 +35,7 @@
       .co-table th,.co-table td{padding:12px 14px;text-align:left;font-size:13px;border-bottom:1px solid var(--border)}
       .co-table th{background:rgba(2,6,23,.04);font-size:10px;font-weight:700;color:var(--t-4);text-transform:uppercase;letter-spacing:1px}
       .co-table tbody tr{cursor:pointer;transition:background .1s}
-      .co-table tbody tr:hover{background:rgba(99,102,241,.04)}
+      .co-table tbody tr:hover{background:rgba(8,145,178,.04)}
       .co-table tbody tr:last-child td{border-bottom:none}
       .co-mono{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t-4)}
       .co-total{font-weight:800;color:var(--cyan);font-variant-numeric:tabular-nums}
@@ -43,7 +43,7 @@
       .co-badge{display:inline-block;padding:3px 8px;border-radius:6px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;white-space:nowrap}
       .co-b-pending_payment{background:rgba(251,191,36,.12);color:#d97706}
       .co-b-paid{background:rgba(16,185,129,.12);color:#059669}
-      .co-b-approved{background:rgba(99,102,241,.12);color:var(--brand-l)}
+      .co-b-approved{background:rgba(8,145,178,.12);color:var(--brand-l)}
       .co-b-live{background:rgba(34,211,238,.12);color:#0891b2}
       .co-b-rejected{background:rgba(239,68,68,.12);color:#dc2626}
       .co-b-cancelled{background:rgba(148,163,184,.15);color:#64748b}
@@ -61,16 +61,16 @@
       .co-kv div{padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px;display:flex;justify-content:space-between;gap:8px}
       .co-kv div span:first-child{color:var(--t-4);font-size:12px}
       .co-kv div span:last-child{color:var(--t-1);font-weight:500;text-align:right;word-break:break-all}
-      .co-line{background:rgba(99,102,241,.04);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13px}
+      .co-line{background:rgba(8,145,178,.04);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;font-size:13px}
       .co-line .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
       .co-line .top .name{font-weight:700;color:var(--t-1)}
       .co-line .top .amt{color:var(--cyan);font-weight:800;font-variant-numeric:tabular-nums}
       .co-line .meta{color:var(--t-4);font-size:11.5px}
       .co-line .disc{color:#059669;font-weight:600}
-      .co-grand{background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(99,102,241,.06));border:1px solid rgba(34,211,238,.25);border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:12px}
+      .co-grand{background:linear-gradient(135deg,rgba(34,211,238,.08),rgba(8,145,178,.06));border:1px solid rgba(34,211,238,.25);border-radius:12px;padding:14px 18px;display:flex;justify-content:space-between;align-items:center;margin-top:12px}
       .co-grand .lb{font-size:11px;color:var(--t-4);text-transform:uppercase;letter-spacing:2px;font-weight:700}
       .co-grand .val{font-size:28px;font-weight:900;color:var(--cyan);font-variant-numeric:tabular-nums}
-      .co-media{margin-top:8px;background:#020617;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
+      .co-media{margin-top:8px;background:#e2e8f0;border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
       .co-media img,.co-media video{max-width:100%;max-height:280px;border-radius:6px;display:block;margin:0 auto}
       .co-media .none{color:var(--t-4);font-size:12px;padding:20px}
       .co-note{width:100%;background:var(--bg-card);border:1px solid var(--border);color:var(--t-1);padding:10px 12px;border-radius:8px;font-family:inherit;font-size:13px;resize:vertical;min-height:70px}
@@ -79,8 +79,8 @@
       .co-act:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 14px rgba(0,0,0,.15)}
       .co-act:disabled{opacity:.4;cursor:not-allowed}
       .co-act-paid{background:linear-gradient(135deg,#10b981,#059669)}
-      .co-act-approved{background:linear-gradient(135deg,#6366f1,#4f46e5)}
-      .co-act-live{background:linear-gradient(135deg,#22d3ee,#0891b2)}
+      .co-act-approved{background:linear-gradient(135deg,#0891b2,#0e7490)}
+      .co-act-live{background:linear-gradient(135deg,#0891b2,#0891b2)}
       .co-act-rejected{background:linear-gradient(135deg,#dc2626,#991b1b)}
       .co-act-cancelled{background:linear-gradient(135deg,#64748b,#334155)}
     `;

@@ -21,8 +21,8 @@ function _planIcon(pid){
 }
 
 function _planColor(pid){
-  const cols={free:'#6b7280',starter:'#6366f1',pro:'#22d3ee',enterprise:'#f59e0b'};
-  return cols[pid]||'#6366f1';
+  const cols={free:'#6b7280',starter:'#0891b2',pro:'#0891b2',enterprise:'#b45309'};
+  return cols[pid]||'#0891b2';
 }
 
 /* ── State ───────────────────────────────────────────────────────────────── */
@@ -51,8 +51,8 @@ async function showPricingPage(){
   el.style.display='flex';
 
   el.innerHTML=`<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px">
-    <div style="width:30px;height:30px;border:2.5px solid rgba(99,102,241,.15);border-top-color:#22d3ee;border-radius:50%;animation:mvSpin 0.75s linear infinite"></div>
-    <p style="color:#9ca3af;font-size:13px;margin-top:12px">Loading plans…</p>
+    <div style="width:30px;height:30px;border:2.5px solid rgba(8,145,178,.15);border-top-color:#0891b2;border-radius:50%;animation:mvSpin 0.75s linear infinite"></div>
+    <p style="color:#64748b;font-size:13px;margin-top:12px">Loading plans…</p>
   </div>`;
 
   try{
@@ -60,7 +60,7 @@ async function showPricingPage(){
     _allPlans=plans;
     _renderPricingCards(plans);
   }catch(e){
-    el.innerHTML=`<p style="color:#f87171;padding:48px;text-align:center">${e.message}</p>`;
+    el.innerHTML=`<p style="color:#dc2626;padding:48px;text-align:center">${e.message}</p>`;
   }
 }
 
@@ -71,7 +71,7 @@ function _renderPricingCards(plans){
   <div style="width:100%;max-width:1100px;padding:40px 24px 60px">
     <!-- Back / Brand -->
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:48px">
-      <button onclick="backToLogin()" style="background:none;border:none;cursor:pointer;color:#9ca3af;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:0">
+      <button onclick="backToLogin()" style="background:none;border:none;cursor:pointer;color:#64748b;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:0">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Back to Sign In
       </button>
@@ -80,33 +80,33 @@ function _renderPricingCards(plans){
 
     <!-- Heading -->
     <div style="text-align:center;margin-bottom:48px">
-      <h1 style="font-size:38px;font-weight:800;color:#f3f4f6;line-height:1.15;margin-bottom:12px">Simple, transparent pricing</h1>
-      <p style="font-size:16px;color:#9ca3af;max-width:520px;margin:0 auto">Start for free. Scale as you grow. All plans include a 14-day trial (except Free).</p>
+      <h1 style="font-size:38px;font-weight:800;color:#0f172a;line-height:1.15;margin-bottom:12px">Simple, transparent pricing</h1>
+      <p style="font-size:16px;color:#64748b;max-width:520px;margin:0 auto">Start for free. Scale as you grow. All plans include a 14-day trial (except Free).</p>
     </div>
 
     <!-- Plan cards -->
     <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:20px">
       ${plans.map(p=>`
-        <div style="background:#111827;border:2px solid ${p.highlight?_planColor(p.plan_id):'#1f2937'};border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:18px;position:relative;transition:border-color .2s">
+        <div style="background:#ffffff;border:2px solid ${p.highlight?_planColor(p.plan_id):'#e2e8f0'};border-radius:16px;padding:28px;display:flex;flex-direction:column;gap:18px;position:relative;transition:border-color .2s">
           ${p.highlight?`<div style="position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:${_planColor(p.plan_id)};color:#fff;font-size:11px;font-weight:700;padding:4px 14px;border-radius:20px;letter-spacing:.05em;white-space:nowrap">${p.highlight_text||'Popular'}</div>`:''}
           <div>
             <div style="width:44px;height:44px;border-radius:12px;background:${_planColor(p.plan_id)}22;border:1px solid ${_planColor(p.plan_id)}44;display:flex;align-items:center;justify-content:center;margin-bottom:14px">
               <svg width="20" height="20" fill="none" stroke="${_planColor(p.plan_id)}" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${_planIcon(p.plan_id)}"/></svg>
             </div>
-            <div style="font-size:18px;font-weight:700;color:#f3f4f6;margin-bottom:6px">${p.display_name}</div>
+            <div style="font-size:18px;font-weight:700;color:#0f172a;margin-bottom:6px">${p.display_name}</div>
             <div style="display:flex;align-items:baseline;gap:4px">
-              <span style="font-size:32px;font-weight:800;color:#f3f4f6">${p.monthly_price===0?'Free':'$'+p.monthly_price}</span>
-              ${p.monthly_price>0?'<span style="font-size:13px;color:#9ca3af">/month</span>':''}
+              <span style="font-size:32px;font-weight:800;color:#0f172a">${p.monthly_price===0?'Free':'$'+p.monthly_price}</span>
+              ${p.monthly_price>0?'<span style="font-size:13px;color:#64748b">/month</span>':''}
             </div>
-            ${p.trial_days>0?`<div style="font-size:11px;color:#34d399;font-weight:600;margin-top:4px">${p.trial_days}-day free trial</div>`:''}
+            ${p.trial_days>0?`<div style="font-size:11px;color:#059669;font-weight:600;margin-top:4px">${p.trial_days}-day free trial</div>`:''}
           </div>
           <ul style="list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px">
-            ${(p.features||[]).map(f=>`<li style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#d1d5db">
-              <svg width="16" height="16" fill="none" stroke="#34d399" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            ${(p.features||[]).map(f=>`<li style="display:flex;align-items:flex-start;gap:8px;font-size:13px;color:#334155">
+              <svg width="16" height="16" fill="none" stroke="#059669" stroke-width="2.5" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
               ${f}
             </li>`).join('')}
           </ul>
-          <button onclick="showSignupForm('${p.plan_id}')" style="margin-top:auto;width:100%;padding:12px;border-radius:10px;border:2px solid ${p.highlight?_planColor(p.plan_id):'#374151'};background:${p.highlight?_planColor(p.plan_id):'transparent'};color:#f3f4f6;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s">
+          <button onclick="showSignupForm('${p.plan_id}')" style="margin-top:auto;width:100%;padding:12px;border-radius:10px;border:2px solid ${p.highlight?_planColor(p.plan_id):'#cbd5e1'};background:${p.highlight?_planColor(p.plan_id):'transparent'};color:#0f172a;font-size:14px;font-weight:600;cursor:pointer;transition:all .2s">
             ${p.plan_id==='free'?'Start Free':'Get Started'}
           </button>
         </div>
@@ -114,9 +114,9 @@ function _renderPricingCards(plans){
     </div>
 
     <!-- Enterprise CTA -->
-    <div style="text-align:center;margin-top:40px;padding:28px;background:#111827;border:1px solid #1f2937;border-radius:16px">
-      <p style="font-size:15px;color:#9ca3af;margin-bottom:8px">Need a custom solution? We handle custom contracts for enterprise customers.</p>
-      <p style="font-size:13px;color:#6b7280">Contact us at <a href="mailto:sales@mediadview.com" style="color:#6366f1">sales@mediadview.com</a></p>
+    <div style="text-align:center;margin-top:40px;padding:28px;background:#ffffff;border:1px solid #e2e8f0;border-radius:16px">
+      <p style="font-size:15px;color:#64748b;margin-bottom:8px">Need a custom solution? We handle custom contracts for enterprise customers.</p>
+      <p style="font-size:13px;color:#6b7280">Contact us at <a href="mailto:sales@mediadview.com" style="color:#0891b2">sales@mediadview.com</a></p>
     </div>
   </div>`;
 }
@@ -141,7 +141,7 @@ async function showSignupForm(planId){
   <div style="width:100%;max-width:520px;padding:40px 24px 60px">
     <!-- Back -->
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:36px">
-      <button onclick="showPricingPage()" style="background:none;border:none;cursor:pointer;color:#9ca3af;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:0">
+      <button onclick="showPricingPage()" style="background:none;border:none;cursor:pointer;color:#64748b;display:flex;align-items:center;gap:6px;font-size:13px;font-weight:500;padding:0">
         <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Change Plan
       </button>
@@ -149,55 +149,55 @@ async function showSignupForm(planId){
     </div>
 
     <!-- Plan summary badge -->
-    ${plan?`<div style="display:flex;align-items:center;gap:12px;background:#111827;border:1px solid ${_planColor(plan.plan_id)}44;border-radius:12px;padding:16px 20px;margin-bottom:28px">
+    ${plan?`<div style="display:flex;align-items:center;gap:12px;background:#ffffff;border:1px solid ${_planColor(plan.plan_id)}44;border-radius:12px;padding:16px 20px;margin-bottom:28px">
       <div style="width:36px;height:36px;border-radius:10px;background:${_planColor(plan.plan_id)}22;display:flex;align-items:center;justify-content:center;flex-shrink:0">
         <svg width="18" height="18" fill="none" stroke="${_planColor(plan.plan_id)}" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${_planIcon(plan.plan_id)}"/></svg>
       </div>
       <div>
-        <div style="font-size:14px;font-weight:700;color:#f3f4f6">${plan.display_name} Plan ${plan.trial_days>0?'· '+plan.trial_days+'-day free trial':''}</div>
-        <div style="font-size:12px;color:#9ca3af">${plan.monthly_price===0?'Free forever':'$'+plan.monthly_price+'/month after trial'}</div>
+        <div style="font-size:14px;font-weight:700;color:#0f172a">${plan.display_name} Plan ${plan.trial_days>0?'· '+plan.trial_days+'-day free trial':''}</div>
+        <div style="font-size:12px;color:#64748b">${plan.monthly_price===0?'Free forever':'$'+plan.monthly_price+'/month after trial'}</div>
       </div>
     </div>`:''}
 
-    <h2 style="font-size:24px;font-weight:800;color:#f3f4f6;margin-bottom:6px">Create your account</h2>
-    <p style="font-size:13px;color:#9ca3af;margin-bottom:28px">Fill in your details to get started. No credit card required.</p>
+    <h2 style="font-size:24px;font-weight:800;color:#0f172a;margin-bottom:6px">Create your account</h2>
+    <p style="font-size:13px;color:#64748b;margin-bottom:28px">Fill in your details to get started. No credit card required.</p>
 
     <div style="display:flex;flex-direction:column;gap:16px">
       <div>
-        <label style="font-size:12px;font-weight:600;color:#9ca3af;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Business / Company Name *</label>
-        <input id="su-business" type="text" placeholder="Acme Corp" style="width:100%;padding:11px 14px;background:#111827;border:1px solid #374151;border-radius:8px;color:#f3f4f6;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#374151'">
+        <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Business / Company Name *</label>
+        <input id="su-business" type="text" placeholder="Acme Corp" style="width:100%;padding:11px 14px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#cbd5e1'">
       </div>
       <div>
-        <label style="font-size:12px;font-weight:600;color:#9ca3af;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Your Full Name *</label>
-        <input id="su-name" type="text" placeholder="Jane Smith" style="width:100%;padding:11px 14px;background:#111827;border:1px solid #374151;border-radius:8px;color:#f3f4f6;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#374151'">
+        <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Your Full Name *</label>
+        <input id="su-name" type="text" placeholder="Jane Smith" style="width:100%;padding:11px 14px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#cbd5e1'">
       </div>
       <div>
-        <label style="font-size:12px;font-weight:600;color:#9ca3af;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Work Email *</label>
-        <input id="su-email" type="email" placeholder="jane@acme.com" style="width:100%;padding:11px 14px;background:#111827;border:1px solid #374151;border-radius:8px;color:#f3f4f6;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#374151'">
+        <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Work Email *</label>
+        <input id="su-email" type="email" placeholder="jane@acme.com" style="width:100%;padding:11px 14px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#cbd5e1'">
       </div>
       <div>
-        <label style="font-size:12px;font-weight:600;color:#9ca3af;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Phone (optional)</label>
-        <input id="su-phone" type="tel" placeholder="+1 555 000 0000" style="width:100%;padding:11px 14px;background:#111827;border:1px solid #374151;border-radius:8px;color:#f3f4f6;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#374151'">
+        <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Phone (optional)</label>
+        <input id="su-phone" type="tel" placeholder="+1 555 000 0000" style="width:100%;padding:11px 14px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#cbd5e1'">
       </div>
       <div>
-        <label style="font-size:12px;font-weight:600;color:#9ca3af;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Password *</label>
-        <input id="su-pwd" type="password" placeholder="At least 8 characters" style="width:100%;padding:11px 14px;background:#111827;border:1px solid #374151;border-radius:8px;color:#f3f4f6;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#374151'" onkeydown="if(event.key==='Enter')doSignup()">
+        <label style="font-size:12px;font-weight:600;color:#64748b;display:block;margin-bottom:6px;letter-spacing:.04em;text-transform:uppercase">Password *</label>
+        <input id="su-pwd" type="password" placeholder="At least 8 characters" style="width:100%;padding:11px 14px;background:#ffffff;border:1px solid #cbd5e1;border-radius:8px;color:#0f172a;font-size:14px;outline:none;box-sizing:border-box" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='#cbd5e1'" onkeydown="if(event.key==='Enter')doSignup()">
       </div>
     </div>
 
-    <div id="su-err" style="display:none;background:#7f1d1d;border:1px solid #dc2626;border-radius:8px;padding:10px 14px;margin-top:16px;font-size:13px;color:#fca5a5"></div>
+    <div id="su-err" style="display:none;background:#fecaca;border:1px solid #dc2626;border-radius:8px;padding:10px 14px;margin-top:16px;font-size:13px;color:#dc2626"></div>
 
-    <button id="su-btn" onclick="doSignup()" style="width:100%;padding:14px;background:#6366f1;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:20px;transition:opacity .2s">
+    <button id="su-btn" onclick="doSignup()" style="width:100%;padding:14px;background:#0891b2;border:none;border-radius:10px;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:20px;transition:opacity .2s">
       Create Account & Start Trial
     </button>
     <p style="font-size:11px;color:#6b7280;text-align:center;margin-top:14px">
       By creating an account you agree to our 
-      <a href="/api/landing" style="color:#9ca3af">Terms of Service</a> and 
-      <a href="/api/landing" style="color:#9ca3af">Privacy Policy</a>.
+      <a href="/api/landing" style="color:#64748b">Terms of Service</a> and 
+      <a href="/api/landing" style="color:#64748b">Privacy Policy</a>.
     </p>
-    <p style="text-align:center;margin-top:16px;font-size:13px;color:#9ca3af">
+    <p style="text-align:center;margin-top:16px;font-size:13px;color:#64748b">
       Already have an account? 
-      <a onclick="backToLogin()" style="color:#6366f1;cursor:pointer;font-weight:600">Sign In</a>
+      <a onclick="backToLogin()" style="color:#0891b2;cursor:pointer;font-weight:600">Sign In</a>
     </p>
   </div>`;
 }

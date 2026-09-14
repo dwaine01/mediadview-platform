@@ -40,9 +40,9 @@
         <button id="doc-v-close" style="padding:8px 14px;background:#fff;color:#dc2626;border:1.5px solid #fecaca;border-radius:8px;font-size:12.5px;font-weight:700;cursor:pointer">✕ Close</button>
       </div>
       <div style="flex:1;background:#525659;overflow:hidden;position:relative">
-        <div id="doc-v-load" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:14px;font-weight:600;pointer-events:none">
+        <div id="doc-v-load" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#475569;font-size:14px;font-weight:600;pointer-events:none">
           <div style="text-align:center">
-            <div style="width:44px;height:44px;border:4px solid #94a3b8;border-top-color:#fff;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite"></div>
+            <div style="width:44px;height:44px;border:4px solid #64748b;border-top-color:#fff;border-radius:50%;margin:0 auto 12px;animation:spin 0.8s linear infinite"></div>
             Generating PDF…
           </div>
         </div>
@@ -116,8 +116,8 @@
   const fmtDate = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); };
   const esc = s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const status_badge = s => {
-    const m = {active:'#34d399', pending:'#fbbf24', overdue:'#f87171', paid:'#34d399', cancelled:'#94a3b8', draft:'#94a3b8', received:'#34d399', archived:'#64748b', expired:'#f87171'};
-    return `<span class="bdg" style="background:${m[s]||'#94a3b8'}22;color:${m[s]||'#94a3b8'}">${s||'—'}</span>`;
+    const m = {active:'#059669', pending:'#d97706', overdue:'#dc2626', paid:'#059669', cancelled:'#64748b', draft:'#64748b', received:'#059669', archived:'#64748b', expired:'#dc2626'};
+    return `<span class="bdg" style="background:${m[s]||'#64748b'}22;color:${m[s]||'#64748b'}">${s||'—'}</span>`;
   };
 
   // ===== main loader =====
@@ -135,7 +135,7 @@
       {id:'print', name:'Print Queue', icon:'M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z'},
     ];
     const tabHtml = `<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:24px;border-bottom:1px solid var(--border);padding-bottom:14px">${tabs.map(t=>`
-      <button onclick="window._fTab='${t.id}';loaders.finance()" style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${window._fTab===t.id?'rgba(99,102,241,.35)':'transparent'};cursor:pointer;background:${window._fTab===t.id?'rgba(99,102,241,.12)':'transparent'};color:${window._fTab===t.id?'var(--brand-l)':'var(--t-3)'};transition:all .15s"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${t.icon}"/></svg>${t.name}</button>`).join('')}</div>`;
+      <button onclick="window._fTab='${t.id}';loaders.finance()" style="display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:var(--rs);font-size:13px;font-weight:600;border:1px solid ${window._fTab===t.id?'rgba(8,145,178,.35)':'transparent'};cursor:pointer;background:${window._fTab===t.id?'rgba(8,145,178,.12)':'transparent'};color:${window._fTab===t.id?'var(--brand-l)':'var(--t-3)'};transition:all .15s"><svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${t.icon}"/></svg>${t.name}</button>`).join('')}</div>`;
 
     el.innerHTML = `<div class="ph"><div><h1>Finance &amp; CRM</h1><p>Manage clients, contracts, invoices, deposits and payments</p></div></div>${tabHtml}<div id="f-content"><div class="card" style="padding:48px;text-align:center;color:var(--t-4)">Loading…</div></div>`;
 
@@ -167,7 +167,7 @@
     c.innerHTML = `
       <div class="welcome-banner" style="margin-bottom:24px">
         <div class="greeting">Financial Overview · ${d.period}</div>
-        <h1 style="font-size:22px">Net Profit: <span style="color:${s.net_profit>=0?'#34d399':'#f87171'}">${fmt$(s.net_profit)}</span></h1>
+        <h1 style="font-size:22px">Net Profit: <span style="color:${s.net_profit>=0?'#059669':'#dc2626'}">${fmt$(s.net_profit)}</span></h1>
         <p>${fmt$(s.collected_this_month)} collected this month · ${fmt$(s.expenses_total)} in expenses</p>
       </div>
 
@@ -197,11 +197,11 @@
         <div>
           <div class="sh"><h2>Quick Actions</h2></div>
           <div style="display:flex;flex-direction:column;gap:8px">
-            ${qaCard('New Client', 'Add to CRM', '#6366f1', 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7zM21 12h-6m3 -3v6', 'showNewClient()')}
-            ${qaCard('New Contract', 'Create rental', '#22d3ee', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'showNewContract()')}
+            ${qaCard('New Client', 'Add to CRM', '#0891b2', 'M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7zM21 12h-6m3 -3v6', 'showNewClient()')}
+            ${qaCard('New Contract', 'Create rental', '#0891b2', 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', 'showNewContract()')}
             ${qaCard('Generate Monthly Invoices', 'Auto-bill all', '#10b981', 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2', 'generateMonthlyInvoices()')}
-            ${qaCard('Record Payment', 'Log income', '#a78bfa', 'M5 13l4 4L19 7', 'showNewPayment()')}
-            ${qaCard('Add Expense', 'Log outflow', '#f59e0b', 'M12 8v4l3 3', 'showNewExpense()')}
+            ${qaCard('Record Payment', 'Log income', '#0891b2', 'M5 13l4 4L19 7', 'showNewPayment()')}
+            ${qaCard('Add Expense', 'Log outflow', '#b45309', 'M12 8v4l3 3', 'showNewExpense()')}
           </div>
         </div>
       </div>
@@ -210,7 +210,7 @@
       <div class="card">
         ${(d.recent_invoices||[]).length===0 ? '<div style="padding:32px;text-align:center;color:var(--t-4);font-size:13px">No invoices yet</div>' :
           (d.recent_invoices||[]).map(i=>`<div class="lr" onclick="viewInvoice('${i.id}')">
-            <div class="dot" style="background:${i.status==='paid'?'#34d399':i.status==='overdue'?'#f87171':'#fbbf24'};color:${i.status==='paid'?'#34d399':i.status==='overdue'?'#f87171':'#fbbf24'}"></div>
+            <div class="dot" style="background:${i.status==='paid'?'#059669':i.status==='overdue'?'#dc2626':'#d97706'};color:${i.status==='paid'?'#059669':i.status==='overdue'?'#dc2626':'#d97706'}"></div>
             <div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600;color:var(--t-1)">${esc(i.invoice_number)} — ${esc(i.client_name||'')}</div><div style="font-size:11px;color:var(--t-4);margin-top:2px">${fmtDate(i.issue_date)} · Due ${fmtDate(i.due_date)}</div></div>
             ${status_badge(i.status)}
             <div style="font-size:15px;font-weight:800;color:var(--cyan);min-width:100px;text-align:right">${fmt$(i.total)}</div>
@@ -653,14 +653,14 @@
                 </div>
               </div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn-s" onclick="resetPortalPassword('${clientId}')" style="border-color:#fca5a5;color:#dc2626">🔑 Reset Password</button>
-                <button class="btn-s" onclick="revokePortalAccess('${clientId}')" style="border-color:#e2e8f0;color:var(--t-4)">Revoke Access</button>
+                <button class="btn-s" onclick="resetPortalPassword('${clientId}')" style="border-color:#dc2626;color:#dc2626">🔑 Reset Password</button>
+                <button class="btn-s" onclick="revokePortalAccess('${clientId}')" style="border-color:#0f172a;color:var(--t-4)">Revoke Access</button>
               </div>
             </div>
           </div>`;
       } else {
         holder.innerHTML = `
-          <div class="card" style="padding:18px 20px;margin-bottom:20px;background:linear-gradient(90deg,rgba(99,102,241,.06),#fff 70%);border-left:3px solid var(--brand-l)">
+          <div class="card" style="padding:18px 20px;margin-bottom:20px;background:linear-gradient(90deg,rgba(8,145,178,.06),#fff 70%);border-left:3px solid var(--brand-l)">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap">
               <div>
                 <div style="font-size:11px;font-weight:800;color:var(--brand);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px">Portal Access</div>
@@ -926,7 +926,7 @@
           <button class="btn-p" onclick="showNewManualInvoice()">+ Manual Invoice</button>
         </div>
       </div>
-      <div style="display:flex;gap:6px;margin-bottom:16px">${filters.map(f=>`<button onclick="window._invFilter='${f}';loaders.finance()" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid ${window._invFilter===f?'rgba(99,102,241,.35)':'var(--border)'};background:${window._invFilter===f?'rgba(99,102,241,.12)':'transparent'};color:${window._invFilter===f?'var(--brand-l)':'var(--t-3)'};cursor:pointer;text-transform:capitalize">${f}${f==='all'?'':' ('+list.filter(i=>i.status===f).length+')'}</button>`).join('')}</div>
+      <div style="display:flex;gap:6px;margin-bottom:16px">${filters.map(f=>`<button onclick="window._invFilter='${f}';loaders.finance()" style="padding:6px 14px;border-radius:8px;font-size:12px;font-weight:600;border:1px solid ${window._invFilter===f?'rgba(8,145,178,.35)':'var(--border)'};background:${window._invFilter===f?'rgba(8,145,178,.12)':'transparent'};color:${window._invFilter===f?'var(--brand-l)':'var(--t-3)'};cursor:pointer;text-transform:capitalize">${f}${f==='all'?'':' ('+list.filter(i=>i.status===f).length+')'}</button>`).join('')}</div>
       ${filtered.length===0?'<div class="empty"><h3>No invoices</h3><p>No invoices matching this filter</p></div>':
       `<div class="card"><div class="tbl-h" style="grid-template-columns:1fr 1.5fr 1fr 1fr 1fr 1fr auto"><span>Invoice #</span><span>Client</span><span>Period</span><span>Due</span><span>Status</span><span>Total</span><span></span></div>
       ${filtered.map(i=>`<div class="tbl-r" style="grid-template-columns:1fr 1.5fr 1fr 1fr 1fr 1fr auto;cursor:pointer" onclick="viewInvoice('${i.id}')">

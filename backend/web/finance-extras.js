@@ -11,8 +11,8 @@
   const fmtDate = s => { if(!s) return '—'; const d=new Date(s); return isNaN(d)?s:d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'}); };
   const esc = s => String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const status_badge = s => {
-    const m = {active:'#10b981',pending:'#f59e0b',overdue:'#ef4444',paid:'#10b981',cancelled:'#94a3b8'};
-    return `<span class="bdg" style="background:${m[s]||'#94a3b8'}22;color:${m[s]||'#94a3b8'}">${s||'—'}</span>`;
+    const m = {active:'#10b981',pending:'#b45309',overdue:'#ef4444',paid:'#10b981',cancelled:'#64748b'};
+    return `<span class="bdg" style="background:${m[s]||'#64748b'}22;color:${m[s]||'#64748b'}">${s||'—'}</span>`;
   };
   function val(id){ const e=document.getElementById(id); return e? e.value : ''; }
 
@@ -180,19 +180,19 @@
     const pwdBroken = s.password_set && s.password_readable === false;
     c.innerHTML = `
       <div style="max-width:720px">
-        ${pwdBroken ? `<div class="card" style="padding:18px;margin-bottom:18px;background:var(--red-tint,#fef2f2);border-color:#fecaca">
+        ${pwdBroken ? `<div class="card" style="padding:18px;margin-bottom:18px;background:var(--red-tint,#fef2f2);border-color:#b91c1c">
           <div style="display:flex;gap:10px;align-items:flex-start">
             <div style="font-size:20px">🔑</div>
             <div><div style="font-size:14px;font-weight:700;color:#b91c1c">Hay que volver a escribir la contraseña del correo</div>
-            <div style="font-size:12px;color:#7f1d1d;line-height:1.6;margin-top:2px">${s.password_warning || 'La contraseña guardada no se puede leer.'}</div>
-            <div style="font-size:12px;color:#7f1d1d;margin-top:6px">Mientras no se reescriba, las facturas por correo no salen.</div></div>
+            <div style="font-size:12px;color:#b91c1c;line-height:1.6;margin-top:2px">${s.password_warning || 'La contraseña guardada no se puede leer.'}</div>
+            <div style="font-size:12px;color:#b91c1c;margin-top:6px">Mientras no se reescriba, las facturas por correo no salen.</div></div>
           </div>
         </div>` : ''}
         <div class="card" style="padding:20px;margin-bottom:18px;background:${enabled?'var(--green-tint)':'var(--amber-tint)'};border-color:${enabled?'#a7f3d0':'#fde68a'}">
           <div style="display:flex;align-items:center;gap:10px">
             <div style="font-size:20px">${enabled?'✅':'⚠️'}</div>
             <div><div style="font-size:14px;font-weight:700;color:${enabled?'#047857':'#92400e'}">${enabled?'Email is enabled':'Email is disabled'}</div>
-            <div style="font-size:12px;color:${enabled?'#065f46':'#78350f'}">${enabled?'Invoices and reminders will be sent automatically':'Configure SMTP and enable to start sending emails'}</div></div>
+            <div style="font-size:12px;color:${enabled?'#a7f3d0':'#78350f'}">${enabled?'Invoices and reminders will be sent automatically':'Configure SMTP and enable to start sending emails'}</div></div>
           </div>
         </div>
 
@@ -357,13 +357,13 @@
     const list = await api(FAPI + '/users');
     const c = document.getElementById('f-content');
     const roleInfo = {
-      superadmin:{label:'Super Admin', color:'#7c3aed', desc:'Full access · Cannot be removed'},
+      superadmin:{label:'Super Admin', color:'#0e7490', desc:'Full access · Cannot be removed'},
       admin:{label:'Admin', color:'#2563eb', desc:'Full platform access'},
       accounting:{label:'Accounting', color:'#059669', desc:'Finance, invoicing, payments, reports'},
       sales:{label:'Sales', color:'#d97706', desc:'CRM, contracts, clients'},
       technical:{label:'Technical', color:'#0891b2', desc:'Screens, devices, deployments'},
       viewer:{label:'Viewer', color:'#64748b', desc:'Read-only access'},
-      customer:{label:'Customer', color:'#94a3b8', desc:'External customer account'},
+      customer:{label:'Customer', color:'#64748b', desc:'External customer account'},
     };
     c.innerHTML = `
       <div class="card" style="padding:14px 18px;margin-bottom:16px;background:var(--brand-tint);border-color:#bfdbfe">
@@ -583,7 +583,7 @@
         <div style="font-size:11.5px;color:${j.attempts>=3?'#dc2626':'#64748b'}">${j.attempts||0} attempt${(j.attempts||0)!==1?'s':''}${j.last_error?' · '+j.last_error.substring(0,30):''}</div>
         <div style="display:flex;gap:6px">
           ${withAct?`<button style="padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #cbd5e1;color:#475569;border-radius:6px;cursor:pointer" onclick="retryPrintJob('${j.id}')">🔄</button>
-          <button style="padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #fca5a5;color:#dc2626;border-radius:6px;cursor:pointer" onclick="deletePrintJob('${j.id}')">✕</button>`:''}
+          <button style="padding:5px 10px;font-size:11.5px;background:#fff;border:1px solid #dc2626;color:#dc2626;border-radius:6px;cursor:pointer" onclick="deletePrintJob('${j.id}')">✕</button>`:''}
         </div>
       </div>`;
     container.innerHTML = `
@@ -598,7 +598,7 @@
         </div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px">
-        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Pending</div><div style="font-size:26px;font-weight:700;color:#f59e0b;margin-top:4px">${stats.pending}</div></div>
+        <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Pending</div><div style="font-size:26px;font-weight:700;color:#b45309;margin-top:4px">${stats.pending}</div></div>
         <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Printed</div><div style="font-size:26px;font-weight:700;color:#16a34a;margin-top:4px">${stats.printed}</div></div>
         <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Failed</div><div style="font-size:26px;font-weight:700;color:#dc2626;margin-top:4px">${stats.failed}</div></div>
         <div style="padding:16px;background:#fff;border:1px solid #e2e8f0;border-radius:10px"><div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px">Last Print</div><div style="font-size:12.5px;font-weight:600;color:#0f172a;margin-top:8px">${fmtTime(stats.last_printed_at)}</div></div>
@@ -608,7 +608,7 @@
         <div style="display:grid;grid-template-columns:90px 1.5fr 1fr 1fr 1fr auto;gap:12px;padding:10px 16px;font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase;background:#f8fafc;border-bottom:1px solid #e2e8f0">
           <div>Type</div><div>Document</div><div>Queued</div><div>Printed</div><div>Attempts</div><div>Actions</div>
         </div>
-        ${list.jobs.length ? list.jobs.map(j=>rowFor(j,true)).join('') : '<div style="padding:30px;text-align:center;color:#94a3b8">No documents pending</div>'}
+        ${list.jobs.length ? list.jobs.map(j=>rowFor(j,true)).join('') : '<div style="padding:30px;text-align:center;color:#64748b">No documents pending</div>'}
       </div>
       ${fails.jobs.length?`<div style="background:#fff;border:1px solid #fecaca;border-radius:10px;margin-bottom:20px;overflow:hidden">
         <div style="padding:14px 18px;border-bottom:1px solid #fecaca;background:#fef2f2"><b style="color:#dc2626">⚠️ Failed (${fails.jobs.length})</b></div>
@@ -616,7 +616,7 @@
       </div>`:''}
       <div style="background:#fff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
         <div style="padding:14px 18px;border-bottom:1px solid #e2e8f0;background:#f8fafc"><b style="color:#0f172a">✓ Recently Printed (showing ${Math.min(histo.jobs.length,15)})</b></div>
-        ${histo.jobs.slice(0,15).map(j=>rowFor(j,false)).join('') || '<div style="padding:20px;text-align:center;color:#94a3b8">No prints yet</div>'}
+        ${histo.jobs.slice(0,15).map(j=>rowFor(j,false)).join('') || '<div style="padding:20px;text-align:center;color:#64748b">No prints yet</div>'}
       </div>`;
   };
 
@@ -662,7 +662,7 @@
 
         <div style="background:#fff;border:1px solid #e2e8f0;padding:18px;border-radius:10px;margin-bottom:16px">
           <div style="font-weight:700;color:#0f172a;margin-bottom:10px">⚙️ Step 3 — Install on Windows</div>
-          <ol style="margin:0;padding-left:24px;color:#334155;font-size:13.5px;line-height:1.9">
+          <ol style="margin:0;padding-left:24px;color:#475569;font-size:13.5px;line-height:1.9">
             <li>Extract <code>MediAdView-PrintAgent.zip</code> into a folder (e.g. <code>C:\\MediAdViewAgent</code>)</li>
             <li>Install Python 3.10+ from <a href="https://www.python.org/downloads/" target="_blank" style="color:#2563eb">python.org</a> (check <b>"Add Python to PATH"</b>)</li>
             <li>Open Command Prompt: <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">pip install requests pywin32</code></li>

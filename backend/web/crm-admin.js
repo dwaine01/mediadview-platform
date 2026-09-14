@@ -26,21 +26,21 @@ function _crmDate(d) {
   catch (_) { return d; }
 }
 function _crmBadge(s) {
-  // El panel es CLARO: los colores neón del tema oscuro (#34d399, #a5b4fc…)
+  // El panel es CLARO: los colores neón del tema oscuro (#059669, #4338ca…)
   // sobre blanco quedaban casi invisibles. Estos tonos están pensados para
   // leerse sobre blanco (contraste AA) y son los mismos de la marca.
   const m = {
-    active: '#047857', prospect: '#4338ca', trial: '#1d4ed8',
+    active: '#047857', prospect: '#0e7490', trial: '#1d4ed8',
     suspended: '#b45309', churned: '#b91c1c', cancelled: '#b91c1c',
     inactive: '#475569', paused: '#b45309', past_due: '#b91c1c',
-    free: '#475569', starter: '#4338ca', pro: '#0e7490', enterprise: '#b45309',
-    standard: '#4338ca', custom: '#b45309',
+    free: '#475569', starter: '#0e7490', pro: '#0e7490', enterprise: '#b45309',
+    standard: '#0e7490', custom: '#b45309',
   };
   const c = m[s?.toLowerCase()] || '#475569';
   return `<span style="display:inline-block;background:${c}14;color:${c};border:1px solid ${c}3d;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;text-transform:capitalize;white-space:nowrap">${s || '—'}</span>`;
 }
 function _crmErr(msg) {
-  return `<div style="color:#f87171;font-size:13px;padding:12px 16px;background:#450a0a;border:1px solid #7f1d1d;border-radius:8px;margin-top:8px">${msg}</div>`;
+  return `<div style="color:#dc2626;font-size:13px;padding:12px 16px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;margin-top:8px">${msg}</div>`;
 }
 let _toastTimeout = null;
 function _showToast(msg, ok = true) {
@@ -52,8 +52,8 @@ function _showToast(msg, ok = true) {
     document.body.appendChild(t);
   }
   t.style.background = ok ? '#064e3b' : '#450a0a';
-  t.style.color = ok ? '#34d399' : '#f87171';
-  t.style.border = `1px solid ${ok ? '#065f46' : '#7f1d1d'}`;
+  t.style.color = ok ? '#059669' : '#dc2626';
+  t.style.border = `1px solid ${ok ? '#a7f3d0' : '#fecaca'}`;
   t.textContent = msg;
   t.style.opacity = '1';
   clearTimeout(_toastTimeout);
@@ -87,13 +87,13 @@ function _crmStat(label, value, accent) {
 }
 function _cwInp(id, label, type, placeholder, required, value = '') {
   return `<div>
-    <label style="display:block;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}${required ? ' <span style="color:#f87171">*</span>' : ''}</label>
+    <label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}${required ? ' <span style="color:#dc2626">*</span>' : ''}</label>
     <input id="${id}" type="${type}" class="inp" placeholder="${placeholder}" value="${escapeHtml(String(value || ''))}" style="width:100%;box-sizing:border-box">
   </div>`;
 }
 function _cwSel(id, label, options, value = '') {
   return `<div>
-    <label style="display:block;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}</label>
+    <label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}</label>
     <select id="${id}" class="inp" style="width:100%;box-sizing:border-box">
       ${options.map(([v, l]) => `<option value="${v}" ${v === value ? 'selected' : ''}>${l}</option>`).join('')}
     </select>
@@ -101,7 +101,7 @@ function _cwSel(id, label, options, value = '') {
 }
 function _cwArea(id, label, placeholder, value = '') {
   return `<div>
-    <label style="display:block;font-size:11px;font-weight:600;color:#9ca3af;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}</label>
+    <label style="display:block;font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px">${label}</label>
     <textarea id="${id}" class="inp" placeholder="${placeholder}" rows="3" style="width:100%;box-sizing:border-box;resize:vertical">${escapeHtml(String(value || ''))}</textarea>
   </div>`;
 }
@@ -134,7 +134,7 @@ loaders['customers'] = async function () {
         : `<div style="display:flex;flex-direction:column;gap:8px">
             ${custs.map(c => `
               <div class="card card-i" onclick="loadCustomerDetail('${c.id}')" style="display:flex;align-items:center;gap:14px;padding:16px 20px;cursor:pointer">
-                <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#4f46e5,#0891b2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0">${(c.legal_name || '?')[0].toUpperCase()}</div>
+                <div style="width:40px;height:40px;border-radius:11px;background:linear-gradient(135deg,#0e7490,#0891b2);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:#fff;flex-shrink:0">${(c.legal_name || '?')[0].toUpperCase()}</div>
                 <div style="flex:1;min-width:0">
                   <div style="font-size:14px;font-weight:700;color:var(--t-1);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(c.legal_name || '—')}</div>
                   <div style="font-size:12px;color:var(--t-4);margin-top:2px">${escapeHtml(c.primary_contact_email || '')}${c.business_type ? ' · ' + c.business_type : ''}</div>
@@ -162,7 +162,7 @@ async function loadCustomerDetail(customerId) {
   document.querySelector('[data-p="customers"]')?.classList.add('on');
   setMobileSidebar(false);
 
-  el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;gap:14px"><div style="width:30px;height:30px;border:2.5px solid rgba(99,102,241,.15);border-top-color:var(--cyan,#22d3ee);border-radius:50%;animation:mvSpin 0.75s linear infinite"></div><p style="color:var(--t-4);font-size:13px">Loading customer…</p></div>`;
+  el.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;gap:14px"><div style="width:30px;height:30px;border:2.5px solid rgba(8,145,178,.15);border-top-color:var(--cyan,#0891b2);border-radius:50%;animation:mvSpin 0.75s linear infinite"></div><p style="color:var(--t-4);font-size:13px">Loading customer…</p></div>`;
 
   try {
     const summary = await api(`/admin/crm/customers/${customerId}/summary`);
@@ -289,7 +289,7 @@ loaders['admin-plans'] = async function () {
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px">
         ${plans.map(p => `
           <div class="card" style="padding:20px;position:relative">
-            ${p.highlight ? `<div style="position:absolute;top:12px;right:12px;background:#6366f1;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:12px;letter-spacing:.05em">${escapeHtml(p.highlight_text || 'POPULAR')}</div>` : ''}
+            ${p.highlight ? `<div style="position:absolute;top:12px;right:12px;background:#0891b2;color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:12px;letter-spacing:.05em">${escapeHtml(p.highlight_text || 'POPULAR')}</div>` : ''}
             <div style="font-size:18px;font-weight:800;color:var(--t-1);margin-bottom:4px">${escapeHtml(p.display_name)}</div>
             <div style="font-size:28px;font-weight:800;color:var(--cyan);margin-bottom:12px">${p.monthly_price === 0 ? 'Free' : '$' + p.monthly_price}<span style="font-size:13px;color:var(--t-4);font-weight:500">/mo</span></div>
             <div style="font-size:12px;color:var(--t-4);margin-bottom:14px">${p.screens_included} screen${p.screens_included !== 1 ? 's' : ''} included${p.price_per_extra_screen ? ' · $' + p.price_per_extra_screen + '/extra' : ''}</div>
@@ -297,7 +297,7 @@ loaders['admin-plans'] = async function () {
               ${_crmBadge(p.is_active ? 'active' : 'inactive')}
               ${_crmBadge(p.plan_id)}
             </div>
-            <button onclick="openEditPlanModal('${p.plan_id}')" style="width:100%;padding:8px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.2);border-radius:8px;color:#818cf8;font-size:12px;font-weight:600;cursor:pointer">Edit Plan</button>
+            <button onclick="openEditPlanModal('${p.plan_id}')" style="width:100%;padding:8px;background:rgba(8,145,178,.1);border:1px solid rgba(8,145,178,.2);border-radius:8px;color:#0891b2;font-size:12px;font-weight:600;cursor:pointer">Edit Plan</button>
           </div>`).join('')}
       </div>`;
   } catch (e) {
@@ -387,8 +387,8 @@ async function _createPlan() {
   const msg = document.getElementById('pm-msg');
   const planId = document.getElementById('pm-pid')?.value.trim().toLowerCase();
   const dname = document.getElementById('pm-dname')?.value.trim();
-  if (!planId) { msg.style.display = 'block'; msg.style.color = '#f87171'; msg.textContent = 'Plan ID is required.'; return; }
-  if (!dname) { msg.style.display = 'block'; msg.style.color = '#f87171'; msg.textContent = 'Display Name is required.'; return; }
+  if (!planId) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Plan ID is required.'; return; }
+  if (!dname) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = 'Display Name is required.'; return; }
   try {
     const payload = {
       plan_id: planId,
@@ -408,7 +408,7 @@ async function _createPlan() {
     _showToast('Plan created!');
     loaders['admin-plans']();
   } catch (e) {
-    msg.style.display = 'block'; msg.style.color = '#f87171'; msg.textContent = e.message;
+    msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = e.message;
   }
 }
 
@@ -430,7 +430,7 @@ async function _savePlan(planId) {
     _showToast('Plan updated!');
     loaders['admin-plans']();
   } catch (e) {
-    if (msg) { msg.style.display = 'block'; msg.style.color = '#f87171'; msg.textContent = e.message; }
+    if (msg) { msg.style.display = 'block'; msg.style.color = '#dc2626'; msg.textContent = e.message; }
   }
 }
 
@@ -503,16 +503,16 @@ loaders['cw-wizard'] = function () {
         const n = i + 1;
         const done = n < _cwState.step;
         const current = n === _cwState.step;
-        const color = done ? '#34d399' : current ? '#6366f1' : '#374151';
-        const bg = done ? '#064e3b' : current ? 'rgba(99,102,241,.15)' : '#1f2937';
-        const tc = done ? '#34d399' : current ? '#a5b4fc' : '#6b7280';
+        const color = done ? '#059669' : current ? '#0891b2' : '#cbd5e1';
+        const bg = done ? '#064e3b' : current ? 'rgba(8,145,178,.15)' : '#e2e8f0';
+        const tc = done ? '#059669' : current ? '#4338ca' : '#6b7280';
         return `
           <div style="display:flex;align-items:center;gap:0;flex-shrink:0">
             <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
               <div style="width:32px;height:32px;border-radius:50%;background:${bg};border:2px solid ${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:${color}">${done ? '✓' : n}</div>
               <span style="font-size:10px;font-weight:600;color:${tc};white-space:nowrap">${label}</span>
             </div>
-            ${i < 5 ? `<div style="width:40px;height:2px;background:${done ? '#34d399' : '#1f2937'};margin-bottom:16px;flex-shrink:0"></div>` : ''}
+            ${i < 5 ? `<div style="width:40px;height:2px;background:${done ? '#059669' : '#e2e8f0'};margin-bottom:16px;flex-shrink:0"></div>` : ''}
           </div>`;
       }).join('')}
     </div>`;
@@ -723,8 +723,8 @@ function _cwRenderStep3() {
     <div style="margin-bottom:14px">
       ${_cwInp('cw-trial-end', 'Trial End Date (optional)', 'date', '', false, s.subTrialEndsAt || (s.subStatus === 'trial' ? in14 : ''))}
     </div>
-    <div style="background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.15);border-radius:10px;padding:14px;font-size:12px;color:var(--t-4);margin-bottom:14px">
-      <strong style="color:#a5b4fc">ℹ</strong> The subscription period starts today (${today}) and runs for 30 days by default. Pricing details are configured in the next step.
+    <div style="background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.15);border-radius:10px;padding:14px;font-size:12px;color:var(--t-4);margin-bottom:14px">
+      <strong style="color:#4338ca">ℹ</strong> The subscription period starts today (${today}) and runs for 30 days by default. Pricing details are configured in the next step.
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:24px">
       <button onclick="_cwBack(3)" style="padding:10px 20px;border-radius:var(--radius-sm);background:var(--bg-2);border:1px solid var(--border);color:var(--t-2);font-weight:600;font-size:13px;cursor:pointer">← Back</button>
@@ -756,17 +756,17 @@ function _cwRenderStep4() {
 
     <!-- Pricing mode -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
-      <label onclick="_cwSelectPM('standard')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;cursor:pointer;border:2px solid ${!isCustom ? '#6366f1' : 'var(--border)'};background:${!isCustom ? 'rgba(99,102,241,.08)' : 'var(--bg-2)'}">
-        <input type="radio" name="cw-pm-radio" value="standard" ${!isCustom ? 'checked' : ''} style="accent-color:#6366f1">
+      <label onclick="_cwSelectPM('standard')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;cursor:pointer;border:2px solid ${!isCustom ? '#0891b2' : 'var(--border)'};background:${!isCustom ? 'rgba(8,145,178,.08)' : 'var(--bg-2)'}">
+        <input type="radio" name="cw-pm-radio" value="standard" ${!isCustom ? 'checked' : ''} style="accent-color:#0891b2">
         <div>
-          <div style="font-size:13px;font-weight:700;color:${!isCustom ? '#a5b4fc' : 'var(--t-2)'}">STANDARD</div>
+          <div style="font-size:13px;font-weight:700;color:${!isCustom ? '#4338ca' : 'var(--t-2)'}">STANDARD</div>
           <div style="font-size:11px;color:var(--t-4)">Use plan's configured pricing</div>
         </div>
       </label>
-      <label onclick="_cwSelectPM('custom')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;cursor:pointer;border:2px solid ${isCustom ? '#f59e0b' : 'var(--border)'};background:${isCustom ? 'rgba(245,158,11,.06)' : 'var(--bg-2)'}">
-        <input type="radio" name="cw-pm-radio" value="custom" ${isCustom ? 'checked' : ''} style="accent-color:#f59e0b">
+      <label onclick="_cwSelectPM('custom')" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:10px;cursor:pointer;border:2px solid ${isCustom ? '#b45309' : 'var(--border)'};background:${isCustom ? 'rgba(245,158,11,.06)' : 'var(--bg-2)'}">
+        <input type="radio" name="cw-pm-radio" value="custom" ${isCustom ? 'checked' : ''} style="accent-color:#b45309">
         <div>
-          <div style="font-size:13px;font-weight:700;color:${isCustom ? '#fcd34d' : 'var(--t-2)'}">CUSTOM</div>
+          <div style="font-size:13px;font-weight:700;color:${isCustom ? '#b45309' : 'var(--t-2)'}">CUSTOM</div>
           <div style="font-size:11px;color:var(--t-4)">Override any pricing field</div>
         </div>
       </label>
@@ -774,13 +774,13 @@ function _cwRenderStep4() {
     <input type="hidden" id="cw-pm" value="${s.pricingModel}">
 
     <!-- Standard: show plan summary -->
-    <div id="cw-plan-info-box" style="display:${!isCustom ? 'block' : 'none'};background:rgba(99,102,241,.06);border:1px solid rgba(99,102,241,.18);border-radius:10px;padding:16px;margin-bottom:16px">
+    <div id="cw-plan-info-box" style="display:${!isCustom ? 'block' : 'none'};background:rgba(8,145,178,.06);border:1px solid rgba(8,145,178,.18);border-radius:10px;padding:16px;margin-bottom:16px">
       ${selPlan ? `
-        <div style="font-size:12px;font-weight:600;color:#818cf8;margin-bottom:8px">Plan: ${selPlan.display_name}</div>
+        <div style="font-size:12px;font-weight:600;color:#0891b2;margin-bottom:8px">Plan: ${selPlan.display_name}</div>
         <div style="display:flex;gap:24px;flex-wrap:wrap">
-          <div><span style="font-size:22px;font-weight:800;color:#f3f4f6">$${selPlan.monthly_price}</span><span style="font-size:12px;color:var(--t-4)">/mo</span></div>
+          <div><span style="font-size:22px;font-weight:800;color:#0f172a">$${selPlan.monthly_price}</span><span style="font-size:12px;color:var(--t-4)">/mo</span></div>
           <div style="font-size:13px;color:var(--t-3);align-self:center">${selPlan.screens_included} screen${selPlan.screens_included !== 1 ? 's' : ''} included${selPlan.price_per_extra_screen ? ' · $' + selPlan.price_per_extra_screen + '/extra' : ''}</div>
-          ${selPlan.trial_days > 0 ? `<div style="font-size:12px;color:#60a5fa;align-self:center">${selPlan.trial_days}-day trial</div>` : ''}
+          ${selPlan.trial_days > 0 ? `<div style="font-size:12px;color:#1d4ed8;align-self:center">${selPlan.trial_days}-day trial</div>` : ''}
         </div>` : '<p style="color:var(--t-4);font-size:13px">Select a plan above to see its pricing.</p>'}
     </div>
 
@@ -821,10 +821,10 @@ function _cwSelectPM(mode) {
   document.querySelectorAll('label[onclick^="_cwSelectPM"]').forEach(lbl => {
     const val = lbl.querySelector('input[type=radio]')?.value;
     const isChosen = val === mode;
-    lbl.style.borderColor = isChosen ? (mode === 'custom' ? '#f59e0b' : '#6366f1') : 'var(--border)';
-    lbl.style.background = isChosen ? (mode === 'custom' ? 'rgba(245,158,11,.06)' : 'rgba(99,102,241,.08)') : 'var(--bg-2)';
+    lbl.style.borderColor = isChosen ? (mode === 'custom' ? '#b45309' : '#0891b2') : 'var(--border)';
+    lbl.style.background = isChosen ? (mode === 'custom' ? 'rgba(245,158,11,.06)' : 'rgba(8,145,178,.08)') : 'var(--bg-2)';
     const title = lbl.querySelector('div:first-child');
-    if (title) title.style.color = isChosen ? (mode === 'custom' ? '#fcd34d' : '#a5b4fc') : 'var(--t-2)';
+    if (title) title.style.color = isChosen ? (mode === 'custom' ? '#b45309' : '#4338ca') : 'var(--t-2)';
   });
 }
 
@@ -844,7 +844,7 @@ function _cwRenderStep5() {
         ['SELF_SERVICE_MANAGER', 'Tenant Manager (limited control)'],
       ], s.userRole)}
     </div>
-    <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:10px;padding:14px;font-size:12px;color:#fcd34d;margin-bottom:14px">
+    <div style="background:rgba(251,191,36,.06);border:1px solid rgba(251,191,36,.15);border-radius:10px;padding:14px;font-size:12px;color:#b45309;margin-bottom:14px">
       <strong>⚠ Security Note:</strong> A random secure temporary password will be generated automatically and displayed <strong>once</strong> on the success screen. Share it securely with the customer. Do NOT store the plain-text password.
     </div>
     <div style="display:flex;justify-content:space-between;margin-top:24px">
@@ -873,7 +873,7 @@ function _cwRenderStep6() {
         ${rows.map(([k, v]) => `
           <div style="display:flex;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04)">
             <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.03em;min-width:170px">${k}</span>
-            <span style="font-size:13px;color:#d1d5db">${v || '—'}</span>
+            <span style="font-size:13px;color:#334155">${v || '—'}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -883,7 +883,7 @@ function _cwRenderStep6() {
     <p style="font-size:13px;color:var(--t-4);margin-bottom:24px">Review all details before provisioning. Records are only created after you click "Create Customer".</p>
     <div id="cw-err-6"></div>
 
-    ${rSect('Customer', '#6366f1', [
+    ${rSect('Customer', '#0891b2', [
       ['Legal Name', escapeHtml(s.legalName)],
       ['Contact', escapeHtml(s.contactName)],
       ['Email', escapeHtml(s.contactEmail)],
@@ -892,7 +892,7 @@ function _cwRenderStep6() {
       ['Status', s.customerStatus],
     ])}
 
-    ${rSect('Organization', '#22d3ee', [
+    ${rSect('Organization', '#0891b2', [
       ['Name', escapeHtml(s.orgName)],
       ['Timezone', s.orgTimezone],
       ['Language', s.orgLanguage],
@@ -905,7 +905,7 @@ function _cwRenderStep6() {
       ['Trial Ends', s.subTrialEndsAt || 'Not set'],
     ])}
 
-    ${rSect('Pricing Agreement', '#f59e0b', [
+    ${rSect('Pricing Agreement', '#b45309', [
       ['Plan', planName],
       ['Pricing Mode', s.pricingModel.toUpperCase()],
       ['Monthly Price', monthlyPrice],
@@ -914,7 +914,7 @@ function _cwRenderStep6() {
       s.pricingModel === 'custom' && s.customDiscount ? ['Discount', s.customDiscount + '%'] : ['Discount', 'None'],
     ])}
 
-    ${rSect('Customer User', '#a78bfa', [
+    ${rSect('Customer User', '#0891b2', [
       ['Login Email', escapeHtml(s.userEmail)],
       ['Name', escapeHtml(s.userName)],
       ['Role', s.userRole.replace('_', ' ')],
@@ -998,25 +998,25 @@ function _cwRenderSuccess() {
       <!-- Success header -->
       <div style="text-align:center;margin-bottom:32px">
         <div style="width:64px;height:64px;border-radius:50%;background:rgba(16,185,129,.15);border:2px solid #10b981;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:28px">✓</div>
-        <h1 style="font-size:24px;font-weight:800;color:#34d399;margin-bottom:8px">Customer Created!</h1>
+        <h1 style="font-size:24px;font-weight:800;color:#059669;margin-bottom:8px">Customer Created!</h1>
         <p style="font-size:14px;color:var(--t-4)">The full SaaS stack has been provisioned: <strong style="color:var(--t-2)">${escapeHtml(c.legal_name)}</strong></p>
       </div>
 
       <!-- Temporary credentials — SHOW ONCE -->
-      <div style="background:#1a1000;border:2px solid #f59e0b;border-radius:14px;padding:20px;margin-bottom:24px">
+      <div style="background:#1a1000;border:2px solid #b45309;border-radius:14px;padding:20px;margin-bottom:24px">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px">
           <span style="font-size:16px">⚠️</span>
-          <span style="font-size:13px;font-weight:700;color:#fcd34d">Temporary Access Credentials — Copy Now</span>
+          <span style="font-size:13px;font-weight:700;color:#b45309">Temporary Access Credentials — Copy Now</span>
         </div>
         <p style="font-size:12px;color:#92400e;margin-bottom:14px">These credentials are shown <strong>only once</strong>. Share them securely with the customer. They can log in at the workspace URL.</p>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <div style="background:#0f0900;border:1px solid #78350f;border-radius:8px;padding:12px">
+          <div style="background:#fffbeb;border:1px solid #78350f;border-radius:8px;padding:12px">
             <div style="font-size:10px;color:#92400e;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Login Email</div>
-            <div style="font-size:16px;font-weight:700;color:#fcd34d;font-family:'JetBrains Mono',monospace">${escapeHtml(u.email || '')}</div>
+            <div style="font-size:16px;font-weight:700;color:#b45309;font-family:'JetBrains Mono',monospace">${escapeHtml(u.email || '')}</div>
           </div>
-          <div style="background:#0f0900;border:1px solid #78350f;border-radius:8px;padding:12px">
+          <div style="background:#fffbeb;border:1px solid #78350f;border-radius:8px;padding:12px">
             <div style="font-size:10px;color:#92400e;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Temporary Password</div>
-            <div style="font-size:16px;font-weight:700;color:#fcd34d;font-family:'JetBrains Mono',monospace;letter-spacing:.08em">${escapeHtml(u.temporary_password || '')}</div>
+            <div style="font-size:16px;font-weight:700;color:#b45309;font-family:'JetBrains Mono',monospace;letter-spacing:.08em">${escapeHtml(u.temporary_password || '')}</div>
           </div>
         </div>
         <p style="font-size:11px;color:#78350f;margin-top:12px">The customer must change their password after first login.</p>

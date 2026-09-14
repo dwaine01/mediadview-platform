@@ -863,13 +863,16 @@ textarea:not(.no-ds) { height: auto; padding: 10px 12px; min-height: 80px; resiz
 }
 
 /* Finance module tab strip — Linear minimalist */
-#f-tabs, .f-tabs-row {
-  display: flex; gap: 2px;
+/* `.tabs-row/.tab-btn` es el que usa advertising.js (Portal del Anunciante y
+   Centro de Aprobación). No tenía CSS: las pestañas salían como texto pegado
+   sin separación ni subrayado. Comparte el mismo estilo que el resto. */
+#f-tabs, .f-tabs-row, .tabs-row {
+  display: flex; gap: 2px; flex-wrap: wrap;
   border-bottom: 1px solid var(--ds-border);
   padding: 0 4px;
   margin-bottom: 20px;
 }
-#f-tabs button, .f-tabs-row button {
+#f-tabs button, .f-tabs-row button, .tabs-row .tab-btn {
   background: transparent !important;
   border: none !important;
   padding: 10px 14px !important;
@@ -882,12 +885,13 @@ textarea:not(.no-ds) { height: auto; padding: 10px 12px; min-height: 80px; resiz
   transition: color var(--ds-dur-fast);
   display: inline-flex; align-items: center; gap: 7px;
 }
-#f-tabs button:hover, .f-tabs-row button:hover { color: var(--ds-text) !important; }
-#f-tabs button[style*="rgba(99,102,241,.12)"], #f-tabs button.active {
+#f-tabs button:hover, .f-tabs-row button:hover, .tabs-row .tab-btn:hover { color: var(--ds-text) !important; }
+#f-tabs button[style*="rgba(99,102,241,.12)"], #f-tabs button.active, .tabs-row .tab-btn.on {
   color: var(--ds-text) !important;
   font-weight: 600 !important;
 }
-#f-tabs button[style*="rgba(99,102,241,.12)"]::after, #f-tabs button.active::after {
+#f-tabs button[style*="rgba(99,102,241,.12)"]::after, #f-tabs button.active::after,
+.tabs-row .tab-btn.on::after {
   content: ''; position: absolute;
   left: 0; right: 0; bottom: -1px;
   height: 2px; background: var(--ds-acc); border-radius: 2px 2px 0 0;
