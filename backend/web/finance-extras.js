@@ -243,7 +243,42 @@
         <button class="btn-p" style="margin-top:12px" onclick="waTest()">Enviar mensaje de prueba</button>
         <button class="btn-s" style="margin-top:12px;margin-left:8px" onclick="waTestHello()">Probar conexión (sin plantillas)</button>
         <div style="font-size:11.5px;color:var(--t-4);margin-top:8px;line-height:1.6">«Enviar mensaje de prueba» usa tu plantilla de factura con el PDF: necesita que Meta ya la haya aprobado. «Probar conexión» usa <code>hello_world</code>, la que Meta deja activa en toda cuenta, y sirve para comprobar el token y el número ahora mismo.</div>
+      </div>
+      <div class="card" style="padding:20px;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:10px;flex-wrap:wrap">
+          <h2 style="font-size:13px;font-weight:800;color:var(--t-1);text-transform:uppercase;letter-spacing:.06em;margin:0">Últimos envíos y qué contestó Meta</h2>
+          <button class="btn-s" style="padding:5px 11px;font-size:11.5px" onclick="loaders.finance()">Actualizar</button>
+        </div>
+        <p style="font-size:12.5px;color:var(--t-3);margin-bottom:10px;line-height:1.6">Meta acepta el mensaje al instante y avisa después si no pudo entregarlo. Acá aparece el estado final de cada envío con el motivo exacto.</p>
+        <div id="wa-log"><div style="font-size:12.5px;color:var(--t-4)">Cargando…</div></div>
       </div>`;
+    pintarLogWa();
+  }
+
+  const ESTADO_WA = {accepted:['Aceptado por Meta','#b45309'], sent:['Enviado','#475569'],
+    delivered:['Entregado','#047857'], read:['Leído','#0ea5e9'],
+    failed:['No se pudo entregar','#b91c1c']};
+
+  async function pintarLogWa(){
+    const cont = document.getElementById('wa-log');
+    if (!cont) return;
+    let rows = [];
+    try { rows = await api(FAPI + '/whatsapp/log?limit=25'); } catch(e){ rows = []; }
+    if (!document.getElementById('wa-log')) return;
+    if (!rows.length) { cont.innerHTML = '<div style="font-size:12.5px;color:var(--t-4)">Todavía no se envió ningún mensaje.</div>'; return; }
+    cont.innerHTML = rows.map(r=>{
+      const est = ESTADO_WA[r.status] || [r.status || '—', 'var(--t-4)'];
+      const color = r.ok === false ? '#b91c1c' : est[1];
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--border)">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:700;color:var(--t-1)">+${esc(r.to)}
+            <span style="font-weight:600;color:var(--t-4);font-size:12px"> · ${esc(r.template || r.kind)}</span></span>
+          <span style="font-size:12px;font-weight:800;color:${color}">${esc(r.ok===false?'Falló':est[0])}</span>
+        </div>
+        <div style="font-size:11.5px;color:var(--t-4);margin-top:2px">${esc((r.sent_at||'').replace('T',' ').slice(0,16))} UTC${r.message_id?' · '+esc(r.message_id.slice(0,24))+'…':''}</div>
+        ${r.error?`<div style="font-size:12px;color:#b91c1c;margin-top:4px;line-height:1.5">${esc(r.error)}</div>`:''}
+      </div>`;
+    }).join('');
   }
 
   window.waAlertsSave = async function(){

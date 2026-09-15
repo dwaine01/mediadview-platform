@@ -142,6 +142,20 @@ def create_public_pages_router(web_dir: str) -> APIRouter:
         return FileResponse(os.path.join(web_dir, 'customer.html'), media_type='text/html',
                             headers={'Cache-Control': 'no-store, must-revalidate'})
 
+    # Páginas legales. Meta exige una URL pública de privacidad para publicar
+    # la app de WhatsApp; los alias en español son para los clientes locales.
+    @router.get("/privacy", include_in_schema=False)
+    @router.get("/privacy-policy", include_in_schema=False)
+    @router.get("/privacidad", include_in_schema=False)
+    async def privacy_policy():
+        return FileResponse(os.path.join(web_dir, 'privacy.html'), media_type='text/html')
+
+    @router.get("/terms", include_in_schema=False)
+    @router.get("/terms-of-service", include_in_schema=False)
+    @router.get("/terminos", include_in_schema=False)
+    async def terms_of_service():
+        return FileResponse(os.path.join(web_dir, 'terms.html'), media_type='text/html')
+
     @router.get("/apk", include_in_schema=False)
     async def apk_short_url():
         """Short URL for sideloading via TV Downloader app."""

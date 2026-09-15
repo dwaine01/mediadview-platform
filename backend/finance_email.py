@@ -750,6 +750,27 @@ def create_finance_extensions(db, get_current_user):
                         message_id=msg_id)
         return {"ok": True, "message_id": msg_id, "to": to}
 
+    @ext_router.get("/whatsapp/log")
+    async def whatsapp_log(limit: int = 25, user: dict = Depends(require_finance)):
+        """Últimos envíos con lo que contestó Meta.
+
+        Sin esto, cuando un mensaje «sale bien» pero no llega, no hay dónde ver
+        el motivo: Meta lo avisa después, por webhook, con el código de error."""
+        rows = await db.wa_messages.find({"direction": "out"}).sort(
+            "sent_at", -1).to_list(max(1, min(limit, 100)))
+        salida = []
+        for r in rows:
+            salida.append({
+                "id": r.get("id"), "to": r.get("to", ""),
+                "kind": r.get("kind", ""), "template": r.get("template", ""),
+                "status": r.get("status", ""), "ok": bool(r.get("ok")),
+                "error": r.get("error", ""), "message_id": r.get("message_id") or "",
+                "sent_at": r.get("sent_at", ""),
+                "delivered_at": r.get("delivered_at"), "read_at": r.get("read_at"),
+                "failed_at": r.get("failed_at"),
+            })
+        return salida
+
     @ext_router.post("/whatsapp/test-hello")
     async def whatsapp_test_hello(payload: dict = Body(...),
                                   user: dict = Depends(require_admin)):

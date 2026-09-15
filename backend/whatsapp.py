@@ -631,7 +631,14 @@ def create_whatsapp_router(db) -> APIRouter:
                     if estado in ESTADO_CAMPO:
                         upd[ESTADO_CAMPO[estado]] = ahora
                     if st.get("errors"):
-                        upd["error"] = str(st["errors"][0].get("title") or st["errors"][0])
+                        e0 = st["errors"][0] or {}
+                        # Guardar código + detalle, no sólo el título: «Message
+                        # undeliverable» no dice nada, el detalle sí («la app
+                        # está en modo desarrollo», «el número no tiene
+                        # WhatsApp», etc.).
+                        partes = [e0.get("code"), e0.get("title"),
+                                  (e0.get("error_data") or {}).get("details")]
+                        upd["error"] = " · ".join(str(p) for p in partes if p) or str(e0)
                         upd["ok"] = False
                     await db.wa_messages.update_one({"message_id": mid}, {"$set": upd})
                     await db.fin_invoices.update_many(
