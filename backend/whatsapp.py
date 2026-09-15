@@ -197,9 +197,37 @@ async def resolve_lang(name: str, lang: str) -> str:
     return aprobados[0]
 
 
+async def check_template_ready(name: str) -> None:
+    """Corta el envío con un motivo claro si Meta todavía no aprobó la plantilla.
+
+    Meta contesta `(#132001) Template name does not exist in the translation`
+    tanto si la plantilla no existe como si está en revisión: un mensaje que no
+    le dice nada al dueño. Acá se explica qué falta y qué esperar.
+    """
+    try:
+        rows = await list_templates()
+    except WhatsAppError:
+        return          # Si Meta no responde el listado, se intenta el envío igual.
+    if not rows:
+        return
+    mias = [r for r in rows if r["name"] == name]
+    if not mias:
+        raise WhatsAppError(400, {"error": {"message": (
+            f"La plantilla «{name}» no existe en el Administrador de WhatsApp. "
+            "Hay que crearla y esperar la aprobación de Meta.")}})
+    if any(r["status"] == "APPROVED" for r in mias):
+        return
+    estados = ", ".join(sorted({f"{r['language']}: {r['status']}" for r in mias}))
+    raise WhatsAppError(400, {"error": {"message": (
+        f"Meta todavía no aprobó la plantilla «{name}» ({estados}). "
+        "Mientras figure en revisión (PENDING / In review) no se puede enviar; "
+        "en cuanto pase a APPROVED los envíos salen solos, sin tocar nada.")}})
+
+
 async def send_template(*, to: str, template: str, params: list, lang: str = "es",
                         media_id: str = "", filename: str = "") -> str:
     tpl = TEMPLATES[template]
+    await check_template_ready(tpl["name"])
     componentes = []
     if media_id:
         componentes.append({"type": "header", "parameters": [
@@ -212,6 +240,22 @@ async def send_template(*, to: str, template: str, params: list, lang: str = "es
         "template": {"name": tpl["name"],
                      "language": {"code": await resolve_lang(tpl["name"], lang)},
                      "components": componentes},
+    }
+    res = await graph("POST", f"{BASE}/{PHONE_NUMBER_ID}/messages", json=payload)
+    return res["messages"][0]["id"]
+
+
+async def send_hello(to: str) -> str:
+    """Manda `hello_world`, la plantilla que Meta deja aprobada en toda cuenta.
+
+    Sirve para comprobar token + número + webhook sin esperar la aprobación de
+    las plantillas del negocio: si esto llega, lo único que falta es el visto
+    bueno de Meta a las nuestras.
+    """
+    payload = {
+        "messaging_product": "whatsapp", "recipient_type": "individual", "to": to,
+        "type": "template",
+        "template": {"name": "hello_world", "language": {"code": "en_US"}},
     }
     res = await graph("POST", f"{BASE}/{PHONE_NUMBER_ID}/messages", json=payload)
     return res["messages"][0]["id"]

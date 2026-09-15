@@ -744,10 +744,32 @@ def create_finance_extensions(db, get_current_user):
                 params=["Prueba", "TEST-0001", "$0.00", hoy],
                 media_id=media_id, filename="MediaView_Prueba.pdf")
         except wa.WhatsAppError as exc:
-            raise HTTPException(400, f"Meta rechazó el envío: {exc.detail}")
+            raise HTTPException(400, exc.detail)
         await wa.log_wa(db, client_id="", invoice_id="", kind="test", to=to,
                         template=wa.TEMPLATES["invoice_created"]["name"], ok=True,
                         message_id=msg_id)
+        return {"ok": True, "message_id": msg_id, "to": to}
+
+    @ext_router.post("/whatsapp/test-hello")
+    async def whatsapp_test_hello(payload: dict = Body(...),
+                                  user: dict = Depends(require_admin)):
+        """Prueba de conexión con `hello_world` (aprobada por Meta de fábrica).
+
+        Deja comprobar token, número y webhook sin depender de que Meta haya
+        aprobado las plantillas del negocio."""
+        import whatsapp as wa
+        if not wa.is_configured():
+            raise HTTPException(400, wa.missing_config())
+        to = wa.normalize_phone(payload.get("to", ""), payload.get("country_code", "1"))
+        if not to:
+            raise HTTPException(400, "Escribí el número con código de país.")
+        try:
+            msg_id = await wa.send_hello(to)
+        except wa.WhatsAppError as exc:
+            raise HTTPException(400, exc.detail)
+        await wa.log_wa(db, client_id="", invoice_id="", kind="test", to=to,
+                        template="hello_world", ok=True, message_id=msg_id,
+                        text="Prueba de conexión (hello_world)")
         return {"ok": True, "message_id": msg_id, "to": to}
 
     @ext_router.post("/invoices/{invoice_id}/whatsapp")

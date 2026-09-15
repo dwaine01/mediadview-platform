@@ -241,6 +241,8 @@
           <div><label class="inp-label">Número de WhatsApp</label><input class="inp" id="wa-to" placeholder="6145551234"></div>
         </div>
         <button class="btn-p" style="margin-top:12px" onclick="waTest()">Enviar mensaje de prueba</button>
+        <button class="btn-s" style="margin-top:12px;margin-left:8px" onclick="waTestHello()">Probar conexión (sin plantillas)</button>
+        <div style="font-size:11.5px;color:var(--t-4);margin-top:8px;line-height:1.6">«Enviar mensaje de prueba» usa tu plantilla de factura con el PDF: necesita que Meta ya la haya aprobado. «Probar conexión» usa <code>hello_world</code>, la que Meta deja activa en toda cuenta, y sirve para comprobar el token y el número ahora mismo.</div>
       </div>`;
   }
 
@@ -252,6 +254,16 @@
         to_email: document.getElementById('wa-al-to').value,
       })});
       alert('Listo. El aviso quedó guardado.');
+    } catch(e){ alert(e.message); }
+  };
+
+  window.waTestHello = async function(){
+    try {
+      const r = await api(FAPI + '/whatsapp/test-hello', {method:'POST', body:JSON.stringify({
+        to: document.getElementById('wa-to').value,
+        country_code: document.getElementById('wa-cc').value,
+      })});
+      alert('Prueba de conexión enviada a +' + r.to + '.\n\nSi te llega el mensaje "Hello World", el token y el número están bien: sólo falta que Meta apruebe tus plantillas.');
     } catch(e){ alert(e.message); }
   };
 

@@ -76,6 +76,37 @@ def test_sin_credenciales_no_llama_a_meta():
     assert corre(wa.list_templates()) == []
 
 
+class TestMotivoClaroAntesDeEnviar:
+    """Meta contesta 132001 tanto si la plantilla no existe como si está en
+    revisión. El dueño necesita saber cuál de las dos es."""
+
+    def test_en_revision_explica_que_hay_que_esperar(self, monkeypatch):
+        fingir([{"name": TPL, "language": "en", "status": "PENDING"}], monkeypatch)
+        with pytest.raises(wa.WhatsAppError) as e:
+            corre(wa.check_template_ready(TPL))
+        assert "todavía no aprobó" in e.value.detail
+        assert "en: PENDING" in e.value.detail
+        assert "APPROVED" in e.value.detail, "tiene que decir qué esperar"
+
+    def test_si_no_existe_dice_que_hay_que_crearla(self, monkeypatch):
+        fingir([{"name": "otra", "language": "es", "status": "APPROVED"}], monkeypatch)
+        with pytest.raises(wa.WhatsAppError) as e:
+            corre(wa.check_template_ready(TPL))
+        assert "no existe" in e.value.detail
+
+    def test_aprobada_deja_pasar(self, monkeypatch):
+        fingir([{"name": TPL, "language": "es_MX", "status": "APPROVED"},
+                {"name": TPL, "language": "en", "status": "PENDING"}], monkeypatch)
+        assert corre(wa.check_template_ready(TPL)) is None
+
+    def test_si_meta_no_contesta_el_listado_se_intenta_igual(self, monkeypatch):
+        async def explota(force=False):
+            raise wa.WhatsAppError(503, {"error": {"message": "Meta caído"}})
+        monkeypatch.setattr(wa, "list_templates", explota)
+        assert corre(wa.check_template_ready(TPL)) is None, \
+            "una caída de Meta no puede frenar la facturación antes de intentarlo"
+
+
 def test_el_listado_se_cachea_para_no_pegarle_a_meta_en_cada_factura(monkeypatch):
     llamadas = {"n": 0}
 
