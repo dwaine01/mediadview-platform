@@ -631,9 +631,13 @@ def create_finance_extensions(db, get_current_user):
                 statuses=("active", "draft", "expired"))
             if not created:
                 period_start = date(year, month, 1).isoformat()
+                # También por `billing_month`: una factura prorrateada empieza el
+                # día que arrancó el contrato, no el 1, y si no se la busca así
+                # el panel decía «queda fuera del contrato» en vez de «ya existía».
                 existing = await db.fin_invoices.find_one({
                     "client_id": payload.client_id,
-                    "period_start": period_start,
+                    "$or": [{"billing_month": period},
+                            {"period_start": period_start}],
                 })
                 results.append({
                     "period": period,

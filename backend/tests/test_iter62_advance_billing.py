@@ -139,7 +139,8 @@ def test_la_factura_vence_el_dia_1_y_se_emite_hoy():
     src = inspect.getsource(
         __import__("finance_scheduler")._generate_monthly_invoices
     )
-    assert '"due_date": period_start.isoformat()' in src
+    assert '"due_date": per["period_start"].isoformat()' in src, \
+        "el vencimiento es el inicio del período (día 1 salvo prorrateo)"
     assert '"issue_date": issue_date.isoformat()' in src
     assert "issue_date = min(" in src
 

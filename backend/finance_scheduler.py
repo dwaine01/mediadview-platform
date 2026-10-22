@@ -67,13 +67,17 @@ async def _generate_monthly_invoices(db, year: int, month: int, client_id: str =
     una semana de anticipación, el recordatorio de «vence en 3 días» sirve de
     verdad, y el dinero entra el día 1. `issue_date` es la fecha real de emisión
     (hoy), no el día 1: si no, la factura salía fechada el mismo día que vencía.
+    FACTURACIÓN PRORRATEADA (2026-10): el período se recorta con las fechas del
+    contrato (`compute_invoice_period`), así un contrato que arranca el 22 paga
+    sólo esos días. Para un contrato que ya venía de antes, el resultado es el
+    mes completo de siempre.
     """
-    from finance import next_doc_number, parse_date  # reuse existing helpers
-
-    period_start = date(year, month, 1)
-    period_end = date(year, month, monthrange(year, month)[1])
-    days = (period_end - period_start).days + 1
-    issue_date = min(datetime.now(EASTERN).date(), period_start)
+    from finance import (  # reuse existing helpers
+        build_invoice_items,
+        compute_invoice_period,
+        find_period_invoice,
+        next_doc_number,
+    )
 
     created = []
     query = {"status": {"$in": list(statuses)}}
@@ -82,47 +86,32 @@ async def _generate_monthly_invoices(db, year: int, month: int, client_id: str =
     contracts = await db.fin_contracts.find(query).to_list(2000)
     for ct in contracts:
         try:
-            cs = parse_date(ct["start_date"]).date()
-            ce = parse_date(ct["end_date"]).date()
-            if cs > period_end or ce < period_start:
-                continue
-            existing = await db.fin_invoices.find_one({
-                "contract_id": ct["id"],
-                "period_start": period_start.isoformat(),
-            })
-            if existing:
+            per = compute_invoice_period(ct, year, month)
+            if not per:
+                continue            # el contrato no estuvo vigente ese mes
+            if await find_period_invoice(db, ct["id"], per):
                 logger.info(f"  • Invoice for contract {ct.get('contract_number')} already exists — skipping")
                 continue
-            # Build line items
-            items = []
-            total = 0.0
-            for idx, s in enumerate(ct.get("screens", []), 1):
-                line_total = s["units"] * s["day_price"] * days
-                items.append({
-                    "line_no": f"{idx:02d}",
-                    "description": f"LED Ultra Brightness {s.get('model', 'MAV-30540S')}",
-                    "day_price": s["day_price"],
-                    "days": days,
-                    "units": s["units"],
-                    "total": round(line_total, 2),
-                })
-                total += line_total
+            issue_date = min(datetime.now(EASTERN).date(), per["period_start"])
+            items, total = build_invoice_items(ct, per["days"])
             inv_no = await next_doc_number(db)
             inv = {
                 "id": str(uuid.uuid4()),
                 "invoice_number": inv_no,
                 "contract_id": ct["id"],
                 "client_id": ct["client_id"],
-                "period_start": period_start.isoformat(),
-                "period_end": period_end.isoformat(),
+                "period_start": per["period_start"].isoformat(),
+                "period_end": per["period_end"].isoformat(),
+                "billing_month": per["billing_month"],
+                "prorated": per["prorated"],
                 "issue_date": issue_date.isoformat(),
-                "due_date": period_start.isoformat(),
+                "due_date": per["period_start"].isoformat(),
                 "items": items,
-                "subtotal": round(total, 2),
+                "subtotal": total,
                 "tax": 0.0,
-                "total": round(total, 2),
+                "total": total,
                 "amount_paid": 0.0,
-                "balance": round(total, 2),
+                "balance": total,
                 "status": "pending",
                 "created_at": datetime.utcnow().isoformat(),
                 "auto_generated": True,

@@ -753,17 +753,71 @@
     } catch(e){ alert('Error: ' + e.message); }
   };
 
-  // One-click invoice generation
+  // One-click invoice generation — abre un modal con el resumen antes de crear.
+  // El primer mes sale prorrateado (un contrato que arranca el 22 paga 10 días,
+  // no el mes entero), así que el dueño confirma viendo los números.
   window.quickGenerateInvoice = async function(contractId){
+    let p;
+    try { p = await api(FAPI + '/contracts/' + contractId + '/invoice-preview'); }
+    catch(e){ alert('Error: ' + e.message); return; }
+    const cur = p.current, nxt = p.next;
+    if (!cur) { alert('El contrato no está vigente este mes. Revisá la fecha de inicio.'); return; }
+    const fecha = s => { const [y,m,d] = (s||'').split('-'); return d ? `${m}/${d}` : s; };
+    const mesNombre = s => {
+      const [y,m] = (s||'').split('-');
+      return ['','enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'][parseInt(m,10)] + ' ' + y;
+    };
+    const money = v => '$' + Number(v||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const html = `
+      <div id="fin-modal" style="position:fixed;inset:0;background:rgba(2,6,18,.85);z-index:200;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(10px);padding:20px;overflow-y:auto">
+        <div style="width:100%;max-width:460px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rl);box-shadow:var(--sh-lg);overflow:hidden">
+          <div style="padding:18px 22px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+            <div><div style="font-size:16px;font-weight:800">Generar factura</div>
+              <div style="font-size:12px;color:var(--t-4);margin-top:2px">Contrato ${esc(p.contract_number||'')}</div></div>
+            <button onclick="closeFinModal()" class="btn-icon">✕</button>
+          </div>
+          <div style="padding:20px 22px">
+            <div style="background:var(--bg-1);border:1px solid var(--border);border-radius:10px;padding:14px 16px">
+              <div style="font-size:12px;font-weight:800;color:var(--t-4);text-transform:uppercase;letter-spacing:.06em">${esc(mesNombre(cur.billing_month))}</div>
+              <div style="font-size:13.5px;color:var(--t-2);margin-top:6px">Del ${fecha(cur.period_start)} al ${fecha(cur.period_end)} · <b>${cur.days} día${cur.days===1?'':'s'}</b>${cur.prorated?` <span style="color:#b45309;font-weight:700">(prorrateado, el mes tiene ${cur.days_in_month})</span>`:''}</div>
+              <div style="font-size:21px;font-weight:900;color:var(--t-1);margin-top:8px">${money(cur.total)}</div>
+              ${cur.already_exists?`<div style="font-size:12px;color:#b45309;font-weight:700;margin-top:6px">Ya existe la factura ${esc(cur.existing_invoice_number||'')} de este mes: se abre esa, no se duplica.</div>`:''}
+            </div>
+            ${nxt?`<label style="display:flex;gap:10px;align-items:flex-start;margin-top:14px;cursor:pointer">
+              <input type="checkbox" id="qi-next" style="width:17px;height:17px;margin-top:2px;cursor:pointer">
+              <span style="font-size:13.5px;color:var(--t-2);line-height:1.5">Generar también la factura de <b>${esc(mesNombre(nxt.billing_month))}</b>
+                <span style="display:block;font-size:12.5px;color:var(--t-4)">${nxt.days} días · ${money(nxt.total)} · vence el día 1${nxt.already_exists?' · ya existe':''}</span></span>
+            </label>`:''}
+            <div style="font-size:11.5px;color:var(--t-4);margin-top:14px;line-height:1.6">La parte del mes en curso vence hoy; el mes siguiente vence el día 1, como siempre.</div>
+          </div>
+          <div style="padding:16px 22px;border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap">
+            <button class="btn-s" onclick="closeFinModal()">Cancelar</button>
+            <button class="btn-s" onclick="runQuickInvoice('${contractId}', true)">Generar e imprimir</button>
+            <button class="btn-p" onclick="runQuickInvoice('${contractId}', false)">Generar</button>
+          </div>
+        </div>
+      </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  };
+
+  window.runQuickInvoice = async function(contractId, alsoPrint){
+    const chk = document.getElementById('qi-next');
+    const incluirProximo = !!(chk && chk.checked);
+    closeFinModal();
     try {
-      const r = await api(FAPI + '/contracts/' + contractId + '/quick-invoice', {method:'POST', body:JSON.stringify({})});
-      if (r.duplicate) {
-        if (!confirm('This month\'s invoice already exists. Open it?')) return;
-      }
-      // Refresh first then open viewer
+      const r = await api(FAPI + '/contracts/' + contractId + '/quick-invoice', {method:'POST',
+        body: JSON.stringify({include_next_month: incluirProximo})});
+      const creadas = r.invoices || [r.invoice];
       const cl = await api(FAPI + '/contracts/' + contractId);
       if (cl?.client_id) await viewClient(cl.client_id);
+      if (alsoPrint && window.enqueuePrint) {
+        for (const inv of creadas) await window.enqueuePrint('invoice', inv.id, 1);
+      }
       openDocViewer(FURL + '/invoices/' + r.invoice.id + '/render', 'Invoice ' + (r.invoice.invoice_number||''));
+      if (creadas.length > 1) {
+        setTimeout(()=>alert('Se generaron ' + creadas.length + ' facturas: ' +
+          creadas.map(i=>i.invoice_number).join(' y ') + '.'), 400);
+      }
     } catch(e){ alert('Error: ' + e.message); }
   };
 

@@ -1372,3 +1372,30 @@ Pedidos del dueño mientras Meta revisa las plantillas (las 4 quedaron en inglé
   `APPROVED` en Meta, con la lista de las que faltan.
 - Tests: `tests/test_iter70_quick_replies_alerts.py` (14). Verificado por testing_agent:
   57/57 en las suites de WhatsApp y 183 passed / 2 skipped en la regresión de finanzas.
+
+## Iteración 71 — Facturación prorrateada del primer mes
+Antes, los tres generadores armaban siempre el período del día 1 al último día del mes e
+ignoraban el `start_date`: un cliente que firmaba el 22 de octubre recibía octubre completo.
+- **Función compartida** `compute_invoice_period(contract, year, month)` en `finance.py`:
+  recorta el mes con las fechas del contrato (`max(start, día 1)` … `min(end, fin de mes)`),
+  devuelve días, `billing_month` y `prorated`, y `None` si el contrato no estuvo vigente
+  (los meses anteriores al inicio no se facturan). También `build_invoice_items(contract, days)`
+  y `find_period_invoice(db, contract_id, per)`.
+  La usan los 3: `quick_invoice`, `POST /invoices/generate-monthly` y
+  `finance_scheduler._generate_monthly_invoices` (cron del 25 + backfill).
+- **Anti-duplicados**: cada factura nueva guarda `billing_month` (`2026-10`) y la búsqueda es
+  `$or` entre `billing_month` y el `period_start` del día 1 (las facturas viejas no tienen el
+  campo). El backfill también usa ese `$or` para decir «ya existía» en vez de culpar a las fechas.
+- **Contratos que venían de antes: resultado idéntico al anterior** — mes completo,
+  `issue_date` y `due_date` el día 1 (fijado con aserciones; el testing_agent encontró que la
+  primera versión los ponía en «hoy» y se corrigió).
+- **`include_next_month`** en `quick_invoice`: crea DOS facturas separadas — la prorrateada del
+  mes en curso (emitida y vencida hoy) y el mes siguiente completo (emitida hoy, vence el día 1).
+  Respuesta aditiva: `invoice`, `duplicate`, `invoices[]`, `next_invoice`.
+- **`GET /contracts/{id}/invoice-preview`**: días, monto, `days_in_month`, `prorated` y si ya
+  existe la factura; no crea nada. Lo consume el modal.
+- **UI** (`web/finance.js`): el botón de la ficha abre el modal «Generar factura» con el resumen
+  («Del 10/22 al 10/31 · 10 días (prorrateado, el mes tiene 31)» + monto), checkbox del mes
+  siguiente y botones Cancelar / Generar e imprimir / Generar. Imprimir usa la cola existente
+  (`enqueuePrint`).
+- Tests: `tests/test_iter71_prorated_billing.py` (23). Regresión de finanzas: 224 passed / 2 skipped.

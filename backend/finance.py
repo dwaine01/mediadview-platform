@@ -198,6 +198,69 @@ def days_in_period(start: str, end: str) -> int:
     e = parse_date(end)
     return (e - s).days + 1
 
+def compute_invoice_period(contract: dict, year: int, month: int) -> Optional[dict]:
+    """Qué parte del mes le corresponde pagar a un contrato.
+
+    Un cliente que firma el 22 de octubre no debe pagar octubre entero: paga del
+    22 al 31 (10 días). Recorta el mes con las fechas del contrato y devuelve
+    `None` si el contrato no estuvo vigente en ese mes (por ejemplo, un mes
+    anterior al inicio: ese mes no se factura).
+
+    Para un contrato que ya venía de antes, el recorte no cambia nada: devuelve
+    el mes completo, igual que siempre.
+    """
+    mes_ini = date(year, month, 1)
+    mes_fin = date(year, month, monthrange(year, month)[1])
+    inicio = max(parse_date(contract["start_date"]).date(), mes_ini)
+    fin = min(parse_date(contract["end_date"]).date(), mes_fin)
+    if inicio > fin:
+        return None
+    return {
+        "period_start": inicio,
+        "period_end": fin,
+        "days": (fin - inicio).days + 1,
+        "billing_month": f"{year}-{month:02d}",
+        "month_start": mes_ini,
+        "month_end": mes_fin,
+        "prorated": inicio != mes_ini or fin != mes_fin,
+    }
+
+
+async def find_period_invoice(db, contract_id: str, per: dict):
+    """La factura de ese mes, si ya existe.
+
+    Busca por `billing_month` (lo que guardan las facturas nuevas) y también por
+    `period_start` del día 1 (las viejas, que no tienen ese campo): así el
+    prorrateo no genera duplicados de meses ya facturados.
+    """
+    return await db.fin_invoices.find_one({
+        "contract_id": contract_id,
+        "$or": [
+            {"billing_month": per["billing_month"]},
+            {"period_start": per["month_start"].isoformat()},
+        ],
+    })
+
+
+def build_invoice_items(contract: dict, days: int) -> tuple:
+    """Líneas de la factura y total, cobrando sólo los días del período."""
+    items = []
+    total = 0.0
+    for idx, s in enumerate(contract.get("screens", []), 1):
+        line_total = s["units"] * s["day_price"] * days
+        items.append({
+            "line_no": f"{idx:02d}",
+            "description": f"LED Ultra Brightness {s.get('model', 'MAV-30540S')}",
+            "day_price": s["day_price"],
+            "days": days,
+            "units": s["units"],
+            "total": round(line_total, 2),
+        })
+        total += line_total
+    return items, round(total, 2)
+
+
+
 def format_date_us(s: str) -> str:
     """YYYY-MM-DD → MM/DD/YY. Sin fecha, se imprime vacío.
 
@@ -832,7 +895,14 @@ For security, please change this password after your first login.
     @finance_router.post("/contracts/{contract_id}/quick-invoice")
     async def quick_invoice(contract_id: str, payload: dict = None,
                             user: dict = Depends(require_finance_edit)):
-        """One-click invoice for a contract — defaults to current month."""
+        """Factura de un clic para un contrato — por defecto, el mes en curso.
+
+        El primer mes sale **prorrateado**: si el contrato arranca el 22, se
+        cobran los días del 22 al fin de mes, no el mes completo. Con
+        `include_next_month: true` se crean DOS facturas separadas: la
+        prorrateada de ahora (vence hoy) y el mes siguiente completo (vence el
+        día 1, la misma facturación anticipada de siempre).
+        """
         ct = await db.fin_contracts.find_one({"id": contract_id})
         if not ct:
             raise HTTPException(404, "Contract not found")
@@ -840,50 +910,108 @@ For security, please change this password after your first login.
         now = datetime.utcnow()
         y = int(payload.get("year") or now.year)
         m = int(payload.get("month") or now.month)
-        period_start = date(y, m, 1)
-        period_end = date(y, m, monthrange(y, m)[1])
-        days = (period_end - period_start).days + 1
-        # Check duplicate
-        existing = await db.fin_invoices.find_one({"contract_id": contract_id, "period_start": period_start.isoformat()})
-        if existing and existing.get("status") != "cancelled":
-            existing.pop("_id", None)
-            return {"invoice": existing, "duplicate": True}
-        items = []
-        total = 0.0
-        for idx, s in enumerate(ct.get("screens", []), 1):
-            line_total = s["units"] * s["day_price"] * days
-            items.append({
-                "line_no": f"{idx:02d}",
-                "description": f"LED Ultra Brightness {s.get('model','MAV-30540S')}",
-                "day_price": s["day_price"],
-                "days": days,
-                "units": s["units"],
-                "total": round(line_total, 2),
-            })
-            total += line_total
-        inv_no = await next_doc_number(db)
-        inv = {
-            "id": str(uuid.uuid4()),
-            "invoice_number": inv_no,
-            "contract_id": contract_id,
-            "client_id": ct["client_id"],
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
-            "issue_date": period_start.isoformat(),
-            "due_date": period_start.isoformat(),
-            "items": items,
-            "subtotal": round(total, 2),
-            "tax": 0.0,
-            "total": round(total, 2),
-            "amount_paid": 0.0,
-            "balance": round(total, 2),
-            "status": "pending",
-            "created_at": datetime.utcnow().isoformat(),
-            "auto_generated": True,
+        hoy = now.date()
+
+        async def crear(per: dict, issue: date, due: date):
+            """Crea la factura del período, o devuelve la que ya existía."""
+            existente = await find_period_invoice(db, contract_id, per)
+            if existente and existente.get("status") != "cancelled":
+                existente.pop("_id", None)
+                return existente, True
+            items, total = build_invoice_items(ct, per["days"])
+            inv = {
+                "id": str(uuid.uuid4()),
+                "invoice_number": await next_doc_number(db),
+                "contract_id": contract_id,
+                "client_id": ct["client_id"],
+                "period_start": per["period_start"].isoformat(),
+                "period_end": per["period_end"].isoformat(),
+                "billing_month": per["billing_month"],
+                "prorated": per["prorated"],
+                "issue_date": issue.isoformat(),
+                "due_date": due.isoformat(),
+                "items": items,
+                "subtotal": total,
+                "tax": 0.0,
+                "total": total,
+                "amount_paid": 0.0,
+                "balance": total,
+                "status": "pending",
+                "created_at": datetime.utcnow().isoformat(),
+                "auto_generated": True,
+            }
+            await db.fin_invoices.insert_one(inv)
+            inv.pop("_id", None)
+            return inv, False
+
+        per = compute_invoice_period(ct, y, m)
+        if not per:
+            raise HTTPException(400, "El contrato no está vigente en ese mes")
+        # Mes en curso: la parte proporcional se cobra al momento de firmar. Un
+        # contrato que ya venía de antes cobra el mes completo con las fechas de
+        # siempre (día 1), para no cambiar lo que ya funcionaba.
+        if per["prorated"]:
+            inv, dup = await crear(per, hoy, hoy)
+        else:
+            inv, dup = await crear(per, per["period_start"], per["period_start"])
+
+        siguiente = None
+        if payload.get("include_next_month"):
+            prox = (date(y, m, 1) + timedelta(days=31)).replace(day=1)
+            per2 = compute_invoice_period(ct, prox.year, prox.month)
+            if per2:
+                siguiente, _ = await crear(per2, hoy, per2["month_start"])
+
+        salida = {"invoice": inv, "duplicate": dup,
+                  "invoices": [inv] + ([siguiente] if siguiente else [])}
+        if siguiente:
+            salida["next_invoice"] = siguiente
+        return salida
+
+    @finance_router.get("/contracts/{contract_id}/invoice-preview")
+    async def invoice_preview(contract_id: str, year: Optional[int] = None,
+                              month: Optional[int] = None,
+                              user: dict = Depends(require_finance)):
+        """Cuánto saldría la factura antes de crearla (días y monto).
+
+        Lo usa el modal de «Generar factura»: el dueño ve que a un contrato que
+        arranca el 22 se le cobran 10 días y no el mes entero, y recién ahí
+        confirma."""
+        ct = await db.fin_contracts.find_one({"id": contract_id})
+        if not ct:
+            raise HTTPException(404, "Contract not found")
+        now = datetime.utcnow()
+        y = int(year or now.year)
+        m = int(month or now.month)
+
+        async def resumen(per):
+            if not per:
+                return None
+            items, total = build_invoice_items(ct, per["days"])
+            existente = await find_period_invoice(db, contract_id, per)
+            if existente and existente.get("status") == "cancelled":
+                existente = None
+            return {
+                "billing_month": per["billing_month"],
+                "period_start": per["period_start"].isoformat(),
+                "period_end": per["period_end"].isoformat(),
+                "days": per["days"],
+                "days_in_month": (per["month_end"] - per["month_start"]).days + 1,
+                "prorated": per["prorated"],
+                "total": total,
+                "screens": sum(i["units"] for i in items),
+                "already_exists": bool(existente),
+                "existing_invoice_number": (existente or {}).get("invoice_number"),
+            }
+
+        prox = (date(y, m, 1) + timedelta(days=31)).replace(day=1)
+        return {
+            "contract_number": ct.get("contract_number", ""),
+            "client_id": ct.get("client_id"),
+            "start_date": ct.get("start_date"),
+            "current": await resumen(compute_invoice_period(ct, y, m)),
+            "next": await resumen(compute_invoice_period(ct, prox.year, prox.month)),
         }
-        await db.fin_invoices.insert_one(inv)
-        inv.pop("_id", None)
-        return {"invoice": inv, "duplicate": False}
 
     @finance_router.get("/contracts/{contract_id}")
     async def get_contract(contract_id: str, user: dict = Depends(require_finance)):
@@ -1055,65 +1183,45 @@ For security, please change this password after your first login.
         MES SIGUIENTE (facturación anticipada, vence el día 1); antes del 15,
         el mes en curso (para regularizar un mes sin facturar)."""
         now = datetime.utcnow()
-        if period_year and period_month:
-            y, m = period_year, period_month
-        else:
+        y, m = (period_year, period_month) if (period_year and period_month) else (None, None)
+        if y is None:
             target = date(now.year, now.month, 1)
             if now.day >= 15:
                 target = (target + timedelta(days=31)).replace(day=1)
             y, m = target.year, target.month
-        period_start = date(y, m, 1)
-        period_end = date(y, m, monthrange(y, m)[1])
-        days = (period_end - period_start).days + 1
-        # Facturación anticipada: si el período todavía no empezó, la fecha de
-        # emisión es hoy (el vencimiento sigue siendo el día 1 del período).
-        issue_date = min(now.date(), period_start)
 
         created = []
         contracts = await db.fin_contracts.find({"status": "active"}).to_list(2000)
         for ct in contracts:
-            # Check contract is in effect for this period
-            cs = parse_date(ct["start_date"]).date()
-            ce = parse_date(ct["end_date"]).date()
-            if cs > period_end or ce < period_start:
+            # Período real del contrato en ese mes (prorrateado si arranca o
+            # termina en el medio). None = no estuvo vigente: no se factura.
+            per = compute_invoice_period(ct, y, m)
+            if not per:
                 continue
-            # Avoid duplicate for this period
-            existing = await db.fin_invoices.find_one({
-                "contract_id": ct["id"],
-                "period_start": period_start.isoformat(),
-            })
-            if existing:
+            if await find_period_invoice(db, ct["id"], per):
                 continue
-            # Build line items
-            items = []
-            total = 0.0
-            for idx, s in enumerate(ct.get("screens", []), 1):
-                line_total = s["units"] * s["day_price"] * days
-                items.append({
-                    "line_no": f"{idx:02d}",
-                    "description": f"LED Ultra Brightness {s.get('model','MAV-30540S')}",
-                    "day_price": s["day_price"],
-                    "days": days,
-                    "units": s["units"],
-                    "total": round(line_total, 2),
-                })
-                total += line_total
+            # Facturación anticipada: si el período todavía no empezó, la fecha
+            # de emisión es hoy (el vencimiento sigue siendo el inicio).
+            issue_date = min(now.date(), per["period_start"])
+            items, total = build_invoice_items(ct, per["days"])
             inv_no = await next_doc_number(db)
             inv = {
                 "id": str(uuid.uuid4()),
                 "invoice_number": inv_no,
                 "contract_id": ct["id"],
                 "client_id": ct["client_id"],
-                "period_start": period_start.isoformat(),
-                "period_end": period_end.isoformat(),
+                "period_start": per["period_start"].isoformat(),
+                "period_end": per["period_end"].isoformat(),
+                "billing_month": per["billing_month"],
+                "prorated": per["prorated"],
                 "issue_date": issue_date.isoformat(),
-                "due_date": period_start.isoformat(),
+                "due_date": per["period_start"].isoformat(),
                 "items": items,
-                "subtotal": round(total, 2),
+                "subtotal": total,
                 "tax": 0.0,
-                "total": round(total, 2),
+                "total": total,
                 "amount_paid": 0.0,
-                "balance": round(total, 2),
+                "balance": total,
                 "status": "pending",
                 "created_at": datetime.utcnow().isoformat(),
                 "auto_generated": True,
